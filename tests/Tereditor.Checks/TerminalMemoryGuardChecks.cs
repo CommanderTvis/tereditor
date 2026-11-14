@@ -449,8 +449,14 @@ internal static class TerminalMemoryGuardChecks
             Require(!Encoding.UTF8.GetString(replay.Replay.Span).Contains("emory guard", StringComparison.Ordinal), "Nor its recording, which a later client replays.");
             // Switched off again: its banner, events and readings go with the next sample.
             on = false;
-            pty.GuardTick();
-            Require(state.Current.GuardNotices.Count == 0 && pty.GuardOf(tab) is (null, { Count: 0 }), "Switching the guard off takes its banner, events and readings away.");
+            // The loop may be mid-sample when the switch flips, so a last step can land just after the first clear; the next sample clears again.
+            var cleared = DateTime.UtcNow.AddSeconds(10);
+            while (!(state.Current.GuardNotices.Count == 0 && pty.GuardOf(tab) is (null, { Count: 0 })))
+            {
+                if (DateTime.UtcNow > cleared) throw new InvalidOperationException("Switching the guard off did not take its banner, events and readings away.");
+                pty.GuardTick();
+                await Task.Delay(100);
+            }
         }
         finally { try { Directory.Delete(directory, true); } catch (IOException) { } }
     }
