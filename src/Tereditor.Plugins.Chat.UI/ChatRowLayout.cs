@@ -1221,64 +1221,104 @@ internal static class Markdown
             spans.Add(new(plain.Length, inner.Length, new GenericTextRunProperties(face, em, decorations, brush)));
             plain.Append(inner);
         }
-        var regular = new Typeface(Ui.InterfaceFont);
-        var index = 0;
-        while (index < text.Length)
+        var underline = () => new TextDecoration { Location = TextDecorationLocation.Underline };
+        var literal = new StringBuilder();
+        // Styles compose: emphasis, strikethrough and link text recurse into their content with the style added, and a code span is a leaf that takes the current weight, slant and decorations.
+        void Flush(bool bold, bool italic, bool strike, bool link)
         {
-            var rest = text.AsSpan(index);
-            if (text[index] == '`' && text.IndexOf('`', index + 1) is var end and > 0)
-            {
-                var code = text[(index + 1)..end];
-                // A code span that names a file is a chip that opens it.
-                if (FileTarget(code) is not null) links.Add((plain.Length, code.Length, "file:" + code));
-                Run(code, new Typeface(Ui.CodeFont), size - 1, accent, FileTarget(code) is null ? null : new TextDecorationCollection { new TextDecoration { Location = TextDecorationLocation.Underline } });
-                index = end + 1;
-            }
-            else if ((rest.StartsWith("**") || rest.StartsWith("__")) && text.IndexOf(text.Substring(index, 2), index + 2, StringComparison.Ordinal) is var close and > 0)
-            {
-                Run(text[(index + 2)..close], new Typeface(Ui.InterfaceFont, FontStyle.Normal, FontWeight.Bold), size, ink);
-                index = close + 2;
-            }
-            else if (rest.StartsWith("~~") && text.IndexOf("~~", index + 2, StringComparison.Ordinal) is var strike and > 0)
-            {
-                Run(text[(index + 2)..strike], regular, size, ink, new TextDecorationCollection { new TextDecoration { Location = TextDecorationLocation.Strikethrough } });
-                index = strike + 2;
-            }
-            else if ((text[index] == '*' || text[index] == '_') && index + 1 < text.Length && !char.IsWhiteSpace(text[index + 1]) &&
-                (text[index] == '*' || index == 0 || !char.IsLetterOrDigit(text[index - 1])) &&
-                text.IndexOf(text[index], index + 1) is var em and > 0 && !char.IsWhiteSpace(text[em - 1]))
-            {
-                Run(text[(index + 1)..em], new Typeface(Ui.InterfaceFont, FontStyle.Italic, Ui.InterfaceWeight), size, ink);
-                index = em + 1;
-            }
-            else if (text[index] == '[' && text.IndexOf("](", index + 1, StringComparison.Ordinal) is var mid and > 0 && text.IndexOf(')', mid + 2) is var stop and > 0)
-            {
-                var label = text[(index + 1)..mid];
-                var url = text[(mid + 2)..stop].Trim();
-                if (SafeLink(url))
-                {
-                    links.Add((plain.Length, label.Length, url));
-                    Run(label, regular, size, accent, new TextDecorationCollection { new TextDecoration { Location = TextDecorationLocation.Underline } });
-                }
-                else if (FileTarget(url) is not null)
-                {
-                    links.Add((plain.Length, label.Length, "file:" + url));
-                    Run(label, regular, size, accent, new TextDecorationCollection { new TextDecoration { Location = TextDecorationLocation.Underline } });
-                }
-                else plain.Append(label);
-                index = stop + 1;
-            }
-            else if ((rest.StartsWith("http://") || rest.StartsWith("https://")) && (index == 0 || !char.IsLetterOrDigit(text[index - 1])))
-            {
-                var stopAt = index;
-                while (stopAt < text.Length && !char.IsWhiteSpace(text[stopAt]) && text[stopAt] != ')' && text[stopAt] != '>') stopAt++;
-                var url = text[index..stopAt].TrimEnd('.', ',', ';', ':', '!', '?');
-                links.Add((plain.Length, url.Length, url));
-                Run(url, regular, size, accent, new TextDecorationCollection { new TextDecoration { Location = TextDecorationLocation.Underline } });
-                index += url.Length;
-            }
-            else plain.Append(text[index++]);
+            if (literal.Length == 0) return;
+            var inner = literal.ToString();
+            literal.Clear();
+            if (!bold && !italic && !strike && !link) { plain.Append(inner); return; }
+            var face = new Typeface(Ui.InterfaceFont, italic ? FontStyle.Italic : FontStyle.Normal, bold ? FontWeight.Bold : italic ? Ui.InterfaceWeight : FontWeight.Normal);
+            Run(inner, face, size, link ? accent : ink, Decorations(strike, link));
         }
+        TextDecorationCollection? Decorations(bool strike, bool link, bool extraUnderline = false)
+        {
+            if (!strike && !link && !extraUnderline) return null;
+            var collection = new TextDecorationCollection();
+            if (link || extraUnderline) collection.Add(underline());
+            if (strike) collection.Add(new TextDecoration { Location = TextDecorationLocation.Strikethrough });
+            return collection;
+        }
+        // The closing marker at or after from, skipping code spans so a marker inside backticks does not end the emphasis.
+        static int Close(string value, int from, string marker)
+        {
+            for (var at = from; at < value.Length; at++)
+            {
+                if (value[at] == '`' && value.IndexOf('`', at + 1) is var tick and > 0) { at = tick; continue; }
+                if (string.CompareOrdinal(value, at, marker, 0, marker.Length) == 0) return at;
+            }
+            return -1;
+        }
+        void Scan(string value, bool bold, bool italic, bool strike, bool link)
+        {
+            var index = 0;
+            while (index < value.Length)
+            {
+                var rest = value.AsSpan(index);
+                if (value[index] == '`' && value.IndexOf('`', index + 1) is var end and > 0)
+                {
+                    Flush(bold, italic, strike, link);
+                    var code = value[(index + 1)..end];
+                    // A code span that names a file is a chip that opens it, unless it already sits in link text.
+                    var file = !link && FileTarget(code) is not null;
+                    if (file) links.Add((plain.Length, code.Length, "file:" + code));
+                    Run(code, new Typeface(Ui.CodeFont, italic ? FontStyle.Italic : FontStyle.Normal, bold ? FontWeight.Bold : FontWeight.Normal), size - 1, accent, Decorations(strike, link, file));
+                    index = end + 1;
+                }
+                else if ((rest.StartsWith("***") || rest.StartsWith("___")) && Close(value, index + 3, value.Substring(index, 3)) is var triple and > 0)
+                {
+                    Flush(bold, italic, strike, link);
+                    Scan(value[(index + 3)..triple], true, true, strike, link);
+                    index = triple + 3;
+                }
+                else if ((rest.StartsWith("**") || rest.StartsWith("__")) && Close(value, index + 2, value.Substring(index, 2)) is var close and > 0)
+                {
+                    Flush(bold, italic, strike, link);
+                    Scan(value[(index + 2)..close], true, italic, strike, link);
+                    index = close + 2;
+                }
+                else if (rest.StartsWith("~~") && Close(value, index + 2, "~~") is var cut and > 0)
+                {
+                    Flush(bold, italic, strike, link);
+                    Scan(value[(index + 2)..cut], bold, italic, true, link);
+                    index = cut + 2;
+                }
+                else if ((value[index] == '*' || value[index] == '_') && index + 1 < value.Length && !char.IsWhiteSpace(value[index + 1]) &&
+                    (value[index] == '*' || index == 0 || !char.IsLetterOrDigit(value[index - 1])) &&
+                    Close(value, index + 1, value[index].ToString()) is var em and > 0 && !char.IsWhiteSpace(value[em - 1]))
+                {
+                    Flush(bold, italic, strike, link);
+                    Scan(value[(index + 1)..em], bold, true, strike, link);
+                    index = em + 1;
+                }
+                else if (value[index] == '[' && value.IndexOf("](", index + 1, StringComparison.Ordinal) is var mid and > 0 && value.IndexOf(')', mid + 2) is var stop and > 0)
+                {
+                    Flush(bold, italic, strike, link);
+                    var label = value[(index + 1)..mid];
+                    var url = value[(mid + 2)..stop].Trim();
+                    var target = SafeLink(url) ? url : FileTarget(url) is not null ? "file:" + url : null;
+                    var start = plain.Length;
+                    Scan(label, bold, italic, strike, link || target is not null);
+                    if (target is not null) links.Add((start, plain.Length - start, target));
+                    index = stop + 1;
+                }
+                else if ((rest.StartsWith("http://") || rest.StartsWith("https://")) && (index == 0 || !char.IsLetterOrDigit(value[index - 1])))
+                {
+                    Flush(bold, italic, strike, link);
+                    var stopAt = index;
+                    while (stopAt < value.Length && !char.IsWhiteSpace(value[stopAt]) && value[stopAt] != ')' && value[stopAt] != '>') stopAt++;
+                    var url = value[index..stopAt].TrimEnd('.', ',', ';', ':', '!', '?');
+                    links.Add((plain.Length, url.Length, url));
+                    Run(url, new Typeface(Ui.InterfaceFont, italic ? FontStyle.Italic : FontStyle.Normal, bold ? FontWeight.Bold : FontWeight.Normal), size, accent, Decorations(strike, true));
+                    index += url.Length;
+                }
+                else literal.Append(value[index++]);
+            }
+            Flush(bold, italic, strike, link);
+        }
+        Scan(text, false, false, false, false);
         return (plain.ToString(), spans, links);
     }
 }

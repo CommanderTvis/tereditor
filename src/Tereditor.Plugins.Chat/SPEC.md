@@ -23,6 +23,7 @@ one today; the seams below are what a second agent protocol (the Agent Client Pr
   session a terminal already runs is not resumed in a chat), a help link, the end of the "host has no chat handler" message, effort levels,
   and the permission modes it offers with their words (`Modes`, `DescribeMode`). `ChatMode.Dangerous` marks a mode offered only while the
   session already runs in it.
+- Chat rows read inline Markdown with their own scanner (`Markdown.Inline`), not the kit preview. Inline styles compose: code inside bold, italic, strikethrough or link text keeps its monospace face with the weight, slant and decorations around it, and no marker is copied.
 - Allowed dependencies: Chat -> Api; Chat.UI -> Chat, Api.UI, Kit, Agent.UI. Plugins depend on Chat (and their UI on Chat.UI); the host
   core, UI, Android, Browser and the checks reach it through them. The host never depends on Chat.UI.
 - The launcher (which presets start a chat, the resume menu) stays in the plugin: it knows the agent's command line, the view does not.

@@ -276,6 +276,7 @@ internal static class ClaudeChatUiChecks
         CommandMenu();
         HoverAffordance();
         UserMarkdown();
+        InlineStylesCompose();
         UserBubbleDrawsText();
         SelectedThoughtRow();
         AttachmentChipsContained();
@@ -2402,6 +2403,41 @@ internal static class ClaudeChatUiChecks
         var (_, open, openLayout) = Of(long_, expanded: true);
         openLayout.Dispose();
         Require(folded < 130 && open > folded + 100, $"A long Markdown prompt folds to a few lines and opens in full ({folded} folded, {open} open).");
+    }
+
+    // Inline styles compose: code inside bold, italic, links and headings keeps its monospace face with the weight, slant and link colour around it, and no marker shows.
+    private static void InlineStylesCompose()
+    {
+        static TextRunProperties? At(string text, string word, out string plain)
+        {
+            var (flat, spans, _) = Markdown.Inline(text, Ui.TextBrush, Ui.Accent, 14);
+            plain = flat;
+            var at = flat.IndexOf(word, StringComparison.Ordinal);
+            foreach (var span in spans) if (at >= span.Start && at < span.Start + span.Length) return span.Value;
+            return null;
+        }
+        var bold = At("**`docs/TASKS.md`**, the task contract", "docs/TASKS.md", out var plain);
+        Require(plain == "docs/TASKS.md, the task contract" && bold is { } b && b.Typeface.FontFamily.Name == new Typeface(Ui.CodeFont).FontFamily.Name && b.Typeface.Weight == FontWeight.Bold && Equals(b.ForegroundBrush, Ui.Accent),
+            $"Code inside bold is bold monospace without backticks (got '{plain}').");
+        var italic = At("*`x.y`* and _`z`_", "x.y", out plain);
+        Require(plain == "x.y and z" && italic is { } i && i.Typeface.Style == FontStyle.Italic && i.Typeface.FontFamily.Name == new Typeface(Ui.CodeFont).FontFamily.Name, $"Code inside italic is italic monospace (got '{plain}').");
+        var both = At("***`both`***", "both", out plain);
+        Require(plain == "both" && both is { } o && o.Typeface.Style == FontStyle.Italic && o.Typeface.Weight == FontWeight.Bold, $"Code inside bold italic keeps both (got '{plain}').");
+        var (linkText, _, linkTargets) = Markdown.Inline("[`code` and **bold**](https://x.y)", Ui.TextBrush, Ui.Accent, 14);
+        Require(linkText == "code and bold" && linkTargets.Count == 1 && linkTargets[0] is (0, 13, "https://x.y"), $"Code and bold inside link text are one link without markers (got '{linkText}').");
+        var linked = At("[`code`](https://x.y)", "code", out _);
+        Require(linked is { TextDecorations: { Count: 1 } } && linked.Typeface.FontFamily.Name == new Typeface(Ui.CodeFont).FontFamily.Name, "Code in link text is monospace and underlined.");
+        var (open, _, _) = Markdown.Inline("a lone ` tick, 2 * 3 * 4 and **open", Ui.TextBrush, Ui.Accent, 14);
+        Require(open == "a lone ` tick, 2 * 3 * 4 and **open", $"Unmatched backticks and asterisks stay literal (got '{open}').");
+        var (fenced, _, _) = Markdown.Inline("**not `closed**", Ui.TextBrush, Ui.Accent, 14);
+        Require(fenced == "**not `closed**", $"A marker inside an unclosed code span does not make emphasis (got '{fenced}').");
+        foreach (var text in new[] { "- **`docs/TASKS.md`**, the task contract. Old text\n  - nested **`a.cs`** one\n  - nested `b`", "# A `code` **`head`**\n\n| h | v |\n|---|---|\n| **`x`** | *`y`* |" })
+        {
+            using var layout = ChatRowLayout.Build(new ChatRow(new ChatAssistantItem("m", 1, text), 0, 1, false, null), 420, true);
+            layout.Realize(0, layout.Height);
+            var copied = layout.SelectableText();
+            Require(!copied.Contains('`') && !copied.Contains("**") && (copied.Contains("docs/TASKS.md") || copied.Contains("head")), $"Copied text has no markers (got '{copied}').");
+        }
     }
 
     // Highlights cover glyphs only: inside a text line's box, inside the clip the text draws in, never in a gap, and clipped text is not copied.
