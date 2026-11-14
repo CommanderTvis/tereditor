@@ -3709,6 +3709,39 @@ internal static class ClaudeChatUiChecks
             E2eWorkspace.Until(() => transcript.Item("ask3") is ChatQuestionItem { Decision: ChatPermissionDecision.Allowed });
             Require(chat.QuestionAnswers.Last().Answers is { } typedAnswers && typedAnswers["Model?"] == "what fits on laptop" && typedAnswers["Caption?"] == "my caption" && typedAnswers["Display?"] == "my display", "The answers carry the typed text per question.");
 
+            // The card's text is selectable and copies; a plain click on an option or tab text still acts, a drag does not.
+            ChatQuestion[] pickable = [new("Pick one?", [new("Alpha", "first letter"), new("Beta")]) { Header = "One" }, new("Pick two?", [new("Gamma")]) { Header = "Two" }];
+            chat.Push(Item(new ChatQuestionItem("ask4", 53, "req-ask4", pickable)));
+            Frame(window);
+            var ask4 = (ChatQuestionItem)transcript.Item("ask4")!;
+            var panel = view.RequestPanel;
+            SelectableTextBlock Selectable(string text) => panel.GetVisualDescendants().OfType<SelectableTextBlock>().First(block => block.Text == text);
+            Require(new[] { "Pick one?", "Alpha", "first letter", "Beta", "Questions" }.All(text => Selectable(text) is not null) && Selectable("\u25CB One") is not null && panel.GetVisualDescendants().OfType<SelectableTextBlock>().Any(block => block.Name == "ChatQuestionHint"),
+                "The header, tab titles, question, option labels and descriptions and the hint are selectable text.");
+            var question = Selectable("Pick one?");
+            question.SelectAll();
+            Require(question.SelectedText == "Pick one?", "The question text can be selected.");
+            Await(window.Clipboard!.ClearAsync());
+            question.Copy();
+            Frame(window);
+            var copied = Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!);
+            Await(copied);
+            Require(copied.Result == "Pick one?", "Copying the selection puts the question on the clipboard.");
+            Point Middle(Control control) => control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+            void ClickAt(Point at) { window.MouseMove(at); window.MouseDown(at, MouseButton.Left); window.MouseUp(at, MouseButton.Left); Frame(window); }
+            ClickAt(Middle(Selectable("Beta")));
+            Require(transcript.DraftOf(ask4).Chosen[0].SequenceEqual(["Beta"]), "A click on an option's text still picks it.");
+            var alpha = Selectable("Alpha");
+            var from = Middle(alpha);
+            window.MouseMove(from); window.MouseDown(from, MouseButton.Left); window.MouseMove(new Point(from.X + 20, from.Y)); window.MouseUp(new Point(from.X + 20, from.Y), MouseButton.Left); Frame(window);
+            Require(transcript.DraftOf(ask4).Chosen[0].SequenceEqual(["Beta"]), "A drag over an option's text selects text and does not pick the option.");
+            ClickAt(Middle(Selectable("\u25CB Two")));
+            Require(panel.GetVisualDescendants().OfType<SelectableTextBlock>().Any(block => block.Text == "Pick two?"), "A click on a tab's text still switches tabs.");
+            Type("typed here");
+            Require(panel.GetVisualDescendants().OfType<TextBox>().First(box => box.Name == "ChatQuestionOther").Text == "typed here" && transcript.DraftOf(ask4).Other[1] == "typed here", "The typed-answer input still edits.");
+            view.CancelQuestion(ask4);
+            E2eWorkspace.Until(() => transcript.Item("ask4") is ChatQuestionItem { Decision: ChatPermissionDecision.Denied });
+
             // Notices by category: a failure with Retry sends the last prompt again; compaction and restart are quiet lines; a review verdict is a card.
             chat.Push(Item(new ChatNoticeItem("fail", 60, ChatNoticeLevel.Error, "The turn failed: overloaded") { Category = ChatNoticeKinds.Failure, Subtype = "error_during_execution", Retryable = true }));
             chat.Push(Item(new ChatNoticeItem("compact", 61, ChatNoticeLevel.Info, "auto, 120k tokens") { Category = ChatNoticeKinds.Compaction }));

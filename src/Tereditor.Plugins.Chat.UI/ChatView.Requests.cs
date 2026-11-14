@@ -281,7 +281,7 @@ internal sealed partial class ChatView
         fold.Name = "ChatRequestFold";
         DockPanel.SetDock(fold, Dock.Right);
         head.Children.Add(fold);
-        head.Children.Add(new TextBlock { Name = "ChatRequestTitle", Text = item.Questions.Count == 1 ? "Question" : "Questions", FontWeight = FontWeight.SemiBold, Foreground = Ui.TextBrush, VerticalAlignment = VerticalAlignment.Center });
+        head.Children.Add(new SelectableTextBlock { Name = "ChatRequestTitle", Text = item.Questions.Count == 1 ? "Question" : "Questions", FontWeight = FontWeight.SemiBold, Foreground = Ui.TextBrush, VerticalAlignment = VerticalAlignment.Center });
         root.Children.Add(head);
         if (requestFolded) return root;
         if (item.Questions.Count > 1)
@@ -292,7 +292,7 @@ internal sealed partial class ChatView
                 var index = at;
                 var answered = draft.IsAnswered(at);
                 var tabTitle = item.Questions[at].Header ?? "Question " + (at + 1);
-                var tabText = Ui.Text((answered ? "✓ " : "○ ") + tabTitle, at == questionTab ? Ui.TextBrush : Ui.Muted, 12);
+                var tabText = SelectableLine((answered ? "✓ " : "○ ") + tabTitle, at == questionTab ? Ui.TextBrush : Ui.Muted, 12);
                 refs.Tabs.Add((tabText, tabTitle));
                 var tab = new Button
                 {
@@ -304,12 +304,13 @@ internal sealed partial class ChatView
                     BorderThickness = new Thickness(0)
                 };
                 tab.Click += (_, _) => { questionTab = index; UpdateRequests(true); };
+                ClickThroughText(tab);
                 tabs.Children.Add(tab);
             }
             root.Children.Add(tabs);
         }
         var question = item.Questions[questionTab];
-        root.Children.Add(new TextBlock { Text = question.Question, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold, Foreground = Ui.TextBrush });
+        root.Children.Add(new SelectableTextBlock { Name = "ChatQuestionText", Text = question.Question, TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold, Foreground = Ui.TextBrush });
         // A single-select question where an option carries a preview gets a pane beside the options: it shows the option under the pointer
         // after a 150 ms hover (the chosen one, else the first, until then), and says so when that option has none.
         var previewing = !question.MultiSelect && question.Options.Any(option => !string.IsNullOrEmpty(option.Preview));
@@ -327,8 +328,8 @@ internal sealed partial class ChatView
             PaintMark(mark, chosen);
             refs.Options.Add((option.Label, mark));
             var text = new StackPanel();
-            text.Children.Add(Ui.Text(option.Label, Ui.TextBrush, 12));
-            if (option.Description is { Length: > 0 } hint) text.Children.Add(new TextBlock { Text = hint, FontSize = 11, Foreground = Ui.Muted, TextWrapping = TextWrapping.Wrap });
+            text.Children.Add(SelectableLine(option.Label, Ui.TextBrush, 12));
+            if (option.Description is { Length: > 0 } hint) text.Children.Add(new SelectableTextBlock { Text = hint, FontSize = 11, Foreground = Ui.Muted, TextWrapping = TextWrapping.Wrap });
             var body = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
             Grid.SetColumn(text, 1);
             body.Children.Add(mark);
@@ -336,6 +337,7 @@ internal sealed partial class ChatView
             var button = new Button { Name = "ChatQuestionOption", Content = body, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(6, 3), MinHeight = 0, Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             var label = option.Label;
             button.Click += (_, _) => QuestionPick(item, questionTab, label);
+            ClickThroughText(button);
             if (pane is not null)
             {
                 var target = pane;
@@ -370,7 +372,7 @@ internal sealed partial class ChatView
         var cancel = Choice("ChatQuestionCancel", "", "No", () => CancelQuestion(item));
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         buttons.Children.Add(submit); buttons.Children.Add(cancel);
-        var submitHint = new TextBlock { Name = "ChatQuestionHint", Text = SubmitHint(item, draft), FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
+        var submitHint = new SelectableTextBlock { Name = "ChatQuestionHint", Text = SubmitHint(item, draft), FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
         buttons.Children.Add(submitHint);
         refs.Hint = submitHint;
         // A disabled button takes no click, so the press is caught on the row: on Submit while it is disabled, it jumps to the first unanswered question.
@@ -389,6 +391,37 @@ internal sealed partial class ChatView
     }
 
     private DispatcherTimer? previewTimer;
+
+    private static SelectableTextBlock SelectableLine(string text, IBrush brush, double size) => new()
+    {
+        Text = text,
+        Foreground = brush,
+        FontSize = size,
+        FontWeight = Ui.InterfaceWeight,
+        VerticalAlignment = VerticalAlignment.Center
+    };
+
+    // Selectable text inside a button takes the press and the capture, so the button never clicks. A press and release on such text
+    // that did not move and did not click the button itself (a double click selects a word instead) clicks it here.
+    private static void ClickThroughText(Button button)
+    {
+        Point? pressed = null;
+        var fired = false;
+        button.Click += (_, _) => fired = true;
+        button.AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            fired = false;
+            pressed = e.Source is SelectableTextBlock && e.ClickCount == 1 && e.GetCurrentPoint(button).Properties.IsLeftButtonPressed ? e.GetPosition(button) : null;
+        }, handledEventsToo: true);
+        button.AddHandler(PointerReleasedEvent, (_, e) =>
+        {
+            var start = pressed;
+            pressed = null;
+            if (start is not { } from || fired || !button.IsEnabled) return;
+            var to = e.GetPosition(button);
+            if (Math.Abs(to.X - from.X) < 4 && Math.Abs(to.Y - from.Y) < 4) button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        }, handledEventsToo: true);
+    }
 
     // What a question panel needs to change in place when an option is picked: a pick repaints marks and enables Submit and rebuilds nothing.
     private sealed class QuestionRefs(string itemId, Control root)
