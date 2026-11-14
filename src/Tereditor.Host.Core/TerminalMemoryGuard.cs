@@ -86,6 +86,12 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
         lock (gate) return watches.TryGetValue(session, out var watch) ? watch.Usage : null;
     }
 
+    /// <summary>Forgets every reading and event, as when the guard is switched off.</summary>
+    internal void Clear()
+    {
+        lock (gate) { watches.Clear(); events.Clear(); raised.Clear(); }
+    }
+
     /// <summary>The most recent events, oldest first.</summary>
     internal IReadOnlyList<GuardEvent> Events()
     {

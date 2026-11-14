@@ -320,9 +320,9 @@ timeout, memory budget (automatic or fixed, with the automatic derivation and me
 explanation of when servers stop, and the C#, JVM and other count caps, saved as the `language-limits` host
 setting and re-shown from its broadcast; its rows form two groups (timeout and budget, then the three caps) with one hairline between them and none between rows of a group or above Save. Settings shows no live server state. `--lsp-limits` checks it headless.
 
-Settings › Terminal ends its host settings with a Memory guard section: a switch, the per-terminal and the total limit
-(automatic or a fixed size) and a comma-separated list of protected programs, saved as one `terminal-memory` host setting and
-re-shown from its broadcast. The section explains the escalation and says that the guard samples. The behaviour is in the
+The memory guard's settings are not on Settings › Terminal: they are the Processes plugin's section (Settings › Processes), a switch, the per-terminal and
+the total limit (automatic or a fixed size) and a comma-separated list of protected programs, saved as the plugin's settings and re-shown from their broadcast;
+the limits hide while the switch is off. The section explains the escalation and says that the guard samples. The behaviour is in the
 Terminals spec ("Memory guard").
 
 Server rows are a grid at every width (static, in `LanguagePanel.axaml`): one header line holds the

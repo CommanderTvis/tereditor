@@ -78,4 +78,11 @@ public interface IProcessHost
     /// </summary>
     /// <param name="enabled">Whether management is on; turning it off forgets the records without stopping the processes.</param>
     void ManageOwned(bool enabled);
+
+    /// <summary>
+    /// Hands the terminals' memory guard its limits, read on every sample. While none is given, or the function answers null, the guard samples
+    /// nothing, stops nothing and shows no notice, and <see cref="TerminalMemory"/> and <see cref="MemoryGuardEvents"/> answer nothing.
+    /// </summary>
+    /// <param name="limits">Per-terminal and total limit in MiB (0 derives it from physical memory), seconds of grace and protected program names; null from the function means the guard is off; null here withdraws it.</param>
+    void ManageMemoryGuard(Func<(int PerTerminalMb, int TotalMb, int GraceSeconds, IReadOnlyList<string> Protect)?>? limits) { }
 }

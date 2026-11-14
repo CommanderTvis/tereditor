@@ -79,7 +79,7 @@ internal static class ProcessesChecks
         StopAnyAgent();
         if (OperatingSystem.IsWindows()) { Console.WriteLine("SKIP processes plugin switch: the checks start sleep and a POSIX shell"); return; }
         await PluginSwitch(Path.Combine(root, "processes-switch"));
-        Console.WriteLine("PASS processes: the tree groups language servers, agents and spawned agents with nesting and sums, the trend is capped, sampling happens only when asked, stops take the right path, and disabling the plugin removes owned-process management while enabling keeps it");
+        Console.WriteLine("PASS processes: the tree groups language servers, agents and spawned agents with nesting and sums, the trend is capped, sampling happens only when asked, stops take the right path, and disabling the plugin removes owned-process management and the memory guard while enabling keeps them");
     }
 
     // A browser tab has no process table: its language servers are Web Workers, the only group, shown with the usage the page read.
@@ -427,6 +427,7 @@ internal static class ProcessesChecks
         bool HasPrompt() => runtime.PromptTexts(ClaudeCodeContract.Id, PromptPlacement.Section).Any(text => text.Contains("owned_process_report", StringComparison.Ordinal));
 
         Require(ProcessesPlugin.Manifest.EnabledByDefault, "The Processes plugin must be on by default.");
+        Require(service.GuardOn && new ProcessHostSeam(state).MemoryGuardEvents().Count == 0, "Enabled (the default), the plugin gives the memory guard its limits, on.");
         Require(service.Owned.Enabled && HasTools() && HasPrompt(), "Enabled (the default), the plugin owns the report and release tools, the prompt section and the registry switch.");
         using var survivor = Process.Start(new ProcessStartInfo("sleep", "600") { UseShellExecute = false }) ?? throw new InvalidOperationException("sleep did not start.");
         try
@@ -434,7 +435,14 @@ internal static class ProcessesChecks
             service.Owned.Report(tab, survivor.Id, "kept alive", []);
             Require(service.Owned.List().Count == 1, "An enabled plugin keeps the registry working.");
 
+            // The guard's switch and limits are the plugin's settings and apply at the next sample.
+            await state.ChangeAsync([HostStateChange.PluginSettings(ProcessesPlugin.Id, """{"memoryGuard":false}""")]);
+            Require(!service.GuardOn && service.Owned.Enabled, "The plugin's memory guard switch turns the guard off and leaves the rest of the plugin on.");
+            await state.ChangeAsync([HostStateChange.PluginSettings(ProcessesPlugin.Id, """{"memoryGuard":true,"perTerminalMb":4096,"protect":["postgres"]}""")]);
+            Require(service.GuardOn, "Switching it on again turns the guard on.");
+
             await Set(false);
+            Require(!service.GuardOn, "Disabled, the plugin withdraws the memory guard: nothing is sampled, stopped or shown.");
             Require(!service.Owned.Enabled && !HasTools() && !HasPrompt(), "Disabled, there is no owned-process registration tool, no prompt section and no management.");
             Require(service.Owned.List().Count == 0 && !survivor.HasExited, "Disabling forgets the records and leaves the processes running.");
             try { service.Owned.Report(tab, survivor.Id, null, []); throw new InvalidOperationException("A disabled plugin must refuse to register a process."); }
@@ -443,7 +451,7 @@ internal static class ProcessesChecks
             Require(!survivor.HasExited, "Disabled, the quit sweep stops no agent-owned process.");
 
             await Set(true);
-            Require(service.Owned.Enabled && HasTools() && HasPrompt(), "Enabling again restores the tools, the prompt section and the registry without a restart.");
+            Require(service.GuardOn && service.Owned.Enabled && HasTools() && HasPrompt(), "Enabling again restores the tools, the prompt section, the registry and the guard without a restart.");
             service.Owned.Report(tab, survivor.Id, "again", []);
             Require(service.Owned.List().Count == 1, "Management works again after re-enabling.");
         }

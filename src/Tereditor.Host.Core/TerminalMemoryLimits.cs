@@ -1,9 +1,7 @@
-using System.Text.Json.Nodes;
-
 namespace Tereditor.Host.Core;
 
 /// <summary>
-/// The memory guard's limits (host setting <c>terminal-memory</c>, JSON, see Terminals SPEC "Memory guard"): <see cref="PerTerminalMb"/> caps
+/// The memory guard's limits (the Processes plugin's settings, see Terminals SPEC "Memory guard"): <see cref="PerTerminalMb"/> caps
 /// one terminal's process tree (0 derives it from physical memory), <see cref="TotalMb"/> caps all terminals together (0 derives it), a
 /// process gets <see cref="GraceSeconds"/> to end after its stop request, and <see cref="Protect"/> names programs that are warned about, never ended.
 /// </summary>
@@ -24,43 +22,20 @@ internal sealed record TerminalMemoryLimits(bool Enabled, int PerTerminalMb, int
 
     internal bool Protects(string name) => Protect.Any(entry => string.Equals(entry, name, StringComparison.OrdinalIgnoreCase));
 
-    internal static TerminalMemoryLimits Parse(string json)
+    /// <summary>
+    /// The limits the Processes plugin's settings give. A value out of range falls back to its default (automatic limit, 10 s grace) and an
+    /// unusable program name is dropped, so a hand-edited setting never stops the guard.
+    /// </summary>
+    internal static TerminalMemoryLimits From(int perTerminalMb, int totalMb, int graceSeconds, IReadOnlyList<string> protect)
     {
-        if (string.IsNullOrWhiteSpace(json)) return Default;
-        try { return ParseObject(json); }
-        catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException or FormatException)
+        static int Limit(int megabytes) => megabytes is >= MinMb and <= MaxMb ? megabytes : 0;
+        var names = new List<string>();
+        foreach (var entry in protect)
         {
-            throw new ArgumentException("Terminal memory limits must be JSON with boolean enabled, integer perTerminalMb, totalMb and graceSeconds, and a protect array of names.", error);
+            var name = entry?.Trim() ?? "";
+            if (name.Length is 0 or > 64 || name.Contains('\0') || name.Contains('/') || name.Contains('\\')) continue;
+            if (names.Count < 64 && !names.Contains(name, StringComparer.OrdinalIgnoreCase)) names.Add(name);
         }
+        return new(true, Limit(perTerminalMb), Limit(totalMb), graceSeconds is >= 1 and <= 600 ? graceSeconds : DefaultGraceSeconds, names);
     }
-
-    private static TerminalMemoryLimits ParseObject(string json)
-    {
-        var node = JsonNode.Parse(json) as JsonObject ?? throw new ArgumentException("Terminal memory limits must be a JSON object.");
-        var enabled = node["enabled"]?.GetValue<bool>() ?? true;
-        var perTerminal = node["perTerminalMb"]?.GetValue<int>() ?? 0;
-        var total = node["totalMb"]?.GetValue<int>() ?? 0;
-        var grace = node["graceSeconds"]?.GetValue<int>() ?? DefaultGraceSeconds;
-        if (perTerminal != 0 && perTerminal is < MinMb or > MaxMb) throw new ArgumentException($"The terminal limit is 0 (automatic) or {MinMb} to {MaxMb} MiB.");
-        if (total != 0 && total is < MinMb or > MaxMb) throw new ArgumentException($"The total limit is 0 (automatic) or {MinMb} to {MaxMb} MiB.");
-        if (grace is < 1 or > 600) throw new ArgumentException("The grace period is 1 to 600 seconds.");
-        var protect = new List<string>();
-        foreach (var entry in node["protect"] as JsonArray ?? [])
-        {
-            var name = entry?.GetValue<string>().Trim() ?? "";
-            if (name.Length is 0 or > 64 || name.Contains('\0') || name.Contains('/') || name.Contains('\\')) throw new ArgumentException("Each protected program is a name of 1 to 64 characters, without a path.");
-            if (!protect.Contains(name, StringComparer.OrdinalIgnoreCase)) protect.Add(name);
-        }
-        if (protect.Count > 64) throw new ArgumentException("At most 64 programs can be protected.");
-        return new(enabled, perTerminal, total, grace, protect);
-    }
-
-    internal string Serialize() => new JsonObject
-    {
-        ["enabled"] = Enabled,
-        ["perTerminalMb"] = PerTerminalMb,
-        ["totalMb"] = TotalMb,
-        ["graceSeconds"] = GraceSeconds,
-        ["protect"] = new JsonArray(Protect.Select(name => (JsonNode?)name).ToArray())
-    }.ToJsonString();
 }

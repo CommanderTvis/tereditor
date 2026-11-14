@@ -53,9 +53,13 @@ public sealed class ProcessesHost : PluginHostModule
         }
 
         processes.ManageOwned(true);
+        // The guard reads the settings at every sample, so the switch and the limits apply at once; disabling the plugin withdraws it.
+        processes.ManageMemoryGuard(() => context.Settings<ProcessesSettings>() is { MemoryGuard: true } settings
+            ? (settings.PerTerminalMb, settings.TotalMb, settings.GraceSeconds, settings.Protect) : null);
         // Disabling forgets the records without stopping the processes: the user opted out of having them managed.
         return ValueTask.FromResult<PluginDisposer?>(() =>
         {
+            processes.ManageMemoryGuard(null);
             processes.ManageOwned(false);
             return ValueTask.CompletedTask;
         });

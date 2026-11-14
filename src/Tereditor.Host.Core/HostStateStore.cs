@@ -9,6 +9,7 @@ using Tereditor.Host.Abstractions;
 using Tereditor.Plugins.AirContext;
 using Tereditor.Plugins.AirContext.Host;
 using Tereditor.Plugins.Api;
+using Tereditor.Plugins.Processes;
 
 namespace Tereditor.Host.Core;
 
@@ -256,6 +257,10 @@ public sealed partial class HostStateStore : IHostStateService
         if (!airExplicit && (airContextHidden || usedAirContext))
             migrated = migrated with { PluginSettings = new Dictionary<string, JsonElement>(migrated.PluginSettings) { [AirContextContract.Id] = JsonSerializer.SerializeToElement(new JsonObject { ["enabled"] = !airContextHidden }, HostJson.Default.JsonObject) } };
         migrated = MigrateDisabledLanguageServers(migrated);
+        // The terminals' memory guard became the Processes plugin's (protocol 24): the old host setting moves into the plugin's settings, member by
+        // member, unless the plugin already has its own value. The old key leaves the file in the same save, so this runs once.
+        var hadMemoryKey = unknownSettings.Remove("TerminalMemory", out var memoryNode);
+        if (hadMemoryKey) migrated = MigrateTerminalMemory(migrated, memoryNode);
         if (directory is not null && (legacyContextWorkspaces is not null || Directory.Exists(Path.Combine(directory, AirContextMigration.LegacyDirectory))))
         {
             try { AirContextMigration.Migrate(directory, [.. (legacyContextWorkspaces ?? []).Where(ValidPath).Distinct().Order(StringComparer.Ordinal)]); }
@@ -274,7 +279,7 @@ public sealed partial class HostStateStore : IHostStateService
         MigrateJavaKotlinProvider();
         // Identities minted for a file that predates them are written at once, or they would change on the next launch.
         if (path is not null && LastError is null && (!File.Exists(path) || !state.ProjectRecords.SequenceEqual(initial.ProjectRecords) ||
-            state.Settings != initial.Settings || airContextLegacy || gatewayRenamed || state.PluginSettings.Count != initial.PluginSettings.Count || !state.Workspaces.SequenceEqual(initial.Workspaces))) Save(state);
+            state.Settings != initial.Settings || airContextLegacy || gatewayRenamed || hadMemoryKey || state.PluginSettings.Count != initial.PluginSettings.Count || !state.Workspaces.SequenceEqual(initial.Workspaces))) Save(state);
         if (directory is not null)
             try { InstallationId = Installation.EnsureIn(directory); }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException) { LastError ??= error.Message; }
@@ -846,7 +851,6 @@ public sealed partial class HostStateStore : IHostStateService
                     _ when key.StartsWith("language-server:", StringComparison.Ordinal) => settings with { LanguageServers = SetLanguageServer(settings.LanguageServers, key[16..], value) },
                     _ when key.StartsWith("language-tool:", StringComparison.Ordinal) => settings with { LanguageTools = SetLanguageTool(settings.LanguageTools, key[14..], value) },
                     "language-limits" => settings with { LanguageLimits = value.Length == 0 ? "" : Language.LanguageServerLimits.Parse(value).Serialize() },
-                    "terminal-memory" => settings with { TerminalMemory = value.Length == 0 ? "" : TerminalMemoryLimits.Parse(value).Serialize() },
                     "custom-highlighting" when ValidHighlighting(value) => settings with { CustomHighlighting = value },
                     "vertical-tabs" when bool.TryParse(value, out var vertical) => settings with { VerticalCenterTabs = vertical },
                     "window-decorations" when value is "auto" or "" => settings with { WindowDecorations = "" },
@@ -1011,6 +1015,25 @@ public sealed partial class HostStateStore : IHostStateService
         var changed = namespaces.Count != current.PluginSettings.Count || namespaces.Any(entry =>
             !current.PluginSettings.TryGetValue(entry.Key, out var previous) || !JsonElement.DeepEquals(previous, entry.Value));
         return changed ? current with { PluginSettings = namespaces } : current;
+    }
+
+    // The old setting was a JSON object in a string (enabled, perTerminalMb, totalMb, graceSeconds, protect); a missing or unreadable one means the defaults.
+    private static HostState MigrateTerminalMemory(HostState current, JsonNode? stored)
+    {
+        JsonObject? old = null;
+        try { if (stored is JsonValue value && value.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text)) old = JsonNode.Parse(text) as JsonObject; }
+        catch (JsonException) { }
+        if (old is null) return current;
+        var patch = new JsonObject();
+        foreach (var (from, to) in new[] { ("enabled", "memoryGuard"), ("perTerminalMb", "perTerminalMb"), ("totalMb", "totalMb"), ("graceSeconds", "graceSeconds"), ("protect", "protect") })
+            if (old[from] is { } member) patch[to] = member.DeepClone();
+        var existing = current.PluginSettings.GetValueOrDefault(ProcessesPlugin.Id);
+        var kept = existing.ValueKind == JsonValueKind.Object ? existing : default;
+        foreach (var name in patch.Select(entry => entry.Key).ToArray())
+            if (kept.ValueKind == JsonValueKind.Object && kept.TryGetProperty(name, out _)) patch.Remove(name);
+        if (patch.Count == 0) return current;
+        var merged = Merge(existing, patch);
+        return current with { PluginSettings = new Dictionary<string, JsonElement>(current.PluginSettings) { [ProcessesPlugin.Id] = JsonSerializer.SerializeToElement(merged, HostJson.Default.JsonObject) } };
     }
 
     private static JsonObject Merge(JsonElement existing, JsonObject patch)

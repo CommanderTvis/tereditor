@@ -13,7 +13,7 @@ tags: [v1, plugins]
 Owns the Processes side tool and the agent-facing management of the processes agents start. Builtin, enabled by default, no
 dependencies, wire version 1, category Agents, icon `node-tree`, right rail. Refs #52 (the owned-process registry); the registry itself stays in the host core.
 The host and UI assemblies reference only their plugin API entry and the shared contract; the UI also uses the kit.
-It has no settings type: BranchGraph, Visualize and the other tool plugins have none, and Settings › Plugins carries the on/off switch every plugin has.
+Its settings (Settings › Processes) are `StopAgentChildren`, `ShowAllProjects` and the memory guard's (below); Settings › Plugins carries the on/off switch every plugin has.
 
 ## Where the line is
 
@@ -32,10 +32,20 @@ The plugin owns everything an agent or the user can reach:
   disposal calls `ManageOwned(false)`.
 - The Processes pane, the snapshot and stop methods.
 
+## Memory guard
+
+The plugin owns the terminals' memory guard (the Terminals spec, "Memory guard", describes what it does). Settings › Processes has a "Stop programs that use too much memory" switch (`MemoryGuard`,
+on by default), the per-terminal and total limit (`PerTerminalMb`, `TotalMb`: automatic or a fixed size; the limits hide while the switch is off), the programs never stopped (`Protect`) and
+`GraceSeconds` (10, set in the file only). Activation hands the host the limits as a function (`IProcessHost.ManageMemoryGuard`), which the host reads at every sample, so a change applies at once;
+disposal withdraws it. Core still runs the sampler, the escalation and the notices, because they need the process table, signals and terminal sessions that only Core reaches, and
+`HostState.GuardNotices` must stay a protocol type; moving them is open until the plugin API offers a process tree with memory, signals and terminal names. Off, or with the plugin
+disabled, the guard samples nothing, stops nothing and shows no banner; `TerminalMemory` and `MemoryGuardEvents` answer nothing, so the pane has no memory line and no Memory guard group.
+The old host setting `terminal-memory` moved into these settings at protocol 24 (copied once at load).
+
 ## When the plugin is disabled
 
 Nothing is sampled (the pane does not exist, so no request arrives); no pane or rail entry exists; the report and release tools are absent from the MCP list;
-the prompt section is absent; `Report` refuses; tab close, workspace removal and quit stop no agent-owned process; the stale sweep does not run;
+the prompt section is absent; `Report` refuses; tab close, workspace removal and quit stop no agent-owned process; the stale sweep does not run; the memory guard is off (no sampling, no banner, no pane lines);
 `HostState.OwnedProcesses` stays empty, so the quit dialog counts nothing and no toast appears. Records that exist when it is switched off are forgotten and
 their file deleted, but their processes are not stopped: the user opted out of managing them. Language servers and terminals are untouched; core still ends
 its own children. The plugin model applies a switch without a restart, so enabling and disabling take effect at once; agents that already started keep the prompt text they were given.
@@ -51,7 +61,7 @@ function and a `ProcessHistory`. Three top groups, in this order, always present
 - AI agents and daemons: one row per terminal that carries an agent record. The row is the shallowest descendant of the terminal's shell whose command names the agent
   (`claude`, `codex`, `omp`, `pi`, `goose`: the agent executables the terminals' memory guard also spares, looking through an interpreter in the first two tokens), else the shell. Under it hangs every process forked from the agent (agent or not, any depth),
   each nested under the process that forked it, and every process the terminal reported with `owned_process_report`, named by its description. Each pid appears once.
-- Memory guard: a terminal's row shows the memory of its process tree against the terminal's limit ("memory 2.1 of 8 GB", with the guard's state when it is not Ok). When the guard has said or done anything, a Memory guard group lists its recent events, newest first, with their time; it is absent otherwise. See the Terminals spec ("Memory guard").
+- Memory guard (only while the guard is on): a terminal's row shows the memory of its process tree against the terminal's limit ("memory 2.1 of 8 GB", with the guard's state when it is not Ok). When the guard has said or done anything, a Memory guard group lists its recent events, newest first, with their time; it is absent otherwise. See the Terminals spec ("Memory guard").
 - Spawned processes: for a terminal without a recognised agent, a parent row "of Terminal · tab 2" below which hang, nested under the process that forked them, the processes below the shell that have been running at least 10 seconds (`ProcessModel.LongRunning`; a dev server, a watcher, a build; the tooltip adds "up 2m"), any agent process below it whatever its age, and the processes the terminal reported. Commands that come and go in under 10 seconds are not listed, and neither is anything when the system gives no elapsed time (Windows). A terminal with an agent has no row here: its processes are under the agent row.
 
 A group, workspace or parent row shows the sum of everything under it; a process row shows itself plus what is nested below it. The total is the sum of the three groups.
@@ -102,8 +112,8 @@ A method not listed in the contract makes the plugin refuse to activate, so the 
 
 `--processes` (also in `--plugins` and the full run) uses fake process sources: grouping and nesting of language servers, an agent with two spawned children and a reported process, workspace rows, group sums
 and the total, the 30-sample trend cap, no sampling before a request and one sample per interval, the 50 percent CPU arithmetic, stop through the language service versus the process path, the stop-the-tree setting for every agent kind in a terminal and in a chat with a plain terminal unaffected, and ids the snapshot
-does not hold, and the project scope (filter, sums, toggle in place, scoped stop targets, empty project). A real runtime with a real terminal service covers the switch: default on, tools and prompt present, a reported process kept running after disabling, no registration while off, no quit sweep, and
-re-enabling restoring management. `--owned-processes` keeps covering the registry itself.
+does not hold, and the project scope (filter, sums, toggle in place, scoped stop targets, empty project). A real runtime with a real terminal service covers the switch: default on, tools and prompt present, a reported process kept running after disabling, no registration while off, no quit sweep, the memory guard following the plugin and its own switch, and
+re-enabling restoring management. `--case terminal-memory-guard` covers the guard itself, including it off and on and the move of the old setting. `--owned-processes` keeps covering the registry itself.
 
 Not covered: the pane rendered (no screenshot taken), UI polling stopping when the pane is hidden (it follows from `IsEffectivelyVisible`), Linux and Windows usage reads, and the
 Claude Code chat host's own process (it lives inside the ClaudeCode plugin and has no seam here), which therefore is not listed.

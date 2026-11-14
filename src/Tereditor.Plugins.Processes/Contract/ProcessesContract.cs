@@ -41,6 +41,21 @@ public sealed record ProcessesSettings
 
     /// <summary>The pane's "All projects" check box as the user left it, kept across restarts; false shows only the pane's own project.</summary>
     public bool ShowAllProjects { get; init; }
+
+    /// <summary>Whether the memory guard watches the terminals' processes and stops the ones that use too much memory. Disabling the plugin turns it off too.</summary>
+    public bool MemoryGuard { get; set; } = true;
+
+    /// <summary>The memory guard's limit for one terminal's processes in MiB; 0 derives it from physical memory.</summary>
+    public int PerTerminalMb { get; set; }
+
+    /// <summary>The memory guard's limit for all terminals together in MiB; 0 derives it from physical memory.</summary>
+    public int TotalMb { get; set; }
+
+    /// <summary>Seconds a process gets to end after the guard asked it to stop, before it is killed.</summary>
+    public int GraceSeconds { get; set; } = 10;
+
+    /// <summary>Names of programs the guard warns about but never stops.</summary>
+    public string[] Protect { get; set; } = [];
 }
 
 public static class ProcessesContract

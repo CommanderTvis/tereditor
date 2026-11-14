@@ -64,8 +64,7 @@ public sealed class SettingsMessage
     [ProtoMember(32)] public bool EditorLineNumbersHidden { get; set; }
     /// <summary>Empty, from a host that predates the setting, is the theme's own accent.</summary>
     [ProtoMember(33)] public string Accent { get; set; } = "";
-    /// <summary>Empty, from a host that predates the guard, is the defaults.</summary>
-    [ProtoMember(34)] public string TerminalMemory { get; set; } = "";
+    // Member 34 carried the terminals' memory guard limits until they moved to the Processes plugin's settings (protocol 24); the number is retired.
     /// <summary>Optional, so a host that predates it reads as indenting with spaces.</summary>
     [ProtoMember(35)] public bool EditorIndentWithTabs { get; set; }
     /// <summary>Inverted so a host that predates the setting reads as detecting, its default.</summary>

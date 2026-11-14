@@ -3569,7 +3569,6 @@ internal static class RpcCodec
         if (value.EditorTabWidth != 0) writer.Int32(31, value.EditorTabWidth);
         if (value.EditorLineNumbersHidden) writer.Bool(32, value.EditorLineNumbersHidden);
         if (value.Accent is { } field33) writer.String(33, field33);
-        if (value.TerminalMemory is { } field34) writer.String(34, field34);
         if (value.EditorIndentWithTabs) writer.Bool(35, value.EditorIndentWithTabs);
         if (value.EditorDetectIndentOff) writer.Bool(36, value.EditorDetectIndentOff);
         if (value.EditorFontFamily is { } field37) writer.String(37, field37);
@@ -3615,7 +3614,6 @@ internal static class RpcCodec
                 case 31: value.EditorTabWidth = reader.Int32(); break;
                 case 32: value.EditorLineNumbersHidden = reader.Bool(); break;
                 case 33: value.Accent = reader.String(); break;
-                case 34: value.TerminalMemory = reader.String(); break;
                 case 35: value.EditorIndentWithTabs = reader.Bool(); break;
                 case 36: value.EditorDetectIndentOff = reader.Bool(); break;
                 case 37: value.EditorFontFamily = reader.String(); break;

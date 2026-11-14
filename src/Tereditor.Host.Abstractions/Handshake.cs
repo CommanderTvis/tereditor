@@ -9,7 +9,10 @@ namespace Tereditor.Host.Abstractions;
 /// </summary>
 public static class HostProtocol
 {
-    public const int Current = 23;
+    public const int Current = 24;
+
+    /// <summary>The terminals' memory guard is the Processes plugin's: its limits are that plugin's settings, no longer the <c>terminal-memory</c> host setting (wire member 34, retired). A host below it still holds them as that setting, so a client edits them there.</summary>
+    public const int TerminalMemoryInPlugin = 24;
 
     /// <summary>Go to file (<c>IProjectRpc.FindFilesAsync</c>): files matched by name. A host below it answers <c>Unimplemented</c>, so a client offers no file-name search there.</summary>
     public const int FileNameSearch = 23;

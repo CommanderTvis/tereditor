@@ -66,21 +66,20 @@ internal static class TerminalMemoryGuardChecks
         Require(TerminalMemoryLimits.AutomaticPerTerminal(512 * Gb) == 32 * Gb, "A big machine is bounded to 32 GiB per terminal.");
         Require(TerminalMemoryLimits.AutomaticTotal(10 * Gb) == 6 * Gb, "The total limit is 60% of physical memory.");
         Require(TerminalMemoryLimits.Default.PerTerminalBytes(16 * Gb) == 4 * Gb && TerminalMemoryLimits.Default.TotalBytes(10 * Gb) == 6 * Gb, "Zero means automatic.");
-        var fixedLimits = TerminalMemoryLimits.Parse("""{"perTerminalMb":100,"totalMb":2048}""");
+        var fixedLimits = TerminalMemoryLimits.From(100, 2048, 10, []);
         Require(fixedLimits.PerTerminalBytes(64 * Gb) == 100L << 20 && fixedLimits.TotalBytes(64 * Gb) == 2 * Gb, "A fixed value wins over the automatic one.");
         Require(TerminalMemoryGuard.Size((long)(7.9 * Gb)) == "7.9 GB" && TerminalMemoryGuard.Size(8 * Gb) == "8 GB" && TerminalMemoryGuard.Size((long)(12.3 * Gb)) == "12 GB", "Sizes read like '7.9 GB', '8 GB'.");
     }
 
     private static void Parsing()
     {
-        var parsed = TerminalMemoryLimits.Parse("""{"enabled":false,"perTerminalMb":4096,"graceSeconds":3,"protect":["Postgres"," mysqld ","postgres"]}""");
-        Require(!parsed.Enabled && parsed.PerTerminalMb == 4096 && parsed.GraceSeconds == 3 && parsed.Protect.SequenceEqual(["Postgres", "mysqld"]), "The limits were not parsed: " + parsed.Serialize());
+        var parsed = TerminalMemoryLimits.From(4096, 0, 3, ["Postgres", " mysqld ", "postgres"]);
+        Require(parsed.Enabled && parsed.PerTerminalMb == 4096 && parsed.GraceSeconds == 3 && parsed.Protect.SequenceEqual(["Postgres", "mysqld"]), "The limits were not built from the plugin's settings: " + parsed);
         Require(parsed.Protects("POSTGRES") && !parsed.Protects("node"), "The protect list compares names without case.");
-        Require(TerminalMemoryLimits.Parse(parsed.Serialize()) is { } again && again.Serialize() == parsed.Serialize(), "The limits do not round trip.");
-        Require(TerminalMemoryLimits.Parse("") == TerminalMemoryLimits.Default && TerminalMemoryLimits.Default.Enabled, "Empty means the defaults, on.");
-        foreach (var bad in new[] { "not json", "[]", """{"perTerminalMb":10}""", """{"totalMb":-5}""", """{"graceSeconds":0}""", """{"protect":["a/b"]}""", """{"protect":[""]}""" })
-            try { TerminalMemoryLimits.Parse(bad); Require(false, "Accepted " + bad); }
-            catch (ArgumentException) { }
+        // A hand-edited value out of range never stops the guard: it falls back to automatic, the default grace, or is dropped.
+        var odd = TerminalMemoryLimits.From(10, -5, 0, ["a/b", "", "ok"]);
+        Require(odd.PerTerminalMb == 0 && odd.TotalMb == 0 && odd.GraceSeconds == TerminalMemoryLimits.DefaultGraceSeconds && odd.Protect.SequenceEqual(["ok"]), "Out-of-range values fall back: " + odd);
+        Require(TerminalMemoryLimits.From(0, 0, TerminalMemoryLimits.DefaultGraceSeconds, []) is { Enabled: true, PerTerminalMb: 0, TotalMb: 0, GraceSeconds: TerminalMemoryLimits.DefaultGraceSeconds, Protect.Count: 0 } && TerminalMemoryLimits.Default.Enabled, "No values means the defaults, on.");
     }
 
     private static void Membership()
@@ -296,18 +295,38 @@ internal static class TerminalMemoryGuardChecks
         }
     }
 
+    // The old host setting moves into the Processes plugin's settings once; a value the plugin already has wins, and the old key leaves the file.
     private static async Task Settings(string directory)
     {
+        Directory.CreateDirectory(directory);
+        var file = Path.Combine(directory, "state.json");
+        var old = """{"enabled":false,"perTerminalMb":4096,"totalMb":16384,"graceSeconds":3,"protect":["postgres"]}""";
+        File.WriteAllText(file, new System.Text.Json.Nodes.JsonObject { ["Settings"] = new System.Text.Json.Nodes.JsonObject { ["TerminalMemory"] = old } }.ToJsonString());
         var state = new HostStateStore(directory);
-        Require(state.Current.Settings.TerminalMemory == "", "The setting starts empty, the defaults.");
-        await state.ChangeAsync([HostStateChange.Setting("terminal-memory", """{"perTerminalMb":4096,"protect":["postgres"]}""")]);
-        Require(state.Current.Settings.TerminalMemory == """{"enabled":true,"perTerminalMb":4096,"totalMb":0,"graceSeconds":10,"protect":["postgres"]}""", "Stored normalized: " + state.Current.Settings.TerminalMemory);
-        try { await state.ChangeAsync([HostStateChange.Setting("terminal-memory", """{"perTerminalMb":3}""")]); Require(false, "A tiny limit was accepted."); }
+        var moved = state.Current.PluginSettings["processes"];
+        Require(!moved.GetProperty("memoryGuard").GetBoolean() && moved.GetProperty("perTerminalMb").GetInt32() == 4096 && moved.GetProperty("totalMb").GetInt32() == 16384
+            && moved.GetProperty("graceSeconds").GetInt32() == 3 && moved.GetProperty("protect")[0].GetString() == "postgres", "The old setting did not move into the plugin's settings: " + moved);
+        Require(!File.ReadAllText(file).Contains("TerminalMemory", StringComparison.Ordinal), "The old key left the file in the same save.");
+        Require(new HostStateStore(directory).Current.PluginSettings["processes"].GetProperty("perTerminalMb").GetInt32() == 4096, "The moved values survive a restart.");
+
+        var kept = Path.Combine(directory, "kept");
+        Directory.CreateDirectory(kept);
+        File.WriteAllText(Path.Combine(kept, "state.json"), new System.Text.Json.Nodes.JsonObject
+        {
+            ["Settings"] = new System.Text.Json.Nodes.JsonObject { ["TerminalMemory"] = old },
+            ["PluginSettings"] = new System.Text.Json.Nodes.JsonObject { ["processes"] = new System.Text.Json.Nodes.JsonObject { ["perTerminalMb"] = 2048, ["enabled"] = true } }
+        }.ToJsonString());
+        var explicitState = new HostStateStore(kept).Current.PluginSettings["processes"];
+        Require(explicitState.GetProperty("perTerminalMb").GetInt32() == 2048 && explicitState.GetProperty("totalMb").GetInt32() == 16384 && explicitState.GetProperty("enabled").GetBoolean(),
+            "A value the plugin already has wins; the others still move: " + explicitState);
+
+        var defaults = Path.Combine(directory, "defaults");
+        Directory.CreateDirectory(defaults);
+        File.WriteAllText(Path.Combine(defaults, "state.json"), """{"Settings":{"TerminalMemory":""}}""");
+        Require(!new HostStateStore(defaults).Current.PluginSettings.ContainsKey("processes"), "An empty old setting (the defaults) adds nothing.");
+        Require(!File.ReadAllText(Path.Combine(defaults, "state.json")).Contains("TerminalMemory", StringComparison.Ordinal), "The empty old key leaves the file too.");
+        try { await state.ChangeAsync([HostStateChange.Setting("terminal-memory", "{}")]); Require(false, "The retired setting was accepted."); }
         catch (ArgumentException) { }
-        var reopened = new HostStateStore(directory);
-        Require(reopened.Current.Settings.TerminalMemory.Contains("\"perTerminalMb\":4096", StringComparison.Ordinal), "The setting did not survive a restart.");
-        await reopened.ChangeAsync([HostStateChange.Setting("terminal-memory", "")]);
-        Require(reopened.Current.Settings.TerminalMemory == "", "An empty value resets to the defaults.");
     }
 
     // The tab's banner in the shared state: notices collapse, a dismissal clears what the client saw for every client, a newer notice
@@ -384,7 +403,10 @@ internal static class TerminalMemoryGuardChecks
         var directory = Directory.CreateTempSubdirectory("tereditor-guard").FullName;
         try
         {
-            await using var pty = new PtyTerminalService("/bin/sh", terminalMemory: () => """{"perTerminalMb":100,"graceSeconds":1}""") { GuardInterval = TimeSpan.FromMilliseconds(200) };
+            await using var pty = new PtyTerminalService("/bin/sh") { GuardInterval = TimeSpan.FromMilliseconds(200) };
+            // Off at first, as when the plugin's switch is off: a runaway under the limit's reach is left alone, nothing is read, no banner shows.
+            var on = false;
+            pty.SetGuardPolicy(() => on ? (100, 0, 1, []) : null);
             var state = new HostStateStore(Path.Combine(directory, "state")) { Terminals = pty };
             var tab = new Tereditor.Plugins.Api.TerminalRef(directory, "guard-tab");
             var attached = await pty.AttachAsync(new(PtyTerminalService.SessionFor(tab), directory, "client", 100, 30) { TabKey = tab.TabKey });
@@ -407,6 +429,9 @@ internal static class TerminalMemoryGuardChecks
             // The shell integration's marks around a foreground command, as zsh and bash print them: neither while the command runs nor
             // after it ends does the guard write into the output; the tab's banner in the shared state says what it did.
             await attached.WriteAsync(Encoding.UTF8.GetBytes($"printf '\\033]133;C\\007'; {perl} -e '$x = \"a\" x (300 << 20); sleep 60'; printf '\\033]133;D;0\\007'\r"));
+            await Task.Delay(2500);
+            Require(!pty.GuardOn && state.Current.GuardNotices.Count == 0 && pty.GuardOf(tab) is (null, { Count: 0 }) && pty.MemoryGuard!.Events().Count == 0, "While the guard is off it reads nothing, stops nothing and shows no banner.");
+            on = true;
             var until = DateTime.UtcNow.AddSeconds(60);
             while (state.Current.GuardNotices.SingleOrDefault(notice => notice.Terminal == tab) is not { } notice || !notice.Text.StartsWith("Memory guard stopped perl (pid ", StringComparison.Ordinal))
             {
@@ -415,12 +440,17 @@ internal static class TerminalMemoryGuardChecks
             }
             Require(state.Current.GuardNotices.Single(notice => notice.Terminal == tab).Text.EndsWith("over its limit of 0.1 GB", StringComparison.Ordinal), "The banner says why.");
             await Await("\u001b]133;D;0\u0007", "the command to end");
+            Require(pty.GuardOf(tab).Events.Count > 0 && pty.GuardOn, "Switched on, the guard records its events for the Processes pane.");
             await attached.WriteAsync(Encoding.UTF8.GetBytes("echo SHELL_ALIVE_$((6*7))\r"));
             await Await("SHELL_ALIVE_42", "the shell to answer after the guard acted");
             Require(pty.MemoryGuard!.Events().Any(e => e.Kind == GuardEventKind.Stopped), "The Processes pane has no event for the stop.");
             lock (text) Require(!text.ToString().Contains("emory guard", StringComparison.Ordinal), "No guard text reaches the terminal's output: " + text);
             var replay = await pty.AttachAsync(new(PtyTerminalService.SessionFor(tab), directory, "second", 100, 30) { TabKey = tab.TabKey });
             Require(!Encoding.UTF8.GetString(replay.Replay.Span).Contains("emory guard", StringComparison.Ordinal), "Nor its recording, which a later client replays.");
+            // Switched off again: its banner, events and readings go with the next sample.
+            on = false;
+            pty.GuardTick();
+            Require(state.Current.GuardNotices.Count == 0 && pty.GuardOf(tab) is (null, { Count: 0 }), "Switching the guard off takes its banner, events and readings away.");
         }
         finally { try { Directory.Delete(directory, true); } catch (IOException) { } }
     }

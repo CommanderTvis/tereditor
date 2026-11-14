@@ -239,20 +239,28 @@ tereditor's own out-of-memory killer for the programs started in its terminals. 
 has no OOM killer at all), and a runaway compiler or test run can take the machine down before anything reacts. The guard lives in
 the host, so a headless host and a remote host protect their terminals exactly as the desktop host does; clients only show the result.
 
+Who owns it. The guard belongs to the Processes plugin (Settings › Plugins). The plugin's settings hold its switch and limits, and the plugin gives
+the host its limits through `IProcessHost.ManageMemoryGuard` while it is enabled. The sampler, the escalation and the notices still run in this module,
+because they need the host's process table, signals and terminal sessions, which no plugin entry offers yet. Plugin disabled, or its Memory guard switch off: the
+guard samples nothing, ends nothing, shows no banner and no notification, and the Processes pane has no memory-against-limit line and no Memory guard group;
+whatever banners and events it had are cleared at the next sample. `PtyTerminalService.SetGuardPolicy` takes the limits (a function read at every sample, so a
+change applies at once); without one the guard is off.
+
 What it watches. Every few seconds (3 s) the host measures each live terminal's process tree: every process below the terminal's
 shell, plus every process that kept the shell's session or controlling terminal after its parent exited (a build server is reparented
 to init once the command that started it returns, and would otherwise escape). The shell itself and the host are never counted as
 offenders and never ended. Memory is the physical footprint on macOS (what Activity Monitor shows) and the resident set elsewhere.
 Sampling uses system calls and the process filesystem; no process is launched per sample. With no terminal, the guard does nothing.
 
-Limits, host settings in Settings › Terminal, on by default and shared by every client of the host:
+Limits, the Processes plugin's settings (Settings › Processes), on by default and shared by every client of the host:
 
 - A per-terminal limit for the whole tree: automatic is a quarter of physical memory, never under 2 GiB and never over 32 GiB, or a fixed size.
 - A total limit across all terminals of the host: automatic is 60% of physical memory, or a fixed size.
 - System memory pressure (the macOS pressure level, less than a tenth of memory available on Linux, the runtime's high-load threshold
   elsewhere) makes the guard act on the single biggest terminal, but only when that terminal uses at least half its own limit, so an
   unrelated memory hog does not cost the user a small editor session.
-- A grace period (10 s) between asking a process to stop and killing it, and a list of protected program names.
+- A grace period (10 s, `graceSeconds`, no control in Settings) between asking a process to stop and killing it, and a list of protected program names.
+- Stored as `memoryGuard`, `perTerminalMb`, `totalMb`, `graceSeconds` and `protect` in the plugin's settings. A value out of range reads as its default. The host setting `terminal-memory` (wire member 34) of protocol 22 and below moved there at protocol 24: its values are copied once when the state file loads, a value the plugin already holds wins, and the old key leaves the file.
 
 Escalation, never silent. Each terminal is in one of four states.
 

@@ -913,6 +913,7 @@ Tereditor.Plugins.Api.Host.IProcessHost
 Tereditor.Plugins.Api.Host.IProcessHost.LanguageServerName(string! serverId) -> string!
 Tereditor.Plugins.Api.Host.IProcessHost.LanguageServers() -> System.Collections.Generic.IReadOnlyList<(string! Workspace, string! ServerId, int Pid)>!
 Tereditor.Plugins.Api.Host.IProcessHost.ManageOwned(bool enabled) -> void
+Tereditor.Plugins.Api.Host.IProcessHost.ManageMemoryGuard(System.Func<(int PerTerminalMb, int TotalMb, int GraceSeconds, System.Collections.Generic.IReadOnlyList<string!>! Protect)?>? limits) -> void
 Tereditor.Plugins.Api.Host.IProcessHost.MemoryGuardEvents() -> System.Collections.Generic.IReadOnlyList<(System.DateTimeOffset At, Tereditor.Plugins.Api.TerminalRef? Terminal, string! Text)>!
 Tereditor.Plugins.Api.Host.IProcessHost.TerminalMemory(Tereditor.Plugins.Api.TerminalRef! terminal) -> (long Bytes, long Limit, string! State, string! Largest)?
 Tereditor.Plugins.Api.Host.IProcessHost.RefreshAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask

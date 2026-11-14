@@ -23,4 +23,27 @@
       <TextBlock Classes="detail" Text="Stopping an agent's row also stops every process it started. Off stops only the agent's own process; stop a child by selecting its row." />
     </StackPanel>
   </CheckBox>
+  <StackPanel Spacing="4">
+    <TextBlock Text="Memory guard" FontSize="15" FontWeight="SemiBold" />
+    <TextBlock Classes="detail" Text="tereditor's own out-of-memory killer for programs started in terminals. It samples every terminal's processes every few seconds and warns at 80% of a limit. Above it, tereditor asks the largest process to stop, kills it after a grace period and, if the terminal is still over, everything below the shell. The shell and the terminal stay, with a notice. It also steps in when the system is short of memory. It samples, so a program that allocates faster than that can overshoot. Shared by every client of this host. Turning off the Processes plugin turns the guard off too." />
+  </StackPanel>
+  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+    <TextBlock Text="Stop programs that use too much memory" VerticalAlignment="Center" />
+    <kit:Switch x:Name="ProcessesMemoryGuard" Grid.Column="1" Label="Stop programs that use too much memory" VerticalAlignment="Center" />
+  </Grid>
+  <StackPanel x:Name="ProcessesMemoryLimits" Spacing="16">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Limit per terminal" />
+      <ComboBox x:Name="ProcessesMemoryPerTerminal" HorizontalAlignment="Stretch" AutomationProperties.Name="Memory limit per terminal" />
+    </StackPanel>
+    <StackPanel Spacing="4">
+      <TextBlock Text="Limit for all terminals together" />
+      <ComboBox x:Name="ProcessesMemoryTotal" HorizontalAlignment="Stretch" AutomationProperties.Name="Memory limit for all terminals together" />
+    </StackPanel>
+    <StackPanel Spacing="4">
+      <TextBlock Text="Programs never stopped" />
+      <TextBlock Classes="detail" Text="Names separated by commas. The guard only warns about them." />
+      <TextBox x:Name="ProcessesMemoryProtect" PlaceholderText="for example postgres, my-database" AutomationProperties.Name="Programs the memory guard never stops" />
+    </StackPanel>
+  </StackPanel>
 </StackPanel>

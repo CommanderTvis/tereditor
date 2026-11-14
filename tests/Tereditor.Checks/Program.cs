@@ -190,6 +190,7 @@ internal static class Program
             ProcessesChecks.Run(root).GetAwaiter().GetResult();
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
             ProcessesChecks.RunUi();
+            ProcessesSettingsUiChecks.Run(root);
             return;
         }
         if (args.SequenceEqual(["--agent-session-ownership"]))
@@ -1550,6 +1551,7 @@ internal static class Program
         Gate.Case("shell-integration", () => ShellIntegrationChecks.RunHost(root).GetAwaiter().GetResult());
         Gate.Case("windows-host", () => WindowsChecks.RunHost(root).GetAwaiter().GetResult());
         Gate.Case("processes", () => ProcessesChecks.Run(root).GetAwaiter().GetResult());
+        Gate.Case("processes-settings-ui", () => ProcessesSettingsUiChecks.Run(root));
         Gate.Case("owned-processes", () => OwnedProcessChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("workspace-tools", () => WorkspaceToolChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("agent-launch-origins", AgentLaunchChecks.RunHost);

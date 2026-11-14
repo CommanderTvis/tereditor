@@ -1840,8 +1840,6 @@ static readonly Tereditor.Host.Abstractions.TerminalSignal.ProgressTimeout -> Sy
 static Tereditor.Host.Abstractions.HostSettings.NormalizeBellFeatures(string! value) -> string?
 static Tereditor.Host.Abstractions.TerminalSignal.operator !=(Tereditor.Host.Abstractions.TerminalSignal? left, Tereditor.Host.Abstractions.TerminalSignal? right) -> bool
 static Tereditor.Host.Abstractions.TerminalSignal.operator ==(Tereditor.Host.Abstractions.TerminalSignal? left, Tereditor.Host.Abstractions.TerminalSignal? right) -> bool
-Tereditor.Host.Abstractions.HostSettings.TerminalMemory.get -> string!
-Tereditor.Host.Abstractions.HostSettings.TerminalMemory.set -> void
 Tereditor.Host.Abstractions.HostSettings.LanguageLimits.get -> string!
 Tereditor.Host.Abstractions.HostSettings.LanguageLimits.set -> void
 Tereditor.Host.Abstractions.LanguageServerState.Workspace.get -> string!
@@ -2209,7 +2207,8 @@ Tereditor.Host.Abstractions.HostSettings.ActiveKeymap.get -> string!
 Tereditor.Host.Abstractions.HostSettings.ActiveKeymap.set -> void
 Tereditor.Host.Abstractions.HostState.KeymapPresets.get -> System.Collections.Generic.IReadOnlyList<Tereditor.Host.Abstractions.KeymapPreset!>!
 Tereditor.Host.Abstractions.HostState.KeymapPresets.init -> void
-const Tereditor.Host.Abstractions.HostProtocol.Current = 23 -> int
+const Tereditor.Host.Abstractions.HostProtocol.Current = 24 -> int
+const Tereditor.Host.Abstractions.HostProtocol.TerminalMemoryInPlugin = 24 -> int
 const Tereditor.Host.Abstractions.HostProtocol.IsolatedSurfaces = 19 -> int
 const Tereditor.Host.Abstractions.HostProtocol.Keymaps = 18 -> int
 static Tereditor.Host.Abstractions.HostStateChange.DeleteKeymap(string! name) -> Tereditor.Host.Abstractions.HostStateChange!
