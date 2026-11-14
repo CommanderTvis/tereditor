@@ -24,6 +24,7 @@ internal static class UnifiedChromeChecks
         PlaygroundGuideChecks.Run(Path.Combine(root, "playground-guide"));
         ZoomedColumns(Path.Combine(root, "unified-zoom"));
         Window(Path.Combine(root, "unified-chrome"));
+        foreach (var atLeft in new[] { true, false }) FirstRow(Path.Combine(root, atLeft ? "unified-row-left" : "unified-row-right"), atLeft);
         Classic(Path.Combine(root, "classic-chrome"));
     }
 
@@ -35,20 +36,19 @@ internal static class UnifiedChromeChecks
         var menu = app.Window.ViewMenu;
         for (var round = 0; round < 2; round++)
         {
-            if (unified && !OperatingSystem.IsMacOS()) app.Click(app.Find<Button>("AppMenuButton"), freshGesture: false);
-            else if (unified) app.Find<StackPanel>("RailHeader").RaiseEvent(new Avalonia.Input.ContextRequestedEventArgs { RoutedEvent = Control.ContextRequestedEvent });
+            if (unified) app.Find<StackPanel>("RailHeader").RaiseEvent(new Avalonia.Input.ContextRequestedEventArgs { RoutedEvent = Control.ContextRequestedEvent });
             else app.Find<Grid>("MainHeader").RaiseEvent(new Avalonia.Input.ContextRequestedEventArgs { RoutedEvent = Control.ContextRequestedEvent });
             Until(() => menu.IsOpen);
             var entries = Entries(menu.Items).ToArray();
             Require(entries.Any(item => item.Name == "NewWindow") && entries.Any(item => Equals(item.Header, "Reset frame")) && entries.Any(item => Equals(item.Header, "Toggle right")),
                 $"The View menu lists its entries on round {round}: " + string.Join("|", entries.Select(item => item.Name + "/" + item.Header)));
-            Require(!unified || entries.Any(item => item.Name == "AboutMenu"), "The overflow menu keeps About reachable.");
+            Require(!unified || entries.Any(item => item.Name == "AboutMenu"), "The header's context menu keeps About reachable.");
             var names = entries.Select(item => item.Name).ToList();
             var settings = entries.SingleOrDefault(item => item.Name == "SettingsMenu");
-            Require(unified == (settings is not null), "Only the window without a top bar lists Settings in the overflow menu.");
+            Require(unified == (settings is not null), "Only the window without a top bar lists Settings in the header's context menu.");
             if (settings is not null)
                 Require(Equals(settings.Header, "Settings…") && settings.Icon is not null && names.IndexOf("SettingsMenu") + 1 == names.IndexOf("AboutMenu"),
-                    "The overflow menu holds Settings, with its icon, right before About.");
+                    "The header's context menu holds Settings, with its icon, right before About.");
             foreach (var entry in entries.Where(item => item.Items.Count > 0)) { entry.Open(); entry.Close(); }
             menu.Close();
             Until(() => !menu.IsOpen);
@@ -227,13 +227,11 @@ internal static class UnifiedChromeChecks
             Require(app.Find<Avalonia.Controls.DockPanel>("RemoteRow").GetLogicalChildren().OfType<Control>().All(part => Right(part) <= Right(remoteBlock) + 0.5), "The Remote content never overflows its block.");
         }
         else Require(Math.Abs(Right(branch) - rowEnd) <= 1, $"Without a remote status the branch block takes the full row ({Right(branch)}, {rowEnd}).");
-        Require(!OperatingSystem.IsMacOS() || Math.Abs(Right(project) - rowEnd) <= 1 && project.Bounds.Width > header.Bounds.Width / 2, "The project value fills the rail's width.");
+        Require(!UnifiedChrome.ControlsAtLeft || Math.Abs(Right(project) - rowEnd) <= 1 && project.Bounds.Width > header.Bounds.Width / 2, "The project value fills the rail's width.");
         var credits = app.Window.GetLogicalDescendants().OfType<Border>().FirstOrDefault(border => border.Name == "CreditsSegment");
         if (credits is { IsVisible: true })
             Require(credits.GetLogicalDescendants().OfType<Button>().Where(button => button.IsVisible).All(button => Math.Abs(Right(button) - rowEnd) <= 1), "The credits value fills the row like the others.");
-        var more = app.Window.GetLogicalDescendants().OfType<Button>().FirstOrDefault(button => button.Name == "AppMenuButton");
-        Require(OperatingSystem.IsMacOS() == (more is null), "The three-dots button is drawn in the browser only: a Mac has the native application menu.");
-        Require(Math.Abs(header.Bounds.Width - Right(more ?? app.Find<Button>("AddProjectMenu"))) <= 1 || !OperatingSystem.IsMacOS(), "The last button of the first row ends at the rail's right edge.");
+        Require(!app.Window.GetLogicalDescendants().OfType<Button>().Any(button => button.Name == "AppMenuButton"), "There is no three-dots button in the header.");
     }
 
     /// <summary>
@@ -327,14 +325,8 @@ internal static class UnifiedChromeChecks
     private static void CaptionRow(E2eWorkspace app, StackPanel header, Control[] all)
     {
         var gear = all.OfType<Button>().SingleOrDefault(button => button.Name == "RailSettingsButton");
-        if (OperatingSystem.IsMacOS()) Require(gear is null, "A Mac keeps Settings in its application menu: the rail header has no gear.");
-        else
-        {
-            var add = app.Find<Button>("AddProjectMenu");
-            Require(gear is not null && header.IsLogicalAncestorOf(gear) && ReferenceEquals(gear.Parent, add.Parent), "The Settings gear sits beside the add button in the rail header.");
-            Require(Math.Abs(gear!.TranslatePoint(default, app.Window)!.Value.Y - add.TranslatePoint(default, app.Window)!.Value.Y) <= 1 &&
-                gear!.TranslatePoint(default, app.Window)!.Value.X > add.TranslatePoint(default, app.Window)!.Value.X, "The gear shares the add button's row, after it.");
-        }
+        var add = app.Find<Button>("AddProjectMenu");
+        Require(UnifiedChrome.ControlsAtLeft == (gear is null), "Only a layout without the controls at the left has the Settings gear.");
         var lights = app.Find<Grid>("RailLightsRow");
         var surface = app.Find<DockSurface>("WorkspaceWorkbench");
         app.Window.Caption = new CaptionBar(40, 140, 180);
@@ -342,12 +334,42 @@ internal static class UnifiedChromeChecks
         {
             Dispatcher.UIThread.RunJobs(); app.Window.UpdateLayout();
             Require(lights.Height >= 40 && lights.Margin.Left == 140, "Under a caption bar the rail header's first row is as tall as it and clears the app chip.");
+            Require(UnifiedChrome.ControlsAtLeft || add.TranslatePoint(default, app.Window)!.Value.X >= 140, "The add button clears the app chip at the left.");
             Require(surface.TopRightReserve == (40, 180) && (surface.TopRightStrip is not { } strip || strip.Padding.Right >= 180) &&
                 (surface.TopRightStrip is not null || surface.Margin.Top >= 0), "The top right clears the system's buttons.");
             Require(!app.Find<Border>("WindowTitleBar").IsVisible && surface.Bounds.Top == 0, "No separate top bar or strip appears under the caption.");
         }
         finally { app.Window.Caption = null; Dispatcher.UIThread.RunJobs(); }
         Require(surface.TopRightReserve == default, "Without a caption bar nothing is reserved.");
+    }
+
+    /// <summary>
+    /// The first row of the rail header: with the window's controls at the left the add button is at the right end and there is no gear;
+    /// otherwise the add button and then the gear sit at the left. Either way there is no three-dots button.
+    /// </summary>
+    private static void FirstRow(string directory, bool atLeft)
+    {
+        UnifiedChrome.Override = true; UnifiedChrome.ControlsAtLeftOverride = atLeft;
+        try
+        {
+            using var app = OpenFixtureProject(directory);
+            var header = app.Find<StackPanel>("RailHeader");
+            var all = app.Window.GetLogicalDescendants().OfType<Control>().ToArray();
+            var add = app.Find<Button>("AddProjectMenu");
+            var gear = all.OfType<Button>().SingleOrDefault(button => button.Name == "RailSettingsButton");
+            Require(!all.OfType<Button>().Any(button => button.Name == "AppMenuButton"), "There is no three-dots button in the header.");
+            double X(Control control) => control.TranslatePoint(default, app.Window)!.Value.X;
+            if (atLeft)
+            {
+                Require(gear is null && Math.Abs(header.Bounds.Width - (X(add) + add.Bounds.Width)) <= 1, "With the window's controls at the left the add button ends the row and there is no gear.");
+                return;
+            }
+            Require(gear is not null && ReferenceEquals(gear.Parent, add.Parent), "The add button and the gear sit together.");
+            Require(X(add) < 8 && Math.Abs(X(gear!) - (X(add) + add.Bounds.Width)) <= 1, "The add button is first at the left, then the gear.");
+            Require(Math.Abs(gear!.TranslatePoint(default, app.Window)!.Value.Y - add.TranslatePoint(default, app.Window)!.Value.Y) <= 1, "They share one row.");
+            Console.WriteLine("PASS unified chrome: the first row puts + and the gear at the left when the window controls are not");
+        }
+        finally { UnifiedChrome.Override = false; UnifiedChrome.ControlsAtLeftOverride = null; }
     }
 
     private static void Window(string directory)
@@ -361,8 +383,8 @@ internal static class UnifiedChromeChecks
                 "There is no top bar: the workbench starts at the top of the window.");
             var header = app.Find<StackPanel>("RailHeader");
             bool InHeader(Control control) => header.IsLogicalAncestorOf(control);
-            Require((OperatingSystem.IsMacOS() || InHeader(app.Find<Button>("AppMenuButton"))) && InHeader(app.Find<Button>("ScopeProject")) && InHeader(app.Find<Button>("ScopeBranch")) &&
-                InHeader(app.Find<Avalonia.Controls.DockPanel>("RemoteRow")), "The rail header holds the overflow menu, the project switcher and the branch block with its sync state.");
+            Require(InHeader(app.Find<Button>("ScopeProject")) && InHeader(app.Find<Button>("ScopeBranch")) &&
+                InHeader(app.Find<Avalonia.Controls.DockPanel>("RemoteRow")), "The rail header holds the project switcher and the branch block with its sync state.");
             Require(app.Window.Layout.State.Groups.Count(group => group.Region == "left") == 1 && app.Window.Layout.State.LeftVisible,
                 "The left column is the Projects rail alone.");
             var all = app.Window.GetLogicalDescendants().OfType<Control>().ToArray();
@@ -381,7 +403,7 @@ internal static class UnifiedChromeChecks
             Layout(app, header);
             HostBlock(app, header);
             // Without a title row for traffic lights (the browser), the header keeps its own inset from the window's top edge.
-            Require(OperatingSystem.IsMacOS() || app.Find<Border>("ProjectSegment").TranslatePoint(default, app.Window)!.Value.Y >= WorkbenchWindow.RailTopInset,
+            Require(UnifiedChrome.ControlsAtLeft || app.Find<Border>("ProjectSegment").TranslatePoint(default, app.Window)!.Value.Y >= WorkbenchWindow.RailTopInset,
                 "The rail header does not touch the window's top edge.");
             ViewMenu(app, unified: true);
             HeaderPopups(app);

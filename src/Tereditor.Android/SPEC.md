@@ -87,7 +87,7 @@ Contract:
   soft keyboard, and the frame is painted in the window's background colour so the bars sit over it.
   Avalonia's automatic safe-area padding is turned off for its content, since the frame already applies it.
 - In an Android desktop window (desktop windowing, Android 15 / API 35 and later) the desktop frame's header is the
-  window's title bar, as on a Mac. A wide workbench wears the unified chrome (`UnifiedChrome`): the same rail header, fixed Projects rail, single main group and right side as the Mac and browser windows, with a Settings gear in the rail header. When the root is a wide workbench and the window has a caption bar
+  window's title bar, as on a Mac. A wide workbench wears the unified chrome (`UnifiedChrome`): the same rail header, fixed Projects rail, single main group and right side as the Mac and browser windows, with the add button and a Settings gear at the left of the rail header's first row, after the room the system's app chip takes. When the root is a wide workbench and the window has a caption bar
   (`WindowInsets.Type.captionBar()` of the decor view's root insets), the activity's caption bar turns transparent
   (`WindowInsetsController.setSystemBarsAppearance` with `APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND`), the frame
   drops the caption from its top padding, and the header takes its row: never shorter than the caption, and clear
