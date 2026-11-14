@@ -4,6 +4,8 @@ using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 
+using Tereditor.UI;
+
 using static Tereditor.Checks.E2E.E2eWorkspace;
 using static Tereditor.Checks.E2E.WorkspaceFixture;
 
