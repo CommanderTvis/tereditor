@@ -65,6 +65,14 @@ internal static class ClaudeChatChecks
         emit "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"$SID\",\"model\":\"$MODEL\",\"permissionMode\":\"$MODE\",\"cwd\":\"$PWD\",\"claude_code_version\":\"9.9\",\"slash_commands\":[\"compact\",\"fix\"],\"skills\":[\"fix\"],\"agents\":[\"Explore\"],\"mcp_servers\":[{\"name\":\"m\",\"status\":\"connected\"}]}"
         while IFS= read -r line; do
           case "$line" in
+            # A /btw side question: answered at once, while a turn runs too, unless it asks to linger; a cancel ends a lingering one.
+            *'"subtype":"side_question"'*)
+              echo "$line" >> "$D/side.log"
+              emit "{\"type\":\"system\",\"subtype\":\"control_request_progress\",\"request_id\":\"$(rid "$line")\",\"status\":\"started\"}"
+              case "$line" in *linger*) ;; *) ok "$(rid "$line")" '{"response":"Side **answer**","synthetic":false}' ;; esac ;;
+            *'"type":"control_cancel_request"'*)
+              echo "$line" >> "$D/cancel.log"
+              emit "{\"type\":\"control_response\",\"response\":{\"subtype\":\"error\",\"request_id\":\"$(rid "$line")\",\"error\":\"Side question cancelled\"}}" ;;
             *'"subtype":"initialize"'*) ok "$(rid "$line")" '{"models":[{"value":"fake-model","displayName":"Fake","description":"d","supportedEffortLevels":["low","high"]},{"value":"new-model","displayName":"New"}],"commands":[{"name":"compact","description":"Compact"},{"name":"fix","description":"Fix","argumentHint":"<x>"}]}' ;;
             *'"subtype":"set_model"'*) sleep 0.5; ok "$(rid "$line")" ;;
             *'"subtype":"set_permission_mode"'*) ok "$(rid "$line")" ;;
@@ -212,7 +220,7 @@ internal static class ClaudeChatChecks
             Directory.CreateDirectory(path);
             Environment.SetEnvironmentVariable(name, path);
         }
-        try { await RunIn(directory); await SharedDraft(Path.Combine(directory, "shared-draft")); await BashMode(Path.Combine(directory, "bash-mode")); await ChromeOverride(Path.Combine(directory, "chrome")); await ExitStderr(Path.Combine(directory, "exit-stderr")); await ClearConversation(Path.Combine(directory, "clear")); }
+        try { await RunIn(directory); await SharedDraft(Path.Combine(directory, "shared-draft")); await BashMode(Path.Combine(directory, "bash-mode")); await SideQuestion(Path.Combine(directory, "side-question")); await ChromeOverride(Path.Combine(directory, "chrome")); await ExitStderr(Path.Combine(directory, "exit-stderr")); await ClearConversation(Path.Combine(directory, "clear")); }
         finally { foreach (var (name, value) in previous) Environment.SetEnvironmentVariable(name, value); }
     }
 
@@ -511,6 +519,67 @@ internal static class ClaudeChatChecks
         await fixture.Call(ChatContract.Send, new ChatSendParams(project, chat, "again"));
         await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle && view.Items.OfType<ChatUserItem>().Any(item => item.Text == "again"), "the second send to finish");
         Require(Texts(File.ReadAllLines(users)[^1]).SequenceEqual(["again"]), "A command is carried once.");
+        await fixture.Call(ChatContract.Close, new ChatKey(project, chat));
+    }
+
+    // /btw asks the running CLI a side_question control request: the answer gets its own bubble, nothing reaches the conversation or the
+    // transcript, the running turn goes on, later questions carry the earlier answers, and Dismiss cancels one still being answered.
+    private static async Task SideQuestion(string directory)
+    {
+        Require(ChatContract.SideQuestion("/btw how many?") == "how many?" && ChatContract.SideQuestion("  /btw\nwhy") == "why" && ChatContract.SideQuestion("/btw") == "" &&
+            ChatContract.SideQuestion("/btwx") is null && ChatContract.SideQuestion("ask /btw x") is null, "Only a leading /btw, alone or followed by space, is a side question.");
+        var chat = Guid.NewGuid().ToString();
+        await using var fixture = await Start(directory, new StateHolder());
+        var project = fixture.Project;
+        fixture.Watch(chat);
+        await fixture.Call(ChatContract.Open, new ChatOpenParams(project, chat));
+        var ready = await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle && view.Header.Commands.Count > 0, "the side-question chat to be ready");
+        Require(ready.Header.Commands.Count(command => command.Name == "btw") == 1 && ready.Header.Commands.Any(command => command.Name == "fix"), "The command menu offers /btw beside the CLI's own commands.");
+        var fake = Path.Combine(directory, "fake");
+        string[] Lines(string name) => File.Exists(Path.Combine(fake, name)) ? File.ReadAllLines(Path.Combine(fake, name)) : [];
+        int Spawns() => Lines("args.log").Count(line => line.Contains("stream-json", StringComparison.Ordinal));
+        var spawns = Spawns();
+
+        // A side question while a turn runs: its bubble streams apart, and the turn, the conversation and the CLI's input are left alone.
+        await fixture.Call(ChatContract.Send, new ChatSendParams(project, chat, "slow"));
+        await fixture.Until(chat, view => view.Header.Status == ChatStatus.Running && view.Items.OfType<ChatAssistantItem>().Any(item => item.Text == "working"), "the slow turn to run");
+        var prompts = Lines("users.log").Length;
+        var itemsBefore = (await fixture.View(chat)).Items.Count;
+        await fixture.Call(ChatContract.Send, new ChatSendParams(project, chat, "/btw what did we do?"));
+        var answered = await fixture.Until(chat, view => view.Items.OfType<ChatNoticeItem>().Any(item => item.Category == ChatNoticeKinds.SideAnswer && !item.Running), "the side answer");
+        var bubble = answered.Items.OfType<ChatNoticeItem>().Single(item => item.Category == ChatNoticeKinds.SideAnswer);
+        Require(bubble is { Label: "what did we do?", Text: "Side **answer**", Level: ChatNoticeLevel.Info } && bubble.Id.StartsWith("s:", StringComparison.Ordinal), "The answer shows in its own bubble, under the question.");
+        var asked = JsonDocument.Parse(Lines("side.log").Single()).RootElement;
+        Require(asked.GetProperty("type").GetString() == "control_request" && asked.GetProperty("request").GetProperty("question").GetString() == "what did we do?" &&
+            asked.GetProperty("request").GetProperty("history").GetArrayLength() == 0, "The question goes to the running CLI as a side_question control request.");
+        Require(Lines("users.log").Length == prompts && !answered.Items.OfType<ChatUserItem>().Any(item => item.Text.Contains("/btw", StringComparison.Ordinal)),
+            "A side question is never sent as a prompt nor added to the conversation.");
+        Require(answered.Items.Count == itemsBefore + 1, "The CLI's progress frame for the side question adds no row: the bubble is the only new item.");
+        Require(answered.Header.Status == ChatStatus.Running && answered.Items.OfType<ChatAssistantItem>().Any(item => item is { Text: "working", Streaming: true }) && Spawns() == spawns,
+            "The running turn goes on, uninterrupted, and no second Claude Code starts.");
+
+        // A later question carries the earlier exchange; dismissing one still being answered cancels it and drops its bubble.
+        await fixture.Call(ChatContract.Send, new ChatSendParams(project, chat, "/btw linger a while"));
+        var lingering = (await fixture.Until(chat, view => view.Items.OfType<ChatNoticeItem>().Any(item => item is { Category: ChatNoticeKinds.SideAnswer, Running: true }), "the lingering bubble"))
+            .Items.OfType<ChatNoticeItem>().Single(item => item is { Category: ChatNoticeKinds.SideAnswer, Running: true });
+        await fixture.Until(chat, _ => Lines("side.log").Length == 2, "the second side question to reach the CLI");
+        var second = JsonDocument.Parse(Lines("side.log")[1]).RootElement;
+        var history = second.GetProperty("request").GetProperty("history");
+        Require(history.GetArrayLength() == 1 && history[0].GetProperty("question").GetString() == "what did we do?" && history[0].GetProperty("response").GetString() == "Side **answer**",
+            "A later side question carries the earlier question and answer.");
+        await fixture.Call(ChatContract.DismissSide, new ChatSideParams(project, chat, lingering.Id));
+        var dismissed = await fixture.Until(chat, view => view.Items.All(item => item.Id != lingering.Id), "the dismissed bubble to go");
+        await fixture.Until(chat, _ => Lines("cancel.log").Length == 1, "the cancel to reach the CLI");
+        Require(Lines("cancel.log")[0].Contains(second.GetProperty("request_id").GetString()!, StringComparison.Ordinal), "Dismissing a side question still being answered cancels its request.");
+        await Task.Delay(200);
+        Require((await fixture.View(chat)).Items.All(item => item.Id != lingering.Id) && dismissed.Header.Status == ChatStatus.Running, "A cancelled side question does not come back, and the turn still runs.");
+        await fixture.Call(ChatContract.DismissSide, new ChatSideParams(project, chat, bubble.Id));
+        await fixture.Until(chat, view => !view.Items.OfType<ChatNoticeItem>().Any(item => item.Category == ChatNoticeKinds.SideAnswer), "the answered bubble to go");
+
+        var refused = false;
+        try { await fixture.Call(ChatContract.Send, new ChatSendParams(project, chat, "/btw")); }
+        catch (Exception error) when (error is PluginCallException or InvalidOperationException) { refused = error.Message.Contains("Type a question after /btw.", StringComparison.Ordinal); }
+        Require(refused, "/btw without a question is refused in plain words.");
         await fixture.Call(ChatContract.Close, new ChatKey(project, chat));
     }
 

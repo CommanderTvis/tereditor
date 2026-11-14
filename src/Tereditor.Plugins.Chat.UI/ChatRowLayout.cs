@@ -10,7 +10,7 @@ using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Plugins.Chat.UI;
 
-internal enum ChatHitKind { Toggle, Allow, Deny, Always, Rewind, Fork, OpenDiff, LoadFull, Link, EditInput, OpenThread, OpenText, Pick, OtherText, Submit, CancelAsk, Retry, StopShell, CopyCode, Tip }
+internal enum ChatHitKind { Toggle, Allow, Deny, Always, Rewind, Fork, OpenDiff, LoadFull, Link, EditInput, OpenThread, OpenText, Pick, OtherText, Submit, CancelAsk, Retry, StopShell, CopyCode, Tip, DismissSide }
 
 internal readonly record struct ChatHit(Rect Bounds, ChatHitKind Kind, string? Arg = null);
 
@@ -1019,8 +1019,33 @@ internal sealed class ChatRowLayout : IDisposable
             case ChatNoticeKinds.Restart:
                 Block("\u21BA " + notice.Text, Ui.Muted, 12, italic: true);
                 return;
+            case ChatNoticeKinds.SideAnswer:
+                SideCard(notice);
+                return;
         }
         Block(notice.Text, notice.Level switch { ChatNoticeLevel.Error => Ui.Danger, ChatNoticeLevel.Warning => Ui.Warning, _ => Ui.Muted }, 12, italic: notice.Level == ChatNoticeLevel.Info);
+    }
+
+    // A /btw side question: a tinted card apart from the conversation with the question, the answer as Markdown and Dismiss at the right.
+    private void SideCard(ChatNoticeItem notice)
+    {
+        var top = y;
+        var failed = notice.Level == ChatNoticeLevel.Error;
+        y += 6;
+        var dismiss = Make("Dismiss", Ui.TextBrush, 12, 80, maxLines: 1);
+        var box = new Rect(left + inner - dismiss.Width - 18, y, dismiss.Width + 12, 20);
+        fills.Add(new(box, Ui.Elevated, 4, new Pen(Ui.BorderBrush)));
+        Place(dismiss, box.X + 6, box.Y + 2, selectable: false);
+        hits.Add(new(box, ChatHitKind.DismissSide));
+        var head = Make("/btw " + notice.Label, Ui.Muted, 12, Math.Max(1, inner - 28 - box.Width), bold: true, maxLines: 2);
+        Place(head, left + 10, y + 2);
+        y += Math.Max(head.Height + 6, 24);
+        if (notice.Running && notice.Text.Length == 0) Block("Answering\u2026", Ui.Muted, 12, indent: 10, italic: true);
+        else if (failed) Block(notice.Text, Ui.Danger, 12, indent: 10);
+        else foreach (var piece in Markdown.Parse(notice.Text)) Piece(piece, false);
+        Block("Side question. It is not added to the conversation.", Ui.Hint, 11, indent: 10, italic: true);
+        y += 6;
+        fills.Insert(0, new(new Rect(left, top, inner, y - top), failed ? Ui.DangerWash : Ui.InfoWash, 6, new Pen(failed ? Ui.Danger : Ui.Accent)));
     }
 
     // A bash-mode command: "! command" with how it ended, its output below, and Stop at the right while it runs.

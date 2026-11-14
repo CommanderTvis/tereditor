@@ -97,9 +97,15 @@ internal sealed partial class ChatFolder
         return true;
     }
 
+    /// <summary>The <c>/btw</c> entry of the command menu: the host answers side questions itself (<c>side_question</c>), and the CLI does not list the command.</summary>
+    internal static readonly ChatCommand SideCommand = new("btw", "Ask a quick side question about this conversation. It is not added to the conversation.", "<question>");
+
     public void SetHeader(Func<ChatHeader, ChatHeader> change)
     {
         var next = change(Header);
+        // A new command list from the CLI gets the /btw entry, unless it lists the command itself.
+        if (!ReferenceEquals(next.Commands, Header.Commands) && next.Commands.Count > 0 && !next.Commands.Any(command => command.Name == SideCommand.Name))
+            next = next with { Commands = [SideCommand, .. next.Commands] };
         if (next == Header) return;
         Header = next;
         headerDirty = true;

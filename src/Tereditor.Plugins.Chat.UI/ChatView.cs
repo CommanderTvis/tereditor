@@ -584,6 +584,8 @@ internal sealed partial class ChatView : Grid, IChatRowActions
 
     internal string WithEditorContext(string text)
     {
+        // A /btw side question must stay first to be one; it is answered from the conversation, not from the editor.
+        if (ChatContract.SideQuestion(text) is not null) return text;
         if (ContextSelection() is not { } selection) return text;
         var mention = selection.Mention();
         lastMention = mention;
@@ -641,6 +643,12 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         catch (Exception error) when (error is not OperationCanceledException) { env.Notify(PluginNotificationKind.Error, "Couldn't stop the task", ChatErrors.Text(error)); }
     }
 
+    private async Task DismissSide(string itemId)
+    {
+        try { await env.Client.RequestAsync(ChatContract.DismissSide, new ChatSideParams(workspaceId, chatId, itemId)); }
+        catch (Exception error) when (error is not OperationCanceledException) { env.Notify(PluginNotificationKind.Error, "Couldn't dismiss the side answer", ChatErrors.Text(error)); }
+    }
+
     internal void RevealTask(ChatTask task)
     {
         if (transcript.Reveal(task.ToolUseId) is { } id && transcript.Row(id) is { } row) list.ScrollToRow(row);
@@ -658,6 +666,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
             case ChatHitKind.OpenThread when arg is not null: OpenThread(arg); break;
             case ChatHitKind.Retry: _ = RetryLast(); break;
             case ChatHitKind.StopShell: _ = StopShell(); break;
+            case ChatHitKind.DismissSide: _ = DismissSide(row.Item.Id); break;
             case ChatHitKind.Link when arg is not null && Markdown.SafeLink(arg): OpenUrl(arg); break;
             case ChatHitKind.Link when arg is not null && arg.StartsWith("file:", StringComparison.Ordinal): _ = OpenFileLink(arg[5..]); break;
             case ChatHitKind.LoadFull: _ = LoadFull(row); break;

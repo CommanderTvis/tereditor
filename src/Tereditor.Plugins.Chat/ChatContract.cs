@@ -227,6 +227,11 @@ public static class ChatNoticeKinds
     public const string Meta = "meta";
     /// <summary>Lines that could not be shown, coalesced into one notice.</summary>
     public const string Skipped = "skipped";
+    /// <summary>
+    /// A <c>/btw</c> side question: Label is the question, Text the answer (Markdown), Running while it is answered, Level Error when it failed.
+    /// It is never part of the conversation: the agent does not see it, a revival does not bring it back, and <see cref="ChatContract.DismissSide"/> drops it.
+    /// </summary>
+    public const string SideAnswer = "side-answer";
 }
 
 public sealed record ChatNoticeItem(string Id, long Seq, ChatNoticeLevel Level, string Text) : ChatItem(Id, Seq)
@@ -452,6 +457,9 @@ public sealed record ChatAnswerQuestionParams(string WorkspaceId, string ChatId,
 
 public sealed record ChatQueuedParams(string WorkspaceId, string ChatId, string ItemId);
 
+/// <summary>A <see cref="ChatNoticeKinds.SideAnswer"/> bubble to dismiss.</summary>
+public sealed record ChatSideParams(string WorkspaceId, string ChatId, string ItemId);
+
 public sealed record ChatEditQueuedParams(string WorkspaceId, string ChatId, string ItemId, string Text);
 
 public sealed record ChatRewindParams(string WorkspaceId, string ChatId, string Uuid)
@@ -536,6 +544,8 @@ public static class ChatContract
     public static readonly PluginMethod<ChatShellParams, Ack> RunShell = new("chatRunShell");
     /// <summary>Ends the chat's running bash-mode command (its whole process group); the card settles with what it printed.</summary>
     public static readonly PluginMethod<ChatKey, Ack> StopShell = new("chatStopShell");
+    /// <summary>Drops a <see cref="ChatNoticeKinds.SideAnswer"/> bubble and cancels its question when it is still being answered.</summary>
+    public static readonly PluginMethod<ChatSideParams, Ack> DismissSide = new("chatDismissSide");
     public static readonly PluginMethod<ChatRewindParams, Ack> Rewind = new("chatRewind");
     /// <summary>A dry run of the code rewind to a prompt (<c>rewind_files</c> with <c>dry_run</c>): what would change.</summary>
     public static readonly PluginMethod<ChatRewindParams, ChatRewindPreview> RewindPreview = new("chatRewindPreview");
@@ -561,8 +571,16 @@ public static class ChatContract
     /// <summary>The wire cut for a tool's output and a notice's text; the rest is fetched with <see cref="ItemDetail"/>.</summary>
     public const int OutputLimit = 16 * 1024;
 
+    /// <summary>The question of a <c>/btw</c> side question (empty when none was typed); null when the text is not one.</summary>
+    public static string? SideQuestion(string text)
+    {
+        var trimmed = text.TrimStart();
+        if (!trimmed.StartsWith("/btw", StringComparison.Ordinal) || trimmed.Length > 4 && !char.IsWhiteSpace(trimmed[4])) return null;
+        return trimmed[4..].Trim();
+    }
+
     public static readonly IReadOnlyList<PluginMethodSpec> Methods =
-        [Open, Snapshot, Send, Interrupt, Close, SetModel, SetPermissionMode, SetEffort, SetTitle, Answer, AnswerQuestion, Dequeue, EditQueued, SendQueuedNow, RunShell, StopShell, Rewind, RewindPreview, Fork, StopTask, ItemDetail, Sessions, Files, CompletePath, SetDraft];
+        [Open, Snapshot, Send, Interrupt, Close, SetModel, SetPermissionMode, SetEffort, SetTitle, Answer, AnswerQuestion, Dequeue, EditQueued, SendQueuedNow, RunShell, StopShell, DismissSide, Rewind, RewindPreview, Fork, StopTask, ItemDetail, Sessions, Files, CompletePath, SetDraft];
 
     /// <summary>The JSON metadata of every type above; a plugin merging these methods combines it into its own contract's context.</summary>
     public static IJsonTypeInfoResolver Json => ChatJson.Default;
@@ -580,6 +598,7 @@ public static class ChatContract
 [JsonSerializable(typeof(ChatAnswerParams))]
 [JsonSerializable(typeof(ChatAnswerQuestionParams))]
 [JsonSerializable(typeof(ChatQueuedParams))]
+[JsonSerializable(typeof(ChatSideParams))]
 [JsonSerializable(typeof(ChatEditQueuedParams))]
 [JsonSerializable(typeof(ChatShellParams))]
 [JsonSerializable(typeof(ChatRewindParams))]

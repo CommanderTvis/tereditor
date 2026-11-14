@@ -45,6 +45,15 @@ bash mode only then (a leading `!` is plain text otherwise). `chatRunShell` star
 for a failure, the exit code (`stopped` when the user ended it). `chatStopShell` ends the running command. Only one command of a chat runs at a time.
 The finished cards are not a turn: the host carries them in front of the user's next message.
 
+## Side questions
+
+A host may answer `/btw <question>` itself: it shows a `ChatNoticeItem` of category `side-answer` whose `Label` is the question, `Text`
+the answer (Markdown), `Running` true while it is answered and `Level` Error when it failed, in plain words. It is no turn: the agent never
+sees it, nothing is added to the conversation, a revival does not bring it back, and the running turn goes on. The view draws it as a tinted
+card apart from the conversation, with the question, the answer, a note that it is not added, and Dismiss, which calls `chatDismissSide`
+with the item id; the host drops the item and cancels a question still being answered. `ChatContract.SideQuestion` says whether a text is one
+(a leading `/btw` alone or followed by whitespace); the view sends such a text as typed, without the editor-selection mention in front.
+
 ## Mention completion
 
 `Files` searches the workspace for an `@` query. `CompletePath` (`ChatPathParams`: workspace, chat, the text as typed) lists one directory for a path query (`/`, `~`, `./`, `../`, a drive): directories first, then files, filtered by the last segment, at most 50, resolved against the chat's working directory and the host user's home; a missing directory is an empty list. A host that cannot serve it fails the call and the view uses `Files`. The method is additive, so the host protocol version does not change.

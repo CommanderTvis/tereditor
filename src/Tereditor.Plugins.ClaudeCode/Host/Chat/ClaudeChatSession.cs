@@ -48,6 +48,7 @@ internal sealed class ClaudeChatSession(ChatRecord initial, ChatDeps deps)
     private readonly Dictionary<string, TaskCompletionSource<JsonElement>> controls = [];
     private readonly CancellationTokenSource lifetime = new();
     private readonly List<ShellEntry> shells = [];
+    private readonly List<SideEntry> sides = [];
     private ChatRecord record = initial;
     private ChatProcess? process;
     private int generation;
@@ -408,9 +409,9 @@ internal sealed class ClaudeChatSession(ChatRecord initial, ChatDeps deps)
 
     private static JsonObject TextBlock(string text) => new() { ["type"] = "text", ["text"] = text };
 
-    private async Task<JsonElement> ControlAsync(int mine, JsonObject request)
+    private async Task<JsonElement> ControlAsync(int mine, JsonObject request, TimeSpan? timeout = null, string? requestId = null)
     {
-        var id = "sr-" + Interlocked.Increment(ref controlSequence);
+        var id = requestId ?? "sr-" + Interlocked.Increment(ref controlSequence);
         var pending = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (gate)
         {
@@ -420,7 +421,7 @@ internal sealed class ClaudeChatSession(ChatRecord initial, ChatDeps deps)
         try
         {
             await WriteAsync(new JsonObject { ["type"] = "control_request", ["request_id"] = id, ["request"] = request });
-            return await pending.Task.WaitAsync(ControlTimeout, lifetime.Token);
+            return await pending.Task.WaitAsync(timeout ?? ControlTimeout, lifetime.Token);
         }
         finally { lock (gate) controls.Remove(id); }
     }
@@ -434,6 +435,12 @@ internal sealed class ClaudeChatSession(ChatRecord initial, ChatDeps deps)
 
     public async Task SendAsync(string text, IReadOnlyList<ChatAttachment>? attachments)
     {
+        // /btw never reaches the conversation: the CLI answers it apart, as a side_question control request.
+        if (ChatContract.SideQuestion(text) is { } side)
+        {
+            AskSide(side, attachments);
+            return;
+        }
         var uuid = Guid.NewGuid().ToString();
         if (attachments?.FirstOrDefault(attachment => attachment.Data is { Length: > ChatAttachment.MaxDataBytes }) is { } tooBig)
             throw new InvalidOperationException($"{tooBig.Name} is larger than {ChatAttachment.MaxDataBytes / (1024 * 1024)} MB, which is the most one attachment may be.");
@@ -563,6 +570,104 @@ internal sealed class ClaudeChatSession(ChatRecord initial, ChatDeps deps)
     {
         lock (gate) foreach (var entry in shells.Where(entry => !entry.Done)) entry.Stop.Cancel();
         return Task.CompletedTask;
+    }
+
+    /// <summary>One <c>/btw</c> side question: its bubble, the control request that asks it, and the answer once it came.</summary>
+    private sealed class SideEntry(string id, string requestId, string question)
+    {
+        public string Id { get; } = id;
+        public string RequestId { get; } = requestId;
+        public string Question { get; } = question;
+        public string? Answer { get; set; }
+        public bool Done { get; set; }
+        public bool Dismissed { get; set; }
+    }
+
+    /// <summary>How long a side question may take before its bubble gives up; the CLI has its own, shorter deadline.</summary>
+    private static readonly TimeSpan SideTimeout = TimeSpan.FromMinutes(5);
+    /// <summary>The earlier exchanges each side question carries, as the terminal replays them.</summary>
+    private const int SideHistory = 20;
+
+    /// <summary>
+    /// Asks a <c>/btw</c> side question with the CLI's own <c>side_question</c> control request: it answers from the conversation so far,
+    /// with no tools, without adding to the conversation or interrupting the turn. The bubble shows the answer; the status does not change.
+    /// </summary>
+    private void AskSide(string question, IReadOnlyList<ChatAttachment>? attachments)
+    {
+        if (question.Length == 0) throw new InvalidOperationException("Type a question after /btw.");
+        if (attachments is { Count: > 0 }) throw new InvalidOperationException("A side question cannot carry attachments.");
+        SideEntry entry;
+        JsonArray history;
+        int mine;
+        lock (gate)
+        {
+            if (closed || process is null) throw new InvalidOperationException("The chat is not running.");
+            history = new JsonArray([.. sides.Where(earlier => earlier.Answer is not null).TakeLast(SideHistory).Select(earlier => (JsonNode)new JsonObject { ["question"] = earlier.Question, ["response"] = earlier.Answer })]);
+            entry = new SideEntry("s:" + Guid.NewGuid(), "sr-" + Interlocked.Increment(ref controlSequence), question);
+            sides.Add(entry);
+            mine = generation;
+            folder.PutSide(entry.Id, question, "", running: true, failed: false);
+            ScheduleFlush();
+        }
+        _ = Task.Run(async () =>
+        {
+            string text;
+            var failed = true;
+            var synthetic = false;
+            try
+            {
+                var answer = await ControlAsync(mine, new JsonObject { ["subtype"] = "side_question", ["question"] = question, ["history"] = history }, SideTimeout, entry.RequestId);
+                var said = answer.ValueKind == JsonValueKind.Object ? ChatFolder.Str(answer, "response") : null;
+                failed = string.IsNullOrWhiteSpace(said);
+                // A canned reply the CLI made up when it had no answer is shown, but not replayed to later questions.
+                synthetic = answer.ValueKind == JsonValueKind.Object && answer.TryGetProperty("synthetic", out var made) && made.ValueKind == JsonValueKind.True;
+                text = failed ? "No answer came back. Try again, or ask in the main conversation." : said!;
+            }
+            catch (InvalidOperationException error)
+            {
+                text = error.Message.Contains("not supported", StringComparison.OrdinalIgnoreCase) || error.Message.Contains("unsupported", StringComparison.OrdinalIgnoreCase)
+                    ? "This version of Claude Code cannot answer side questions. Update Claude Code to use /btw."
+                    : "Claude Code could not answer: " + error.Message;
+            }
+            catch (TimeoutException)
+            {
+                text = "The answer took too long. Try again.";
+                try { await WriteAsync(new JsonObject { ["type"] = "control_cancel_request", ["request_id"] = entry.RequestId }); }
+                catch (Exception error) when (error is InvalidOperationException or IOException or OperationCanceledException) { }
+            }
+            catch (Exception error) when (error is IOException or OperationCanceledException)
+            {
+                text = "The chat stopped before the answer came.";
+            }
+            lock (gate)
+            {
+                entry.Done = true;
+                if (!failed && !synthetic) entry.Answer = text;
+                while (sides.Count(other => other.Done) > SideHistory) sides.Remove(sides.First(other => other.Done));
+                // A dismissed bubble, or one a rewind or /clear took away, does not come back.
+                if (closed || entry.Dismissed || folder.Item(entry.Id) is null) return;
+                folder.PutSide(entry.Id, question, text, running: false, failed);
+                ScheduleFlush();
+            }
+        });
+    }
+
+    /// <summary>Drops a side question's bubble; one still being answered is cancelled in the CLI. The answer stays in the history later side questions carry.</summary>
+    public async Task DismissSideAsync(string itemId)
+    {
+        SideEntry? entry;
+        lock (gate)
+        {
+            if (folder.Item(itemId) is not ChatNoticeItem { Category: ChatNoticeKinds.SideAnswer }) return;
+            folder.Remove(itemId);
+            ScheduleFlush();
+            entry = sides.FirstOrDefault(side => side.Id == itemId);
+            if (entry is null) return;
+            entry.Dismissed = true;
+            if (entry.Done || process is null) return;
+        }
+        try { await WriteAsync(new JsonObject { ["type"] = "control_cancel_request", ["request_id"] = entry.RequestId }); }
+        catch (Exception error) when (error is InvalidOperationException or IOException or OperationCanceledException) { }
     }
 
     public Task InterruptAsync()

@@ -371,6 +371,15 @@ internal sealed partial class ChatFolder
     public void PutShell(string id, string command, string stdout, string stderr, string exit, bool running) =>
         PutBash(id, command, Sanitise(stdout).Trim(), Sanitise(stderr).Trim(), exit, running);
 
+    /// <summary>Shows a <c>/btw</c> side question's bubble: the question as its label, the answer as its text. It is no turn of the conversation.</summary>
+    public void PutSide(string id, string question, string answer, bool running, bool failed)
+    {
+        var shown = Cut(answer, out var cut);
+        if (cut) fullText[id] = answer;
+        else fullText.Remove(id);
+        PutNotice(id, failed ? ChatNoticeLevel.Error : ChatNoticeLevel.Info, shown, ChatNoticeKinds.SideAnswer, label: question, running: running);
+    }
+
     /// <summary>Gives a finished card the id its echo in the transcript will have, keeping its place before the prompt it rides on.</summary>
     public void RekeyShell(string from, string to)
     {

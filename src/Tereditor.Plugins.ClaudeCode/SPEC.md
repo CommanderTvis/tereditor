@@ -153,6 +153,20 @@ ids their echo will have (`m:<uuid>:<2n>`), so the echo replaces them in place b
 On replay a `<bash-input>` block makes the card and the `<bash-stdout>` block after it fills the same card in, so a resumed conversation looks as the live one did; output with no input
 before it stays the older card without a command. A first prompt that is bash-mode text is not used as a session title.
 
+Side questions. `/btw <question>` is the CLI's side question, which the CLI answers natively in stream-json mode: `chatSend` with such a text
+(`ChatContract.SideQuestion`) sends no user message but a `side_question` control request (`question`, and `history`: the newest 20 earlier
+exchanges of the chat as `{question, response}`, as the terminal replays them). The CLI answers from the conversation so far with no tools, without adding to
+the conversation and without interrupting a running turn; its success response is `{response, synthetic}` (a `synthetic` reply is a canned one: shown, never replayed as history). The request has no 20-second
+control timeout (the CLI keeps its own deadline; the host gives up after five minutes and cancels). The host shows a `side-answer` notice
+(id `s:<guid>`) that is `Running` until the response arrives, then holds the answer or a plain-words error: an empty response, a CLI that
+does not support the request (update Claude Code), a refusal, or the chat stopping first. Status, header and transcript do not change, and the
+answer is not kept across a revival. `chatDismissSide` removes the bubble and, while it is answered, sends `control_cancel_request` with its
+request id. A bubble that a rewind or `/clear` took away, or that was dismissed, does not come back when its answer arrives. `/btw` with no
+question or with attachments is refused. The folder puts `btw` (argument hint `<question>`) first in every command list the CLI sends, since
+the CLI leaves it out of `slash_commands`; without this the CLI replies `/btw isn't available in this environment.` The request is not in
+the public Agent SDK reference; it is what the CLI's own stdio control loop handles (seen in 2.1.325), and the docs describe its progress
+frame (`control_request_progress`, "a long-running control request that your client sent"), which the folder ignores.
+
 Questions. An `AskUserQuestion` `can_use_tool` request becomes a question item (questions with options, multi-select, a
 header; "Other" is free text the view puts in the answer), not a permission. `chatAnswerQuestion` replies with
 `updatedInput` equal to the CLI's own `questions` plus `answers`, keyed by question text (a multi-select answer is its

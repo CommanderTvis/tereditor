@@ -3538,6 +3538,16 @@ internal static class ClaudeChatUiChecks
                 Require(!ended.OwnHits.Any(hit => hit.Kind == ChatHitKind.StopShell), "A finished command's card has no Stop.");
             view.Activate(new ChatRow(shellCard, 0, 1, false, null), ChatHitKind.StopShell);
             E2eWorkspace.Until(() => chat.Calls.Contains(ChatContract.StopShell.Name));
+            // A /btw side answer: its own card with the question and Dismiss, while it is answered and after; Dismiss asks the host to drop it.
+            var side = new ChatNoticeItem("s:1", 71, ChatNoticeLevel.Info, "") { Category = ChatNoticeKinds.SideAnswer, Label = "how many languages?", Running = true };
+            Require(!ChatRowLayout.IsEmpty(side), "A side question being answered still shows its card.");
+            using (var asking = ChatRowLayout.Build(new ChatRow(side, 0, 1, false, null), 700, false))
+                Require(asking.OwnHits.Any(hit => hit.Kind == ChatHitKind.DismissSide) && asking.Parts().Any(part => part.Text.Contains("/btw how many languages?", StringComparison.Ordinal)),
+                    "A side question's card shows the question and offers Dismiss while it is answered.");
+            using (var answeredCard = ChatRowLayout.Build(new ChatRow(side with { Running = false, Text = "Three." }, 0, 1, false, null), 700, false))
+                Require(answeredCard.OwnHits.Any(hit => hit.Kind == ChatHitKind.DismissSide), "An answered side question keeps Dismiss.");
+            view.Activate(new ChatRow(side, 0, 1, false, null), ChatHitKind.DismissSide);
+            E2eWorkspace.Until(() => chat.Calls.Contains(ChatContract.DismissSide.Name));
             view.Input.Text = "";
 
             // Sending clears the draft; with the turn running the same button interrupts.
