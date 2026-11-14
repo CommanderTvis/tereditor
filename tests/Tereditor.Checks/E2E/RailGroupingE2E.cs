@@ -5,6 +5,8 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Tereditor.Host.Core;
 using Tereditor.Plugins.Api;
 using Tereditor.UI;
@@ -22,6 +24,62 @@ internal static class RailGroupingE2E
     {
         Grouped(root);
         Unified(root);
+        Remote(root, false);
+        Remote(root, true);
+    }
+
+    /// <summary>A thin client of a real host, as the Android app is: unified chrome and touch on, the creators arrive over the RPC codec, and grouping nests the workspaces made by a terminal.</summary>
+    private static void Remote(string root, bool phone)
+    {
+        root = Path.Combine(root, phone ? "phone" : "wide");
+        var project = IsolatedGit.Repository(Path.Combine(root, "rail-grouping-remote", "sample-project"));
+        IsolatedGit.Run(project, "add", "-A");
+        IsolatedGit.Run(project, "commit", "-m", "fixture", "--allow-empty");
+        var server = Tereditor.Host.Remote.RemoteServer.Create(project, System.Net.IPAddress.Loopback, 0, "rail-grouping", Path.Combine(root, "rail-grouping-remote", "state"));
+        UnifiedChrome.Override = true;
+        try
+        {
+            Task.Run(() => server.StartAsync()).GetAwaiter().GetResult();
+            var address = new Uri(server.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()!.Addresses.Single());
+            using var app = new E2eWorkspace(address, "rail-grouping", project, Path.Combine(root, "rail-grouping-remote", "profile"), project,
+                prepare: profile => profile.Data.Preferences.GroupWorkspacesUnderCreator = true, touch: true, compact: phone);
+            if (phone) { app.Window.Width = 400; app.Window.Height = 800; }
+            Until(() => app.Window.WorkspaceMounted);
+            // The phone's rail is the Projects page.
+            void ShowRail() { if (phone && !app.Window.Layout.State.LeftVisible) app.Click(Controls(app).OfType<Button>().First(button => button.Name == "PageProjects")); }
+            ShowRail();
+            GoProjectHome(app);
+            ShowRail();
+            app.Click(Select(app, project));
+            Until(() => Active(app, project));
+            app.Window.Layout.NewTerminal(app.Center);
+            var terminal = app.Window.Layout.Tabs(app.Center).Last(tab => tab.Kind == "terminal").Id;
+            ShowRail();
+            var child = CreateWorkspaceViaDialog(app);
+            ((Tereditor.Host.Core.HostStateStore)server.Services.GetRequiredService<Tereditor.Host.Abstractions.IHostStateService>()).RecordWorkspaceCreator(child, new TerminalRef(project, terminal));
+            ShowRail();
+            // The Android app's switches that headless macOS does not take: touch rows, no hover on nested tab rows, the caption's reserve at the top right.
+            WorkbenchWindow.ConfigureProjectsTouch(Controls(app).OfType<Grid>().First(panel => panel.Name == "ProjectsPanel"), true);
+            var surface = app.Window.GetVisualDescendants().OfType<Tereditor.UI.Docking.DockSurface>().First();
+            surface.NestedHoverEnabled = false;
+            if (!phone) surface.TopRightReserve = (32, 120);
+            bool Shown(string path) => Controls(app).OfType<Grid>().FirstOrDefault(item => item.Name == "WorkspaceItem" && Equals(item.Tag, path)) is { IsEffectivelyVisible: true, Bounds.Height: > 0 } item &&
+                item.GetVisualAncestors().OfType<StackPanel>().Any(panel => panel.Name == "ProjectsTree");
+            foreach (var open in new[] { project, child, project })
+            {
+                ShowRail();
+                app.Click(Select(app, open));
+                Until(() => Active(app, open));
+                ShowRail();
+                Until(() => Shown(child) && Left(app, child) > Left(app, project) + 0.5);
+            }
+        }
+        finally
+        {
+            UnifiedChrome.Override = false;
+            Task.Run(async () => { await server.StopAsync(); await server.DisposeAsync(); }).GetAwaiter().GetResult();
+        }
+        Console.WriteLine("PASS rail grouping: a remote touch client lists and nests the workspaces its host recorded" + (phone ? " (phone)" : ""));
     }
 
     private static void Grouped(string root)

@@ -80,7 +80,7 @@ internal sealed class E2eWorkspace : IDisposable
     /// </summary>
     internal E2eWorkspace(Uri endpoint, string token, string root, string profileRoot, string startPath, bool plugins = true, E2eTerminals? terminals = null, Action<ProfileStore>? prepare = null, bool compact = false,
         IReadOnlyList<(Tereditor.Plugins.Api.PluginManifest, Func<Tereditor.Plugins.Api.UI.PluginUIModule>)>? uiPlugins = null,
-        Tereditor.Plugins.Isolation.IIsolatedUIHost? isolated = null)
+        Tereditor.Plugins.Isolation.IIsolatedUIHost? isolated = null, bool touch = false)
     {
         Root = root;
         var profile = new ProfileStore(profileRoot);
@@ -99,6 +99,7 @@ internal sealed class E2eWorkspace : IDisposable
         {
             Endpoint = endpoint.ToString(),
             Compact = compact,
+            Touch = touch,
             // As the app's seam: an external plugin's UI half opens on the remote host only when a check asks for it.
             IsolatedPlugins = isolated is null ? null : async (entry, client, ended, token) =>
                 await Tereditor.Plugins.Isolation.UI.RemotePluginUIModule.OpenAsync(isolated, entry.Id, client, ended,
