@@ -543,8 +543,8 @@ public sealed partial class WorkbenchWindow
         var active = !atHome && worktree.Path == workspaceRoot;
         var color = active ? Ui.Accent : Ui.Muted;
         var contents = new MarkedRow();
-        var icon = Ui.Icon(worktree.Kind switch { WorkspaceKinds.Default => "homeFill", WorkspaceKinds.External => "folderOpen", _ => "gitBranch" }, color, 14);
-        contents.Add(icon, RowRole.Leading);
+        var glyph = worktree.Kind switch { WorkspaceKinds.Default => "homeFill", WorkspaceKinds.External => "folderOpen", _ => "gitBranch" };
+        var icon = contents.AddIcon(brush => Ui.Icon(glyph, brush, 14), color)!;
         var label = Ui.Text(name, color); label.LineHeight = 17.5; label.Name = "WorkspaceName";
         label.Classes.Add("workspace-description");
         var unreadDot = new Border { Name = "WorkspaceUnread", Width = 8, Height = 8, CornerRadius = new(4), VerticalAlignment = VerticalAlignment.Center, IsVisible = false };

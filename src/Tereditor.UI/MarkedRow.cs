@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 
 namespace Tereditor.UI;
 
@@ -30,6 +31,18 @@ internal sealed class MarkedRow : Panel
     internal static readonly AttachedProperty<RowRole> RoleProperty = AvaloniaProperty.RegisterAttached<MarkedRow, Control, RowRole>("Role", RowRole.Title);
 
     internal static void SetRole(Control control, RowRole role) => control.SetValue(RoleProperty, role);
+
+    /// <summary>How to draw a row's leading icon again in another brush, so a pill that points to the row can wear the same icon.</summary>
+    internal static readonly AttachedProperty<Func<IBrush, Control?>?> IconFactoryProperty = AvaloniaProperty.RegisterAttached<MarkedRow, Control, Func<IBrush, Control?>?>("IconFactory");
+
+    /// <summary>Adds the leading icon a factory draws and remembers the factory on it.</summary>
+    internal Control? AddIcon(Func<IBrush, Control?> make, IBrush brush)
+    {
+        if (make(brush) is not { } icon) return null;
+        icon.SetValue(IconFactoryProperty, make);
+        Add(icon, RowRole.Leading);
+        return icon;
+    }
 
     /// <summary>Adds a child in its role.</summary>
     internal void Add(Control child, RowRole role)

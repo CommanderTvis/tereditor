@@ -18,6 +18,8 @@ public sealed partial class WorkbenchWindow
     internal const double RailEdgePillVisibleShare = 0.5;
     private Button? railEdgePill;
     private TextBlock? railEdgePillText;
+    private ContentControl? railEdgePillIcon;
+    private Func<IBrush, Control?>? railEdgeIconFactory;
     private Control? railEdgeTarget;
     private bool railEdgeQueued;
 
@@ -26,8 +28,12 @@ public sealed partial class WorkbenchWindow
         var chevron = new ContentControl { Name = "RailEdgePillChevron", Content = Ui.Icon("arrowDown", Ui.OnPrimary, 12), Margin = new Thickness(0, 0, 4, 0) };
         chevron.Classes.Add("rail-edge-chevron");
         DockPanel.SetDock(chevron, Dock.Left);
+        // The icon of the row the pill points to, drawn in the pill's own label colour; it never trims, only the name does.
+        railEdgePillIcon = new ContentControl { Name = "RailEdgePillIcon", Margin = new Thickness(0, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, IsVisible = false };
+        DockPanel.SetDock(railEdgePillIcon, Dock.Left);
+        railEdgeIconFactory = null;
         railEdgePillText = new TextBlock { Name = "RailEdgePillText", TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap, VerticalAlignment = VerticalAlignment.Center };
-        var pill = new Button { Name = "RailEdgePill", IsVisible = false, ZIndex = 1, Content = new DockPanel { Children = { chevron, railEdgePillText } } };
+        var pill = new Button { Name = "RailEdgePill", IsVisible = false, ZIndex = 1, Content = new DockPanel { Children = { chevron, railEdgePillIcon, railEdgePillText } } };
         pill.Classes.Add("primary");
         pill.Classes.Add("rail-edge-pill");
         pill.Click += (_, _) => RevealRailEdgeTarget();
@@ -74,6 +80,7 @@ public sealed partial class WorkbenchWindow
         var place = railEdgeTarget is { } target && !surface.IsDragging ? RailEdgePlace(target, scroller) : 0;
         if (place == 0) { if (pill.IsVisible) pill.IsVisible = false; return; }
         var name = RailEdgeName(railEdgeTarget!);
+        ShowRailEdgeIcon(railEdgeTarget!);
         var above = place < 0;
         if (railEdgePillText!.Text != name || pill.Classes.Contains("above") != above)
         {
@@ -88,6 +95,17 @@ public sealed partial class WorkbenchWindow
         var room = Math.Max(0, scroller.Viewport.Width - 28);
         if (Math.Abs(pill.MaxWidth - room) > 0.5) pill.MaxWidth = room;
         if (!pill.IsVisible) pill.IsVisible = true;
+    }
+
+    /// <summary>Draws the row's leading icon again in the pill's label colour; a row without one leaves the pill without.</summary>
+    private void ShowRailEdgeIcon(Control row)
+    {
+        if (railEdgePillIcon is not { } slot) return;
+        var make = row.GetVisualDescendants().OfType<Control>().Select(child => child.GetValue(MarkedRow.IconFactoryProperty)).FirstOrDefault(factory => factory is not null);
+        if (ReferenceEquals(make, railEdgeIconFactory) && slot.IsVisible == (make is not null)) return;
+        railEdgeIconFactory = make;
+        slot.Content = make?.Invoke(Ui.OnPrimary);
+        slot.IsVisible = slot.Content is not null;
     }
 
     /// <summary>-1 when the row is scrolled above the viewport, 1 when below, 0 when at least <see cref="RailEdgePillVisibleShare"/> of it shows.</summary>

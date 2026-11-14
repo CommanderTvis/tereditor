@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 
 using static Tereditor.Checks.E2E.E2eWorkspace;
@@ -106,5 +107,45 @@ internal static class RailEdgePillE2E
         Require(scroller.Offset.Y < before, "The click scrolled the rail up to the row.");
         Require(Same(withPill.Rows, Geometry().Rows), "Rows keep their places after the pill's scroll.");
         Console.WriteLine("PASS rail edge pill: a focused row above the fold shows the top pill; clicking it brings the row into view and hides it");
+
+        // The pill wears the focused row's icon, between the chevron and the name, in its own label colour.
+        static Control? RowIcon(Control row) => row.GetVisualDescendants().OfType<MarkedRow>().FirstOrDefault()?.Children.FirstOrDefault(child => child.GetValue(MarkedRow.RoleProperty) == RowRole.Leading);
+        Control? PillIcon() => pill.GetVisualDescendants().OfType<ContentControl>().Single(item => item.Name == "RailEdgePillIcon") is { IsVisible: true, Content: Control icon } ? icon : null;
+        static object? Identity(Control icon) => icon is Border { OpacityMask: { } mask } ? mask : icon.Tag;
+        void ShowsIconOf(string what)
+        {
+            ScrollTo(0);
+            Until(() => pill.IsEffectivelyVisible && PillText() == Focused().Name && (RowIcon(Focused().Row) is null) == (PillIcon() is null));
+            var rowIcon = RowIcon(Focused().Row);
+            var icon = PillIcon();
+            Require(rowIcon is not null && icon is not null && icon.GetType() == rowIcon.GetType() && Equals(Identity(icon), Identity(rowIcon)), $"The pill wears the {what} row's icon.");
+            Require(icon!.Parent is ContentControl slot && slot.Parent is Panel dock && dock.Children.IndexOf(slot) == 1 && dock.Children.IndexOf(pill.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Name == "RailEdgePillText")) == 2,
+                "The icon sits between the chevron and the name.");
+            Console.WriteLine($"PASS rail edge pill: the pill shows the {what} icon");
+        }
+        ShowsIconOf("workspace");
+        var iconHeight = pill.Bounds.Height;
+
+        app.Window.Layout.NewTerminal(app.Center);
+        Until(() => Focused().Row.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Classes.Contains("dock-tab-title")));
+        ShowsIconOf("terminal");
+        app.Open("README.md", true);
+        Until(() => Focused().Name == "README.md");
+        ShowsIconOf("file");
+        Require(PillIcon()!.Tag is string tag && tag.StartsWith("file-type:", StringComparison.Ordinal), "A file tab's pill icon is its file-type icon.");
+        Require(Math.Abs(pill.Bounds.Height - iconHeight) <= 0.5, $"The icon does not change the pill's height: {pill.Bounds.Height} against {iconHeight}.");
+
+        // The Hidden choice leaves file rows without an icon, and the pill without one.
+        app.Window.ShowSettings("Appearance");
+        Until(() => app.Window.OpenSettingsViews.Any());
+        var settings = app.Window.OpenSettingsViews.Single();
+        Until(() => settings.GetLogicalDescendants().OfType<ComboBox>().Any(box => box.Name == "FileTypeIconChoices"));
+        settings.GetLogicalDescendants().OfType<ComboBox>().Single(box => box.Name == "FileTypeIconChoices").SelectedIndex = Array.IndexOf(new[] { "plain", "colored", "material", "none", "hidden" }, "hidden");
+        Until(() => app.Workbench.State.Current.Settings is { FileTypeIconsEnabled: false, FileTypeIconStyle: "hidden" });
+        settings.Close();
+        ScrollTo(0);
+        Until(() => pill.IsEffectivelyVisible && PillText() == Focused().Name && RowIcon(Focused().Row) is null && PillIcon() is null);
+        Require(Math.Abs(pill.Bounds.Height - iconHeight) <= 0.5, $"The pill is as high without its icon: {pill.Bounds.Height} against {iconHeight}.");
+        Console.WriteLine("PASS rail edge pill: a file row without an icon leaves the pill without one, at the same height");
     }
 }

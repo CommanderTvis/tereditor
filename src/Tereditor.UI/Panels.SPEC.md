@@ -107,8 +107,8 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   writers of the rail's offset: a tab strip inside a row reveals its active tab within the strip and its bring-into-view
   request stops at the rail, so a switch never scrolls the rail out and back.
 - While the focused row is scrolled out of the rail's view, an edge pill floats over the list at the top edge (the row is
-  above) or the bottom edge (below): an accent pill, centred, with a chevron pointing that way and the row's name on one
-  line, trimmed to the rail's width, with the full name in its tooltip. The focused row is the open workspace's current
+  above) or the bottom edge (below): an accent pill, centred, with a chevron pointing that way, the row's own icon (in the pill's label colour, none when the row shows none) and the
+  row's name on one line, trimmed to the rail's width, with the full name in its tooltip. The focused row is the open workspace's current
   tab row when the rail marks one, otherwise the open workspace's row; Project Home has none. The pill hides once at
   least half of the row's height shows, and during a tab drag. Clicking it scrolls the rail at once just far enough to
   show the row whole and moves keyboard focus to it. It is a button like the rows, so the keyboard reaches it as it
