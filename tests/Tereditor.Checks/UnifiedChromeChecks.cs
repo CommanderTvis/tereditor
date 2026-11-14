@@ -366,7 +366,8 @@ internal static class UnifiedChromeChecks
             }
             Require(gear is not null && ReferenceEquals(gear.Parent, add.Parent), "The add button and the gear sit together.");
             Require(X(add) < 8 && Math.Abs(X(gear!) - (X(add) + add.Bounds.Width)) <= 1, "The add button is first at the left, then the gear.");
-            Require(Math.Abs(gear!.TranslatePoint(default, app.Window)!.Value.Y - add.TranslatePoint(default, app.Window)!.Value.Y) <= 1, "They share one row.");
+            double MidY(Control control) => control.TranslatePoint(default, app.Window)!.Value.Y + control.Bounds.Height / 2;
+            Require(Math.Abs(MidY(gear!) - MidY(add)) <= 1, "They share one row.");
             Console.WriteLine("PASS unified chrome: the first row puts + and the gear at the left when the window controls are not");
         }
         finally { UnifiedChrome.Override = false; UnifiedChrome.ControlsAtLeftOverride = null; }
@@ -374,7 +375,8 @@ internal static class UnifiedChromeChecks
 
     private static void Window(string directory)
     {
-        UnifiedChrome.Override = true;
+        // Pinned to the layout with the gear, whatever the host OS: FirstRow covers both layouts' first rows.
+        UnifiedChrome.Override = true; UnifiedChrome.ControlsAtLeftOverride = false;
         try
         {
             using var app = OpenFixtureProject(directory);
@@ -403,12 +405,12 @@ internal static class UnifiedChromeChecks
             Layout(app, header);
             HostBlock(app, header);
             // Without a title row for traffic lights (the browser), the header keeps its own inset from the window's top edge.
-            Require(UnifiedChrome.ControlsAtLeft || app.Find<Border>("ProjectSegment").TranslatePoint(default, app.Window)!.Value.Y >= WorkbenchWindow.RailTopInset,
+            Require(OperatingSystem.IsMacOS() || OperatingSystem.IsAndroid() || app.Find<Border>("ProjectSegment").TranslatePoint(default, app.Window)!.Value.Y >= WorkbenchWindow.RailTopInset,
                 "The rail header does not touch the window's top edge.");
             ViewMenu(app, unified: true);
             HeaderPopups(app);
             Console.WriteLine("PASS unified chrome: no top bar, the rail header, its menus and popups open, no Settings gear in the right bar");
         }
-        finally { UnifiedChrome.Override = false; }
+        finally { UnifiedChrome.Override = false; UnifiedChrome.ControlsAtLeftOverride = null; }
     }
 }

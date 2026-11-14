@@ -131,7 +131,7 @@ internal static class RailEdgePillE2E
         app.Window.Layout.NewTerminal(app.Center);
         Until(() => Focused().Row.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Classes.Contains("dock-tab-title")));
         ShowsIconOf("terminal");
-        app.Open("README.md", true);
+        _ = app.Window.OpenDocumentAsync("README.md", true);
         Until(() => Focused().Name == "README.md");
         ShowsIconOf("file");
         Require(PillIcon()!.Tag is string tag && tag.StartsWith("file-type:", StringComparison.Ordinal), "A file tab's pill icon is its file-type icon.");

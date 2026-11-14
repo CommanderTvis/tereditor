@@ -1271,7 +1271,7 @@ internal static class Markdown
         {
             for (var at = from; at < value.Length; at++)
             {
-                if (value[at] == '`' && value.IndexOf('`', at + 1) is var tick and > 0) { at = tick; continue; }
+                if (value[at] == '`') { if (value.IndexOf('`', at + 1) is var tick and > 0) { at = tick; continue; } return -1; }
                 if (string.CompareOrdinal(value, at, marker, 0, marker.Length) == 0) return at;
             }
             return -1;
@@ -1312,7 +1312,7 @@ internal static class Markdown
                 }
                 else if ((value[index] == '*' || value[index] == '_') && index + 1 < value.Length && !char.IsWhiteSpace(value[index + 1]) &&
                     (value[index] == '*' || index == 0 || !char.IsLetterOrDigit(value[index - 1])) &&
-                    Close(value, index + 1, value[index].ToString()) is var em and > 0 && !char.IsWhiteSpace(value[em - 1]))
+                    Close(value, index + 1, value[index].ToString()) is var em and > 0 && em > index + 1 && !char.IsWhiteSpace(value[em - 1]))
                 {
                     Flush(bold, italic, strike, link);
                     Scan(value[(index + 1)..em], bold, true, strike, link);
