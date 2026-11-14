@@ -456,17 +456,10 @@ try {
     }, { method, args });
     const geometry = async () => JSON.parse(await invoke('SettingsGeometry'));
     const viewport = page.viewportSize();
-    // The window has no gear: the real way to Settings is the three-dots button and its "Settings…" item.
+    // The real way to Settings is the rail header's gear, which opens it directly.
     const openSettingsFromMenu = async () => {
       const { Gear } = await geometry();
       await page.mouse.click(Gear.X + Gear.Width / 2, Gear.Y + Gear.Height / 2);
-      const { Item } = await until(geometry, value => value.Item !== null, 'The three-dots menu did not list Settings');
-      // The terminal's own canvas sits over the part of the menu that leaves the rail, so the item is chosen by keyboard:
-      // End selects About, the item above it is Settings.
-      assert.ok(Item.Width > 0 && Item.Height > 0, 'The Settings item has no size');
-      await page.keyboard.press('End');
-      await page.keyboard.press('ArrowUp');
-      await page.keyboard.press('Enter');
     };
     const fillsViewport = value => Math.abs(value.Width - page.viewportSize().width) < 1 && Math.abs(value.Height - page.viewportSize().height) < 1;
     await until(geometry, fillsViewport, 'The workbench retained its constructor size instead of the browser viewport');
@@ -482,7 +475,7 @@ try {
     for (const section of ['Appearance', 'Layout', 'Plugins']) {
       if (section === 'Appearance') {
         const { Gear } = await geometry();
-        assert.ok(Gear.X + Gear.Width <= viewport.width && Gear.Y >= 0, 'The three-dots button must stay inside the viewport');
+        assert.ok(Gear.X + Gear.Width <= viewport.width && Gear.Y >= 0, 'The Settings gear must stay inside the viewport');
         await openSettingsFromMenu();
       } else await invoke('OpenSettings', section);
       const scrim = () => page.evaluate(() => getComputedStyle(document.querySelector('.tereditor-restty'), '::after').backgroundColor);
@@ -521,7 +514,7 @@ try {
       await until(open, dialogs => dialogs.length === 0, 'The close button did not dismiss Settings');
       await until(scrim, value => value === 'rgba(0, 0, 0, 0)', 'Closing Settings left the workbench dimmed');
     }
-    // Escape dismisses, and the next open (through the three-dots menu) returns to the section Settings was last left on.
+    // Escape dismisses, and the next open (through the gear) returns to the section Settings was last left on.
     await openSettingsFromMenu();
     await until(geometry, value => value.Dialogs.length === 1, 'Settings did not reopen');
     assert.equal((await geometry()).Dialogs[0].Section, 'Plugins', 'Settings did not reopen on the last section');
@@ -538,7 +531,7 @@ try {
     await page.keyboard.press('Enter');
     await until(screen, value => value.includes('SETTINGS_PASS'), 'Terminal input did not recover after Settings');
     assert.deepEqual(errors, []);
-    console.log('PASS Settings uses the actual viewport and native DPR, opens through the three-dots menu as a dimmed in-window overlay, stays painted through embedded-root repaints, closes by pointer and Escape and reopens on its last section; terminal input recovers');
+    console.log('PASS Settings uses the actual viewport and native DPR, opens through the header gear as a dimmed in-window overlay, stays painted through embedded-root repaints, closes by pointer and Escape and reopens on its last section; terminal input recovers');
   } else {
   assert.equal(await term.getAttribute('data-backend'), 'webgl2');
   const command = async text => { await term.locator('canvas').click(); await page.keyboard.type(text); await page.keyboard.press('Enter'); };

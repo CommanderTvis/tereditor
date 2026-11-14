@@ -55,7 +55,7 @@ internal static class UnifiedChromeChecks
         }
     }
 
-    /// <summary>The rail header's other popups open without an exception: the project switcher, the branch card and the overflow menu's Settings.</summary>
+    /// <summary>The rail header's other popups open without an exception: the project switcher, the branch card and the header menu's Settings.</summary>
     private static void HeaderPopups(E2eWorkspace app)
     {
         var projects = app.Find<Button>("ScopeProject").ContextMenu!;

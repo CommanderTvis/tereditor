@@ -49,7 +49,7 @@ public sealed partial class WorkbenchWindow : Window, IDialogOwner
     /// <summary>Whether this window has no top bar (see <see cref="Tereditor.UI.UnifiedChrome"/>); a phone-sized workbench keeps its own pages.</summary>
     internal bool HasUnifiedChrome => unified;
     private ContextMenu viewMenu = new();
-    /// <summary>The View menu as the overflow button (or, without chrome, the header) opens it.</summary>
+    /// <summary>The View menu as the header's context menu opens it.</summary>
     internal ContextMenu ViewMenu => viewMenu;
     internal void RequestClose() => surface.RequestClose();
     private readonly Grid root;

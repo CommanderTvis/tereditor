@@ -134,6 +134,8 @@ public sealed partial class WorkbenchWindow
         SuppressButtonMenus(header);
         header.ContextMenu = NewViewMenu();
         // The header's context menu (right-click, long press) is the View menu, with Settings and About.
+        // A panel with no background takes no pointer input, so the menu needs one for the header's empty space (Avalonia raises it on a touch hold).
+        header.Background = Avalonia.Media.Brushes.Transparent;
         viewMenu = header.ContextMenu;
         surface.LeftHeader = header;
         // The strip at the top right shares the caption's row with the system's controls; its buttons take their touches there too.
