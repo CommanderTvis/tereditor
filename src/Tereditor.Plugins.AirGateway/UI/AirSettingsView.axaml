@@ -13,7 +13,7 @@
   <StackPanel Spacing="16">
     <TextBlock Text="Air Gateway" FontSize="14" FontWeight="SemiBold" Foreground="{x:Static kit:Ui.TextBrush}" />
     <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}"
-               Text="Choose where Claude Code, Codex and omp get their AI: from their own accounts, or from JetBrains AI through the Central CLI.&#10;&#10;The choice only changes the command that starts each new agent terminal. No agent configuration file is edited.&#10;&#10;tereditor checks Central's sign-in status on its own when this page opens, when the window regains focus, and while a sign-in is waiting. Everything else (signing in or out, listing sources, switching source, starting the proxy, updating Central) runs only when you press its button." />
+               Text="Choose where Claude Code and Codex get their AI: from their own accounts, or from JetBrains AI through the Central CLI.&#10;&#10;The choice only changes the command that starts each new agent terminal. No agent configuration file is edited.&#10;&#10;tereditor checks Central's sign-in status on its own when this page opens, when the window regains focus, and while a sign-in is waiting. Everything else (signing in or out, listing sources, switching source, starting the proxy, updating Central) runs only when you press its button." />
     <TextBlock x:Name="AirCentralLine" TextWrapping="Wrap" Text="Checking Central…" />
     <TextBlock x:Name="AirCredits" TextWrapping="Wrap" IsVisible="False" Foreground="{x:Static kit:Ui.TextBrush}" />
     <StackPanel x:Name="AirInstall" Spacing="4" IsVisible="False">
@@ -37,12 +37,10 @@
       <TextBlock Text="Agents" Foreground="{x:Static kit:Ui.TextBrush}" />
       <CheckBox x:Name="AirAgentClaudeCode" Content="Claude Code" />
       <CheckBox x:Name="AirAgentCodex" Content="Codex" />
-      <CheckBox x:Name="AirAgentOmp" Content="omp (Anthropic models through Central's Pi wire)" />
     </StackPanel>
     <StackPanel Spacing="6">
       <TextBlock Text="What new launches will run" Foreground="{x:Static kit:Ui.TextBrush}" />
       <TextBlock x:Name="AirLaunches" TextWrapping="Wrap" FontFamily="{x:Static kit:Ui.CodeFont}" Foreground="{x:Static kit:Ui.TextBrush}" />
-      <TextBlock x:Name="AirPiInstall" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.TextBrush}" IsVisible="False" Text="Governed omp needs Central installed and signed in. The launch starts its proxy. Until then governed omp launches stop with a message in the terminal." />
       <TextBlock x:Name="AirLaunchNote" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />
       <TextBlock x:Name="AirResult" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />
     </StackPanel>

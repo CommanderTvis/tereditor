@@ -21,8 +21,7 @@ public static class OmpPanel
         settings.OwnCodeIntelligence ? "Code intelligence: omp's own language servers" : "Code intelligence: tereditor's lsp_* tools";
 
     public static string? ProfileNote(OmpSettings settings) => settings.Mcp
-        ? $"omp runs with its own \"{OmpLaunch.Profile}\" profile and sign-in. Copy your default sign-in below or run /login once in a tereditor omp tab. " +
-          "Governed launches use Central's proxy key."
+        ? $"omp runs with its own \"{OmpLaunch.Profile}\" profile and sign-in. Copy your default sign-in below or run /login once in a tereditor omp tab."
         : null;
 
     // Each pane's way to move to another workspace, found from the control the host hands back to Retarget.

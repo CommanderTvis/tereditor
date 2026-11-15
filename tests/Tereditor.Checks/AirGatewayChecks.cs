@@ -221,21 +221,7 @@ internal static partial class AirGatewayChecks
             AirLaunch.Contribution(central with { ClaudeCode = false }, "claude", "/c") is null, "Each agent has its own switch.");
         Require(AirLaunch.Contribution(central, "gemini", "/c") is null && AirLaunch.Contribution(central, "codex", null)!.Wrapper[0] == "central", "Unknown launchers are untouched and a missing path fails closed with the bare name.");
         Require(AirLaunch.Shape(central, "claude", "/c") == "/c run claude-code -- <claude arguments>" && AirLaunch.Shape(new(), "claude", "/c") is null, "The pane shows the exact command shape.");
-        Require(AirLaunch.Contribution(central, "omp", "/c", "http://127.0.0.1:1/wire/a/pi") is { ReplacesExecutable: false, Wrapper: ["sh", "-c", AirLaunch.ProxyStartScript, "/c"] } omp &&
-            omp.Environment["ANTHROPIC_BASE_URL"] == "http://127.0.0.1:1/wire/a/pi/anthropic" && omp.Environment["ANTHROPIC_API_KEY"] == AirLaunch.WireApiKey,
-            "omp starts Central's proxy and gets its Pi wire through the environment.");
-        Require(AirLaunch.Contribution(central, "omp", "/c") is { BlockedReason: AirLaunch.PiMissingMessage } && AirLaunch.Contribution(central with { Omp = false }, "omp", "/c") is null &&
-            AirLaunch.Shape(central, "omp", "/c") == "blocked: " + AirLaunch.PiMissingMessage && !AirLaunch.PiMissingMessage.Contains("central add", StringComparison.Ordinal),
-            "Without a Central wire omp is blocked with a plain message, and it has its own switch.");
-        Require(AirLaunch.PiWireFromConfig("{\"proxy_port\":4000,\"proxy_secret\":\"abc123\"}") == "http://127.0.0.1:4000/wire/abc123/pi" &&
-            AirLaunch.PiWireFromConfig("{\"proxy_port\":4000,\"proxy_secret\":\"abc123\"}", "4100") == "http://127.0.0.1:4100/wire/abc123/pi" &&
-            AirLaunch.PiWireFromConfig("{\"proxy_port\":4000,\"proxy_secret\":\"abc123\"}", "nope") == "http://127.0.0.1:4000/wire/abc123/pi" &&
-            AirLaunch.PiWireFromConfig("{\"proxy_secret\":\"abc123\"}", "4100") == "http://127.0.0.1:4100/wire/abc123/pi",
-            "The wire is built from Central's config, the port override wins, and a bad override is ignored.");
-        Require(new[] { "{\"proxy_port\":0,\"proxy_secret\":\"a\"}", "{\"proxy_port\":70000,\"proxy_secret\":\"a\"}", "{\"proxy_port\":\"4000\",\"proxy_secret\":\"a\"}",
-                "{\"proxy_port\":4000}", "{\"proxy_port\":4000,\"proxy_secret\":\"\"}", "{\"proxy_port\":4000,\"proxy_secret\":\"a/b\"}",
-                "{\"proxy_port\":4000,\"proxy_secret\":\"" + new string('a', 257) + "\"}", "[]", "not json" }.All(text => AirLaunch.PiWireFromConfig(text) is null),
-            "An invalid port or secret, or a malformed file, gives no wire.");
+        Require(AirLaunch.Contribution(central, "omp", "/c") is null && AirLaunch.Shape(central, "omp", "/c") is null, "omp is not governed through Central.");
     }
 
     private static string[] Snapshot(Fixture fixture) => [.. Directory.EnumerateFiles(fixture.Home, "*", SearchOption.AllDirectories)
@@ -263,7 +249,7 @@ internal static partial class AirGatewayChecks
             AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Disabled)).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Refused)).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, null).Show == false &&
             AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Active, false, "Codex was not found on PATH. Install Codex, then try again.")).Show == false,
             "The Agents list shows an agent only when its plugin is on and its program was not found missing.");
-        Require(AirSettingsView.AgentRow("Claude Code", "Claude Code", true, Agent(AgentPluginState.Disabled)) == (true, "Claude Code is turned off in Settings › Plugins", true) && AirSettingsView.AgentRow("omp", "omp (x)", true, null) == (true, "omp is turned off in Settings › Plugins", true) &&
+        Require(AirSettingsView.AgentRow("Claude Code", "Claude Code", true, Agent(AgentPluginState.Disabled)) == (true, "Claude Code is turned off in Settings › Plugins", true) && AirSettingsView.AgentRow("Codex", "Codex (x)", true, null) == (true, "Codex is turned off in Settings › Plugins", true) &&
             AirSettingsView.AgentRow("Claude Code", "Claude Code", true, Agent(AgentPluginState.Active, false, "Claude Code was not found on PATH. Install Claude Code, then try again.")) == (true, "Claude Code was not found on PATH. Install Claude Code, then try again.", true),
             "A chosen agent whose plugin is off or missing, or whose program was not found, stays as one dimmed line saying why, so a saved choice is never hidden.");
         fixture.Tokens("limit-topup");
@@ -845,7 +831,7 @@ internal static partial class AirGatewayChecks
             Settle();
             Require(!Item()!.IsVisible && Probes() == 0, "With the direct source the item shows nothing and reads nothing.");
 
-            Settings(new { enabled = true, source = AirSources.Central, claudeCode = false, codex = false, omp = false });
+            Settings(new { enabled = true, source = AirSources.Central, claudeCode = false, codex = false });
             Settle();
             Require(!Item()!.IsVisible && Probes() == 0, "Central chosen but no agent governed: nothing is shown and Central is not read.");
 

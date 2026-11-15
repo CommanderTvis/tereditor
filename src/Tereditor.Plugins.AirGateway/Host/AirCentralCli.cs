@@ -7,14 +7,14 @@ using System.Text.RegularExpressions;
 namespace Tereditor.Plugins.AirGateway.Host;
 
 /// <summary>Where the host looks for Central and the agents' configuration; checks point it at a fixture home.</summary>
-internal sealed record AirEnvironment(string Home, string SearchPath, string? ClaudeDirectory = null, string? CodexDirectory = null, string? WireProxyPort = null)
+internal sealed record AirEnvironment(string Home, string SearchPath, string? ClaudeDirectory = null, string? CodexDirectory = null)
 {
     /// <summary>Checks only: loopback endpoints standing in for the fixed production table. Nothing outside the checks sets it.</summary>
     internal AirAccessEndpoints? TestEndpoints { get; init; }
 
     public static AirEnvironment Current() => new(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         Environment.GetEnvironmentVariable("PATH") ?? "",
-        Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR"), Environment.GetEnvironmentVariable("CODEX_HOME"), Environment.GetEnvironmentVariable("WIRE_PROXY_PORT"));
+        Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR"), Environment.GetEnvironmentVariable("CODEX_HOME"));
 }
 
 /// <param name="Outcome">exited, launch-failed, timed-out or output-too-large.</param>

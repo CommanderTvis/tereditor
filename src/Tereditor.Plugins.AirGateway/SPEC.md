@@ -2,28 +2,28 @@
 id: module-plugin-air-gateway
 type: module-design
 status: draft
-title: Air Gateway — Claude Code, Codex and omp through JetBrains Central
+title: Air Gateway — Claude Code and Codex through JetBrains Central
 parent: group-plugins-agents
 depends-on: [module-plugin-api, module-plugin-ui-kit]
 references: [submodule-host-plugins, submodule-ui-plugins, submodule-ui-panels]
 tags: [plugins, central, governance]
 ---
 
-# Air Gateway — Claude Code, Codex and omp through JetBrains Central
+# Air Gateway — Claude Code and Codex through JetBrains Central
 
 Adapted from the former ThinkRail fork's JetBrains Central integration. The fork routed Central into `pi`
 through one extension file; pi is out of scope here, so this plugin keeps the fork's detection, sign-in, proxy,
-update and access-source behaviour and replaces the pi extension with Central's `central run <agent>`, one launch at a time, for Codex and Claude Code. omp, which
-`central run` (1.13.0) cannot start, gets Central's Pi wire through its environment (see Mechanism).
+update and access-source behaviour and replaces the pi extension with Central's `central run <agent>`, one launch at a time, for Codex and Claude Code.
+omp is not routed through Central.
 
 Air Gateway was called Air Governance until JetBrains renamed the product; the plugin id `air-governance` is migrated to `air-gateway` when host state loads (HostState.SPEC.md), and older history keeps the old name.
 
 ## Responsibility
 
-Lets the user choose where Claude Code, Codex and omp get their AI, from Settings › Air Gateway (Pi and ACP agents are not governed):
+Lets the user choose where Claude Code and Codex get their AI, from Settings › Air Gateway (Pi, omp and ACP agents are not governed):
 
 - Direct (default): each agent keeps its own account. The plugin contributes nothing.
-- JetBrains AI through Central: each enabled agent (Claude Code, Codex, omp; all on by default) is started through
+- JetBrains AI through Central: each enabled agent (Claude Code, Codex; both on by default) is started through
   JetBrains Air Gateway by the user's own `central` CLI.
 
 The Agents list reads the agent roster (Plugin API, `AgentRoster`) and shows an agent only while its plugin is on (active or failed)
@@ -32,7 +32,7 @@ dimmed line: "<agent> is turned off in Settings › Plugins" when its plugin is 
 Install Claude Code, then try again.") when its program is missing, so a saved choice is never hidden silently. The list follows
 the roster's change notification.
 
-The chosen source and the per-agent switches are the plugin's settings namespace (`source`, `claudeCode`, `codex`, `omp`),
+The chosen source and the per-agent switches are the plugin's settings namespace (`source`, `claudeCode`, `codex`; a saved `omp` key is ignored),
 persisted by the host and effective at once for the next launch. The plugin ships disabled, since governing agents is
 the user's choice.
 
@@ -52,28 +52,6 @@ environment prefixes stay outermost. A custom command in the agent's settings (n
 is never rewritten and so is not governed; the pane says so. Running terminals keep the command they started with.
 `<central>` is the path the host found, else the bare name: if Central is missing the launch fails in the shell
 rather than silently starting an ungoverned agent. The pane shows the exact command shape each agent will get.
-
-omp is governed without `central run`, which (Central 1.13.0) has no omp agent and no way to name another binary.
-Central's proxy listens on `127.0.0.1:<port>` and takes requests at `/wire/<secret>/<agent>/<route>/...`; its port and
-secret are `proxy_port` and `proxy_secret` in `~/.jetbrains-central/config.json`, and `WIRE_PROXY_PORT` overrides the
-port. The Pi wire is `http://127.0.0.1:<port>/wire/<secret>/pi`. The host reads (never writes) that file (at most
-64 KiB; port 1 to 65535, secret ASCII letters and digits, 1 to 256 long; a bad value rejects the file) and builds the
-wire from it. If the file is missing or unusable, it falls back to the wire in the Anthropic `registerProvider` line of
-the Pi integration that `central add pi` may have installed (`~/.pi/agent/extensions/jetbrains-central.ts`, loopback only,
-at most 64 KiB). The plugin never needs, runs or suggests `central add`. The wire is published in the status as before; the failure line, notices and logs never contain it. Loading that extension into omp with `-e` does not work: in a real run (Central
-1.13.0, omp 18.12.6) omp applied the key but not the base URL and the request went straight to Anthropic (401). Setting
-`ANTHROPIC_BASE_URL=<wire>/anthropic` and `ANTHROPIC_API_KEY=wire-proxy` answered through Central's proxy. So the
-contribution to launcher id `omp` sets those two variables and a non-replacing wrapper
-`sh -c '"$0" proxy start --ensure-updated --caller agent >/dev/null 2>&1; exec "$@"' <central>` that starts the
-proxy best effort and execs omp with its usual arguments. Only Anthropic models are governed; an omp model from another
-provider runs on omp's own account. OpenAI route for omp: not wired yet. An `ANTHROPIC_OAUTH_TOKEN` in the
-environment takes precedence in omp over the key. Nothing under `~/.pi` or `~/.omp` is written and `-e` is not passed.
-When no wire can be found, or the UI has not yet received the status, the contribution to `omp` is blocked
-(`BlockedReason`, Plugin API H18): the omp launcher is unavailable with "Air Gateway: sign in to JetBrains Central first
-(central login), then start again.", and a launch line that still reaches it prints "launcher unavailable: " and that
-sentence and exits 1, so a governed launch never runs ungoverned. On Windows, whose shells get no contributed environment,
-the contribution is blocked with "Air Gateway cannot govern omp on Windows." The pane then says that governed omp needs Central installed and signed in
-and that the launch starts its proxy.
 
 Central chooses its own AI access source and proxy; `central access <id>` (switch, then `central proxy restart`)
 stays the way to change it, as in the fork. The pane states persistently that switching affects every app using the
@@ -180,8 +158,7 @@ replies. Mutating calls are serialised and publish a busy status on the `status`
 
 `--air-gateway` runs the host and pane checks against a fake `central` modelled on the fork's fixture (version,
 status rows, `login export`, access switching, proxy, login, update) plus a `run` that records its argv, under a throwaway home: detection,
-the contributions per source and toggle (omp's wire, proxy start and missing-integration block included; `--omp`
-runs the governed omp line through a real shell), the Claude and Codex launch lines executed by a real shell so prompts with
+the contributions per source and toggle, the Claude and Codex launch lines executed by a real shell so prompts with
 quotes and `$(...)` arrive as single arguments, a fake HOME whose `.claude`, `.codex`, `CLAUDE_CONFIG_DIR` and
 `CODEX_HOME` stay byte- and time-identical across every action and source switch, failures, access switching, the
 host seam over plugin RPC (including disable), the pane and real launchers through headless input, and the header

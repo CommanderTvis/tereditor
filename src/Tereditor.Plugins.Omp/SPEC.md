@@ -42,7 +42,7 @@ No real omp run backs them; the checks use a fixture `omp`.
   `TEREDITOR_OMP_HOME` and the plugin's command) runs `omp --profile tereditor config get startup.setupWizard` and, only
   when it is `true` and `config get setupVersion` is `0` (never completed), `config set startup.setupWizard false`.
   A completed wizard, a user who re-enabled it, a missing omp or any failure leaves the profile alone (a log line only).
-  Governed launches use Central's proxy key; ungoverned ones need `/login` or the sign-in import button.
+  Launches need `/login` or the sign-in import button.
 - Sign-in import: the button shows only while omp is installed and MCP is on, and runs only when pressed, never
   automatically. The host (off the UI thread, one run at a time, 60 s bound) pipes `omp auth export` (default profile;
   an inherited `OMP_PROFILE` is removed) into `omp --profile tereditor auth import -` (syntax from `omp auth --help`,
@@ -81,11 +81,7 @@ No real omp run backs them; the checks use a fixture `omp`.
   as an `omp` agent record and clears it when the process leaves; zombie (`Z`) rows are skipped. A record of another
   agent kind is left alone. The search does not descend through another tereditor app (process name `Tereditor.UI`/`tereditor`), so an agent in a nested tereditor's terminals never marks the outer tab; a tereditor run as `dotnet Tereditor.UI.dll` is not recognised by name. If an omp build runs under another process name (for example its runtime's), it is not
   detected; this is not verified against a real install.
-- Air Gateway can govern omp (its `omp` switch, with Central chosen): Central's `central run` (1.13.0) has no omp
-  agent, so Air Gateway contributes Central's Pi wire as `ANTHROPIC_BASE_URL`/`ANTHROPIC_API_KEY` and a proxy start
-  before omp, read from Central's `config.json` (else from Central's Pi integration if present); without a wire the launch prints a plain message and exits 1. Only
-  Anthropic models are governed. Details and the real-run evidence are in Air Gateway's SPEC; the launch line
-  applies the contribution like any other.
+- Air Gateway does not govern omp: Central serves Claude Code, Codex and Pi only.
 - Mark: the manifest icon is `asset:omp.svg`, omp's π mark from the omp.sh site header redrawn as one `currentColor`
   path, so Settings › omp, the plugin card, the side tool, its pane tab and omp terminal tabs (workbench and Projects)
   wear it. The launcher's icons and the start action draw it in a theme brush and follow theme changes; the kit's

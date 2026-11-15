@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 
 using Tereditor.Plugins.Api;
 
@@ -23,7 +22,6 @@ public sealed record AirSettings
     public string Source { get; set; } = AirSources.Direct;
     public bool ClaudeCode { get; set; } = true;
     public bool Codex { get; set; } = true;
-    public bool Omp { get; set; } = true;
 }
 
 /// <param name="Probe">Asks <c>central status</c> for the sign-in and proxy rows; without it only the binary and its version are read.</param>
@@ -51,9 +49,7 @@ public sealed record AirAgent(string Id, string Label, bool Enabled, string? Lau
 public sealed record AirCredits(double Remaining, double Total, double TopUp = 0, long? RefillNext = null, long? ReadAt = null);
 
 /// <param name="Credits">Only with Central chosen and signed in, and only when the last check could read them; otherwise <see langword="null"/>.</param>
-/// <param name="PiWire">Central's Pi wire read from its installed Pi integration (<c>central add pi</c>) on the host, or <see langword="null"/> when it is missing or unreadable.</param>
-public sealed record AirStatus(AirCentral Central, string Source, IReadOnlyList<AirAgent> Agents, bool Busy = false, string? Detail = null, AirCredits? Credits = null,
-    string? PiWire = null);
+public sealed record AirStatus(AirCentral Central, string Source, IReadOnlyList<AirAgent> Agents, bool Busy = false, string? Detail = null, AirCredits? Credits = null);
 
 public sealed record AirOutcome(bool Ok, string Message, AirStatus Status);
 
@@ -66,110 +62,30 @@ public sealed record AirAccessList(IReadOnlyList<AirAccessSource> Sources, strin
 /// What the plugin contributes to the agents' launches. Governed launches run <c>central run &lt;agent&gt; -- ...</c>,
 /// which starts the agent through JetBrains Air for that launch only and leaves the agent's own configuration alone.
 /// </summary>
-public static partial class AirLaunch
+public static class AirLaunch
 {
     /// <summary>The agent launcher ids the plugin knows, with the agent names <c>central run</c> takes.</summary>
     public static readonly IReadOnlyDictionary<string, string> CentralNames = new Dictionary<string, string> { ["claude"] = "claude-code", ["codex"] = "codex" };
 
-    /// <summary>
-    /// The omp launcher id. Central has no omp agent and omp does not apply the base URL Central's Pi extension
-    /// registers, so a governed omp gets Central's Pi wire through its documented Anthropic environment variables.
-    /// </summary>
-    public const string OmpLauncher = "omp";
-
-    /// <summary>Why a governed omp launch is blocked when Central's proxy wire is unknown.</summary>
-    public const string PiMissingMessage = "Air Gateway: sign in to JetBrains Central first (central login), then start again.";
-
-    /// <summary>Why a governed omp launch is blocked on Windows, whose shells receive no contributed environment.</summary>
-    public const string WindowsUnsupportedMessage = "Air Gateway cannot govern omp on Windows.";
-
-    /// <summary>The API key Central's proxy expects in place of a vendor key, as its Pi integration passes it.</summary>
-    public const string WireApiKey = "wire-proxy";
-
-    /// <summary>
-    /// Runs <c>central proxy start --ensure-updated --caller agent</c> (Central's path is <c>$0</c>), best effort as the
-    /// Pi integration does on session start, then execs the agent with its arguments.
-    /// </summary>
-    public const string ProxyStartScript = "\"$0\" proxy start --ensure-updated --caller agent >/dev/null 2>&1; exec \"$@\"";
-
-    /// <summary>Where <c>central add pi</c> installed the Pi integration under a home directory (read only, as a fallback).</summary>
-    public static string PiExtensionPath(string home) => Path.Combine(home, ".pi", "agent", "extensions", "jetbrains-central.ts");
-
-    [GeneratedRegex(@"registerProvider\(\s*""anthropic""\s*,\s*\{\s*baseUrl:\s*""(http://127\.0\.0\.1:[0-9]{1,5}/wire/[A-Za-z0-9]+/pi)/anthropic""")]
-    private static partial Regex AnthropicWire();
-
-    /// <summary>
-    /// Central's Pi wire (<c>http://127.0.0.1:&lt;port&gt;/wire/&lt;id&gt;/pi</c>) read from the text of the installed Pi
-    /// integration, or <see langword="null"/> when it names no loopback Anthropic wire.
-    /// </summary>
-    public static string? PiWire(string extensionText) => AnthropicWire().Match(extensionText) is { Success: true } match ? match.Groups[1].Value : null;
-
-    /// <summary>Where Central keeps its settings under a home directory.</summary>
-    public static string CentralConfigPath(string home) => Path.Combine(home, ".jetbrains-central", "config.json");
-
-    /// <summary>
-    /// Central's Pi wire (<c>http://127.0.0.1:&lt;port&gt;/wire/&lt;secret&gt;/pi</c>) built from the text of Central's
-    /// <c>config.json</c> (<c>proxy_port</c>, <c>proxy_secret</c>), or <see langword="null"/> when either is missing or
-    /// malformed. <paramref name="portOverride"/> is the value of <c>WIRE_PROXY_PORT</c>, which wins over the file's port;
-    /// an invalid override is ignored.
-    /// </summary>
-    public static string? PiWireFromConfig(string configText, string? portOverride = null)
-    {
-        try
-        {
-            using var document = System.Text.Json.JsonDocument.Parse(configText);
-            if (document.RootElement is not { ValueKind: System.Text.Json.JsonValueKind.Object } root) return null;
-            if (!root.TryGetProperty("proxy_secret", out var secretElement) || secretElement.ValueKind != System.Text.Json.JsonValueKind.String) return null;
-            var secret = secretElement.GetString();
-            if (secret is not { Length: >= 1 and <= 256 } || !secret.All(char.IsAsciiLetterOrDigit)) return null;
-            int port;
-            if (!(int.TryParse(portOverride, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out port) && port is >= 1 and <= 65535))
-            {
-                if (!root.TryGetProperty("proxy_port", out var portElement) || portElement.ValueKind != System.Text.Json.JsonValueKind.Number || !portElement.TryGetInt32(out port) || port is < 1 or > 65535) return null;
-            }
-            return $"http://127.0.0.1:{port}/wire/{secret}/pi";
-        }
-        catch (System.Text.Json.JsonException) { return null; }
-    }
-
     /// <summary>Whether Central is the chosen source and governs at least one agent's launches.</summary>
-    public static bool Wired(AirSettings settings) => CentralNames.Keys.Append(OmpLauncher).Any(launcherId => Enabled(settings, launcherId));
+    public static bool Wired(AirSettings settings) => CentralNames.Keys.Any(launcherId => Enabled(settings, launcherId));
 
     public static bool Enabled(AirSettings settings, string launcherId) =>
-        settings.Source == AirSources.Central && launcherId switch { "claude" => settings.ClaudeCode, "codex" => settings.Codex, OmpLauncher => settings.Omp, _ => false };
+        settings.Source == AirSources.Central && launcherId switch { "claude" => settings.ClaudeCode, "codex" => settings.Codex, _ => false };
 
     /// <summary>
     /// The contribution for a launcher, or <see langword="null"/> when the source is direct, the agent is switched off or
     /// the launcher is unknown. With Central chosen it always governs, failing closed: Claude Code and Codex are wrapped
-    /// with the bare name when Central has not been found, so a missing CLI fails the launch in the shell. omp, which
-    /// <c>central run</c> cannot start, gets the equivalent of <c>central run pi</c>: the proxy is started first and
-    /// <c>ANTHROPIC_BASE_URL</c> and <c>ANTHROPIC_API_KEY</c> point it at Central's Pi wire (<paramref name="piWire"/>);
-    /// without a known wire, and on Windows, the contribution is blocked (<see cref="AgentLaunchContribution.BlockedReason"/>): the launcher is unavailable with the reason and any launch line that still reaches it fails with it.
+    /// with the bare name when Central has not been found, so a missing CLI fails the launch in the shell.
     /// </summary>
-    public static AgentLaunchContribution? Contribution(AirSettings settings, string launcherId, string? centralPath, string? piWire = null, bool windows = false)
-    {
-        if (!Enabled(settings, launcherId)) return null;
-        var central = centralPath is { Length: > 0 } ? centralPath : "central";
-        if (launcherId != OmpLauncher) return new() { Wrapper = [central, "run", CentralNames[launcherId], "--"], ReplacesExecutable = true };
-        if (windows) return new() { BlockedReason = WindowsUnsupportedMessage };
-        if (piWire is not { Length: > 0 }) return new() { BlockedReason = PiMissingMessage };
-        return new()
-        {
-            Wrapper = ["sh", "-c", ProxyStartScript, central],
-            Environment = new Dictionary<string, string> { ["ANTHROPIC_BASE_URL"] = piWire + "/anthropic", ["ANTHROPIC_API_KEY"] = WireApiKey }
-        };
-    }
+    public static AgentLaunchContribution? Contribution(AirSettings settings, string launcherId, string? centralPath) =>
+        Enabled(settings, launcherId)
+            ? new() { Wrapper = [centralPath is { Length: > 0 } ? centralPath : "central", "run", CentralNames[launcherId], "--"], ReplacesExecutable = true }
+            : null;
 
     /// <summary>The command shape shown to the user: the wrapper followed by the agent's usual arguments.</summary>
-    public static string? Shape(AirSettings settings, string launcherId, string? centralPath, string? piWire = null, bool windows = false) =>
-        Contribution(settings, launcherId, centralPath, piWire, windows) switch
-        {
-            null => null,
-            { BlockedReason: { } reason } => "blocked: " + reason,
-            { ReplacesExecutable: false } contribution => string.Join(' ', contribution.Environment.Select(pair => pair.Key + "=" + pair.Value)) + " "
-                + contribution.Wrapper[^1] + " proxy start, then " + launcherId + " <" + launcherId + " arguments>",
-            var contribution => string.Join(' ', contribution.Wrapper) + " <" + launcherId + " arguments>"
-        };
+    public static string? Shape(AirSettings settings, string launcherId, string? centralPath) =>
+        Contribution(settings, launcherId, centralPath) is { } contribution ? string.Join(' ', contribution.Wrapper) + " <" + launcherId + " arguments>" : null;
 }
 
 public static class AirGatewayContract
@@ -193,7 +109,7 @@ public static class AirGatewayContract
         Category = PluginCategories.ModelProviders,
         // Runs Central's command line on the host's operating system, which a browser tab does not have.
         UnavailableOn = [HostKind.PureWeb],
-        Description = "Starts Claude Code, Codex and omp through JetBrains Air Gateway with the Central CLI, per launch, or leaves them on their own accounts.",
+        Description = "Starts Claude Code and Codex through JetBrains Air Gateway with the Central CLI, per launch, or leaves them on their own accounts.",
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.AirGateway.Host.dll",

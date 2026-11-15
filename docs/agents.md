@@ -153,9 +153,8 @@ and a Claude subscription sign-in is not offered: Anthropic takes an API key fro
 
 ## Air Gateway
 
-[JetBrains Air Gateway](https://www.jetbrains.com/air/gateway/) can serve Claude Code, Codex and omp instead of
+[JetBrains Air Gateway](https://www.jetbrains.com/air/gateway/) can serve Claude Code and Codex instead of
 their own accounts.
 
 - Choose the source in Settings › Air Gateway.
 - tereditor starts each agent through your own `central` CLI and edits none of the agents' configuration.
-- For omp, only Anthropic models are governed, and Central must be installed and signed in. The launch starts Central's proxy.

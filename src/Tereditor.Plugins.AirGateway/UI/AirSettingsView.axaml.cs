@@ -23,10 +23,9 @@ internal sealed partial class AirSettingsView : UserControl
     private readonly IPluginUIContext context;
     private readonly TextBlock centralLine, credits, launches, launchNote, result, accessNote;
     private readonly StackPanel install, access;
-    private readonly TextBlock piInstall;
     private readonly TextBox installCommand;
     private readonly RadioButton direct, central;
-    private readonly CheckBox claudeCode, codex, omp;
+    private readonly CheckBox claudeCode, codex;
     private readonly (CheckBox Box, string PluginId, string Name, string Label, Func<AirSettings, bool> Chosen)[] agents;
     private readonly Button signIn, signOut, startProxy, update;
     private readonly List<IDisposable> observers = [];
@@ -60,13 +59,11 @@ internal sealed partial class AirSettingsView : UserControl
         install = Get<StackPanel>("AirInstall"); access = Get<StackPanel>("AirAccessSources");
         installCommand = Get<TextBox>("AirInstallCommand");
         direct = Get<RadioButton>("AirSourceDirect"); central = Get<RadioButton>("AirSourceCentral");
-        claudeCode = Get<CheckBox>("AirAgentClaudeCode"); codex = Get<CheckBox>("AirAgentCodex"); omp = Get<CheckBox>("AirAgentOmp");
-        piInstall = Get<TextBlock>("AirPiInstall");
+        claudeCode = Get<CheckBox>("AirAgentClaudeCode"); codex = Get<CheckBox>("AirAgentCodex");
         agents =
         [
             (claudeCode, "claude-code", "Claude Code", "Claude Code", settings => settings.ClaudeCode),
-            (codex, "codex", "Codex", "Codex", settings => settings.Codex),
-            (omp, "omp", "omp", "omp (Anthropic models through Central's Pi wire)", settings => settings.Omp)
+            (codex, "codex", "Codex", "Codex", settings => settings.Codex)
         ];
         signIn = Get<Button>("AirSignIn"); signOut = Get<Button>("AirSignOut");
         startProxy = Get<Button>("AirStartProxy"); update = Get<Button>("AirUpdate");
@@ -74,7 +71,6 @@ internal sealed partial class AirSettingsView : UserControl
         central.IsCheckedChanged += (_, _) => { if (!applying && central.IsChecked == true) Save(Settings with { Source = AirSources.Central }); };
         claudeCode.IsCheckedChanged += (_, _) => { if (!applying) Save(Settings with { ClaudeCode = claudeCode.IsChecked == true }); };
         codex.IsCheckedChanged += (_, _) => { if (!applying) Save(Settings with { Codex = codex.IsChecked == true }); };
-        omp.IsCheckedChanged += (_, _) => { if (!applying) Save(Settings with { Omp = omp.IsChecked == true }); };
         signIn.Click += (_, _) => _ = RunAsync(AirGatewayContract.SignIn);
         signOut.Click += (_, _) => _ = RunAsync(AirGatewayContract.SignOut);
         startProxy.Click += (_, _) => _ = RunAsync(AirGatewayContract.StartProxy);
@@ -118,7 +114,6 @@ internal sealed partial class AirSettingsView : UserControl
             central.IsChecked = settings.Source == AirSources.Central;
             claudeCode.IsChecked = settings.ClaudeCode;
             codex.IsChecked = settings.Codex;
-            omp.IsChecked = settings.Omp;
             lastSource = settings.Source;
             ShowAgents(settings);
         }
@@ -337,7 +332,6 @@ internal sealed partial class AirSettingsView : UserControl
         installCommand.Text = current.Central.InstallCommand;
         startProxy.IsVisible = current.Central.Proxy == "stopped";
         update.IsVisible = current.Central.State == "outdated";
-        piInstall.IsVisible = current.Source == AirSources.Central && current.PiWire is null && current.Agents.Any(agent => agent is { Id: AirLaunch.OmpLauncher, Enabled: true });
         launches.Text = string.Join("\n", current.Agents.Select(agent =>
             $"{agent.Label}: {agent.Launch ?? (current.Source == AirSources.Central && !agent.Enabled ? "unchanged (switched off above)" : "unchanged (its own account)")}"));
         launchNote.Text = current.Source != AirSources.Central ? "" :
