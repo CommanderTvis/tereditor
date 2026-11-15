@@ -73,8 +73,14 @@ internal static partial class ClaudeLaunch
     }
 
     /// <summary>Other plugins' launch contributions (a wrapper, variables, arguments) applied to the configured command; a custom command that is not <c>claude</c> is left alone.</summary>
-    public static string Contribute(string command, IReadOnlyList<AgentLaunchContribution>? contributions, HostPlatform? platform) =>
-        contributions is { Count: > 0 } ? AgentLaunchComposition.Apply(command.Trim(), "claude", contributions, Windows(platform)) : command;
+    public static string Contribute(string command, IReadOnlyList<AgentLaunchContribution>? contributions, HostPlatform? platform, string? windowsShell = null)
+    {
+        // Leading NAME=value words stay in front: the contributions are applied to the command that starts at the executable,
+        // and their variables follow the setting's, so they win.
+        var line = ClaudeCommandLine.Parse(command);
+        var applied = contributions is { Count: > 0 } ? AgentLaunchComposition.Apply(line.Rest, "claude", contributions, Windows(platform)) : line.Rest;
+        return applied.Length == 0 ? "" : line.ShellPrefix(Windows(platform), windowsShell) + applied;
+    }
 
     // Arguments that pick an existing conversation, or leave its id to the CLI, rather than start a new one.
     private static readonly string[] SessionChoices = ["--continue", "-c", "--resume", "-r", "--teleport", "--session-id", "--fork-session", "--print", "-p"];
@@ -122,7 +128,7 @@ internal static partial class ClaudeLaunch
             advisor is { Length: > 0 } && !HasOption(args, "--advisor") ? "--advisor " + ShellQuotePath(advisor) : "",
             chrome is { } withChrome && !HasOption(args, "--chrome") && !HasOption(args, "--no-chrome") ? withChrome ? "--chrome" : "--no-chrome" : ""
         }.Where(part => part.Length > 0));
-        var line = LaunchCommand(Contribute(command, contributions, platform), string.Join(' ', new[] { promptFile, "--plugin-dir " + EnvironmentReference(ClaudeCodeContract.PluginDirectoryVariable, platform, windowsShell), "--add-dir " + EnvironmentReference(ClaudeCodeContract.ScratchVariable, platform, windowsShell), defaults, args }.Where(part => part.Length > 0)));
+        var line = LaunchCommand(Contribute(command, contributions, platform, windowsShell), string.Join(' ', new[] { promptFile, "--plugin-dir " + EnvironmentReference(ClaudeCodeContract.PluginDirectoryVariable, platform, windowsShell), "--add-dir " + EnvironmentReference(ClaudeCodeContract.ScratchVariable, platform, windowsShell), defaults, args }.Where(part => part.Length > 0)));
         if (disableAgentView) line = WithLaunchEnvironment(line, platform, windowsShell);
         return !Windows(platform) && line.Length > 0 ? "TEREDITOR_UI_LAUNCH=claude " + line : line;
     }

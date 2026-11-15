@@ -37,7 +37,10 @@ internal static class McpList
     public static async Task<IReadOnlyList<McpListEntry>> ListAsync(string claudeCommand, string cwd, IReadOnlyDictionary<string, string> environment)
     {
         var binary = ClaudeCommands.ClaudeBinary(claudeCommand);
-        var run = await Bounded.RunAsync([binary, "mcp", "list"], Timeout, cwd, environment);
+        // The setting's own variables first; the ones tereditor passes win.
+        var merged = ClaudeCommands.ClaudeEnvironment(claudeCommand).ToDictionary(pair => pair.Key, pair => pair.Value);
+        foreach (var (name, value) in environment) merged[name] = value;
+        var run = await Bounded.RunAsync([binary, "mcp", "list"], Timeout, cwd, merged);
         if (run.LaunchFailed) throw new InvalidOperationException($"Could not run {binary}: {run.Err.Trim()}");
         if (run.TimedOut) throw new InvalidOperationException("claude mcp list did not finish within a minute.");
         if (!run.Ok) throw new InvalidOperationException(run.Err.Trim() is { Length: > 0 } error ? error : run.Out.Trim() is { Length: > 0 } output ? output : "claude mcp list failed.");

@@ -417,7 +417,7 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
             if (settings.Model is { Length: > 0 } model) flags.AddRange(["--model", model]);
             if (settings.Effort is { Length: > 0 } effort) flags.AddRange(["--effort", effort]);
         }
-        var environment = new Dictionary<string, string>
+        var environment = new Dictionary<string, string>(ClaudeCommands.ClaudeEnvironment(Command()))
         {
             ["THINKRAIL_MCP_URL"] = $"{LoopbackRoot()}/mcp/{context.TerminalToken(new(workspaceId, McpListProbeTabKey))}",
             // The measuring run must not report status as if it were the tab's session.

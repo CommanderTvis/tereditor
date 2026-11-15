@@ -89,9 +89,9 @@ internal static class ClaudeAccountReader
     /// <c>/usage</c> in print mode, the official way to read the limits: it costs no tokens and starts no model turn. Its
     /// stream-json form carries the report with full timestamps; the plain text has no year. A failure keeps the earlier numbers.
     /// </summary>
-    private static async Task<UsagePoll> FetchUsageAsync(string binary)
+    private static async Task<UsagePoll> FetchUsageAsync(string binary, IReadOnlyDictionary<string, string> environment)
     {
-        var run = await Bounded.RunAsync([binary, "-p", "--output-format", "stream-json", "--verbose", "/usage"], UsageTimeout);
+        var run = await Bounded.RunAsync([binary, "-p", "--output-format", "stream-json", "--verbose", "/usage"], UsageTimeout, environment: environment);
         if (run.Ok && ParseUsage(run.Out, DateTimeOffset.UtcNow) is { } parsed)
         {
             LastUsage[binary] = parsed;
@@ -111,27 +111,29 @@ internal static class ClaudeAccountReader
     public static async Task<UsagePoll> PollAsync(string claudeCommand, bool manual)
     {
         var binary = ClaudeCommands.ClaudeBinary(claudeCommand);
+        var environment = ClaudeCommands.ClaudeEnvironment(claudeCommand);
         if (!manual)
         {
-            var status = await Bounded.RunAsync([binary, "auth", "status", "--json"], Timeout);
+            var status = await Bounded.RunAsync([binary, "auth", "status", "--json"], Timeout, environment: environment);
             if (!status.Ok) return UsagePoll.Skipped;
             try { if (!Json.IsTrue((JsonNode.Parse(status.Out) as JsonObject)?["loggedIn"])) return UsagePoll.Skipped; }
             catch (JsonException) { return UsagePoll.Skipped; }
         }
-        return await FetchUsageAsync(binary);
+        return await FetchUsageAsync(binary, environment);
     }
 
     public static async Task<ClaudeAccount> ReadAsync(string claudeCommand, bool refresh)
     {
         var binary = ClaudeCommands.ClaudeBinary(claudeCommand);
+        var environment = ClaudeCommands.ClaudeEnvironment(claudeCommand);
         // The pane gets what the last fetch found, or nothing: the host's poller and the refresh button fetch it.
-        if (refresh) await FetchUsageAsync(binary);
+        if (refresh) await FetchUsageAsync(binary, environment);
         var (usage, fetchedAt) = LastUsage.TryGetValue(binary, out var last) ? (last.Usage, last.FetchedAt) : ([], null);
-        var versionRun = await Bounded.RunAsync([binary, "--version"], Timeout);
+        var versionRun = await Bounded.RunAsync([binary, "--version"], Timeout, environment: environment);
         var version = versionRun.Ok ? versionRun.Out.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() : null;
         var account = new ClaudeAccount(false, usage) { Version = version, UsageFetchedAt = fetchedAt, UsageError = LastError.GetValueOrDefault(binary) };
 
-        var run = await Bounded.RunAsync([binary, "auth", "status", "--json"], Timeout);
+        var run = await Bounded.RunAsync([binary, "auth", "status", "--json"], Timeout, environment: environment);
         if (!run.Ok) return account;
         JsonObject? status;
         try { status = JsonNode.Parse(run.Out) as JsonObject; }

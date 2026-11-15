@@ -354,18 +354,19 @@ internal sealed class ClaudeChatHost
         var settings = context.Settings<ClaudeCodeSettings>();
         var terminal = new TerminalRef(record.WorkspaceId, record.ChatId);
         var cwd = record.Cwd is { } known && Directory.Exists(known) ? known : record.WorkspaceId;
-        var environment = new Dictionary<string, string>(pluginEnvironment(terminal))
+        // The setting's own variables come first, then other plugins' contributions, then tereditor's: the last one wins.
+        var own = new Dictionary<string, string>(pluginEnvironment(terminal))
         {
             ["THINKRAIL_MCP_URL"] = $"{loopbackRoot()}/mcp/{context.TerminalToken(terminal)}",
             ["TEREDITOR_UI_LAUNCH"] = "claude",
             // The chat reports its own status from the stream; the hook plugin must not report it a second time.
             [ClaudeCodeContract.StatusUrlVariable] = ""
         };
-        if (settings.DisableAgentView) environment["CLAUDE_CODE_DISABLE_AGENT_VIEW"] = "true";
+        if (settings.DisableAgentView) own["CLAUDE_CODE_DISABLE_AGENT_VIEW"] = "true";
 
-        var words = Words(settings.Command.Trim().Length > 0 ? settings.Command : "claude");
+        var line = ClaudeCommandLine.Parse(settings.Command);
         var contributions = context.AgentLaunchContributions("claude");
-        var executable = words[0];
+        var executable = line.Executable;
         var prefix = new List<string>();
         foreach (var contribution in contributions.Where(contribution => !contribution.ReplacesExecutable)) prefix.AddRange(contribution.Wrapper);
         if (contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0) is { } replacer)
@@ -373,9 +374,12 @@ internal sealed class ClaudeChatHost
         else prefix.Add(executable);
         var arguments = new List<string>();
         foreach (var contribution in contributions) arguments.AddRange(contribution.Arguments);
+        var environment = new Dictionary<string, string>(line.Environment);
+        var contributed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (name, value) in contributions.SelectMany(contribution => contribution.Environment))
-            environment.TryAdd(name, value);
-        arguments.AddRange(words.Skip(1));
+            if (contributed.Add(name)) environment[name] = value;
+        foreach (var (name, value) in own) environment[name] = value;
+        arguments.AddRange(line.Arguments);
         arguments.AddRange(["-p", "--output-format", "stream-json", "--verbose", "--input-format", "stream-json", "--include-partial-messages", "--replay-user-messages", "--permission-prompt-tool=stdio"]);
         if (spawn.Resume is { } resume) arguments.AddRange(["--resume", resume]);
         if (spawn.Fork) arguments.Add("--fork-session");
@@ -390,24 +394,6 @@ internal sealed class ClaudeChatHost
         if (settings.AppendSystemPrompt && environment.TryGetValue(ClaudeCodeContract.PromptFileVariable, out var promptFile)) arguments.AddRange(["--append-system-prompt-file", promptFile]);
         arguments.AddRange(["--plugin-dir", hookPluginDirectory]);
         return new ChatLaunch(prefix[0], [.. prefix.Skip(1), .. arguments], environment, cwd);
-    }
-
-    // The configured command line as words, honouring single and double quotes; never interpreted by a shell.
-    internal static List<string> Words(string command)
-    {
-        var words = new List<string>();
-        var word = new StringBuilder();
-        char? quote = null;
-        var started = false;
-        foreach (var character in command)
-        {
-            if (quote is { } open) { if (character == open) quote = null; else word.Append(character); }
-            else if (character is '\'' or '"') { quote = character; started = true; }
-            else if (char.IsWhiteSpace(character)) { if (started || word.Length > 0) { words.Add(word.ToString()); word.Clear(); started = false; } }
-            else word.Append(character);
-        }
-        if (started || word.Length > 0) words.Add(word.ToString());
-        return words.Count == 0 ? ["claude"] : words;
     }
 }
 

@@ -17,16 +17,16 @@ internal sealed class PermissionModeProbe
     public async Task<PermissionModesResult> GetAsync(string claudeCommand)
     {
         var binary = ClaudeCommands.ClaudeBinary(claudeCommand);
-        var probe = probes.GetOrAdd(binary, key => new(() => Task.Run(() => ProbeAsync(key))));
+        var probe = probes.GetOrAdd(binary, key => new(() => Task.Run(() => ProbeAsync(key, ClaudeCommands.ClaudeEnvironment(claudeCommand)))));
         var modes = await probe.Value;
         // A CLI that could not be read (not installed yet, timed out) is asked again next time rather than remembered.
         if (modes.Count == 0) probes.TryRemove(new(binary, probe));
         return new(modes.Count > 0 ? modes : ClaudePermissionModes.Fallback) { FromCli = modes.Count > 0, ConfiguredDefault = UserSetting("permissions", "defaultMode"), ConfiguredAdvisor = UserSetting(null, "advisorModel") };
     }
 
-    private static async Task<IReadOnlyList<string>> ProbeAsync(string binary)
+    private static async Task<IReadOnlyList<string>> ProbeAsync(string binary, IReadOnlyDictionary<string, string> environment)
     {
-        var run = await Bounded.RunAsync([binary, "--help"], Timeout);
+        var run = await Bounded.RunAsync([binary, "--help"], Timeout, environment: environment);
         return run.Ok ? ClaudePermissionModes.Parse(run.Out) : [];
     }
 

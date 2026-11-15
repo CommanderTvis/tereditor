@@ -1351,8 +1351,34 @@ internal static class ClaudeCodeChecks
             "A documented key is composed with the editor its type implies; a structured one is not.");
     }
 
+    /// <summary>The launch command setting: leading variables, quoting, a path with spaces, empty, and every use of it.</summary>
+    private static void CommandLine()
+    {
+        var plain = ClaudeCommandLine.Parse("CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 claude");
+        Require(plain.Executable == "claude" && plain.Arguments.Count == 0 && plain.Environment.Count == 1
+            && plain.Environment["CLAUDE_CODE_EXPERIMENTAL_CODE_MODE"] == "1" && plain.Rest == "claude", "A leading assignment is split from the executable.");
+        Require(ClaudeCommands.ClaudeBinary("CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 claude") == "claude"
+            && ClaudeCommands.ClaudeEnvironment("A=1 B=\"x y\" claude")["B"] == "x y", "Subcommand runs get the executable and the variables.");
+        var quoted = ClaudeCommandLine.Parse("A=1 B='two words' \"/opt/my tools/claude\" --model 'opus 4' --flag=a=b");
+        Require(quoted.Executable == "/opt/my tools/claude" && quoted.Arguments.SequenceEqual(["--model", "opus 4", "--flag=a=b"])
+            && quoted.Environment["B"] == "two words" && quoted.Environment.Count == 2, "Quotes group words; an equals sign after the executable is an argument.");
+        var spaced = ClaudeCommandLine.Parse("'/Users/me/My Tools/claude'");
+        Require(spaced.Executable == "/Users/me/My Tools/claude" && spaced.Environment.Count == 0, "A path with spaces stays one word.");
+        foreach (var empty in new[] { "", "   ", null })
+            Require(ClaudeCommandLine.Parse(empty).Executable == "claude" && ClaudeCommandLine.Parse(empty).Rest == "", "An empty command means claude.");
+        Require(ClaudeCommandLine.Parse("A=1").Executable == "claude", "Only assignments still run claude.");
+        Require(ClaudeCommandLine.Parse("TEREDITOR_UI_LAUNCH=x THINKRAIL_MCP_URL=y B=1 claude").Environment.Keys.SequenceEqual(["B"]), "Reserved names are ignored.");
+        var contribution = new AgentLaunchContribution { Environment = new Dictionary<string, string> { ["G"] = "gateway" }, Arguments = ["--x"] };
+        var line = ClaudeLaunch.SessionCommand("A=1 claude --model opus", "", false, false, contributions: [contribution]);
+        Require(line.StartsWith("TEREDITOR_UI_LAUNCH=claude A=1 G=gateway claude --x --model opus ", StringComparison.Ordinal), "The terminal line keeps the setting's variables and still takes contributions: " + line);
+        Require(ClaudeLaunch.SessionCommand("A=1 claude", "", false, false, platform: HostPlatform.Windows, windowsShell: "cmd").StartsWith("set \"A=1\" && claude ", StringComparison.Ordinal)
+            && ClaudeLaunch.SessionCommand("A=1 claude", "", false, false, platform: HostPlatform.Windows).StartsWith("$env:A='1'; claude ", StringComparison.Ordinal), "Windows shells get their own syntax.");
+        Require(ClaudeLaunch.SessionCommand("claude", "", false, false).StartsWith("TEREDITOR_UI_LAUNCH=claude claude ", StringComparison.Ordinal), "A plain command is unchanged.");
+    }
+
     public static async Task Run(string root)
     {
+        CommandLine();
         var directory = Path.Combine(root, "claude-code");
         using var environment = new IsolatedEnvironment(directory);
         var project = Path.Combine(directory, "project");

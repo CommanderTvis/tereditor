@@ -12,8 +12,10 @@ internal static class ClaudeCommands
     /// The program of the launcher's command line. That line is a whole interactive invocation; a subcommand run takes
     /// the program from it and nothing else, so a user's own flags cannot ride along.
     /// </summary>
-    public static string ClaudeBinary(string claudeCommand) =>
-        claudeCommand.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "claude";
+    public static string ClaudeBinary(string claudeCommand) => ClaudeCommandLine.Parse(claudeCommand).Executable;
+
+    /// <summary>The variables the command's leading <c>NAME=value</c> words set, for every run of a subcommand.</summary>
+    public static IReadOnlyDictionary<string, string> ClaudeEnvironment(string claudeCommand) => ClaudeCommandLine.Parse(claudeCommand).Environment;
 
     public static IReadOnlyList<string> PluginUninstall(string claudeCommand, string name, ClaudeWritableScope scope) =>
         [ClaudeBinary(claudeCommand), "plugin", "uninstall", name, "--scope", scope.Name(), "--yes"];
@@ -37,9 +39,9 @@ internal static class ClaudeCommands
         };
     }
 
-    public static async Task<string> RunAsync(IReadOnlyList<string> command, string cwd, string what)
+    public static async Task<string> RunAsync(IReadOnlyList<string> command, string cwd, string what, IReadOnlyDictionary<string, string>? environment = null)
     {
-        var run = await Bounded.RunAsync(command, Timeout, cwd);
+        var run = await Bounded.RunAsync(command, Timeout, cwd, environment);
         if (run.LaunchFailed) throw new InvalidOperationException($"Could not run {command[0]}: {run.Err.Trim()}");
         if (run.TimedOut) throw new InvalidOperationException($"{command[0]} did not finish within a minute.");
         if (!run.Ok) throw new InvalidOperationException(FirstText(run.Err.Trim(), run.Out.Trim()) ?? $"The {what} failed.");
@@ -49,14 +51,14 @@ internal static class ClaudeCommands
     private static string? FirstText(params string[] candidates) => candidates.FirstOrDefault(candidate => candidate.Length > 0);
 
     public static async Task<CommandOutput> UninstallAsync(string claudeCommand, string name, ClaudeWritableScope scope, string cwd) =>
-        new(await RunAsync(PluginUninstall(claudeCommand, name, scope), cwd, "uninstall"));
+        new(await RunAsync(PluginUninstall(claudeCommand, name, scope), cwd, "uninstall", ClaudeEnvironment(claudeCommand)));
 
     public static async Task<CommandOutput> MoveAsync(string claudeCommand, string name, ClaudeWritableScope from, ClaudeWritableScope to, string cwd)
     {
         var commands = PluginMove(claudeCommand, name, from, to);
-        var installed = await RunAsync(commands[0], cwd, "install");
+        var installed = await RunAsync(commands[0], cwd, "install", ClaudeEnvironment(claudeCommand));
         string removed;
-        try { removed = await RunAsync(commands[1], cwd, "uninstall"); }
+        try { removed = await RunAsync(commands[1], cwd, "uninstall", ClaudeEnvironment(claudeCommand)); }
         catch (InvalidOperationException error)
         {
             throw new InvalidOperationException(
@@ -71,5 +73,5 @@ internal static class ClaudeCommands
             AddMarketplace => "add",
             RemoveMarketplace => "remove",
             _ => "update"
-        }));
+        }, ClaudeEnvironment(claudeCommand)));
 }
