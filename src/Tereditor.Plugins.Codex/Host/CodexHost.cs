@@ -76,6 +76,7 @@ public sealed class CodexHost : PluginHostModule
                 return new CodexAccount(false, false, []) { Governed = await governing.Read(cancellationToken) };
             return await account.ReadAsync();
         });
+        context.Method(CodexContract.Installed, async (_, _, _) => await Task.Run(() => AgentExecutable.Probe(CommandOf(context))));
         context.Method(CodexContract.Daemon, (_, _, _) => new ValueTask<CodexDaemonState>(daemon.ReadAsync()));
         context.Method(CodexContract.Models, async (_, _, _) => await models.ReadAsync());
 

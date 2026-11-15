@@ -1,3 +1,5 @@
+using Avalonia.Threading;
+
 using Tereditor.Plugins.Agent.UI;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
@@ -18,6 +20,19 @@ public sealed class ClaudeCodeUI : PluginUIModule
             async (workspaceId, path) => (await context.RequestAsync(ClaudeCodeContract.ReadFile, new ReadFileParams(workspaceId, path))).Content);
         var hydrated = new HashSet<string>();
         var disposed = false;
+        // The host looks for the configured command on its PATH; until it answers, and when it cannot decide, the launcher stays available.
+        AgentInstall? install = null;
+        async void Probe()
+        {
+            try
+            {
+                var read = await context.RequestAsync(ClaudeCodeContract.Installed, new NoParams());
+                if (!disposed) Dispatcher.UIThread.Post(() => { install = read; context.Invalidate(); });
+            }
+            catch (Exception error) when (error is not OperationCanceledException) { }
+        }
+        Probe();
+        var probeOnSettings = context.OnSettings<ClaudeCodeSettings>(_ => Probe());
         var status = context.Subscribe(ClaudeCodeContract.Status, push =>
         {
             store.Apply(push);
@@ -74,7 +89,7 @@ public sealed class ClaudeCodeUI : PluginUIModule
                 settings.AppendSystemPrompt, context.Host().HostPlatform, model: options.Model is null ? settings.Model : null, effort: settings.Effort,
                 contributions: context.AgentLaunchContributions("claude"), sessionId: ClaudeLaunch.NewSessionId(args),
                 permissionMode: settings.PermissionMode, advisor: settings.Advisor, chrome: settings.Chrome ? true : null);
-        }, () => new(true))
+        }, () => LauncherAvailability.Of(context.AgentLaunchContributions("claude"), install?.Reason("Claude Code")))
         { CreateIcon = glyph.Create, Open = (workspace, options) => ChatLauncher.OpenFromLauncher(context, workspace, options), Models = () => [.. ClaudeLaunch.Models.Select(model => new LauncherModel(model.Id, model.Label, "asset:claude.svg"))] });
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("claude-launch",
             (workspace, group) => ClaudeLauncherAction.Create(context, glyph, workspace, group, chat)));
@@ -128,7 +143,7 @@ public sealed class ClaudeCodeUI : PluginUIModule
             catch (Exception error) when (error is not OperationCanceledException) { }
         }
         var ide = context.Subscribe(ClaudeCodeContract.IdeAction, request => _ = actions.HandleAsync(request));
-        return () => { disposed = true; status.Dispose(); editors.Dispose(); ide.Dispose(); actions.Dispose(); chatSelections.Dispose(); };
+        return () => { disposed = true; probeOnSettings.Dispose(); status.Dispose(); editors.Dispose(); ide.Dispose(); actions.Dispose(); chatSelections.Dispose(); };
     }
 
     // Only live pushes ask: a hydrated snapshot row is where a session already stood, not something that just happened.

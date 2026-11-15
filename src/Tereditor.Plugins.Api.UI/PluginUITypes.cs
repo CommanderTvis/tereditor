@@ -260,7 +260,20 @@ public sealed record LauncherCommandOptions
 /// <summary>Whether a launcher can be used now.</summary>
 /// <param name="Available">Whether it can.</param>
 /// <param name="Reason">Why not, when it cannot.</param>
-public sealed record LauncherAvailability(bool Available, string? Reason = null);
+public sealed record LauncherAvailability(bool Available, string? Reason = null)
+{
+    /// <summary>
+    /// The availability of an agent's launcher: unavailable with the reason of the first blocked launch contribution
+    /// (<see cref="AgentLaunchContribution.BlockedReason"/>), else with <paramref name="notInstalled"/> when the agent's
+    /// program was not found, else available.
+    /// </summary>
+    /// <param name="contributions">The launch contributions for the agent now.</param>
+    /// <param name="notInstalled">The reason the program was not found, or <see langword="null"/>.</param>
+    public static LauncherAvailability Of(IReadOnlyList<AgentLaunchContribution> contributions, string? notInstalled = null) =>
+        AgentLaunchComposition.Blocked(contributions) is { } blocked ? new(false, blocked)
+        : notInstalled is { Length: > 0 } ? new(false, notInstalled)
+        : new(true);
+}
 
 /// <summary>Why a file icon is being resolved.</summary>
 public enum FileIconKind

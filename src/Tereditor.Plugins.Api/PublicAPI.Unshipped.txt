@@ -549,3 +549,25 @@ Tereditor.Plugins.Api.PluginPermissionAttribute.Name.get -> string!
 Tereditor.Plugins.Api.PluginPermissionAttribute.PluginPermissionAttribute(string! name) -> void
 Tereditor.Plugins.Api.PluginPermissionAttribute.Condition.get -> string?
 Tereditor.Plugins.Api.PluginPermissionAttribute.Condition.init -> void
+Tereditor.Plugins.Api.AgentLaunchContribution.BlockedReason.get -> string?
+Tereditor.Plugins.Api.AgentLaunchContribution.BlockedReason.init -> void
+const Tereditor.Plugins.Api.AgentLaunchComposition.BlockedWindowsCommand = "launcher-unavailable" -> string!
+static Tereditor.Plugins.Api.AgentLaunchComposition.Blocked(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution!>! contributions) -> string?
+static Tereditor.Plugins.Api.AgentLaunchComposition.BlockedCommand(string! reason) -> string!
+Tereditor.Plugins.Api.AgentExecutable
+static Tereditor.Plugins.Api.AgentExecutable.Probe(string! command, string? path = null, bool? windows = null) -> Tereditor.Plugins.Api.AgentInstall!
+Tereditor.Plugins.Api.AgentInstall
+Tereditor.Plugins.Api.AgentInstall.<Clone>$() -> Tereditor.Plugins.Api.AgentInstall!
+Tereditor.Plugins.Api.AgentInstall.AgentInstall(bool? Installed, string! Command) -> void
+Tereditor.Plugins.Api.AgentInstall.Command.get -> string!
+Tereditor.Plugins.Api.AgentInstall.Command.init -> void
+Tereditor.Plugins.Api.AgentInstall.Deconstruct(out bool? Installed, out string! Command) -> void
+Tereditor.Plugins.Api.AgentInstall.Equals(Tereditor.Plugins.Api.AgentInstall? other) -> bool
+Tereditor.Plugins.Api.AgentInstall.Installed.get -> bool?
+Tereditor.Plugins.Api.AgentInstall.Installed.init -> void
+Tereditor.Plugins.Api.AgentInstall.Reason(string! product) -> string?
+override Tereditor.Plugins.Api.AgentInstall.Equals(object? obj) -> bool
+override Tereditor.Plugins.Api.AgentInstall.GetHashCode() -> int
+override Tereditor.Plugins.Api.AgentInstall.ToString() -> string!
+static Tereditor.Plugins.Api.AgentInstall.operator !=(Tereditor.Plugins.Api.AgentInstall? left, Tereditor.Plugins.Api.AgentInstall? right) -> bool
+static Tereditor.Plugins.Api.AgentInstall.operator ==(Tereditor.Plugins.Api.AgentInstall? left, Tereditor.Plugins.Api.AgentInstall? right) -> bool

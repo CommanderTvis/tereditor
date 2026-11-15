@@ -97,6 +97,19 @@ public sealed class CodexUI : PluginUIModule
             if (context.Host().ActiveWorkspaceId is { Length: > 0 } workspace) context.RevealTool(workspace, PluginIdentity.ToolId(context.Id, "config"));
         }));
 
+        // The host looks for the configured command on its PATH; until it answers, and when it cannot decide, the launcher stays available.
+        AgentInstall? install = null;
+        async void Probe()
+        {
+            try
+            {
+                var read = await context.RequestAsync(CodexContract.Installed, new CodexNoParams());
+                Dispatcher.UIThread.Post(() => { install = read; context.Invalidate(); });
+            }
+            catch (Exception error) when (error is not OperationCanceledException) { }
+        }
+        Probe();
+        var probeOnSettings = context.OnSettings<CodexSettings>(_ => Probe());
         context.Launcher(new AgentLauncher(CodexManifest.Id, "Codex", CodexManifest.Icon,
             options => LaunchLine(context, new(true, false)
             {
@@ -107,7 +120,7 @@ public sealed class CodexUI : PluginUIModule
                 Resume = options.ResumeSessionId is not null,
                 ResumeSessionId = options.ResumeSessionId
             }, KnownDaemon()),
-            () => new(true))
+            () => LauncherAvailability.Of(context.AgentLaunchContributions(CodexManifest.Id), install?.Reason("Codex")))
         {
             CreateIcon = (size, color) => new CodexGlyph(context, size, color as ISolidColorBrush),
             Models = () => [.. store.Models.Select(model => new LauncherModel(model.Id, model.Label, "openai-line"))]
@@ -148,7 +161,7 @@ public sealed class CodexUI : PluginUIModule
 
         context.TerminalAccessory(new(terminal => new CodexTerminalFacts(context, store, terminal,
             accessory => launcherIdeContext.Contains((accessory.WorkspaceId, accessory.TabKey)))));
-        return null;
+        return () => probeOnSettings.Dispose();
 
         async Task LoadModels()
         {

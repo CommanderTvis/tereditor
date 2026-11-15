@@ -36,6 +36,14 @@ public sealed record AgentLaunchContribution
     /// reading it is I/O.
     /// </summary>
     public AgentAccountSource? Account { get; init; }
+
+    /// <summary>
+    /// A short plain sentence saying why the agent cannot be started under this contribution (not signed in, not supported
+    /// on this host), or <see langword="null"/> when it can. The agent's launcher is then unavailable with this reason, and
+    /// <see cref="AgentLaunchComposition.Apply"/> turns any launch line that still reaches it into a command that prints the
+    /// reason and exits 1, so a governed launch never runs ungoverned. The other members are ignored while it is set.
+    /// </summary>
+    public string? BlockedReason { get; init; }
 }
 
 /// <summary>
@@ -68,6 +76,19 @@ public static partial class AgentLaunchComposition
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex VariableName();
 
+    /// <summary>The reason of the first blocked contribution, or <see langword="null"/> when none is blocked.</summary>
+    /// <param name="contributions">The contributions for one agent.</param>
+    public static string? Blocked(IReadOnlyList<AgentLaunchContribution> contributions) =>
+        contributions.Select(contribution => contribution.BlockedReason).FirstOrDefault(reason => !string.IsNullOrWhiteSpace(reason));
+
+    /// <summary>The line a blocked launch runs on a POSIX shell: it prints the reason to standard error and exits 1.</summary>
+    /// <param name="reason">The blocked contribution's reason.</param>
+    public static string BlockedCommand(string reason) =>
+        "sh -c " + Quote("echo " + Quote("launcher unavailable: " + string.Concat(reason.Where(character => !char.IsControl(character))), false) + " >&2; exit 1", false);
+
+    /// <summary>The program name a blocked launch runs on Windows, whose shells cannot print safely: it does not exist, so the launch fails.</summary>
+    public const string BlockedWindowsCommand = "launcher-unavailable";
+
     /// <summary>
     /// Rewrites the start of <paramref name="commandLine"/>, which must begin with the agent's executable word, using
     /// <paramref name="contributions"/> in the order given (the host orders them by plugin activation). Rules: a
@@ -75,7 +96,8 @@ public static partial class AgentLaunchComposition
     /// wrappers that do not replace the executable go first, outermost first; only the first contribution that
     /// replaces the executable applies, innermost, and later replacers are ignored; arguments follow in order;
     /// the first contribution to set a variable wins. A contribution with a word that cannot be quoted safely for the
-    /// target shell is skipped whole.
+    /// target shell is skipped whole. When a contribution is blocked (<see cref="AgentLaunchContribution.BlockedReason"/>)
+    /// the result is <see cref="BlockedCommand"/> (<see cref="BlockedWindowsCommand"/> on Windows) and the rest of the line is dropped.
     /// </summary>
     /// <param name="commandLine">The command line, starting with the executable word.</param>
     /// <param name="executable">The agent's executable name without directory or <c>.exe</c>.</param>
@@ -88,6 +110,7 @@ public static partial class AgentLaunchComposition
         if (contributions.Count == 0 || line.Length == 0) return commandLine;
         var end = WordEnd(line);
         if (end < 0 || Name(line[..end]) != executable) return commandLine;
+        if (Blocked(contributions) is { } reason) return windows ? BlockedWindowsCommand : BlockedCommand(reason);
         var usable = contributions.Where(contribution => Quotable(contribution, windows)).ToArray();
         if (usable.Length == 0) return commandLine;
         var words = new List<string>();

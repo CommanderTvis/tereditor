@@ -186,6 +186,8 @@ public static class CodexContract
     public static readonly PluginMethod<CodexConfigParams, CodexConfigSnapshot> InstallHooks = new("installHooks");
     public static readonly PluginMethod<CodexWorkspaceParams, IReadOnlyList<CodexStatusPush>> StatusSnapshot = new("statusSnapshot");
     public static readonly PluginMethod<CodexNoParams, CodexSystemPromptFile> SystemPromptGet = new("systemPromptGet");
+    /// <summary>Whether the configured command is found on the host's <c>PATH</c>; undecided for a command line the probe cannot read.</summary>
+    public static readonly PluginMethod<CodexNoParams, AgentInstall> Installed = new("installed");
     /// <summary>The instruction sections this agent's sessions in a workspace get, with the project's on/off choice for each.</summary>
     public static readonly PluginMethod<InstructionSectionQuery, InstructionSectionList> InstructionsList = new("instructionsList");
     /// <summary>Turns one section on or off in the project's <c>.tereditor/instructions.toml</c>.</summary>
@@ -199,7 +201,7 @@ public static class CodexContract
     public static readonly PluginChannel<InstructionSectionsChanged> InstructionsChanged = PluginChannel<InstructionSectionsChanged>.Event("instructionsChanged");
 
     public static readonly PluginContract Contract = PluginContract.Create<CodexSettings>(CodexManifest.Id, WireVersion,
-        [IdeReply, Account, Models, Daemon, ConfigGet, SetValue, CreateInstructions, InstallHooks, StatusSnapshot, SystemPromptGet, InstructionsList, InstructionsSet], [IdeRequest, Status, InstructionsChanged],
+        [IdeReply, Account, Models, Daemon, ConfigGet, SetValue, CreateInstructions, InstallHooks, StatusSnapshot, SystemPromptGet, Installed, InstructionsList, InstructionsSet], [IdeRequest, Status, InstructionsChanged],
         CodexJson.Default);
 }
 
@@ -208,6 +210,7 @@ public static class CodexContract
 [JsonSerializable(typeof(CodexIdeReply))]
 [JsonSerializable(typeof(bool))]
 [JsonSerializable(typeof(CodexNoParams))]
+[JsonSerializable(typeof(AgentInstall))]
 [JsonSerializable(typeof(CodexAccount))]
 [JsonSerializable(typeof(IReadOnlyList<CodexModel>))]
 [JsonSerializable(typeof(CodexDaemonState))]

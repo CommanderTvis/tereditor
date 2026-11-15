@@ -45,7 +45,7 @@ public sealed class OmpUI : PluginUIModule
         context.SettingsSection(new("omp", OmpManifest.Icon, () => new OmpSettingsView(context)));
         context.SideTool(new("context", workspace => OmpPanel.Create(context, workspace)) { Retarget = OmpPanel.Retarget });
         context.Launcher(new AgentLauncher(OmpManifest.Id, "omp", OmpManifest.Icon, options => LaunchLine(context, options),
-            () => status is { Installed: false } ? new(false, "omp is not installed; see " + OmpLaunch.InstallUrl) : new(true))
+            () => LauncherAvailability.Of(context.AgentLaunchContributions(OmpManifest.Id), status is { Installed: false } ? "omp is not installed; see " + OmpLaunch.InstallUrl : null))
         {
             CreateIcon = (size, color) => new OmpGlyph(context, size, color as ISolidColorBrush),
             Models = () => [.. OmpLaunch.ModelSuggestions.Select(model => new LauncherModel(model, model))]

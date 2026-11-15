@@ -82,7 +82,7 @@ internal static class OmpChecks
         foreach (var name in new[] { "omp", "central" }) File.SetUnixFileMode(Path.Combine(bin, name), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var settings = new AirSettings { Source = AirSources.Central };
         using var missing = new Tereditor.Plugins.AirGateway.Host.AirGatewayRuntime(new(home, bin), () => settings, _ => { });
-        Require(missing.PiWire() is null && missing.Contribution(OmpManifest.Id) is { Wrapper: ["sh", "-c", AirLaunch.PiMissingScript], ReplacesExecutable: true },
+        Require(missing.PiWire() is null && missing.Contribution(OmpManifest.Id) is { BlockedReason: AirLaunch.PiMissingMessage },
             "governed omp without a Central wire is blocked");
         var paneLaunch = (await missing.StatusAsync(false, default)).Agents.Single(agent => agent.Id == OmpManifest.Id).Launch!;
         Require(paneLaunch.Contains("central login", StringComparison.Ordinal) && !paneLaunch.Contains("central add", StringComparison.Ordinal), "the pane says what is needed, not `central add pi`");
@@ -100,7 +100,7 @@ internal static class OmpChecks
         File.WriteAllText(config, "{\"proxy_port\":19517,\"proxy_secret\":\"bad secret!\"}");
         Require(missing.PiWire() is null, "an invalid config secret is rejected");
         var message = await Run(missing.Contribution(OmpManifest.Id), true);
-        Require(message.Length == 1 && message[0] == AirLaunch.PiMissingMessage && !message[0].Contains(Secret, StringComparison.Ordinal), "the failure is one plain line and omp never starts");
+        Require(message.Length == 1 && message[0] == "launcher unavailable: " + AirLaunch.PiMissingMessage && !message[0].Contains(Secret, StringComparison.Ordinal), "the failure is one plain line and omp never starts");
         File.WriteAllText(config, "{\"proxy_port\":19517,\"proxy_secret\":\"" + Secret + "\"}");
         var fromConfig = await Run(missing.Contribution(OmpManifest.Id));
         Require(fromConfig.SequenceEqual(["CENTRAL=proxy start --ensure-updated --caller agent", "BASE=" + ConfigWire + "/anthropic", "KEY=wire-proxy", "ARG=--model", "ARG=anthropic/x", "ARG=--no-lsp"]),
@@ -115,7 +115,7 @@ internal static class OmpChecks
         Require(missing.PiWire() == ConfigWire, "the config wins over the Pi integration");
         File.Delete(config);
         Require(AirLaunch.PiWire("registerProvider(\"anthropic\", { baseUrl: \"https://example.test/wire/x/pi/anthropic\" })") is null, "only a loopback wire is accepted");
-        Require(AirLaunch.Contribution(settings, OmpManifest.Id, "/c", Wire, windows: true) is { Wrapper: [AirLaunch.WindowsUnsupportedCommand] }, "Windows, which gets no contributed environment, is blocked");
+        Require(AirLaunch.Contribution(settings, OmpManifest.Id, "/c", Wire, windows: true) is { BlockedReason: AirLaunch.WindowsUnsupportedMessage }, "Windows, which gets no contributed environment, is blocked");
         Require(AirLaunch.Contribution(settings with { Omp = false }, OmpManifest.Id, "/c", Wire) is null && AirLaunch.Contribution(new(), OmpManifest.Id, "/c", Wire) is null,
             "direct or switched off contributes nothing");
 

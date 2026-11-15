@@ -223,7 +223,7 @@ internal static partial class AirGatewayChecks
         Require(AirLaunch.Contribution(central, "omp", "/c", "http://127.0.0.1:1/wire/a/pi") is { ReplacesExecutable: false, Wrapper: ["sh", "-c", AirLaunch.ProxyStartScript, "/c"] } omp &&
             omp.Environment["ANTHROPIC_BASE_URL"] == "http://127.0.0.1:1/wire/a/pi/anthropic" && omp.Environment["ANTHROPIC_API_KEY"] == AirLaunch.WireApiKey,
             "omp starts Central's proxy and gets its Pi wire through the environment.");
-        Require(AirLaunch.Contribution(central, "omp", "/c") is { Wrapper: ["sh", "-c", AirLaunch.PiMissingScript] } && AirLaunch.Contribution(central with { Omp = false }, "omp", "/c") is null &&
+        Require(AirLaunch.Contribution(central, "omp", "/c") is { BlockedReason: AirLaunch.PiMissingMessage } && AirLaunch.Contribution(central with { Omp = false }, "omp", "/c") is null &&
             AirLaunch.Shape(central, "omp", "/c") == "blocked: " + AirLaunch.PiMissingMessage && !AirLaunch.PiMissingMessage.Contains("central add", StringComparison.Ordinal),
             "Without a Central wire omp is blocked with a plain message, and it has its own switch.");
         Require(AirLaunch.PiWireFromConfig("{\"proxy_port\":4000,\"proxy_secret\":\"abc123\"}") == "http://127.0.0.1:4000/wire/abc123/pi" &&
@@ -257,6 +257,11 @@ internal static partial class AirGatewayChecks
         Require(flipped.Credits is { Remaining: 16.27, Total: 20, TopUp: 0, RefillNext: 1800000000000 }, "Chosen Central and signed in shows the remaining credits.");
         Require(AirSettingsView.CreditsLine(flipped).StartsWith("16.27 of 20.00 credits remaining, refills 2027-", StringComparison.Ordinal) && !AirSettingsView.CreditsLine(flipped).Contains("top-up", StringComparison.Ordinal),
             "The credits line reads: " + AirSettingsView.CreditsLine(flipped));
+        Require(AirSettingsView.AgentRow("Codex", "Codex", false, PluginStatus.Active) == (true, "Codex", false) && AirSettingsView.AgentRow("Codex", "Codex", false, PluginStatus.Failed) == (true, "Codex", false) &&
+            AirSettingsView.AgentRow("Codex", "Codex", false, PluginStatus.Disabled).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, PluginStatus.Refused).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, null).Show == false,
+            "The Agents list shows an agent only when its plugin is on.");
+        Require(AirSettingsView.AgentRow("Claude Code", "Claude Code", true, PluginStatus.Disabled) == (true, "Claude Code is turned off in Settings › Plugins", true) && AirSettingsView.AgentRow("omp", "omp (x)", true, null) == (true, "omp is turned off in Settings › Plugins", true),
+            "A chosen agent whose plugin is off or missing stays as one dimmed line, so a saved choice is never hidden.");
         fixture.Tokens("limit-topup");
         var topUp = await runtime.StatusAsync(true, default);
         Require(topUp.Credits is { TopUp: 5.5 } && AirSettingsView.CreditsLine(topUp).Contains("plus 5.50 top-up", StringComparison.Ordinal), "A nonzero top-up is shown.");

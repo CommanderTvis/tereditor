@@ -27,6 +27,7 @@ internal sealed partial class AirSettingsView : UserControl
     private readonly TextBox installCommand;
     private readonly RadioButton direct, central;
     private readonly CheckBox claudeCode, codex, omp;
+    private readonly (CheckBox Box, string PluginId, string Name, string Label, Func<AirSettings, bool> Chosen)[] agents;
     private readonly Button signIn, signOut, startProxy, update;
     private readonly List<IDisposable> observers = [];
     private AirStatus? status;
@@ -61,6 +62,12 @@ internal sealed partial class AirSettingsView : UserControl
         direct = Get<RadioButton>("AirSourceDirect"); central = Get<RadioButton>("AirSourceCentral");
         claudeCode = Get<CheckBox>("AirAgentClaudeCode"); codex = Get<CheckBox>("AirAgentCodex"); omp = Get<CheckBox>("AirAgentOmp");
         piInstall = Get<TextBlock>("AirPiInstall");
+        agents =
+        [
+            (claudeCode, "claude-code", "Claude Code", "Claude Code", settings => settings.ClaudeCode),
+            (codex, "codex", "Codex", "Codex", settings => settings.Codex),
+            (omp, "omp", "omp", "omp (Anthropic models through Central's Pi wire)", settings => settings.Omp)
+        ];
         signIn = Get<Button>("AirSignIn"); signOut = Get<Button>("AirSignOut");
         startProxy = Get<Button>("AirStartProxy"); update = Get<Button>("AirUpdate");
         direct.IsCheckedChanged += (_, _) => { if (!applying && direct.IsChecked == true) Save(Settings with { Source = AirSources.Direct }); };
@@ -81,6 +88,7 @@ internal sealed partial class AirSettingsView : UserControl
             hostWindow = TopLevel.GetTopLevel(this) as Window;
             if (hostWindow is not null) hostWindow.Activated += Activated;
             observers.Add(context.OnSettings<AirSettings>(next => { var was = lastSource; ApplySettings(next); _ = RefreshAsync(true, next.Source != was); }));
+            observers.Add(context.WatchHost(host => string.Join('\n', host.Roster.Select(entry => entry.Id + ":" + entry.Status)), (_, _) => ShowAgents(Settings)));
             observers.Add(context.Subscribe(AirGatewayContract.Changed, next => { status = next; Render(); }, new AirStatusParams()));
             // After the observers: a check with none registered is skipped, so the on-open check must follow them.
             _ = CheckAsync(true);
@@ -112,8 +120,30 @@ internal sealed partial class AirSettingsView : UserControl
             codex.IsChecked = settings.Codex;
             omp.IsChecked = settings.Omp;
             lastSource = settings.Source;
+            ShowAgents(settings);
         }
         finally { applying = false; }
+    }
+
+    /// <summary>
+    /// What one agent's row shows: the agent when its plugin is on; nothing when it is off or missing and the agent is not
+    /// chosen; a dimmed line saying so when it is chosen, so a saved choice is never hidden silently.
+    /// </summary>
+    internal static (bool Show, string Text, bool Dim) AgentRow(string name, string label, bool chosen, PluginStatus? status) =>
+        status is PluginStatus.Active or PluginStatus.Failed ? (true, label, false)
+        : chosen ? (true, name + " is turned off in Settings › Plugins", true)
+        : (false, label, false);
+
+    private void ShowAgents(AirSettings settings)
+    {
+        var roster = context.Host().Roster;
+        foreach (var (box, pluginId, name, label, chosen) in agents)
+        {
+            var row = AgentRow(name, label, chosen(settings), roster.FirstOrDefault(entry => entry.Id == pluginId)?.Status);
+            box.IsVisible = row.Show;
+            box.Content = row.Text;
+            box.Opacity = row.Dim ? .6 : 1;
+        }
     }
 
     private async void Save(AirSettings settings)

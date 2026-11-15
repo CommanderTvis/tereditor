@@ -283,6 +283,11 @@ offer all pass the executable word of the command through `AgentLaunchCompositio
 contribution reaches every new or revived terminal. A custom command that is not the `codex` executable is never
 rewritten, and a disabled contributor changes nothing.
 
+The launcher is unavailable when another plugin's launch contribution is blocked (its reason is shown) and, once the host
+reports that the configured command is not found on `PATH` (`installed`, Plugin API `AgentExecutable.Probe`), with
+"codex was not found on PATH. Install Codex, then try again." A command line the probe cannot read leaves it available. The host
+repairs `PATH` from the login shell at startup, so the probe sees what a terminal gets.
+
 The appendix is strict: it says an agent MUST use `lsp_navigate` for symbol questions before grep or whole-file reads, MUST run
 `lsp_diagnostics` with `paths` on every edited file before declaring done (a build is no substitute), and CAN and MUST start any
 missing or stopped server itself through `lsp_status` catalog/retry without asking the user, waiting while it initializes; only

@@ -1079,3 +1079,4 @@ Tereditor.Plugins.Api.UI.PluginDocumentSelection
 Tereditor.Plugins.Api.UI.PluginDocumentSelection.For(string! workspaceId) -> (Tereditor.Plugins.Api.UI.EditorRef! Editor, Tereditor.Plugins.Api.UI.EditorSelection! Selection)?
 Tereditor.Plugins.Api.UI.PluginDocumentSelection.Observe(Tereditor.Plugins.Api.UI.EditorEvent! editorEvent, System.Func<Tereditor.Plugins.Api.UI.EditorRef!, bool>! isListed) -> void
 Tereditor.Plugins.Api.UI.PluginDocumentSelection.PluginDocumentSelection() -> void
+static Tereditor.Plugins.Api.UI.LauncherAvailability.Of(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution!>! contributions, string? notInstalled = null) -> Tereditor.Plugins.Api.UI.LauncherAvailability!

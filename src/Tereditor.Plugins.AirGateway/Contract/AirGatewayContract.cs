@@ -77,17 +77,11 @@ public static partial class AirLaunch
     /// </summary>
     public const string OmpLauncher = "omp";
 
-    /// <summary>The line a governed omp launch prints when Central's proxy wire is unknown.</summary>
+    /// <summary>Why a governed omp launch is blocked when Central's proxy wire is unknown.</summary>
     public const string PiMissingMessage = "Air Gateway: sign in to JetBrains Central first (central login), then start again.";
 
-    /// <summary>
-    /// The script a governed omp launch runs when Central's wire is unknown: it prints <see cref="PiMissingMessage"/> and
-    /// exits 1, so the launch fails readably instead of starting an ungoverned omp.
-    /// </summary>
-    public const string PiMissingScript = "echo '" + PiMissingMessage + "' >&2; exit 1";
-
-    /// <summary>The executable a governed omp launch gets on Windows, whose shells receive no contributed environment.</summary>
-    public const string WindowsUnsupportedCommand = "air-gateway-cannot-govern-omp-on-windows";
+    /// <summary>Why a governed omp launch is blocked on Windows, whose shells receive no contributed environment.</summary>
+    public const string WindowsUnsupportedMessage = "Air Gateway cannot govern omp on Windows.";
 
     /// <summary>The API key Central's proxy expects in place of a vendor key, as its Pi integration passes it.</summary>
     public const string WireApiKey = "wire-proxy";
@@ -150,15 +144,15 @@ public static partial class AirLaunch
     /// with the bare name when Central has not been found, so a missing CLI fails the launch in the shell. omp, which
     /// <c>central run</c> cannot start, gets the equivalent of <c>central run pi</c>: the proxy is started first and
     /// <c>ANTHROPIC_BASE_URL</c> and <c>ANTHROPIC_API_KEY</c> point it at Central's Pi wire (<paramref name="piWire"/>);
-    /// without a known wire the launch prints <see cref="PiMissingMessage"/> and exits 1, and on Windows it runs a command that cannot exist.
+    /// without a known wire, and on Windows, the contribution is blocked (<see cref="AgentLaunchContribution.BlockedReason"/>): the launcher is unavailable with the reason and any launch line that still reaches it fails with it.
     /// </summary>
     public static AgentLaunchContribution? Contribution(AirSettings settings, string launcherId, string? centralPath, string? piWire = null, bool windows = false)
     {
         if (!Enabled(settings, launcherId)) return null;
         var central = centralPath is { Length: > 0 } ? centralPath : "central";
         if (launcherId != OmpLauncher) return new() { Wrapper = [central, "run", CentralNames[launcherId], "--"], ReplacesExecutable = true };
-        if (windows) return new() { Wrapper = [WindowsUnsupportedCommand], ReplacesExecutable = true };
-        if (piWire is not { Length: > 0 }) return new() { Wrapper = ["sh", "-c", PiMissingScript], ReplacesExecutable = true };
+        if (windows) return new() { BlockedReason = WindowsUnsupportedMessage };
+        if (piWire is not { Length: > 0 }) return new() { BlockedReason = PiMissingMessage };
         return new()
         {
             Wrapper = ["sh", "-c", ProxyStartScript, central],
@@ -171,8 +165,7 @@ public static partial class AirLaunch
         Contribution(settings, launcherId, centralPath, piWire, windows) switch
         {
             null => null,
-            { Wrapper: ["sh", "-c", PiMissingScript] } => "blocked: " + PiMissingMessage,
-            { Wrapper: [WindowsUnsupportedCommand] } => "blocked: Air Gateway cannot govern omp on Windows",
+            { BlockedReason: { } reason } => "blocked: " + reason,
             { ReplacesExecutable: false } contribution => string.Join(' ', contribution.Environment.Select(pair => pair.Key + "=" + pair.Value)) + " "
                 + contribution.Wrapper[^1] + " proxy start, then " + launcherId + " <" + launcherId + " arguments>",
             var contribution => string.Join(' ', contribution.Wrapper) + " <" + launcherId + " arguments>"
@@ -200,7 +193,7 @@ public static class AirGatewayContract
         Category = PluginCategories.Agents,
         // Runs Central's command line on the host's operating system, which a browser tab does not have.
         UnavailableOn = [HostKind.PureWeb],
-        Description = "Starts Codex and Claude Code through JetBrains Air Gateway with the Central CLI, per launch, or leaves them on their own accounts.",
+        Description = "Starts Claude Code, Codex and omp through JetBrains Air Gateway with the Central CLI, per launch, or leaves them on their own accounts.",
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.AirGateway.Host.dll",

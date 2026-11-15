@@ -2,14 +2,14 @@
 id: module-plugin-air-gateway
 type: module-design
 status: draft
-title: Air Gateway — Codex and Claude Code through JetBrains Central
+title: Air Gateway — Claude Code, Codex and omp through JetBrains Central
 parent: group-plugins-agents
 depends-on: [module-plugin-api, module-plugin-ui-kit]
 references: [submodule-host-plugins, submodule-ui-plugins, submodule-ui-panels]
 tags: [plugins, central, governance]
 ---
 
-# Air Gateway — Codex and Claude Code through JetBrains Central
+# Air Gateway — Claude Code, Codex and omp through JetBrains Central
 
 Adapted from the former ThinkRail fork's JetBrains Central integration. The fork routed Central into `pi`
 through one extension file; pi is out of scope here, so this plugin keeps the fork's detection, sign-in, proxy,
@@ -20,11 +20,15 @@ Air Gateway was called Air Governance until JetBrains renamed the product; the p
 
 ## Responsibility
 
-Lets the user choose where Codex and Claude Code get their AI, from Settings › Air Gateway:
+Lets the user choose where Claude Code, Codex and omp get their AI, from Settings › Air Gateway (Pi and ACP agents are not governed):
 
 - Direct (default): each agent keeps its own account. The plugin contributes nothing.
 - JetBrains AI through Central: each enabled agent (Claude Code, Codex, omp; all on by default) is started through
   JetBrains Air Gateway by the user's own `central` CLI.
+
+The Agents list shows an agent only while its plugin is on (active or failed). A chosen agent whose plugin is off stays as one dimmed line,
+"<agent> is turned off in Settings › Plugins", so a saved choice is never hidden silently. The page does not know whether an
+agent's program is installed: that is the agent plugin's launcher, which shows "not found on PATH" in Start work.
 
 The chosen source and the per-agent switches are the plugin's settings namespace (`source`, `claudeCode`, `codex`, `omp`),
 persisted by the host and effective at once for the next launch. The plugin ships disabled, since governing agents is
@@ -62,10 +66,11 @@ contribution to launcher id `omp` sets those two variables and a non-replacing w
 proxy best effort and execs omp with its usual arguments. Only Anthropic models are governed; an omp model from another
 provider runs on omp's own account. OpenAI route for omp: not wired yet. An `ANTHROPIC_OAUTH_TOKEN` in the
 environment takes precedence in omp over the key. Nothing under `~/.pi` or `~/.omp` is written and `-e` is not passed.
-When no wire can be found, or the UI has not yet received the status, the governed omp launch fails closed with one
-plain line, "Air Gateway: sign in to JetBrains Central first (central login), then start again.", and exit status 1
-(a launch contribution can only be a command today); on Windows, whose shells get no contributed environment, it runs
-`air-gateway-cannot-govern-omp-on-windows`. The pane then says that governed omp needs Central installed and signed in
+When no wire can be found, or the UI has not yet received the status, the contribution to `omp` is blocked
+(`BlockedReason`, Plugin API H18): the omp launcher is unavailable with "Air Gateway: sign in to JetBrains Central first
+(central login), then start again.", and a launch line that still reaches it prints "launcher unavailable: " and that
+sentence and exits 1, so a governed launch never runs ungoverned. On Windows, whose shells get no contributed environment,
+the contribution is blocked with "Air Gateway cannot govern omp on Windows." The pane then says that governed omp needs Central installed and signed in
 and that the launch starts its proxy.
 
 Central chooses its own AI access source and proxy; `central access <id>` (switch, then `central proxy restart`)

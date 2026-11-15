@@ -181,7 +181,7 @@ with `TEREDITOR_TOOLS_ENABLE=spec,blueprint`, which sets it for those two in mem
 | `lsp-java`, `lsp-go`, `lsp-rust`, `lsp-scala`, `lsp-ruby`, `lsp-r`, `lsp-powershell`, `lsp-swift`, `lsp-dart` (9) | no | Their servers need a toolchain with no pinned download (JDK, Go, Rust, Coursier, Ruby, R, PowerShell, Swift, Dart); each flips to yes when that runtime is pinned with a checksum. |
 | `lsp-intellij` | yes, opt-in | Not in the default roster: it exists only when `TEREDITOR_PREFETCH` or `TEREDITOR_ACCEPT_TERMS` names it. Self-contained archive with its own JRE (checked on both Linux architectures). It needs a JetBrains licence and the user's agreement to the JetBrains User Agreement, given with `accept_terms`, an MCP prompt or `TEREDITOR_ACCEPT_TERMS`. See [headless.md](../headless.md#the-intellij-server-opt-in). |
 | `claude-code`, `codex`, `omp`, `pi`, `acp` | no | They launch an agent in a terminal or chat pane. Headless is the tool server an agent calls. |
-| `air-gateway` | no | It starts Codex and Claude Code through Air Gateway per launch. |
+| `air-gateway` | no | It starts Claude Code, Codex and omp through Air Gateway per launch. |
 | `air-context` | no | Sign-in and consent are user-only and the indexing is cloud processing. |
 | `providers` | no | It is a settings page for the API keys of Pi and omp. |
 | `github` | no | Pull request panels and a `gh` sign-in. |

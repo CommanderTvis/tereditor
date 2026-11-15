@@ -121,6 +121,7 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
             failed => context.Publish(ClaudeCodeContract.AccountUsage, new AccountUsageChanged(failed)));
         usagePoller.Start();
         context.Method(ClaudeCodeContract.PermissionModesGet, async (_, _, _) => await permissionModes.GetAsync(Command()));
+        context.Method(ClaudeCodeContract.Installed, async (_, _, _) => await Task.Run(() => AgentExecutable.Probe(Command())));
         context.Method(ClaudeCodeContract.SystemPromptGet, (_, _, _) => Done(new SystemPromptFile(SystemPrompt.FilePath(), SystemPrompt.IgnoredEdits())));
         // The project's disable-list is the only way to shape the instructions; the generated files are never edited.
         InstructionSectionList WithEdits(InstructionSectionList list) => new()

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Providers;
 using Tereditor.Plugins.Providers.Host;
+using Tereditor.Plugins.Providers.UI;
 
 namespace Tereditor.Checks;
 
@@ -86,5 +87,14 @@ internal static class ProvidersChecks
         Require(report.Providers.Single(row => row.Id == "my-gateway") is { Custom: true, EnvVar: "MY_GATEWAY_API_KEY", Source: ProviderSource.Key }, "A custom omp provider is remembered with its variable.");
         Require(service.List(ProviderAgent.Omp).Providers.Single(row => row.Id == "anthropic").Note == ProviderCatalog.AnthropicNote && service.List(ProviderAgent.Omp).Providers.All(row => row.Source != ProviderSource.SignIn), "Anthropic is offered by API key only, with the reason, and omp rows never show a sign-in.");
         Require(ProviderCatalog.Pi.Concat(ProviderCatalog.Omp).All(provider => ProviderCatalog.IsProviderId(provider.Id) && ProviderCatalog.IsEnvVar(provider.EnvVar)), "Every catalog entry has a valid id and variable.");
+
+        // The page offers only agents whose plugin is on.
+        PluginRosterEntry Entry(string id, PluginStatus status) => new(id, id, "terminal", "1", 1, PluginOrigin.Builtin, status);
+        Require(ProvidersView.Offered([Entry("pi", PluginStatus.Active), Entry("omp", PluginStatus.Active)]) == (true, true), "Both agents are offered when both plugins are on.");
+        Require(ProvidersView.Offered([Entry("pi", PluginStatus.Active), Entry("omp", PluginStatus.Disabled)]) == (true, false) && ProvidersView.Offered([Entry("pi", PluginStatus.Disabled), Entry("omp", PluginStatus.Active)]) == (false, true),
+            "A disabled plugin's agent is not offered.");
+        Require(ProvidersView.Offered([Entry("pi", PluginStatus.Active), Entry("omp", PluginStatus.Refused)]) == (true, false) && ProvidersView.Offered([]) == (false, false), "A refused or absent plugin's agent is not offered.");
+        Require(ProvidersView.Intro(true, false).Contains("Pi uses", StringComparison.Ordinal) && !ProvidersView.Intro(true, false).Contains("omp", StringComparison.Ordinal) &&
+            ProvidersView.Intro(false, true).Contains("omp uses", StringComparison.Ordinal) && ProvidersView.Intro(false, false).Contains("Turn on", StringComparison.Ordinal), "The opening sentence names only the agents offered.");
     }
 }

@@ -943,6 +943,19 @@ the vendor account read while one is present. `Read` runs on the host, reports a
 (not installed, signed out, limit unreadable) rather than throwing, and is requested again on each refresh. UI-side
 contributions leave `Account` unset because reading it is I/O. `Account` does not affect `Apply`.
 
+A contribution may be blocked: `BlockedReason` is a short plain sentence saying why the agent cannot start now (not signed
+in, not supported on this host). The other members are then ignored. `AgentLaunchComposition.Blocked` returns the first
+reason, and `LauncherAvailability.Of(contributions, notInstalled)` turns it into an unavailable launcher with that reason,
+which the Start work dialog and the other launcher lists already show. `Apply` fails closed for a line that still reaches a
+blocked contribution (a revive, a typed command): it returns `sh -c 'echo "launcher unavailable: <reason>" >&2; exit 1'`,
+and on Windows a program name that does not exist, so a governed launch never runs ungoverned.
+
+`AgentExecutable.Probe(command)` is the installed probe for an agent's launcher: it looks for the configured command in the
+`PATH` files (or at its own path when it names a directory) without starting anything, and answers found, not found or
+undecided (`AgentInstall.Installed` true, false or null). A command line with arguments or shell words is undecided. It
+reads files, so a plugin calls it from its host half; `AgentInstall.Reason(product)` is the sentence for a launcher that is
+not installed. An undecided probe leaves the launcher available.
+
 ## Repo hosting contributions (H24, W28)
 
 H24 and W28 are the two halves of one contribution, as H18 and W22 are for agent launches. Details: [Plugins](../Tereditor.Host.Core/Plugins.SPEC.md#repo-hosting-providers-h24-w28).

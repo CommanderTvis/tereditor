@@ -430,6 +430,8 @@ public static class ClaudeCodeContract
     public static readonly PluginMethod<WorkspaceParams, ClaudeConfigSnapshot> ConfigGet = new("configGet");
     public static readonly PluginMethod<AccountParams, ClaudeAccount> Account = new("account");
     public static readonly PluginMethod<NoParams, SystemPromptFile> SystemPromptGet = new("systemPromptGet");
+    /// <summary>Whether the configured command is found on the host's <c>PATH</c>; undecided for a command line the probe cannot read.</summary>
+    public static readonly PluginMethod<NoParams, AgentInstall> Installed = new("installed");
     /// <summary>The instruction sections this agent's sessions in a workspace get, with the project's on/off choice for each.</summary>
     public static readonly PluginMethod<InstructionSectionQuery, InstructionSectionList> InstructionsList = new("instructionsList");
     /// <summary>Turns one section on or off in the project's <c>.tereditor/instructions.toml</c>.</summary>
@@ -464,7 +466,7 @@ public static class ClaudeCodeContract
     public static readonly PluginChannel<InstructionSectionsChanged> InstructionsChanged = PluginChannel<InstructionSectionsChanged>.Event("instructionsChanged");
 
     public static readonly PluginContract Contract = PluginContract.Create<ClaudeCodeSettings>(Id, 3,
-        [.. ChatContract.Methods, ConfigGet, Account, SystemPromptGet, InstructionsList, InstructionsSet, PluginUninstallPlan, PluginUninstall, PluginMovePlan, PluginMove,
+        [.. ChatContract.Methods, ConfigGet, Account, SystemPromptGet, Installed, InstructionsList, InstructionsSet, PluginUninstallPlan, PluginUninstall, PluginMovePlan, PluginMove,
             MarketplacePlan, MarketplaceRun, McpList, ReadFile, WriteFile, PlanEdit, ApplyEdit, PermissionModesGet, SelectionChanged, DocumentClosed,
             AtMention, ActionReply, StatusSnapshot, ContextUsageGet],
         [Status, IdeAction, ContextUsage, AccountUsage, InstructionsChanged, ChatContract.Updates], ClaudeCodeJson.Default, ChatContract.Json);
@@ -495,6 +497,7 @@ public static class ClaudeCodeContract
 [JsonSerializable(typeof(NoParams))]
 [JsonSerializable(typeof(PermissionModesResult))]
 [JsonSerializable(typeof(SystemPromptFile))]
+[JsonSerializable(typeof(AgentInstall))]
 [JsonSerializable(typeof(PluginMoveParams))]
 [JsonSerializable(typeof(PluginMovePlanParams))]
 [JsonSerializable(typeof(CommandsPlan))]
