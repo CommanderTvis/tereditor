@@ -7,7 +7,7 @@ from source instead, see [Building](develop/building.md).
 
 ## macOS
 
-Download the disk image for Apple silicon. It is not notarized. Homebrew works through the
+Download the disk image. It is not notarized. Homebrew works through the
 [tap](https://github.com/CommanderTvis/homebrew).
 
 ```sh

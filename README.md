@@ -85,7 +85,7 @@ Headless tereditor runs inside a cloud session of Claude Code on claude.ai/code.
 Nightly builds are on the [releases page](https://github.com/CommanderTvis/tereditor/releases/tag/nightly).
 Every night also gets a dated release, such as [nightly-2026-11-15](https://github.com/CommanderTvis/tereditor/releases/tag/nightly-2026-11-15), whose links never change. Old days stay.
 
-- On macOS, download the disk image for Apple silicon (not notarized) or use Homebrew through the
+- On macOS, download the disk image (not notarized) or use Homebrew through the
   [tap](https://github.com/CommanderTvis/homebrew):
 
   ```sh
