@@ -36,7 +36,7 @@ A cloud session of Claude Code (claude.ai/code) can use the `lsp_*` tools of [he
    - writes the usage notes (below) into `~/.claude/CLAUDE.md`,
    - registers the MCP server `tereditor` in Claude Code's user config, and sets `MCP_TIMEOUT` in `~/.claude/settings.json`.
 
-   `TEREDITOR_HEADLESS_SHA256` pins the archive. Set it to the sha256 of the archive you checked, and the script installs exactly that file or fails. The `nightly` release is replaced every night and old archives are not kept, so a pin works while that archive is still on the release; keep your own copy and set `TEREDITOR_HEADLESS_URL_BASE` to where it is for an experiment that must run again later. That variable defaults to `https://github.com/CommanderTvis/tereditor/releases/download/nightly` and is also for mirrors. The archive holds the same files as the Docker image (the binary, `plugins`, `shell-integration` and the helper programs) under one folder, `tereditor-headless/`. The Docker image stays for Docker users, see [headless.md](headless.md).
+   `TEREDITOR_HEADLESS_SHA256` pins the archive. Set it to the sha256 of the archive you checked, and the script installs exactly that file or fails. The `nightly` release is replaced every night, but every night also has a dated release that is kept for good. To pin a day, set `TEREDITOR_HEADLESS_URL_BASE` to `https://github.com/CommanderTvis/tereditor/releases/download/nightly-YYYY-MM-DD` (for example `nightly-2026-11-15`) and set the hash pin as well. A dated release holds the build of the last run of that day. The variable defaults to `https://github.com/CommanderTvis/tereditor/releases/download/nightly` and is also for mirrors. The archive holds the same files as the Docker image (the binary, `plugins`, `shell-integration` and the helper programs) under one folder, `tereditor-headless/`. The Docker image stays for Docker users, see [headless.md](headless.md).
 
    That is the whole setup: paste the script, nothing else. No `.mcp.json` in the repo and no Docker.
 4. The script runs before Claude Code starts, so the session picks up what it writes in the VM's home:
@@ -61,5 +61,5 @@ With `TEREDITOR_LOG=1` the server writes `.tereditor/runs/<session>.jsonl` insid
 
 ## Limits
 
-- The nightly release must be public. The archive is the last night's build, and `SHA256SUMS` lists every file of the release. If the arm64 build failed that night, the release has no arm64 archive and the script says so.
+- The nightly release must be public. The archive is the last night's build (a dated release has that day's), and `SHA256SUMS` lists every file of the release. If the arm64 build failed that night, the release has no arm64 archive and the script says so.
 - LSP on a huge repository may not finish. The first `lsp_*` call may answer `initializing`.

@@ -364,6 +364,7 @@ jobs:
           merge-multiple: true
       # One prerelease that moves: the tag follows the commit, and the files keep their names from night to night. The
       # previous release is never deleted before the new files are up, so a failing night leaves the last good release.
+      # Every night also gets a dated prerelease, nightly-YYYY-MM-DD, that is kept for good so downstream can pin a day.
       - env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -408,4 +409,25 @@ jobs:
           else
             # shellcheck disable=SC2086
             gh release create nightly $assets --prerelease --target "$GITHUB_SHA" --title "Nightly $(date -u +%Y-%m-%d)" --notes "$notes"
+          fi
+          # The same files again as a dated release, so downstream can pin a day. Done after the rolling release, so a failure
+          # here never breaks it. Nothing is ever pruned. A second run on the same day updates that day's release, which then
+          # keeps the commit of its last run. --latest=false keeps it from ever becoming the repository's latest release.
+          day="$(date -u +%F)"
+          dated="nightly-${day}"
+          dated_notes="$notes
+
+          Pin this day: https://github.com/${GH_REPO}/releases/tag/${dated}, built from ${GITHUB_SHA}"
+          if gh release view "$dated" > /dev/null 2>&1; then
+            # shellcheck disable=SC2086
+            gh release upload "$dated" $assets --clobber
+            gh release view "$dated" --json assets --jq '.assets[].name' | while read -r name; do
+              case " $assets " in *" $name "*) ;; *) gh release delete-asset "$dated" "$name" --yes ;; esac
+            done
+            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$dated" -f sha="$GITHUB_SHA" -F force=true > /dev/null \
+              || echo "::warning::could not move the ${dated} tag to ${GITHUB_SHA}; the notes name the commit"
+            gh release edit "$dated" --prerelease --latest=false --title "Nightly ${day}" --notes "$dated_notes"
+          else
+            # shellcheck disable=SC2086
+            gh release create "$dated" $assets --prerelease --latest=false --target "$GITHUB_SHA" --title "Nightly ${day}" --notes "$dated_notes"
           fi

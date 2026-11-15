@@ -49,7 +49,8 @@ container run --rm -v ~/.cache/tereditor:/cache ghcr.io/commandertvis/tereditor:
 Use `-i` so stdin stays open, and `--init` so SIGTERM and child processes are handled. The image is for linux/amd64 and linux/arm64 under one tag.
 
 - The `nightly` tag moves to each new build. Every build also has an immutable `sha-<short commit>` tag.
-- To pin, use the digest: `docker pull ghcr.io/commandertvis/tereditor:nightly` then `docker inspect --format '{{index .RepoDigests 0}}' ghcr.io/commandertvis/tereditor:nightly`, and put `ghcr.io/commandertvis/tereditor@sha256:...` in the config.
+- The headless archives for the cloud setup script are pinned by day instead, see [headless-cloud.md](headless-cloud.md).
+- To pin the image, use the digest: `docker pull ghcr.io/commandertvis/tereditor:nightly` then `docker inspect --format '{{index .RepoDigests 0}}' ghcr.io/commandertvis/tereditor:nightly`, and put `ghcr.io/commandertvis/tereditor@sha256:...` in the config.
 - The `/cache` volume holds the downloaded runtimes and language servers, and the state. The first run downloads them. Keep the volume to avoid that. A run with `--network none` works only after a run with the same volume has downloaded what the project needs.
 - The workspace mount is read-write. The container user has uid 1000. Git accepts a checkout owned by another user.
 
