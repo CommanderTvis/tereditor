@@ -111,7 +111,7 @@ invitation is excluded by the tereditor product contract; a Codex chat component
   projects without specs require no spec workflow or unsolicited spec creation.
   The file describes tereditor's tools and the project's
   worktree folder (`TEREDITOR_WORKTREES_DIR`), like Claude Code's appended system prompt. Prompted launches also pass
-  `--add-dir "$TEREDITOR_SCRATCH_DIR"`: the workspace's host-side scratch directory (`<state>/scratch/<project>/<workspace>`,
+  `-c 'sandbox_workspace_write.writable_roots=["$TEREDITOR_SCRATCH_DIR"]'` (not `--add-dir`, which makes Codex exit with an error under a read-only sandbox; the override is ignored there, issue #59, and replaces writable roots from the user's Codex config): the workspace's host-side scratch directory (`<state>/scratch/<project>/<workspace>`,
   created by the host, nothing inside the project) stays writable under Codex's workspace-write sandbox. Each terminal
   gets the file's text as the JSON string `TEREDITOR_CODEX_PROMPT_JSON`, which the launch line expands
   into Codex's additional `developer_instructions`; a launcher-supplied prompt continues the same

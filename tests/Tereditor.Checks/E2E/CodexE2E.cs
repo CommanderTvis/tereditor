@@ -633,12 +633,14 @@ internal static class CodexE2E
         // The session gets the file's text with the checkout and Code Intelligence sections composed for its own workspace.
         static string Shared(string text) => System.Text.RegularExpressions.Regex.Replace(text.Split("\n## Code intelligence")[0], @"\n*This session runs in [^\n]*", "");
         var launched = args.Length > 1 && args[1].StartsWith("developer_instructions=", StringComparison.Ordinal) ? JsonSerializer.Deserialize<string>(args[1]["developer_instructions=".Length..]) ?? "" : "";
-        Require(args.Length == 4 && args[0] == "-c" && Shared(launched) == Shared(content) && (launched == content || !launched.Contains("<absolute path>", StringComparison.Ordinal)),
+        Require(args.Length == 4 && args[0] == "-c" && args[2] == "-c" && Shared(launched) == Shared(content) && (launched == content || !launched.Contains("<absolute path>", StringComparison.Ordinal)),
             "launch arguments: " + string.Join(" | ", args));
         // The agent is granted the host-side scratch directory: it exists, lies under the state directory's scratch area and is writable.
-        Require(args[2] == "--add-dir" && Directory.Exists(args[3]) && args[3].Contains(Path.DirectorySeparatorChar + "scratch" + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
-            !args[3].StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal), "the scratch grant: " + args[3]);
-        File.WriteAllText(Path.Combine(args[3], "probe.md"), "x");
+        var scratchPrefix = CodexLaunch.ScratchRootsKey + "=[\"";
+        var scratchRoot = args[3].StartsWith(scratchPrefix, StringComparison.Ordinal) ? args[3][scratchPrefix.Length..^2] : "";
+        Require(Directory.Exists(scratchRoot) && scratchRoot.Contains(Path.DirectorySeparatorChar + "scratch" + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
+            !scratchRoot.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal), "the scratch grant, as a writable root, never --add-dir: " + args[3]);
+        File.WriteAllText(Path.Combine(scratchRoot, "probe.md"), "x");
         Require(!Directory.Exists(Path.Combine(root, ".tereditor")), "tereditor created nothing in the project's .tereditor.");
         Require(content.Contains("`workspace_create`", StringComparison.Ordinal) && content.Contains("`description`", StringComparison.Ordinal),
             "The launch instructions direct workspace creation through the tool with a visible description.");

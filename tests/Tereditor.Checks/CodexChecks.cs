@@ -410,7 +410,7 @@ internal static class CodexChecks
             process.WaitForExit();
             Require(process.ExitCode == 0, "the launch line runs: " + process.StandardError.ReadToEnd());
             var parts = output.Split('\0');
-            Require(parts.Length == (append ? 5 : 3) && parts[0] == "-c" && (!append || parts[2] == "--add-dir" && parts[3] == "/scratch probe"), "one -c override and the scratch grant: " + output.Replace('\0', '|'));
+            Require(parts.Length == (append ? 5 : 3) && parts[0] == "-c" && (!append || parts[2] == "-c" && parts[3] == CodexLaunch.ScratchRootsKey + "=[\"/scratch probe\"]"), "one -c override and the scratch grant: " + output.Replace('\0', '|'));
             return ((string)CodexConfig.Parse(parts[1])["developer_instructions"]!, parts[^1], line);
         }
 

@@ -77,6 +77,8 @@ public static partial class CodexResume
                     DeveloperInstructions().IsMatch(value))
                     continue;
                 if (appended && key == "--add-dir" && value.Trim('"') == "$" + CodexLaunch.ScratchVariable) continue;
+                if (appended && key is "-c" or "--config" && value.Contains(CodexLaunch.ScratchVariable, StringComparison.Ordinal) &&
+                    value.StartsWith(CodexLaunch.ScratchRootsKey, StringComparison.Ordinal)) continue;
                 kept.Add(token);
                 if (equals < 0) kept.Add(value);
             }

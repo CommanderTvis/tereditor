@@ -48,8 +48,10 @@ public static partial class CodexLaunch
     public const string PromptJsonVariable = "TEREDITOR_CODEX_PROMPT_JSON";
     /// <summary>The folder tereditor lists a project's workspaces from, set in every terminal of a project.</summary>
     public const string WorktreesVariable = "TEREDITOR_WORKTREES_DIR";
-    /// <summary>The workspace's host-owned scratch directory, outside the project, set in every terminal and granted to the session with <c>--add-dir</c>.</summary>
+    /// <summary>The workspace's host-owned scratch directory, outside the project, set in every terminal and granted to the session as a writable root.</summary>
     public const string ScratchVariable = "TEREDITOR_SCRATCH_DIR";
+    /// <summary>The config key listing extra writable roots of the workspace-write sandbox.</summary>
+    public const string ScratchRootsKey = "sandbox_workspace_write.writable_roots";
     /// <summary>A command-scoped marker distinguishing UI launches from commands typed into a terminal.</summary>
     public const string UiLaunchPrefix = "TEREDITOR_UI_LAUNCH=codex";
     /// <summary>Tags the inherited status URL, so the first hook report says the session got tereditor's instructions.</summary>
@@ -106,7 +108,8 @@ public static partial class CodexLaunch
                 : $"\"developer_instructions=${PromptJsonVariable}\""));
         }
         else if (options.SystemPrompt is { Length: > 0 } system) parts.Add(ConfigArg("developer_instructions", system));
-        if (append) parts.Add($"--add-dir \"${ScratchVariable}\"");
+        // A config override, not --add-dir: Codex exits with an error on --add-dir under a read-only sandbox, and ignores this there.
+        if (append) parts.Add($"-c \"{ScratchRootsKey}=[\\\"${ScratchVariable}\\\"]\"");
         foreach (var image in options.Images) parts.AddRange(["--image", ShellQuote(image)]);
         if (options.InitialPrompt is { Length: > 0 } prompt && !options.Resume)
         {
