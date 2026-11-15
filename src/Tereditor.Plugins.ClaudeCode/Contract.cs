@@ -378,6 +378,15 @@ public sealed record PluginMoveParams(string WorkspaceId, string Name, ClaudeWri
     public string? TabKey { get; init; }
 }
 
+/// <summary>A skill folder moved between the user's skills directory and the project's.</summary>
+public sealed record SkillMoveParams(string WorkspaceId, string Name, ClaudeWritableScope From, ClaudeWritableScope To)
+{
+    public string? TabKey { get; init; }
+}
+
+/// <summary>The full paths a skill move reads and writes on the host, and why it cannot happen (null when it can).</summary>
+public sealed record SkillMoveInfo(string From, string To, string? Problem);
+
 public sealed record MarketplacePlanParams(string WorkspaceId, ClaudeMarketplaceAction Action);
 
 public sealed record MarketplaceRunParams(string WorkspaceId, ClaudeMarketplaceAction Action)
@@ -440,6 +449,8 @@ public static class ClaudeCodeContract
     public static readonly PluginMethod<PluginUninstallParams, CommandOutput> PluginUninstall = new("pluginUninstall");
     public static readonly PluginMethod<PluginMovePlanParams, CommandsPlan> PluginMovePlan = new("pluginMovePlan");
     public static readonly PluginMethod<PluginMoveParams, CommandOutput> PluginMove = new("pluginMove");
+    public static readonly PluginMethod<SkillMoveParams, SkillMoveInfo> SkillMovePlan = new("skillMovePlan");
+    public static readonly PluginMethod<SkillMoveParams, SkillMoveInfo> SkillMove = new("skillMove");
     public static readonly PluginMethod<MarketplacePlanParams, CommandPlan> MarketplacePlan = new("marketplacePlan");
     public static readonly PluginMethod<MarketplaceRunParams, CommandOutput> MarketplaceRun = new("marketplaceRun");
     /// <summary>The servers Claude itself reaches (claude.ai connectors, plugin servers) that no file declares.</summary>
@@ -467,7 +478,7 @@ public static class ClaudeCodeContract
 
     public static readonly PluginContract Contract = PluginContract.Create<ClaudeCodeSettings>(Id, 3,
         [.. ChatContract.Methods, ConfigGet, Account, SystemPromptGet, Installed, InstructionsList, InstructionsSet, PluginUninstallPlan, PluginUninstall, PluginMovePlan, PluginMove,
-            MarketplacePlan, MarketplaceRun, McpList, ReadFile, WriteFile, PlanEdit, ApplyEdit, PermissionModesGet, SelectionChanged, DocumentClosed,
+            SkillMovePlan, SkillMove, MarketplacePlan, MarketplaceRun, McpList, ReadFile, WriteFile, PlanEdit, ApplyEdit, PermissionModesGet, SelectionChanged, DocumentClosed,
             AtMention, ActionReply, StatusSnapshot, ContextUsageGet],
         [Status, IdeAction, ContextUsage, AccountUsage, InstructionsChanged, ChatContract.Updates], ClaudeCodeJson.Default, ChatContract.Json);
 }
@@ -499,6 +510,8 @@ public static class ClaudeCodeContract
 [JsonSerializable(typeof(SystemPromptFile))]
 [JsonSerializable(typeof(AgentInstall))]
 [JsonSerializable(typeof(PluginMoveParams))]
+[JsonSerializable(typeof(SkillMoveParams))]
+[JsonSerializable(typeof(SkillMoveInfo))]
 [JsonSerializable(typeof(PluginMovePlanParams))]
 [JsonSerializable(typeof(CommandsPlan))]
 [JsonSerializable(typeof(PluginUninstallParams))]

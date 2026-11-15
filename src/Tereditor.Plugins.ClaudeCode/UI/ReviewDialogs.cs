@@ -14,6 +14,9 @@ internal sealed record PluginUninstallTarget(string Name, ClaudeWritableScope Sc
 /// <summary>A plugin move between scopes.</summary>
 internal sealed record PluginMoveTarget(string Name, ClaudeWritableScope From, ClaudeWritableScope To);
 
+/// <summary>A skill folder moved between the user's skills and the project's.</summary>
+internal sealed record SkillMoveTarget(string Name, ClaudeWritableScope From, ClaudeWritableScope To);
+
 /// <summary>
 /// Every write the pane makes is approved first: a configuration edit as a diff of the file it lands in, named in words
 /// rather than a path, and a Claude CLI run as the exact argv the host will execute.
@@ -270,6 +273,83 @@ internal static class ReviewDialogs
         _ = Compose();
         await window.ShowDialog(owner);
         return done;
+    }
+
+    /// <summary>Asks before a skill folder moves: the host says which two paths it would use, or why it cannot, then moves it.</summary>
+    public static async Task<bool> MoveSkillAsync(IPluginUIContext context, Window owner, string workspaceId, string? tabKey, SkillMoveTarget target)
+    {
+        var window = DialogWindow.Create($"Move {target.Name} to {target.To.Name()}", 608);
+        window.Tag = "ClaudeSkillMoveDialog";
+        var explanation = window.FindControl<TextBlock>("DialogExplanation")!;
+        explanation.Text = $"Move skill \"{target.Name}\" from {target.From.Name()} to {target.To.Name()} scope?";
+        explanation.IsVisible = true;
+        var panel = window.FindControl<StackPanel>("DialogFields")!;
+        var paths = ClaudeParts.Code("Checking…", Ui.TextBrush);
+        paths.Name = "ClaudeSkillMovePaths";
+        paths.TextWrapping = TextWrapping.Wrap;
+        paths.TextTrimming = TextTrimming.None;
+        panel.Children.Add(new Border { Background = Ui.Surface, CornerRadius = new CornerRadius(4), Padding = new Thickness(8), Child = paths });
+        var error = ClaudeParts.Wrapped("", Ui.Danger);
+        error.Name = "ClaudeSkillMoveError";
+        error.IsVisible = false;
+        panel.Children.Add(error);
+        var actions = window.FindControl<StackPanel>("DialogActions")!;
+        var cancel = Ui.Button("Cancel", () => window.Close());
+        var go = ClaudeParts.Primary(Ui.Button("Move it", () => { }));
+        go.Name = "ClaudeSkillMoveRun";
+        go.IsEnabled = false;
+        var done = false;
+        go.Click += async (_, _) =>
+        {
+            go.IsEnabled = cancel.IsEnabled = false;
+            go.Content = Tereditor.Plugins.Chat.UI.ChatView.Inherit("Moving…", Ui.FontSize);
+            error.IsVisible = false;
+            try
+            {
+                await context.RequestAsync(ClaudeCodeContract.SkillMove, new SkillMoveParams(workspaceId, target.Name, target.From, target.To) { TabKey = tabKey }).AsTask();
+                done = true;
+                window.Close();
+            }
+            catch (Exception failure) when (failure is not OperationCanceledException)
+            {
+                error.Text = ClaudeParts.ErrorText(failure);
+                error.IsVisible = true;
+            }
+            finally
+            {
+                if (!done)
+                {
+                    go.Content = Tereditor.Plugins.Chat.UI.ChatView.Inherit("Move it", Ui.FontSize);
+                    cancel.IsEnabled = true;
+                }
+            }
+        };
+        actions.Children.Add(cancel);
+        actions.Children.Add(go);
+        _ = Plan();
+        await window.ShowDialog(owner);
+        return done;
+
+        async Task Plan()
+        {
+            try
+            {
+                var plan = await context.RequestAsync(ClaudeCodeContract.SkillMovePlan, new SkillMoveParams(workspaceId, target.Name, target.From, target.To) { TabKey = tabKey });
+                paths.Text = plan.From.Length == 0 ? "" : $"From  {plan.From}\nTo      {plan.To}";
+                if (plan.Problem is { } problem)
+                {
+                    error.Text = problem;
+                    error.IsVisible = true;
+                }
+                else go.IsEnabled = true;
+            }
+            catch (Exception failure) when (failure is not OperationCanceledException)
+            {
+                paths.Text = "";
+                error.Text = ClaudeParts.ErrorText(failure);
+                error.IsVisible = true;
+            }
+        }
     }
 
     public static Task<bool> UninstallAsync(IPluginUIContext context, Window owner, string workspaceId, string? tabKey, PluginUninstallTarget target) =>

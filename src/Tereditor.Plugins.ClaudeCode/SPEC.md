@@ -360,6 +360,20 @@ plugin shows once. Marketplaces keep their listed order, plugins theirs. A click
 children and its stem; the pane remembers which parents are folded until the workspace changes. A
 plugin under its marketplace does not repeat the marketplace name. Capability rows show no token counts.
 
+A skill row's menu offers "Move to project…" on a user skill (only when a project is open) and "Move to user…" on a
+project skill, after "Turn off". Skills here are folders in `~/.claude/skills` or `<project>/.claude/skills`; skills
+from plugins or managed settings are not listed as folders and cannot be moved. The pane asks the host (`skillMovePlan`)
+for the two full paths and a refusal reason, shows both in a confirmation, and on "Move it" calls `skillMove`; then it
+reads the configuration again, so the row shows its new scope chip. The host does all file work and never overwrites:
+it refuses when the target name exists (a dangling link counts), when the name is not a plain folder name, when the
+source is not a folder in that scope, and when the two skills folders are the same folder. A skill that is a link moves
+as the link with its target text unchanged, so an absolute link (even a dangling one) moves and its target is never
+touched; a relative link is refused, because it would point somewhere else from the new folder, and so is a folder that
+holds a relative link out of itself. A folder is renamed; if that fails across disks it is copied beside the target under
+a temporary name (file modes, times and inner links kept), renamed into place, and the original is deleted last; a
+failure removes the partial copy and leaves the original whole. If only the last step fails the host says the skill now
+exists in both places. The move does not touch Git.
+
 The Settings value composer suggests documented values for keys whose value set is closed
 (`UI/ClaudeSettingSuggestions.cs`: `permissions.defaultMode`, `model` aliases, `effortLevel` and
 `modelSettings.*.effortLevel`, `theme`, `tui`, `outputStyle`, `forceLoginMethod`,

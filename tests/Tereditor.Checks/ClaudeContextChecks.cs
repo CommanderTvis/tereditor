@@ -369,6 +369,7 @@ internal static class ClaudeContextChecks
         public void Review(PendingEdit pending) => Calls.Add("review");
         public void Uninstall(PluginUninstallTarget target) => Calls.Add("uninstall " + target.Name);
         public void Move(PluginMoveTarget target) => Calls.Add($"move {target.Name} {target.To.Name()}");
+        public void MoveSkill(SkillMoveTarget target) => Calls.Add($"moveskill {target.Name} {target.To.Name()}");
         public void Marketplace(ClaudeMarketplaceAction action) => Calls.Add("marketplace");
         public void Add(string kind) => Calls.Add("add " + kind);
         public bool IsCollapsed(string key) => Collapsed.Contains(key);
@@ -422,7 +423,7 @@ internal static class ClaudeContextChecks
             "Parents come in listed order with their children right after, an empty marketplace has none, and No marketplace is last. Got: " + string.Join(", ", order));
 
         // The connectors are the Instructions section's: the same component and names, a tee then an elbow, hanging from the parent's stem.
-        Control Children(string key) => section.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ClaudeCapabilityChildren" && Equals(panel.Tag, key));
+        Control Children(string id) => section.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ClaudeCapabilityChildren" && Equals(panel.Tag, id));
         string[] Connectors(Control parts) => [.. parts.GetLogicalDescendants().OfType<Grid>().Where(grid => grid.Name == "ClaudeContextConnector").Select(grid => (string)grid.Tag!)];
         Require(Connectors(Children("plugins/claude-code-plugins")).SequenceEqual(["tee", "last"]) && Connectors(Children("plugins/\0none")).SequenceEqual(["tee", "last"]) &&
             ClaudeTree.Guides(1, true).Single() is Grid { Name: "ClaudeContextConnector" } &&
@@ -456,6 +457,23 @@ internal static class ClaudeContextChecks
             "Marketplace rows offer update and remove; plugin rows offer switch, move and uninstall as before.");
         surface.Actions(capabilities[2])[3].Run();
         Require(host.Calls.SequenceEqual(["uninstall ts-lsp@claude-code-plugins"]), "A menu entry reaches the pane.");
+
+        // A skill moves between the two folders it can live in: only the other one is offered, and "project" only with a project open.
+        var userSkill = capabilities[6];
+        var projectSkill = new ClaudeCapability(ClaudeCapabilityKind.Skill, "synced", new(ClaudeConfigScope.Project, "/work/project/.claude/skills/synced"), true);
+        Require(Names(userSkill).SequenceEqual(["ClaudeCapabilityToggle", "ClaudeSkillMove_project"]) && Names(projectSkill).SequenceEqual(["ClaudeCapabilityToggle", "ClaudeSkillMove_user"]) &&
+            surface.Actions(userSkill)[1].Label == "Move to project…" && surface.Actions(projectSkill)[1].Label == "Move to user…",
+            "A user skill offers Move to project, a project skill Move to user, after Turn off.");
+        host.ProjectRoot = null;
+        Require(Names(userSkill).SequenceEqual(["ClaudeCapabilityToggle"]) && Names(projectSkill).SequenceEqual(["ClaudeCapabilityToggle", "ClaudeSkillMove_user"]),
+            "With no project open, Move to project is not offered.");
+        host.ProjectRoot = "/work/project";
+        var managed = new ClaudeCapability(ClaudeCapabilityKind.Skill, "org-skill", new(ClaudeConfigScope.Managed), true);
+        Require(Names(managed).SequenceEqual(["ClaudeCapabilityToggle"]), "A skill no folder holds (managed) cannot be moved.");
+        host.Calls.Clear();
+        surface.Actions(userSkill)[1].Run();
+        surface.Actions(projectSkill)[1].Run();
+        Require(host.Calls.SequenceEqual(["moveskill ponytail project", "moveskill synced user"]), "The move entries reach the pane with the target scope.");
         Console.WriteLine("PASS Claude Code capabilities: marketplaces and their plugins form one tree with the Instructions connectors, fold, and keep their menus");
     }
 }

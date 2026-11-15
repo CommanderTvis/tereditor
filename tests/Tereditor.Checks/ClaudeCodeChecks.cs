@@ -1896,6 +1896,114 @@ internal static class ClaudeCodeChecks
             Read(local).GetProperty("cleanupPeriodDays").GetInt32() == 7 && File.ReadAllText(userPath) == source,
             "A local override wins, shows the user value it shadows, and leaves the user file untouched.");
         Console.WriteLine("PASS fork plugins/claude-code/claude-config.spec.ts (host): a user setting can be overridden locally without changing its source");
+        await SkillMoves(runtime, project, directory);
+    }
+
+    /// <summary>
+    /// A skill folder moves between <c>~/.claude/skills</c> and <c>&lt;project&gt;/.claude/skills</c> through the plan and run methods:
+    /// both ways, nothing overwritten, plugin skills and bad names refused, links moved as links, and a failed copy leaves no trace.
+    /// </summary>
+    private static async Task SkillMoves(PluginRuntime runtime, string project, string directory)
+    {
+        async Task<T> Call<P, T>(PluginMethod<P, T> method, P parameters) =>
+            PluginJson.Convert<T>(await runtime.CallAsync(new("claude-code", method.Name, parameters, "claude-client")));
+        var user = Path.Combine(Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR")!, "skills");
+        var local = Path.Combine(project, ".claude", "skills");
+        Directory.CreateDirectory(user);
+        Directory.CreateDirectory(local);
+        var elsewhere = Path.Combine(directory, "skill-move-elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        const ClaudeWritableScope User = ClaudeWritableScope.User, Project = ClaudeWritableScope.Project;
+        static void Write(string path, string text, UnixFileMode? mode = null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, text);
+            if (mode is { } bits && !OperatingSystem.IsWindows()) File.SetUnixFileMode(path, bits);
+        }
+        async Task<string?> Refusal(string name, ClaudeWritableScope from, ClaudeWritableScope to)
+        {
+            var planned = await Call(ClaudeCodeContract.SkillMovePlan, new SkillMoveParams(project, name, from, to));
+            string? thrown = null;
+            try { await Call(ClaudeCodeContract.SkillMove, new SkillMoveParams(project, name, from, to)); }
+            catch (Exception error) { thrown = error.Message; }
+            Require((planned.Problem is null) == (thrown is null), $"The plan and the run agree about \"{name}\": {planned.Problem} / {thrown}");
+            return planned.Problem;
+        }
+        UnixFileMode script = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute;
+
+        // User to project and back, with files, a nested folder and an executable script.
+        Write(Path.Combine(user, "ponytail", "SKILL.md"), "---\nname: ponytail\n---\n");
+        Write(Path.Combine(user, "ponytail", "scripts", "run.sh"), "#!/bin/sh\n", script);
+        var plan = await Call(ClaudeCodeContract.SkillMovePlan, new SkillMoveParams(project, "ponytail", User, Project));
+        Require(plan == new SkillMoveInfo(Path.Combine(user, "ponytail"), Path.Combine(local, "ponytail"), null),
+            "The plan names both full paths on the host and no problem: " + plan);
+        await Call(ClaudeCodeContract.SkillMove, new SkillMoveParams(project, "ponytail", User, Project));
+        Require(!Directory.Exists(Path.Combine(user, "ponytail")) && File.ReadAllText(Path.Combine(local, "ponytail", "SKILL.md")).Contains("ponytail", StringComparison.Ordinal) &&
+            (OperatingSystem.IsWindows() || File.GetUnixFileMode(Path.Combine(local, "ponytail", "scripts", "run.sh")) == script),
+            "A user skill moves to the project with its files and their modes.");
+        var config = await Call(ClaudeCodeContract.ConfigGet, new WorkspaceParams(project));
+        Require(config.Capabilities.Single(item => item is { Kind: ClaudeCapabilityKind.Skill, Name: "ponytail" }).Origin.Scope == ClaudeConfigScope.Project,
+            "The skill is listed with its new scope after the move.");
+        await Call(ClaudeCodeContract.SkillMove, new SkillMoveParams(project, "ponytail", Project, User));
+        Require(Directory.Exists(Path.Combine(user, "ponytail")) && !Directory.Exists(Path.Combine(local, "ponytail")), "A project skill moves back to the user folder.");
+
+        // Nothing is overwritten, and what is not a skill folder here is refused with a reason.
+        Write(Path.Combine(user, "dup", "SKILL.md"), "user copy");
+        Write(Path.Combine(local, "dup", "SKILL.md"), "project copy");
+        Require((await Refusal("dup", User, Project))?.Contains("already exists", StringComparison.Ordinal) == true &&
+            File.ReadAllText(Path.Combine(user, "dup", "SKILL.md")) == "user copy" && File.ReadAllText(Path.Combine(local, "dup", "SKILL.md")) == "project copy",
+            "An existing target is refused and both copies stay as they were.");
+        Require((await Refusal("review-from-a-plugin", User, Project))?.Contains("plugins or managed settings", StringComparison.Ordinal) == true,
+            "A skill that is no folder here (a plugin's or a managed one) is refused.");
+        Require((await Refusal("../escape", User, Project)) == "That is not a skill name." && (await Refusal("", Project, User)) == "That is not a skill name." &&
+            (await Refusal("ponytail", User, ClaudeWritableScope.Local)) is not null && (await Refusal("ponytail", User, User)) is not null,
+            "A name that is a path, and a move to a scope that is no skills folder, are refused.");
+
+        // A link moves as a link; its target is never followed, copied or touched.
+        if (!OperatingSystem.IsWindows())
+        {
+            var shared = Path.Combine(elsewhere, "synced");
+            Write(Path.Combine(shared, "SKILL.md"), "shared");
+            Directory.CreateSymbolicLink(Path.Combine(user, "synced"), shared);
+            Require((await Call(ClaudeCodeContract.SkillMovePlan, new SkillMoveParams(project, "synced", User, Project))).Problem is null, "An absolute link can move.");
+            await Call(ClaudeCodeContract.SkillMove, new SkillMoveParams(project, "synced", User, Project));
+            Require(new DirectoryInfo(Path.Combine(local, "synced")).LinkTarget == shared && new DirectoryInfo(Path.Combine(user, "synced")).LinkTarget is null &&
+                !Directory.Exists(Path.Combine(user, "synced")) && File.ReadAllText(Path.Combine(shared, "SKILL.md")) == "shared",
+                "A linked skill moves as the link, with its target text unchanged and its target untouched.");
+            File.CreateSymbolicLink(Path.Combine(user, "gone"), Path.Combine(elsewhere, "missing"));
+            await Call(ClaudeCodeContract.SkillMove, new SkillMoveParams(project, "gone", User, Project));
+            Require(new FileInfo(Path.Combine(local, "gone")).LinkTarget == Path.Combine(elsewhere, "missing") && new FileInfo(Path.Combine(user, "gone")).LinkTarget is null,
+                "A link that already points nowhere moves as it is.");
+            Directory.CreateSymbolicLink(Path.Combine(user, "relative"), "../../skill-move-elsewhere/synced");
+            Require((await Refusal("relative", User, Project))?.Contains("relative", StringComparison.Ordinal) == true && new DirectoryInfo(Path.Combine(user, "relative")).LinkTarget is not null &&
+                !Path.Exists(Path.Combine(local, "relative")), "A relative link would point elsewhere after the move, so it stays where it is with the reason said.");
+            Write(Path.Combine(user, "leaky", "SKILL.md"), "x");
+            Directory.CreateSymbolicLink(Path.Combine(user, "leaky", "refs"), "../../skill-move-elsewhere/synced");
+            Require((await Refusal("leaky", User, Project))?.Contains("leaves the skill folder", StringComparison.Ordinal) == true && Directory.Exists(Path.Combine(user, "leaky")),
+                "A folder with a relative link out of it is refused: the link would break.");
+        }
+
+        // The copy path (another disk): modes, links inside and the original removed last.
+        Write(Path.Combine(user, "big", "SKILL.md"), "big");
+        Write(Path.Combine(user, "big", "tools", "check.sh"), "#!/bin/sh\n", script);
+        if (!OperatingSystem.IsWindows()) File.CreateSymbolicLink(Path.Combine(user, "big", "inner"), "SKILL.md");
+        var copied = ClaudeSkillMove.Run(project, "big", User, Project, new() { ForceCopy = true });
+        Require(copied.To == Path.Combine(local, "big") && !Directory.Exists(Path.Combine(user, "big")) && File.ReadAllText(Path.Combine(local, "big", "SKILL.md")) == "big" &&
+            (OperatingSystem.IsWindows() || File.GetUnixFileMode(Path.Combine(local, "big", "tools", "check.sh")) == script && new FileInfo(Path.Combine(local, "big", "inner")).LinkTarget == "SKILL.md") &&
+            !Directory.EnumerateFileSystemEntries(local, ".moving-*").Any(), "A copied move keeps modes and inner links, removes the original and leaves no temporary folder.");
+
+        // A copy that fails part-way leaves the skill where it was and removes the partial copy.
+        Write(Path.Combine(user, "faulty", "a.txt"), "a");
+        Write(Path.Combine(user, "faulty", "b.txt"), "b");
+        Write(Path.Combine(user, "faulty", "c", "c.txt"), "c");
+        var copies = 0;
+        string? failure = null;
+        try { ClaudeSkillMove.Run(project, "faulty", User, Project, new() { ForceCopy = true, BeforeCopy = _ => { if (++copies == 2) throw new IOException("The disk is full."); } }); }
+        catch (InvalidOperationException error) { failure = error.Message; }
+        Require(failure is not null && failure.Contains("disk is full", StringComparison.Ordinal) && failure.Contains("Nothing was changed", StringComparison.Ordinal) &&
+            File.ReadAllText(Path.Combine(user, "faulty", "b.txt")) == "b" && Directory.Exists(Path.Combine(user, "faulty", "c")) && !Path.Exists(Path.Combine(local, "faulty")) &&
+            !Directory.EnumerateFileSystemEntries(local, ".moving-*").Any(), "A failed copy keeps the original whole and leaves neither the target nor a partial copy.");
+        Console.WriteLine("PASS Claude Code skills: a skill folder moves between user and project scope, refuses overwrites, plugin skills and broken links, and a failed copy leaves no trace");
     }
 
     private static async Task IdeProtocol(PluginRuntime runtime, string project)

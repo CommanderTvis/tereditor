@@ -141,6 +141,18 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         context.Method(ClaudeCodeContract.PluginMovePlan, (p, _, _) => Done(new CommandsPlan(ClaudeCommands.PluginMove(Command(), p.Name, p.From, p.To))));
         context.Method(ClaudeCodeContract.PluginMove, async (p, _, ct) =>
             await ClaudeCommands.MoveAsync(Command(), p.Name, p.From, p.To, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root));
+        context.Method(ClaudeCodeContract.SkillMovePlan, async (p, _, ct) =>
+        {
+            var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
+            return await Task.Run(() => ClaudeSkillMove.Plan(scope.Root, p.Name, p.From, p.To), ct);
+        });
+        context.Method(ClaudeCodeContract.SkillMove, async (p, _, ct) =>
+        {
+            var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
+            var moved = await Task.Run(() => ClaudeSkillMove.Run(scope.Root, p.Name, p.From, p.To), ct);
+            contextUsage?.Changed([moved.From, moved.To]);
+            return moved;
+        });
         context.Method(ClaudeCodeContract.MarketplacePlan, (p, _, _) => Done(new CommandPlan(ClaudeCommands.Marketplace(Command(), p.Action))));
         context.Method(ClaudeCodeContract.MarketplaceRun, async (p, _, ct) =>
             await ClaudeCommands.RunMarketplaceAsync(Command(), p.Action, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root));

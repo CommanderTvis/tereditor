@@ -13,10 +13,13 @@ namespace Tereditor.Plugins.ClaudeCode.UI;
 /// <summary>What the capabilities surface asks of the pane: open a source, review an edit, run one of Claude's commands, and keep which parents are folded.</summary>
 internal interface IClaudeCapabilityHost
 {
+    /// <summary>The project the pane describes, or null when none is open.</summary>
+    string? ProjectRoot { get; }
     void Open(string path, IReadOnlyList<string>? keyPath);
     void Review(PendingEdit pending);
     void Uninstall(PluginUninstallTarget target);
     void Move(PluginMoveTarget target);
+    void MoveSkill(SkillMoveTarget target);
     void Marketplace(ClaudeMarketplaceAction action);
     void Add(string kind);
     bool IsCollapsed(string key);
@@ -219,6 +222,16 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
             foreach (var to in ClaudeValues.WritableScopes.Where(scope => scope != from))
                 actions.Add(new("ClaudeCapabilityMove_" + to.Name(), $"Move to {to.Name()}…", () => pane.Move(new(item.Name, from, to)), ClaudeValues.PluginScopeWording(to)));
             actions.Add(new("ClaudeCapabilityUninstall", "Uninstall…", () => pane.Uninstall(new(item.Name, from))));
+        }
+        // A skill is a folder in the user's or the project's skills directory; plugin and managed skills are not listed here.
+        if (item.Kind == ClaudeCapabilityKind.Skill && item.Origin.Path is not null)
+        {
+            if (item.Origin.Scope == ClaudeConfigScope.User && pane.ProjectRoot is { Length: > 0 })
+                actions.Add(new("ClaudeSkillMove_project", "Move to project…", () => pane.MoveSkill(new(item.Name, ClaudeWritableScope.User, ClaudeWritableScope.Project)),
+                    "Keep it in the project's .claude/skills folder. Only this project uses it."));
+            else if (item.Origin.Scope == ClaudeConfigScope.Project)
+                actions.Add(new("ClaudeSkillMove_user", "Move to user…", () => pane.MoveSkill(new(item.Name, ClaudeWritableScope.Project, ClaudeWritableScope.User)),
+                    "Keep it in ~/.claude/skills. All your projects use it."));
         }
         return actions;
     }

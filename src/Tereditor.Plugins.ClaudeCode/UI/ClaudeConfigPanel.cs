@@ -834,6 +834,13 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.MoveAsync(context, owner, workspaceId, session?.TabKey, target)) Reload();
     }
 
+    string? IClaudeCapabilityHost.ProjectRoot => snapshot?.Root;
+
+    async void IClaudeCapabilityHost.MoveSkill(SkillMoveTarget target)
+    {
+        if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.MoveSkillAsync(context, owner, workspaceId, session?.TabKey, target)) Reload();
+    }
+
     async void IClaudeCapabilityHost.Marketplace(ClaudeMarketplaceAction action)
     {
         if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.MarketplaceAsync(context, owner, workspaceId, session?.TabKey, action)) Reload();
