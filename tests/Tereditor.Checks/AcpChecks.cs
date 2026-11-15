@@ -220,7 +220,7 @@ internal static class AcpChecks
         await using (config)
         {
             var header = config.Header;
-            Require(header.Models.Select(model => model.Id).SequenceEqual(["m1", "m2"]) && header.Model == "m1" && header.Models[1] is { Label: "Max", Provider: "smart", Description: "The best one" }, "Grouped model options are flattened into the model list with their group and description.");
+            Require(header.Models.Select(model => model.Id).SequenceEqual(["m1", "m2"]) && header.Model == "m1" && header.Models[1] is { Label: "Max", Provider: "Smart", Description: "The best one" }, "Grouped model options are flattened into the model list with their group and description.");
             Require(header.PermissionModes.Select(mode => mode.Key).SequenceEqual(["auto", "review"]) && header.PermissionMode == "auto" && header.PermissionModes[0].Description == "Runs without asking", "A mode option fills the mode list with the agent's names and descriptions.");
             Require(header.Options.Select(option => option.Id).SequenceEqual(["thought", "verbose"]) && header.Options[0] is { Kind: "select", Category: "thought_level", Current: "high" } && header.Options[1] is { Kind: "boolean", Current: "false" }, "The other options are listed with their kind, category and value.");
             Require(configAgent.ClientCapabilities!["session"]!["configOptions"]!["boolean"] is JsonObject, "The client says it handles boolean options.");
@@ -291,7 +291,7 @@ internal static class AcpChecks
             await session.SendAsync("ask2", null);
             await Until(() => session.Header.Status == ChatStatus.AwaitingPermission, "The file request waits.");
             var request = Items(session).OfType<ChatPermissionItem>().Single();
-            Require(request is { Title: "Create file", Kind: "edit", Prompt: "Allow \"Create file\"?" } && request.Locations.SequenceEqual(["/work/a.txt:3"]), "The request keeps the tool's title, kind and file with its line.");
+            Require(request is { Title: "Create file", ToolKind: "edit", Prompt: "Allow \"Create file\"?" } && request.Locations.SequenceEqual(["/work/a.txt:3"]), "The request keeps the tool's title, kind and file with its line.");
             Require(request.Diffs.Single() is { Path: "/work/a.txt", OldText: null, NewText: "one\ntwo" }, "The request carries the diff of the file it would create.");
             Require(request.Options.Select(option => (option.Id, option.Label, option.Kind)).SequenceEqual([("once", "Yes, once", "allow_once"), ("always", "Yes, always", "allow_always"), ("no", "No", "reject_once"), ("never", "Never", "reject_always")]), "The request lists the agent's options in its order with its names and kinds.");
             Require(Tereditor.Plugins.Chat.UI.PermissionFacts.Of(request.Input).Select(fact => fact.Name + "=" + fact.Value).SequenceEqual(["Command=echo hi", "Path=/work/a.txt"]), "The raw input reads as a command line and a path.");

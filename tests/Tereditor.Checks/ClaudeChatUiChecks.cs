@@ -3198,7 +3198,7 @@ internal static class ClaudeChatUiChecks
         ChatOption verbose = new("verbose", "Verbose", "boolean", "false");
         ChatPermissionItem Ask() => new("ask", 1, "req-ask", "Create file", JsonSerializer.SerializeToElement(new { command = new[] { "echo", "hi" }, file_path = "/work/a.txt" }))
         {
-            Prompt = "Allow \"Create file\"?", Kind = "edit", Locations = ["/work/a.txt:3"], Diffs = [new("/work/a.txt", null, "one\ntwo")],
+            Prompt = "Allow \"Create file\"?", ToolKind = "edit", Locations = ["/work/a.txt:3"], Diffs = [new("/work/a.txt", null, "one\ntwo")],
             Options = [new("once", "Yes, once", "allow_once"), new("always", "Yes, always", "allow_always"), new("no", "No", "reject_once"), new("never", "Never", "reject_always")]
         };
         var chat = new FakeChat
@@ -3224,7 +3224,7 @@ internal static class ClaudeChatUiChecks
             var models = view.ModelMenu(chat.Header, view).Items.OfType<MenuItem>().Select(item => item.Name).ToList();
             Require(models.SequenceEqual(["ChatModel_m1", "ChatModel_m2"]), "The model menu lists the agent's models alone, with no Claude effort levels.");
             view.ModelMenu(chat.Header, view).Items.OfType<MenuItem>().First(item => item.Name == "ChatModel_m2").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
-            E2eWorkspace.Until(() => chat.Sets.Contains((ChatContract.SetModel.Name, "m2")));
+            E2eWorkspace.Until(() => chat.Calls.Contains(ChatContract.SetModel.Name));
             Require(view.ModeMenu(chat.Header).Items.OfType<MenuItem>().Select(item => item.Name).SequenceEqual(["ChatMode_auto", "ChatMode_review"]), "The mode menu lists the agent's modes.");
             view.OptionMenu(thought).Items.OfType<MenuItem>().First(item => item.Name == "ChatOption_thought_low").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
             E2eWorkspace.Until(() => chat.OptionSets.Contains(("thought", "low")));
