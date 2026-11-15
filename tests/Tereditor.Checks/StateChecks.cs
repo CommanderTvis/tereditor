@@ -134,8 +134,9 @@ internal static class StateChecks
         using (var followed = new Tereditor.UI.State.SharedState(new LocalStateAdapter(groupingStore), hostFollowing, groupingStore.Current))
         {
             Require(!hostFollowing.GroupsUnderCreator && hostFollowing.GroupWorkspacesUnderCreator, "Against a host that serves it, the rail follows the host's value, not the profile's.");
+            followed.Start();
             await groupingStore.ChangeAsync([HostStateChange.Setting("group-workspaces-under-creator", "true")]);
-            for (var attempt = 0; attempt < 200 && !hostFollowing.GroupsUnderCreator; attempt++) await Task.Delay(25);
+            for (var attempt = 0; attempt < 200 && !hostFollowing.GroupsUnderCreator; attempt++) { Avalonia.Threading.Dispatcher.UIThread.RunJobs(); await Task.Delay(25); }
             Require(hostFollowing.GroupsUnderCreator, "A change of the host's value reaches the preferences on the broadcast.");
         }
         var oldHostGrouping = new Tereditor.UI.State.Preferences { GroupWorkspacesUnderCreator = true };

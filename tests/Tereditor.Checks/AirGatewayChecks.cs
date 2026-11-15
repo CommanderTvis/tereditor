@@ -258,7 +258,7 @@ internal static partial class AirGatewayChecks
         Require(flipped.Credits is { Remaining: 16.27, Total: 20, TopUp: 0, RefillNext: 1800000000000 }, "Chosen Central and signed in shows the remaining credits.");
         Require(AirSettingsView.CreditsLine(flipped).StartsWith("16.27 of 20.00 credits remaining, refills 2027-", StringComparison.Ordinal) && !AirSettingsView.CreditsLine(flipped).Contains("top-up", StringComparison.Ordinal),
             "The credits line reads: " + AirSettingsView.CreditsLine(flipped));
-        AgentRosterEntry Agent(AgentPluginState state, bool? installed = null, string? reason = null) => new("codex", "codex", "Codex", "codex", state, installed, reason);
+        static AgentRosterEntry Agent(AgentPluginState state, bool? installed = null, string? reason = null) => new("codex", "codex", "Codex", "codex", state, installed, reason);
         Require(AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Active, true)) == (true, "Codex", false) && AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Failed)) == (true, "Codex", false) &&
             AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Disabled)).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Refused)).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, null).Show == false &&
             AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Active, false, "Codex was not found on PATH. Install Codex, then try again.")).Show == false,

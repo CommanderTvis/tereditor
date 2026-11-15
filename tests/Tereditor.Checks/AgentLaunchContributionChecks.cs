@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Reflection;
 
+using Tereditor.Plugins.AirGateway.UI;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
-using Tereditor.Plugins.AirGateway.UI;
 using Tereditor.Plugins.Codex;
 using Tereditor.Plugins.Providers.UI;
 
@@ -103,6 +103,7 @@ internal static class AgentLaunchContributionChecks
         try
         {
             File.WriteAllText(Path.Combine(found, "claude"), "");
+            File.WriteAllText(Path.Combine(found, "agent-x"), "");
             var blocked = new AgentLaunchContribution { BlockedReason = "Sign in first." };
             AgentLauncher Launcher(string id, string label, string command, string path, string product, params AgentLaunchContribution[] contributions) =>
                 new(id, label, "terminal", _ => command, () =>
@@ -204,27 +205,27 @@ internal static class AgentLaunchContributionChecks
                 case "Launchers": return launchers;
                 case "Host": return Projection();
                 case "OnLaunchersChanged":
-                {
-                    var handler = (Action<IReadOnlyList<AgentLauncher>>)args![0]!;
-                    launcherHandlers.Add(handler);
-                    return new Stop(() => launcherHandlers.Remove(handler));
-                }
-                case "WatchHost":
-                {
-                    var selector = (Delegate)args![0]!;
-                    var listener = (Delegate)args[1]!;
-                    var last = selector.DynamicInvoke(Projection());
-                    void Check()
                     {
-                        var next = selector.DynamicInvoke(Projection());
-                        if (Equals(next, last)) return;
-                        var before = last;
-                        last = next;
-                        listener.DynamicInvoke(next, before);
+                        var handler = (Action<IReadOnlyList<AgentLauncher>>)args![0]!;
+                        launcherHandlers.Add(handler);
+                        return new Stop(() => launcherHandlers.Remove(handler));
                     }
-                    hostChecks.Add(Check);
-                    return new Stop(() => hostChecks.Remove(Check));
-                }
+                case "WatchHost":
+                    {
+                        var selector = (Delegate)args![0]!;
+                        var listener = (Delegate)args[1]!;
+                        var last = selector.DynamicInvoke(Projection());
+                        void Check()
+                        {
+                            var next = selector.DynamicInvoke(Projection());
+                            if (Equals(next, last)) return;
+                            var before = last;
+                            last = next;
+                            listener.DynamicInvoke(next, before);
+                        }
+                        hostChecks.Add(Check);
+                        return new Stop(() => hostChecks.Remove(Check));
+                    }
                 default: throw new NotSupportedException(method.Name);
             }
         }

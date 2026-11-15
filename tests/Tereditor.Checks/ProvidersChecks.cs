@@ -90,7 +90,7 @@ internal static class ProvidersChecks
         Require(ProviderCatalog.Pi.Concat(ProviderCatalog.Omp).All(provider => ProviderCatalog.IsProviderId(provider.Id) && ProviderCatalog.IsEnvVar(provider.EnvVar)), "Every catalog entry has a valid id and variable.");
 
         // The page offers only agents whose plugin is on.
-        AgentRosterEntry Entry(string id, AgentPluginState state, bool? installed = null) => new(id, id, id, id, state, installed, installed == false ? id + " was not found." : null);
+        static AgentRosterEntry Entry(string id, AgentPluginState state, bool? installed = null) => new(id, id, id, id, state, installed, installed == false ? id + " was not found." : null);
         Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, true), Entry("omp", AgentPluginState.Active)]) == (true, true), "Both agents are offered when both plugins are on, installed or undecided.");
         Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Disabled)]) == (true, false) && ProvidersView.Offered([Entry("pi", AgentPluginState.Disabled), Entry("omp", AgentPluginState.Active)]) == (false, true),
             "A disabled plugin's agent is not offered.");
