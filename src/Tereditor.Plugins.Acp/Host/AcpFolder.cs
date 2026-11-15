@@ -388,7 +388,7 @@ internal sealed class AcpFolder
             Prompt = title.Length > 0 ? $"Allow \"{title}\"?" : "Allow this action?",
             AlwaysLabel = always?.Name,
             Decision = ChatPermissionDecision.Pending,
-            Kind = Str(toolCall, "kind") is { Length: > 0 } kind ? kind : null,
+            ToolKind = Str(toolCall, "kind") is { Length: > 0 } kind ? kind : null,
             Locations = locations,
             Diffs = diffs,
             Options = [.. options.Select(option => new ChatPermissionOption(option.Id, option.Name, option.Kind))]

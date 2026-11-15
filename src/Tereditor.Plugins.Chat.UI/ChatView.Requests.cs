@@ -208,7 +208,7 @@ internal sealed partial class ChatView
 
     private void AcpDetails(StackPanel root, ChatPermissionItem item)
     {
-        if (item.Kind is { Length: > 0 } kind) root.Children.Add(Ui.Text(kind, Ui.Muted, 11));
+        if (item.ToolKind is { Length: > 0 } kind) root.Children.Add(Ui.Text(kind, Ui.Muted, 11));
         if (item.Locations.Count > 0)
         {
             var files = new SelectableTextBlock { Name = "ChatPermFiles", Text = string.Join("\n", item.Locations), TextWrapping = TextWrapping.Wrap, FontFamily = Ui.CodeFont, FontSize = 12, Foreground = Ui.Muted };

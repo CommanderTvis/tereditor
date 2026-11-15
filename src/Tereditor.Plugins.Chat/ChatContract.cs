@@ -151,7 +151,7 @@ public sealed record ChatPermissionItem(string Id, long Seq, string RequestId, s
     public string? DefaultDestination { get; init; }
     public IReadOnlyList<ChatDestination> Destinations { get; set; } = [];
     /// <summary>The agent's tool kind (ACP: read, edit, execute...); null for Claude Code.</summary>
-    public string? Kind { get; init; }
+    public string? ToolKind { get; init; }
     /// <summary>The files the agent says the call touches (ACP <c>locations</c>), with a line when it gave one ("a.cs:12").</summary>
     public IReadOnlyList<string> Locations { get; set; } = [];
     /// <summary>The file changes the call would make (ACP diff content); a new file has no <see cref="ChatPermissionDiff.OldText"/>.</summary>

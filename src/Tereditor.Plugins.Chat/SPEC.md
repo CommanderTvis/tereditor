@@ -141,7 +141,7 @@ workspace, never by the view.
 
 - Permission options: `ChatPermissionItem.Options` lists `{id, label, kind}` as the agent sent them. When it is not empty the card shows exactly
   those answers and `ChatAnswerParams.OptionId` names the chosen one; `Allow` only repeats whether its kind is an allow. Claude Code leaves
-  `Options` empty and keeps its own three answers. `Kind`, `Locations` and `Diffs` carry what the call is. ACP has no rejection reason, so such a card has
+  `Options` empty and keeps its own three answers. `ToolKind`, `Locations` and `Diffs` carry what the call is. ACP has no rejection reason, so such a card has
   no reason box.
 - Plans: no record for an agent's task plan with entry status; today it is text.
 - Content blocks: user and tool content are text, images and documents (`ChatAttachment`); ACP resource links, embedded resources and
