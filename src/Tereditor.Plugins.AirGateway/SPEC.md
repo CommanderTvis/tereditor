@@ -26,9 +26,11 @@ Lets the user choose where Claude Code, Codex and omp get their AI, from Setting
 - JetBrains AI through Central: each enabled agent (Claude Code, Codex, omp; all on by default) is started through
   JetBrains Air Gateway by the user's own `central` CLI.
 
-The Agents list shows an agent only while its plugin is on (active or failed). A chosen agent whose plugin is off stays as one dimmed line,
-"<agent> is turned off in Settings › Plugins", so a saved choice is never hidden silently. The page does not know whether an
-agent's program is installed: that is the agent plugin's launcher, which shows "not found on PATH" in Start work.
+The Agents list reads the agent roster (Plugin API, `AgentRoster`) and shows an agent only while its plugin is on (active or failed)
+and its program was not found missing; an agent nobody could probe is shown. A chosen agent that is hidden by this stays as one
+dimmed line: "<agent> is turned off in Settings › Plugins" when its plugin is off, or the launcher's reason ("Claude Code was not found on PATH.
+Install Claude Code, then try again.") when its program is missing, so a saved choice is never hidden silently. The list follows
+the roster's change notification.
 
 The chosen source and the per-agent switches are the plugin's settings namespace (`source`, `claudeCode`, `codex`, `omp`),
 persisted by the host and effective at once for the next launch. The plugin ships disabled, since governing agents is

@@ -260,7 +260,8 @@ public sealed record LauncherCommandOptions
 /// <summary>Whether a launcher can be used now.</summary>
 /// <param name="Available">Whether it can.</param>
 /// <param name="Reason">Why not, when it cannot.</param>
-public sealed record LauncherAvailability(bool Available, string? Reason = null)
+/// <param name="Installed">Whether the agent's program was found: <see langword="null"/> when nobody has decided.</param>
+public sealed record LauncherAvailability(bool Available, string? Reason = null, bool? Installed = null)
 {
     /// <summary>
     /// The availability of an agent's launcher: unavailable with the reason of the first blocked launch contribution
@@ -269,10 +270,15 @@ public sealed record LauncherAvailability(bool Available, string? Reason = null)
     /// </summary>
     /// <param name="contributions">The launch contributions for the agent now.</param>
     /// <param name="notInstalled">The reason the program was not found, or <see langword="null"/>.</param>
-    public static LauncherAvailability Of(IReadOnlyList<AgentLaunchContribution> contributions, string? notInstalled = null) =>
-        AgentLaunchComposition.Blocked(contributions) is { } blocked ? new(false, blocked)
-        : notInstalled is { Length: > 0 } ? new(false, notInstalled)
-        : new(true);
+    /// <param name="installed">What the probe found when <paramref name="notInstalled"/> is <see langword="null"/>: found, or <see langword="null"/> for undecided.</param>
+    public static LauncherAvailability Of(IReadOnlyList<AgentLaunchContribution> contributions, string? notInstalled = null, bool? installed = null)
+    {
+        var missing = notInstalled is { Length: > 0 };
+        bool? found = missing ? false : installed;
+        return AgentLaunchComposition.Blocked(contributions) is { } blocked ? new(false, blocked, found)
+            : missing ? new(false, notInstalled, false)
+            : new(true, null, found);
+    }
 }
 
 /// <summary>Why a file icon is being resolved.</summary>

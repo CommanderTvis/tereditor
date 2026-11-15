@@ -434,9 +434,11 @@ Tereditor.Plugins.Api.UI.LauncherAvailability
 Tereditor.Plugins.Api.UI.LauncherAvailability.<Clone>$() -> Tereditor.Plugins.Api.UI.LauncherAvailability!
 Tereditor.Plugins.Api.UI.LauncherAvailability.Available.get -> bool
 Tereditor.Plugins.Api.UI.LauncherAvailability.Available.init -> void
-Tereditor.Plugins.Api.UI.LauncherAvailability.Deconstruct(out bool Available, out string? Reason) -> void
+Tereditor.Plugins.Api.UI.LauncherAvailability.Deconstruct(out bool Available, out string? Reason, out bool? Installed) -> void
 Tereditor.Plugins.Api.UI.LauncherAvailability.Equals(Tereditor.Plugins.Api.UI.LauncherAvailability? other) -> bool
-Tereditor.Plugins.Api.UI.LauncherAvailability.LauncherAvailability(bool Available, string? Reason = null) -> void
+Tereditor.Plugins.Api.UI.LauncherAvailability.LauncherAvailability(bool Available, string? Reason = null, bool? Installed = null) -> void
+Tereditor.Plugins.Api.UI.LauncherAvailability.Installed.get -> bool?
+Tereditor.Plugins.Api.UI.LauncherAvailability.Installed.init -> void
 Tereditor.Plugins.Api.UI.LauncherAvailability.Reason.get -> string?
 Tereditor.Plugins.Api.UI.LauncherAvailability.Reason.init -> void
 Tereditor.Plugins.Api.UI.LauncherCommandOptions
@@ -1079,4 +1081,40 @@ Tereditor.Plugins.Api.UI.PluginDocumentSelection
 Tereditor.Plugins.Api.UI.PluginDocumentSelection.For(string! workspaceId) -> (Tereditor.Plugins.Api.UI.EditorRef! Editor, Tereditor.Plugins.Api.UI.EditorSelection! Selection)?
 Tereditor.Plugins.Api.UI.PluginDocumentSelection.Observe(Tereditor.Plugins.Api.UI.EditorEvent! editorEvent, System.Func<Tereditor.Plugins.Api.UI.EditorRef!, bool>! isListed) -> void
 Tereditor.Plugins.Api.UI.PluginDocumentSelection.PluginDocumentSelection() -> void
-static Tereditor.Plugins.Api.UI.LauncherAvailability.Of(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution!>! contributions, string? notInstalled = null) -> Tereditor.Plugins.Api.UI.LauncherAvailability!
+static Tereditor.Plugins.Api.UI.LauncherAvailability.Of(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution!>! contributions, string? notInstalled = null, bool? installed = null) -> Tereditor.Plugins.Api.UI.LauncherAvailability!
+override Tereditor.Plugins.Api.UI.AgentRosterEntry.Equals(object? obj) -> bool
+override Tereditor.Plugins.Api.UI.AgentRosterEntry.GetHashCode() -> int
+override Tereditor.Plugins.Api.UI.AgentRosterEntry.ToString() -> string!
+Tereditor.Plugins.Api.UI.AgentPluginState
+Tereditor.Plugins.Api.UI.AgentPluginState.Absent = 4 -> Tereditor.Plugins.Api.UI.AgentPluginState
+Tereditor.Plugins.Api.UI.AgentPluginState.Active = 0 -> Tereditor.Plugins.Api.UI.AgentPluginState
+Tereditor.Plugins.Api.UI.AgentPluginState.Disabled = 2 -> Tereditor.Plugins.Api.UI.AgentPluginState
+Tereditor.Plugins.Api.UI.AgentPluginState.Failed = 1 -> Tereditor.Plugins.Api.UI.AgentPluginState
+Tereditor.Plugins.Api.UI.AgentPluginState.Refused = 3 -> Tereditor.Plugins.Api.UI.AgentPluginState
+Tereditor.Plugins.Api.UI.AgentRoster
+Tereditor.Plugins.Api.UI.AgentRosterEntry
+Tereditor.Plugins.Api.UI.AgentRosterEntry.<Clone>$() -> Tereditor.Plugins.Api.UI.AgentRosterEntry!
+Tereditor.Plugins.Api.UI.AgentRosterEntry.AgentRosterEntry(string! Id, string! LauncherId, string! Name, string? PluginId, Tereditor.Plugins.Api.UI.AgentPluginState PluginState, bool? Installed, string? Reason) -> void
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Deconstruct(out string! Id, out string! LauncherId, out string! Name, out string? PluginId, out Tereditor.Plugins.Api.UI.AgentPluginState PluginState, out bool? Installed, out string? Reason) -> void
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Equals(Tereditor.Plugins.Api.UI.AgentRosterEntry? other) -> bool
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Id.get -> string!
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Id.init -> void
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Installed.get -> bool?
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Installed.init -> void
+Tereditor.Plugins.Api.UI.AgentRosterEntry.LauncherId.get -> string!
+Tereditor.Plugins.Api.UI.AgentRosterEntry.LauncherId.init -> void
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Name.get -> string!
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Name.init -> void
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Offered.get -> bool
+Tereditor.Plugins.Api.UI.AgentRosterEntry.PluginId.get -> string?
+Tereditor.Plugins.Api.UI.AgentRosterEntry.PluginId.init -> void
+Tereditor.Plugins.Api.UI.AgentRosterEntry.PluginOn.get -> bool
+Tereditor.Plugins.Api.UI.AgentRosterEntry.PluginState.get -> Tereditor.Plugins.Api.UI.AgentPluginState
+Tereditor.Plugins.Api.UI.AgentRosterEntry.PluginState.init -> void
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Reason.get -> string?
+Tereditor.Plugins.Api.UI.AgentRosterEntry.Reason.init -> void
+static Tereditor.Plugins.Api.UI.AgentRosterEntry.operator !=(Tereditor.Plugins.Api.UI.AgentRosterEntry? left, Tereditor.Plugins.Api.UI.AgentRosterEntry? right) -> bool
+static Tereditor.Plugins.Api.UI.AgentRosterEntry.operator ==(Tereditor.Plugins.Api.UI.AgentRosterEntry? left, Tereditor.Plugins.Api.UI.AgentRosterEntry? right) -> bool
+static Tereditor.Plugins.Api.UI.AgentRoster.Build(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentLauncher!>! launchers, System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.PluginRosterEntry!>! plugins) -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentRosterEntry!>!
+static Tereditor.Plugins.Api.UI.AgentRoster.Read(Tereditor.Plugins.Api.UI.IPluginUIContext! context) -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentRosterEntry!>!
+static Tereditor.Plugins.Api.UI.AgentRoster.Watch(Tereditor.Plugins.Api.UI.IPluginUIContext! context, System.Action<System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentRosterEntry!>!>! handler) -> System.IDisposable!

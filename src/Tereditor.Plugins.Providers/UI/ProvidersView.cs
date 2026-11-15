@@ -47,23 +47,25 @@ internal sealed class ProvidersView : StackPanel
         intro.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
         Children.Add(intro);
         Children.Add(switcher);
-        // Only agents whose plugin is on are offered. omp is a program of the host's operating system: a host that refuses its
+        // Only agents whose plugin is on and whose program was not found missing are offered. omp is a program of the host's operating system: a host that refuses its
         // plugin (a browser tab's) has no omp to configure, and there Pi can sign in to JetBrains AI.
         void ShowAgents()
         {
-            var roster = context.Host().Roster;
+            var roster = AgentRoster.Read(context);
             var offered = Offered(roster);
             pi.IsVisible = offered.Pi;
             omp.IsVisible = offered.Omp;
             switcher.IsVisible = offered.Pi && offered.Omp;
-            tab = roster.FirstOrDefault(entry => entry.Id == OmpId) is not { Status: not PluginStatus.Refused };
+            tab = roster.FirstOrDefault(entry => entry.Id == OmpId) is not { PluginState: not (AgentPluginState.Refused or AgentPluginState.Absent) };
             intro.Text = Intro(offered.Pi, offered.Omp);
             var wanted = offered.Pi && offered.Omp ? agent : offered.Pi ? ProviderAgent.Pi : ProviderAgent.Omp;
             if (!offered.Pi && !offered.Omp) { list.Children.Clear(); location.Text = ""; note.Text = ""; generation++; loaded = false; return; }
             if (wanted != agent || !loaded) Choose(wanted);
         }
         ShowAgents();
-        AttachedToVisualTree += (_, _) => ShowAgents();
+        IDisposable? watch = null;
+        AttachedToVisualTree += (_, _) => { ShowAgents(); watch ??= AgentRoster.Watch(context, _ => ShowAgents()); };
+        DetachedFromVisualTree += (_, _) => { watch?.Dispose(); watch = null; };
         Children.Add(location);
         Children.Add(note);
         Children.Add(list);
@@ -72,10 +74,10 @@ internal sealed class ProvidersView : StackPanel
     private const string PiId = "pi";
     private const string OmpId = "omp";
 
-    /// <summary>Which agents the page offers: those whose plugin is on (active, or enabled but failed).</summary>
-    internal static (bool Pi, bool Omp) Offered(IReadOnlyList<PluginRosterEntry> roster) =>
-        (roster.FirstOrDefault(entry => entry.Id == PiId) is { Status: PluginStatus.Active or PluginStatus.Failed },
-         roster.FirstOrDefault(entry => entry.Id == OmpId) is { Status: PluginStatus.Active or PluginStatus.Failed });
+    /// <summary>Which agents the page offers: those whose plugin is on (active, or enabled but failed) and whose program was not found missing.</summary>
+    internal static (bool Pi, bool Omp) Offered(IReadOnlyList<AgentRosterEntry> roster) =>
+        (roster.FirstOrDefault(entry => entry.Id == PiId) is { Offered: true },
+         roster.FirstOrDefault(entry => entry.Id == OmpId) is { Offered: true });
 
     /// <summary>The page's opening sentence for the agents offered.</summary>
     internal static string Intro(bool pi, bool omp) =>

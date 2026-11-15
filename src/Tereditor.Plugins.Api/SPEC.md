@@ -945,7 +945,7 @@ contributions leave `Account` unset because reading it is I/O. `Account` does no
 
 A contribution may be blocked: `BlockedReason` is a short plain sentence saying why the agent cannot start now (not signed
 in, not supported on this host). The other members are then ignored. `AgentLaunchComposition.Blocked` returns the first
-reason, and `LauncherAvailability.Of(contributions, notInstalled)` turns it into an unavailable launcher with that reason,
+reason, and `LauncherAvailability.Of(contributions, notInstalled, installed)` turns it into an unavailable launcher with that reason,
 which the Start work dialog and the other launcher lists already show. `Apply` fails closed for a line that still reaches a
 blocked contribution (a revive, a typed command): it returns `sh -c 'echo "launcher unavailable: <reason>" >&2; exit 1'`,
 and on Windows a program name that does not exist, so a governed launch never runs ungoverned.
@@ -955,6 +955,25 @@ and on Windows a program name that does not exist, so a governed launch never ru
 undecided (`AgentInstall.Installed` true, false or null). A command line with arguments or shell words is undecided. It
 reads files, so a plugin calls it from its host half; `AgentInstall.Reason(product)` is the sentence for a launcher that is
 not installed. An undecided probe leaves the launcher available.
+
+### Agent roster
+
+`AgentRoster` (Plugin API UI project, read through the plugin context, `AgentRoster.Read(context)`) is a read-only list any
+plugin can ask whether an agent exists, so a plugin never has to guess from another plugin's enabled state. An
+`AgentRosterEntry` has the agent's stable id (the plugin id for the built-in agents: `claude-code`, `codex`, `omp`, `pi`;
+the launcher id for any other registered launcher), the launcher id (`claude` for Claude Code), the display name, the owning plugin's
+id (null for another plugin's launcher), the plugin's state (`AgentPluginState`: Active, Failed, Disabled, Refused, Absent),
+`Installed` (true, false, or null when nobody has decided: no probe yet, a command line the probe cannot read, or the plugin
+is off) and a plain `Reason` when the launcher cannot be used now (program not found, or a blocked launch contribution).
+`Offered` is "plugin on and `Installed` is not false". The four built-in agents are always listed, also when their plugin is
+off; other launchers follow in registration order. ACP agents are not listed: their plugin registers no launcher.
+
+The roster is built from `Launchers()` and the plugin roster in the host projection, and each launcher's `Availability` (now
+carrying `Installed`) is the one source: the Start work dialog reads the same launchers, so the two cannot disagree. It
+reads cached answers only: each agent plugin runs its probe on the host, off the UI thread, and calls `Invalidate` when the answer
+arrives. `AgentRoster.Watch(context, handler)` calls the handler on the UI thread with the new roster when an entry, its plugin's
+state or its availability changes (an unchanged roster is not announced). It adds no member to `IPluginUIContext`, so the
+crossing tables are unchanged. Consumers: the Air Gateway Agents list and the Model providers Pi / omp switch.
 
 ## Repo hosting contributions (H24, W28)
 

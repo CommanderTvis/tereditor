@@ -16,6 +16,7 @@ using Tereditor.Plugins.AirGateway.Host;
 using Tereditor.Plugins.AirGateway.UI;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
+using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.ClaudeCode;
 using Tereditor.Plugins.ClaudeCode.Host;
 using Tereditor.Plugins.Codex;
@@ -257,11 +258,14 @@ internal static partial class AirGatewayChecks
         Require(flipped.Credits is { Remaining: 16.27, Total: 20, TopUp: 0, RefillNext: 1800000000000 }, "Chosen Central and signed in shows the remaining credits.");
         Require(AirSettingsView.CreditsLine(flipped).StartsWith("16.27 of 20.00 credits remaining, refills 2027-", StringComparison.Ordinal) && !AirSettingsView.CreditsLine(flipped).Contains("top-up", StringComparison.Ordinal),
             "The credits line reads: " + AirSettingsView.CreditsLine(flipped));
-        Require(AirSettingsView.AgentRow("Codex", "Codex", false, PluginStatus.Active) == (true, "Codex", false) && AirSettingsView.AgentRow("Codex", "Codex", false, PluginStatus.Failed) == (true, "Codex", false) &&
-            AirSettingsView.AgentRow("Codex", "Codex", false, PluginStatus.Disabled).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, PluginStatus.Refused).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, null).Show == false,
-            "The Agents list shows an agent only when its plugin is on.");
-        Require(AirSettingsView.AgentRow("Claude Code", "Claude Code", true, PluginStatus.Disabled) == (true, "Claude Code is turned off in Settings › Plugins", true) && AirSettingsView.AgentRow("omp", "omp (x)", true, null) == (true, "omp is turned off in Settings › Plugins", true),
-            "A chosen agent whose plugin is off or missing stays as one dimmed line, so a saved choice is never hidden.");
+        AgentRosterEntry Agent(AgentPluginState state, bool? installed = null, string? reason = null) => new("codex", "codex", "Codex", "codex", state, installed, reason);
+        Require(AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Active, true)) == (true, "Codex", false) && AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Failed)) == (true, "Codex", false) &&
+            AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Disabled)).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Refused)).Show == false && AirSettingsView.AgentRow("Codex", "Codex", false, null).Show == false &&
+            AirSettingsView.AgentRow("Codex", "Codex", false, Agent(AgentPluginState.Active, false, "Codex was not found on PATH. Install Codex, then try again.")).Show == false,
+            "The Agents list shows an agent only when its plugin is on and its program was not found missing.");
+        Require(AirSettingsView.AgentRow("Claude Code", "Claude Code", true, Agent(AgentPluginState.Disabled)) == (true, "Claude Code is turned off in Settings › Plugins", true) && AirSettingsView.AgentRow("omp", "omp (x)", true, null) == (true, "omp is turned off in Settings › Plugins", true) &&
+            AirSettingsView.AgentRow("Claude Code", "Claude Code", true, Agent(AgentPluginState.Active, false, "Claude Code was not found on PATH. Install Claude Code, then try again.")) == (true, "Claude Code was not found on PATH. Install Claude Code, then try again.", true),
+            "A chosen agent whose plugin is off or missing, or whose program was not found, stays as one dimmed line saying why, so a saved choice is never hidden.");
         fixture.Tokens("limit-topup");
         var topUp = await runtime.StatusAsync(true, default);
         Require(topUp.Credits is { TopUp: 5.5 } && AirSettingsView.CreditsLine(topUp).Contains("plus 5.50 top-up", StringComparison.Ordinal), "A nonzero top-up is shown.");

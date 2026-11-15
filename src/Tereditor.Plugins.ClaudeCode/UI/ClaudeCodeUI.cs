@@ -89,7 +89,7 @@ public sealed class ClaudeCodeUI : PluginUIModule
                 settings.AppendSystemPrompt, context.Host().HostPlatform, model: options.Model is null ? settings.Model : null, effort: settings.Effort,
                 contributions: context.AgentLaunchContributions("claude"), sessionId: ClaudeLaunch.NewSessionId(args),
                 permissionMode: settings.PermissionMode, advisor: settings.Advisor, chrome: settings.Chrome ? true : null);
-        }, () => LauncherAvailability.Of(context.AgentLaunchContributions("claude"), install?.Reason("Claude Code")))
+        }, () => LauncherAvailability.Of(context.AgentLaunchContributions("claude"), install?.Reason("Claude Code"), install?.Installed))
         { CreateIcon = glyph.Create, Open = (workspace, options) => ChatLauncher.OpenFromLauncher(context, workspace, options), Models = () => [.. ClaudeLaunch.Models.Select(model => new LauncherModel(model.Id, model.Label, "asset:claude.svg"))] });
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("claude-launch",
             (workspace, group) => ClaudeLauncherAction.Create(context, glyph, workspace, group, chat)));

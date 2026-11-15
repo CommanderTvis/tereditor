@@ -27,7 +27,7 @@ public sealed class PiUI : PluginUIModule
         context.SideTool(new("pane", _ => PiPanel.Create(context)));
         context.SettingsSection(new("Pi", PiManifest.Icon, () => new PiSettingsView(context, () => status)));
         context.Launcher(new AgentLauncher(PiManifest.Id, "Pi", PiManifest.Icon, _ => context.Settings<PiSettings>().Command,
-            () => status is { Installed: false } ? new(false, "Pi is not installed; see https://github.com/badlogic/pi-mono") : new(true))
+            () => status is { Installed: false } ? new(false, "Pi is not installed; see https://github.com/badlogic/pi-mono", false) : new(true, null, status?.Installed))
         {
             Open = (workspace, options) =>
             {

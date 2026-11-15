@@ -88,7 +88,7 @@ internal sealed partial class AirSettingsView : UserControl
             hostWindow = TopLevel.GetTopLevel(this) as Window;
             if (hostWindow is not null) hostWindow.Activated += Activated;
             observers.Add(context.OnSettings<AirSettings>(next => { var was = lastSource; ApplySettings(next); _ = RefreshAsync(true, next.Source != was); }));
-            observers.Add(context.WatchHost(host => string.Join('\n', host.Roster.Select(entry => entry.Id + ":" + entry.Status)), (_, _) => ShowAgents(Settings)));
+            observers.Add(AgentRoster.Watch(context, _ => ShowAgents(Settings)));
             observers.Add(context.Subscribe(AirGatewayContract.Changed, next => { status = next; Render(); }, new AirStatusParams()));
             // After the observers: a check with none registered is skipped, so the on-open check must follow them.
             _ = CheckAsync(true);
@@ -126,20 +126,21 @@ internal sealed partial class AirSettingsView : UserControl
     }
 
     /// <summary>
-    /// What one agent's row shows: the agent when its plugin is on; nothing when it is off or missing and the agent is not
-    /// chosen; a dimmed line saying so when it is chosen, so a saved choice is never hidden silently.
+    /// What one agent's row shows, from the agent roster: the agent when its plugin is on and its program was not found
+    /// missing; nothing when it is off, missing or not installed and the agent is not chosen; a dimmed line saying why when
+    /// it is chosen, so a saved choice is never hidden silently. An agent nobody could probe counts as shown.
     /// </summary>
-    internal static (bool Show, string Text, bool Dim) AgentRow(string name, string label, bool chosen, PluginStatus? status) =>
-        status is PluginStatus.Active or PluginStatus.Failed ? (true, label, false)
-        : chosen ? (true, name + " is turned off in Settings › Plugins", true)
+    internal static (bool Show, string Text, bool Dim) AgentRow(string name, string label, bool chosen, AgentRosterEntry? agent) =>
+        agent is { Offered: true } ? (true, label, false)
+        : chosen ? (true, agent is { PluginOn: true } ? agent.Reason ?? name + " was not found." : name + " is turned off in Settings › Plugins", true)
         : (false, label, false);
 
     private void ShowAgents(AirSettings settings)
     {
-        var roster = context.Host().Roster;
+        var roster = AgentRoster.Read(context);
         foreach (var (box, pluginId, name, label, chosen) in agents)
         {
-            var row = AgentRow(name, label, chosen(settings), roster.FirstOrDefault(entry => entry.Id == pluginId)?.Status);
+            var row = AgentRow(name, label, chosen(settings), roster.FirstOrDefault(entry => entry.Id == pluginId));
             box.IsVisible = row.Show;
             box.Content = row.Text;
             box.Opacity = row.Dim ? .6 : 1;

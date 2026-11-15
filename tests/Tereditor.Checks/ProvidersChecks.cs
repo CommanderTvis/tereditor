@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Tereditor.Plugins.Api;
+using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.Providers;
 using Tereditor.Plugins.Providers.Host;
 using Tereditor.Plugins.Providers.UI;
@@ -89,11 +90,12 @@ internal static class ProvidersChecks
         Require(ProviderCatalog.Pi.Concat(ProviderCatalog.Omp).All(provider => ProviderCatalog.IsProviderId(provider.Id) && ProviderCatalog.IsEnvVar(provider.EnvVar)), "Every catalog entry has a valid id and variable.");
 
         // The page offers only agents whose plugin is on.
-        PluginRosterEntry Entry(string id, PluginStatus status) => new(id, id, "terminal", "1", 1, PluginOrigin.Builtin, status);
-        Require(ProvidersView.Offered([Entry("pi", PluginStatus.Active), Entry("omp", PluginStatus.Active)]) == (true, true), "Both agents are offered when both plugins are on.");
-        Require(ProvidersView.Offered([Entry("pi", PluginStatus.Active), Entry("omp", PluginStatus.Disabled)]) == (true, false) && ProvidersView.Offered([Entry("pi", PluginStatus.Disabled), Entry("omp", PluginStatus.Active)]) == (false, true),
+        AgentRosterEntry Entry(string id, AgentPluginState state, bool? installed = null) => new(id, id, id, id, state, installed, installed == false ? id + " was not found." : null);
+        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, true), Entry("omp", AgentPluginState.Active)]) == (true, true), "Both agents are offered when both plugins are on, installed or undecided.");
+        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Disabled)]) == (true, false) && ProvidersView.Offered([Entry("pi", AgentPluginState.Disabled), Entry("omp", AgentPluginState.Active)]) == (false, true),
             "A disabled plugin's agent is not offered.");
-        Require(ProvidersView.Offered([Entry("pi", PluginStatus.Active), Entry("omp", PluginStatus.Refused)]) == (true, false) && ProvidersView.Offered([]) == (false, false), "A refused or absent plugin's agent is not offered.");
+        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Refused)]) == (true, false) && ProvidersView.Offered([]) == (false, false), "A refused or absent plugin's agent is not offered.");
+        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, false), Entry("omp", AgentPluginState.Active, true)]) == (false, true), "An agent whose program was not found is not offered.");
         Require(ProvidersView.Intro(true, false).Contains("Pi uses", StringComparison.Ordinal) && !ProvidersView.Intro(true, false).Contains("omp", StringComparison.Ordinal) &&
             ProvidersView.Intro(false, true).Contains("omp uses", StringComparison.Ordinal) && ProvidersView.Intro(false, false).Contains("Turn on", StringComparison.Ordinal), "The opening sentence names only the agents offered.");
     }

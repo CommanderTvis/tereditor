@@ -120,7 +120,7 @@ public sealed class CodexUI : PluginUIModule
                 Resume = options.ResumeSessionId is not null,
                 ResumeSessionId = options.ResumeSessionId
             }, KnownDaemon()),
-            () => LauncherAvailability.Of(context.AgentLaunchContributions(CodexManifest.Id), install?.Reason("Codex")))
+            () => LauncherAvailability.Of(context.AgentLaunchContributions(CodexManifest.Id), install?.Reason("Codex"), install?.Installed))
         {
             CreateIcon = (size, color) => new CodexGlyph(context, size, color as ISolidColorBrush),
             Models = () => [.. store.Models.Select(model => new LauncherModel(model.Id, model.Label, "openai-line"))]
