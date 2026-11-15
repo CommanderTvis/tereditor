@@ -49,7 +49,7 @@ The Android app is a thin client for the controlling Tereditor on your PC. You c
 <a href="docs/android.md">Docs →</a>
 </td>
 <td width="62%">
-<img src="docs/screenshots/android-pair.png" alt="Two Android screens, the Tailscale connect screen with a host found and a Claude Code terminal on the host" width="100%">
+<img src="docs/screenshots/android-pair.png" alt="Two Android screens, the Tailscale connect screen and a Claude Code terminal on the host" width="100%">
 </td>
 </tr>
 <tr>
