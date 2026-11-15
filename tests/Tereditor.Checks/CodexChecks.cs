@@ -54,6 +54,7 @@ internal static class CodexChecks
             Launch();
             await Daemon(Path.Combine(root, "codex-daemon"));
             if (!OperatingSystem.IsWindows()) LaunchShell(Path.Combine(root, "codex-launch-shell"));
+            WritableRoots(Path.Combine(root, "codex-writable-roots"));
             Resume(Path.Combine(root, "codex-resume"));
             InstructionScopes(ShortTemp("tr-cs-"));
             Rollout(Path.Combine(root, "codex-rollout"));
@@ -390,6 +391,96 @@ internal static class CodexChecks
         WriteControl(control, new() { DaemonHang = true });
         Require(await hanging.ReadAsync() is { Attach: false, Reason: { } slow } && slow.Contains("in time"), "a hung probe times out");
         Require(await new CodexDaemonProbe(() => Path.Combine(root, "missing")).ReadAsync() is { Attach: false }, "a missing executable falls back");
+    }
+
+    // The scratch folder is added to the user's own writable roots, never replacing them.
+    private static void WritableRoots(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        const string scratch = "/state/scratch/proj/ws-1";
+        CodexWritableRoots Read(string? config, string? profile = null, string? scratchPath = scratch)
+        {
+            var home = Path.Combine(directory, "home-" + Guid.NewGuid().ToString("N")[..8]);
+            Directory.CreateDirectory(home);
+            if (config is not null) File.WriteAllText(Path.Combine(home, "config.toml"), config);
+            return CodexConfig.WritableRoots(scratchPath, profile, home);
+        }
+        static void Same(CodexWritableRoots found, string[] roots, bool add, string what)
+        {
+            Require(found.Roots.SequenceEqual(roots) && found.Add == add, what + ": " + string.Join("|", found.Roots) + " add=" + found.Add);
+        }
+
+        Same(Read(null), [], true, "no config file");
+        Same(Read("model = \"gpt-5\"\n[sandbox_workspace_write]\nnetwork_access = true\n"), [], true, "a table without the key");
+        Same(Read("[sandbox_workspace_write]\nwritable_roots = [\"/data\"]\n"), ["/data"], true, "the table form");
+        Same(Read("[sandbox_workspace_write]\nwritable_roots = [\"/a\", \"/b c\", '/lit\\eral']\n"), ["/a", "/b c", "/lit\\eral"], true, "several roots in their order");
+        Same(Read("sandbox_workspace_write.writable_roots = [\"/dotted\"]\n"), ["/dotted"], true, "the dotted form");
+        Same(Read("sandbox_workspace_write = { writable_roots = [\"/inline\", \"/two\"], network_access = false }\n"), ["/inline", "/two"], true, "the inline-table form");
+        Same(Read("[sandbox_workspace_write]\nwritable_roots = [\"C:\\\\Users\\\\me\", \"/q\\\"uote's\"]\n"), ["C:\\Users\\me", "/q\"uote's"], true, "escapes are decoded");
+        Same(Read("[sandbox_workspace_write]\nwritable_roots = [\"/data\", \"/state/scratch/proj/ws-1/\"]\n"), ["/data", "/state/scratch/proj/ws-1/"], false, "the scratch folder is already listed");
+        Same(Read("[sandbox_workspace_write]\nwritable_roots = [\"/data\"]\n", scratchPath: null), ["/data"], true, "an unknown scratch folder is added");
+        Same(Read("[sandbox_workspace_write\nwritable_roots = ["), [], false, "an unparseable file passes no override");
+        Same(Read("[sandbox_workspace_write]\nwritable_roots = \"/not-a-list\"\n"), [], false, "a roots key that is not a list passes no override");
+        Same(Read("[sandbox_workspace_write]\nwritable_roots = [1, 2]\n"), [], false, "roots that are not strings pass no override");
+        Same(Read("sandbox_workspace_write = \"off\"\n"), [], false, "a section that is not a table passes no override");
+        Same(Read("# " + new string('x', (int)CodexConfig.MaxRootsFileBytes) + "\n[sandbox_workspace_write]\nwritable_roots = [\"/big\"]\n"), [], false, "a file over the cap passes no override");
+        const string profiles = "[sandbox_workspace_write]\nwritable_roots = [\"/base\"]\n[profiles.work.sandbox_workspace_write]\nwritable_roots = [\"/work\"]\n[profiles.plain]\nmodel = \"gpt-5\"\n";
+        Same(Read(profiles, "work"), [], false, "a launch profile with its own roots passes no override");
+        Same(Read("profile = \"work\"\n" + profiles), [], false, "the config's selected profile with its own roots passes no override");
+        Same(Read(profiles, "plain"), ["/base"], true, "a profile without roots keeps the base roots");
+        Same(Read(profiles), ["/base"], true, "no profile keeps the base roots");
+        Equal(CodexLaunch.ProfileOf("codex --profile work"), "work", "--profile");
+        Equal(CodexLaunch.ProfileOf("codex", "-p 'my work'"), "my work", "-p with a quoted name");
+        Equal(CodexLaunch.ProfileOf("codex --profile=work -m x"), "work", "--profile=");
+        Equal(CodexLaunch.ProfileOf("codex -m x", null), null, "no profile");
+
+        // The launch line: the user's roots in order, then the scratch folder, with nothing replaced.
+        string[] shapes = ["/a b", "/q\"uote's", "C:\\Users\\me\\My Docs", "/$HOME `date` $(exit 3) !x", "/ünï ✨"];
+        var roots = new CodexWritableRoots(shapes);
+        Equal(CodexLaunch.Line("codex", new(false, false) { AppendSystemPrompt = true, WritableRoots = new([]) }), CodexLaunch.Line("codex", new(false, false) { AppendSystemPrompt = true }),
+            "no user roots is the scratch-only override");
+        Require(!CodexLaunch.Line("codex", new(false, false) { AppendSystemPrompt = true, WritableRoots = new(shapes, false) }).Contains(CodexLaunch.ScratchRootsKey, StringComparison.Ordinal),
+            "an answer that cannot add passes no roots override");
+        Require(!CodexLaunch.Line("codex", new(false, true) { AppendSystemPrompt = true, WritableRoots = roots }).Contains(CodexLaunch.ScratchRootsKey, StringComparison.Ordinal), "Windows adds none");
+        if (!OperatingSystem.IsWindows())
+        {
+            string[] Run(CodexWritableRoots? answer)
+            {
+                var command = "sh -c 'for a; do printf \"%s\\0\" \"$a\"; done' sh";
+                var line = CodexLaunch.Line(command, new(false, false) { AppendSystemPrompt = true, WritableRoots = answer });
+                var start = new ProcessStartInfo("/bin/sh", ["-c", line]) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+                start.Environment[CodexLaunch.PromptJsonVariable] = JsonSerializer.Serialize("instructions");
+                start.Environment["THINKRAIL_CODEX_STATUS_URL"] = "http://localhost/status/token";
+                start.Environment[CodexLaunch.ScratchVariable] = "/scratch probe";
+                using var process = Process.Start(start)!;
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                Require(process.ExitCode == 0, "the launch line runs: " + process.StandardError.ReadToEnd());
+                return output.Split('\0')[..^1];
+            }
+            string[] RootsOf(string[] parts)
+            {
+                Require(parts.Length == 4 && parts[2] == "-c" && parts[3].StartsWith(CodexLaunch.ScratchRootsKey + "=", StringComparison.Ordinal), "one roots override: " + string.Join("|", parts));
+                return [.. CodexConfig.Parse(parts[3])["sandbox_workspace_write"]!.AsObject()["writable_roots"]!.AsArray().Select(item => (string)item!)];
+            }
+            Require(RootsOf(Run(roots)).SequenceEqual([.. shapes, "/scratch probe"]), "a real shell hands Codex the user's roots, then the scratch folder, as a TOML array");
+            Require(RootsOf(Run(new([shapes[0]]))).SequenceEqual([shapes[0], "/scratch probe"]), "one user root");
+            Require(RootsOf(Run(null)).SequenceEqual(["/scratch probe"]), "unknown roots: scratch only, as before");
+            Equal(Run(new(shapes, false)).Length, 2, "no roots override under a real shell when none can be kept");
+        }
+
+        // Revival drops the whole generated override, however many roots and escapes it holds.
+        var home = Path.Combine(directory, "revive-home");
+        Directory.CreateDirectory(home);
+        foreach (var answer in new[] { roots, new CodexWritableRoots(["/one"]), new CodexWritableRoots(["C:\\a b\\c", "D:\\x"]) })
+        {
+            var launched = CodexLaunch.Line("codex -m model", new(false, false) { AppendSystemPrompt = true, SystemPrompt = "Extra", WritableRoots = answer });
+            Equal(CodexResume.Command(launched, null, false, false, null, home, appendSystemPrompt: false), "codex -m model resume --last", "revival drops the roots override: " + launched);
+            Equal(CodexResume.Command(launched, null, false, false, null, home, appendSystemPrompt: true, writableRoots: answer),
+                CodexLaunch.Line("codex -m model", new(false, false) { AppendSystemPrompt = true, Resume = true, WritableRoots = answer }), "revival rebuilds it once: " + launched);
+        }
+        const string own = "codex -c 'sandbox_workspace_write.writable_roots=[\"/mine\"]'";
+        Equal(CodexResume.Command(own, null, false, false, null, home), own + " resume --last", "the user's own roots override stays");
     }
 
     private static void LaunchShell(string directory)

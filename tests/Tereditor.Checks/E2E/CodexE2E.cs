@@ -622,10 +622,15 @@ internal static class CodexE2E
         var argsLog = Path.Combine(root, "args.json");
         var executable = FakeExecutable(Path.Combine(root, "fixture"), new() { ArgsLog = argsLog, ReportSession = true }, out _, out _);
         codex.Settings(new { command = executable, appendSystemPrompt = true });
+        // The user's own writable roots survive: the launch adds the scratch folder after them.
+        Directory.CreateDirectory(codex.Home);
+        File.WriteAllText(Path.Combine(codex.Home, "config.toml"), "[sandbox_workspace_write]\nwritable_roots = [\"/user/one\", \"/user/two words\"]\n");
         codex.Enable(true);
         var panel = codex.Panel();
         Require(!Has(panel, "CodexLaunchSource"), "no launch source before a session");
         E2eWorkspace.Until(() => Has(codex.App.Window, "NewCodex"));
+        // The launcher reads the user's roots through the host first; a launch before that answer passes no roots override.
+        E2eWorkspace.Settle(500);
         codex.App.Click(One<Button>(codex.App.Window, "NewCodex"));
         E2eWorkspace.Until(() => Args(argsLog).Length > 0);
         var args = WithoutLauncherMcp(Args(argsLog));
@@ -636,10 +641,10 @@ internal static class CodexE2E
         Require(args.Length == 4 && args[0] == "-c" && args[2] == "-c" && Shared(launched) == Shared(content) && (launched == content || !launched.Contains("<absolute path>", StringComparison.Ordinal)),
             "launch arguments: " + string.Join(" | ", args));
         // The agent is granted the host-side scratch directory: it exists, lies under the state directory's scratch area and is writable.
-        var scratchPrefix = CodexLaunch.ScratchRootsKey + "=[\"";
-        var scratchRoot = args[3].StartsWith(scratchPrefix, StringComparison.Ordinal) ? args[3][scratchPrefix.Length..^2] : "";
+        var scratchPrefix = CodexLaunch.ScratchRootsKey + "=[\"/user/one\",\"/user/two words\",\"";
+        var scratchRoot = args[3].StartsWith(scratchPrefix, StringComparison.Ordinal) && args[3].EndsWith("\"]", StringComparison.Ordinal) ? args[3][scratchPrefix.Length..^2] : "";
         Require(Directory.Exists(scratchRoot) && scratchRoot.Contains(Path.DirectorySeparatorChar + "scratch" + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
-            !scratchRoot.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal), "the scratch grant, as a writable root, never --add-dir: " + args[3]);
+            !scratchRoot.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal), "the scratch grant joins the user's own writable roots, never --add-dir: " + args[3]);
         File.WriteAllText(Path.Combine(scratchRoot, "probe.md"), "x");
         Require(!Directory.Exists(Path.Combine(root, ".tereditor")), "tereditor created nothing in the project's .tereditor.");
         Require(content.Contains("`workspace_create`", StringComparison.Ordinal) && content.Contains("`description`", StringComparison.Ordinal),

@@ -78,7 +78,7 @@ public static partial class CodexResume
                     continue;
                 if (appended && key == "--add-dir" && value.Trim('"') == "$" + CodexLaunch.ScratchVariable) continue;
                 if (appended && key is "-c" or "--config" && value.Contains(CodexLaunch.ScratchVariable, StringComparison.Ordinal) &&
-                    value.TrimStart('"').StartsWith(CodexLaunch.ScratchRootsKey, StringComparison.Ordinal)) continue;
+                    value.TrimStart('"', '\'').StartsWith(CodexLaunch.ScratchRootsKey, StringComparison.Ordinal)) continue;
                 kept.Add(token);
                 if (equals < 0) kept.Add(value);
             }
@@ -93,7 +93,8 @@ public static partial class CodexResume
     /// </summary>
     public static string? Command(string command, string? sessionId, bool mcp, bool windows, string? permissionMode, string? home = null,
         bool appendSystemPrompt = false, bool uiLaunch = false, string? model = null, string? effort = null,
-        IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution>? contributions = null, bool fresh = false, CodexDaemonMode? daemon = null)
+        IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution>? contributions = null, bool fresh = false, CodexDaemonMode? daemon = null,
+        CodexWritableRoots? writableRoots = null)
     {
         if (Invocation(command, model, effort) is not { } invocation) return null;
         return CodexLaunch.Line(invocation, new(mcp, windows)
@@ -105,6 +106,7 @@ public static partial class CodexResume
             Effort = effort,
             Contributions = contributions ?? [],
             Daemon = daemon,
+            WritableRoots = writableRoots,
             Resume = !fresh,
             ResumeSessionId = !fresh && sessionId is not null && SessionExists(sessionId, home) ? sessionId : null
         });

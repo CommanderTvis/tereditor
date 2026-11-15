@@ -19,7 +19,7 @@ namespace Tereditor.Plugins.Codex.UI;
 public sealed class CodexUI : PluginUIModule
 {
     /// <summary>The launch line with this host's settings: its command, permissions mode and MCP hand-off.</summary>
-    public static string LaunchLine(IPluginUIContext context, CodexLaunchOptions options, CodexDaemonState? daemon = null)
+    public static string LaunchLine(IPluginUIContext context, CodexLaunchOptions options, CodexDaemonState? daemon = null, CodexWritableRoots? roots = null)
     {
         var settings = context.Settings<CodexSettings>();
         return CodexLaunch.Line(settings.Command, options with
@@ -32,6 +32,7 @@ public sealed class CodexUI : PluginUIModule
             Mcp = settings.Mcp,
             Daemon = settings.SharedDaemon && daemon is { Attach: true } ? CodexDaemonMode.Shared : CodexDaemonMode.Standalone,
             Contributions = context.AgentLaunchContributions(CodexManifest.Id),
+            WritableRoots = roots,
             Windows = context.Host().HostPlatform == HostPlatform.Windows
         });
     }
@@ -60,6 +61,8 @@ public sealed class CodexUI : PluginUIModule
         var store = new CodexStore();
         var launcherIdeContext = new HashSet<(string, string)>();
         CodexDaemonState? daemonState = null;
+        var writableRoots = new System.Collections.Concurrent.ConcurrentDictionary<string, CodexWritableRoots>();
+        _ = KnownRoots(context.Host().ActiveWorkspaceId, null);
         CodexEditorContext.Register(context);
         context.Subscribe(CodexContract.Status, push =>
         {
@@ -119,7 +122,7 @@ public sealed class CodexUI : PluginUIModule
                 Images = options.Images,
                 Resume = options.ResumeSessionId is not null,
                 ResumeSessionId = options.ResumeSessionId
-            }, KnownDaemon()),
+            }, KnownDaemon(), KnownRoots(context.Host().ActiveWorkspaceId, null)),
             () => LauncherAvailability.Of(context.AgentLaunchContributions(CodexManifest.Id), install?.Reason("Codex"), install?.Installed))
         {
             CreateIcon = (size, color) => new CodexGlyph(context, size, color as ISolidColorBrush),
@@ -188,6 +191,24 @@ public sealed class CodexUI : PluginUIModule
             return daemonState;
         }
 
+        // The user's own writable roots come from the host's config read, kept per profile. A synchronous launch uses the last answer and
+        // refreshes it; with none yet it passes no roots override, so the user's roots are never replaced.
+        CodexWritableRoots KnownRoots(string? workspace, CodexLaunchPreset? preset)
+        {
+            var settings = context.Settings<CodexSettings>();
+            var profile = CodexLaunch.ProfileOf(settings.Command, preset?.Args);
+            _ = ReadRoots(workspace, profile);
+            return writableRoots.TryGetValue(profile ?? "", out var known) ? known : new([], false);
+        }
+
+        async Task<CodexWritableRoots> ReadRoots(string? workspace, string? profile)
+        {
+            CodexWritableRoots answer;
+            try { answer = await context.RequestAsync(CodexContract.WritableRoots, new CodexRootsParams(workspace, profile)); }
+            catch (Exception) { answer = new([], false); }
+            return writableRoots[profile ?? ""] = answer;
+        }
+
         async Task Start(string workspace, string group, CodexLaunchPreset? preset)
         {
             CodexDaemonState? daemon = null;
@@ -196,7 +217,8 @@ public sealed class CodexUI : PluginUIModule
                 daemon = await ProbeDaemon();
                 if (!daemon.Attach) context.Notify(PluginNotificationKind.Info, $"Starting Codex standalone: {daemon.Reason}.");
             }
-            var tabKey = await context.OpenTerminalAsync(workspace, new() { Command = LaunchLine(context, new(true, false) { Preset = preset }, daemon), GroupId = group });
+            var roots = await ReadRoots(workspace, CodexLaunch.ProfileOf(context.Settings<CodexSettings>().Command, preset?.Args));
+            var tabKey = await context.OpenTerminalAsync(workspace, new() { Command = LaunchLine(context, new(true, false) { Preset = preset }, daemon, roots), GroupId = group });
             if (context.Settings<CodexSettings>().IdeContext) launcherIdeContext.Add((workspace, tabKey));
         }
     }

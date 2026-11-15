@@ -23,7 +23,7 @@ invitation is excluded by the tereditor product contract; a Codex chat component
   `-c model_reasoning_effort="…"` override. Generic launcher selections, model presets and custom
   arguments take precedence without editing Codex's saved configuration or a running session.
   Unset defaults persist as empty strings so merged settings updates clear earlier overrides.
-  tereditor wire version 5 covers this and the daemon extension below: mismatched host/UI halves stay dormant
+  tereditor wire version 6 covers this, the daemon extension and the writable-roots read below: mismatched host/UI halves stay dormant
   rather than having the older strict schema silently fall back to defaults.
 - Settings › Codex has "Use the shared Codex daemon" (`SharedDaemon`, host state, default on). Off, every
   UI launch and revival adds `--no-daemon` (standalone). On, a launch attaches with `--remote unix://` only
@@ -111,8 +111,16 @@ invitation is excluded by the tereditor product contract; a Codex chat component
   projects without specs require no spec workflow or unsolicited spec creation.
   The file describes tereditor's tools and the project's
   worktree folder (`TEREDITOR_WORKTREES_DIR`), like Claude Code's appended system prompt. Prompted launches also pass
-  `-c 'sandbox_workspace_write.writable_roots=["$TEREDITOR_SCRATCH_DIR"]'` (not `--add-dir`, which makes Codex exit with an error under a read-only sandbox; the override is ignored there, issue #59, and replaces writable roots from the user's Codex config): the workspace's host-side scratch directory (`<state>/scratch/<project>/<workspace>`,
-  created by the host, nothing inside the project) stays writable under Codex's workspace-write sandbox. Each terminal
+  `-c 'sandbox_workspace_write.writable_roots=[...]'` (not `--add-dir`, which makes Codex exit with an error under a read-only sandbox; the override is ignored there, issue #59): the workspace's host-side scratch directory (`<state>/scratch/<project>/<workspace>`,
+  created by the host, nothing inside the project) stays writable under Codex's workspace-write sandbox.
+  Your own writable roots are kept: `-c` would replace the list in your `config.toml`, so the host reads
+  `sandbox_workspace_write.writable_roots` from `$CODEX_HOME/config.toml` (`writableRoots`; a table, a dotted key or an inline table;
+  at most 64 KiB; nothing else is read or logged) and the override lists your roots in their order, then the scratch folder.
+  No file or no key means the scratch folder alone. The override is left out, and the scratch folder is then not granted,
+  when the file is too large or cannot be parsed, when the key is not a list of strings, when the profile in use (`--profile` or
+  the config's `profile`) sets its own `writable_roots` (how Codex layers profiles is not relied on), and when you already list the
+  scratch folder. A launch made before the first answer arrives, such as the first click after startup, passes no override too.
+  Project `.codex/config.toml` roots are not read. Revival strips the override with the rest and builds it again. Each terminal
   gets the file's text as the JSON string `TEREDITOR_CODEX_PROMPT_JSON`, which the launch line expands
   into Codex's additional `developer_instructions`; a launcher-supplied prompt continues the same
   string rather than adding a second override. Only these launches tag their inherited status URL with

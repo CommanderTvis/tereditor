@@ -78,6 +78,16 @@ public sealed class CodexHost : PluginHostModule
         });
         context.Method(CodexContract.Installed, async (_, _, _) => await Task.Run(() => AgentExecutable.Probe(CommandOf(context))));
         context.Method(CodexContract.Daemon, (_, _, _) => new ValueTask<CodexDaemonState>(daemon.ReadAsync()));
+        // The same folder the terminal gets as TEREDITOR_SCRATCH_DIR, so a user root that already is it is not added twice.
+        string? ScratchOf(string? workspaceId)
+        {
+            if (workspaceId is not { Length: > 0 }) return null;
+            var projectId = workspaces.TryGetValue(workspaceId, out var found) ? found.ProjectId : null;
+            return context.Projects().FirstOrDefault(project => project.Id == projectId || project.Path == workspaceId) is { ScratchDirectory.Length: > 0 } project &&
+                Path.GetFileName(workspaceId.TrimEnd('/', '\\')) is { Length: > 0 } leaf ? Path.Combine(project.ScratchDirectory, leaf) : null;
+        }
+        context.Method(CodexContract.WritableRoots, (parameters, _, _) =>
+            new ValueTask<CodexWritableRoots>(Task.Run(() => CodexConfig.WritableRoots(ScratchOf(parameters.WorkspaceId), parameters.Profile))));
         context.Method(CodexContract.Models, async (_, _, _) => await models.ReadAsync());
 
         // A Codex tab's configuration follows its process CWD, then its last reported one; otherwise the worktree's.
@@ -273,13 +283,14 @@ public sealed class CodexHost : PluginHostModule
             }
         });
 
-        context.RevivePrefill((_, record) =>
+        context.RevivePrefill((terminal, record) =>
         {
             if (record.Kind != CodexManifest.Id) return null;
             var settings = context.Settings<CodexSettings>();
             string? Line(bool fresh) => CodexResume.Command(record.Command, record.SessionId, settings.Mcp, OperatingSystem.IsWindows(), settings.PermissionMode,
                 appendSystemPrompt: settings.AppendSystemPrompt, uiLaunch: true, model: record.Model, effort: record.Effort,
                 contributions: context.AgentLaunchContributions(CodexManifest.Id), fresh: fresh,
+                writableRoots: CodexConfig.WritableRoots(ScratchOf(terminal.WorkspaceId), CodexLaunch.ProfileOf(record.Command, settings.Command)),
                 // The revive hook cannot wait: it uses the last probe, which refreshes in the background.
                 daemon: settings.SharedDaemon && daemon.Peek() is { Attach: true } ? CodexDaemonMode.Shared : CodexDaemonMode.Standalone);
             return Line(false) is { } text ? new RevivePrefill(text) { Program = true, Fresh = Line(true) } : null;

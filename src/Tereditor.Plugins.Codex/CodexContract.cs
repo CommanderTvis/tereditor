@@ -171,15 +171,26 @@ public sealed record CodexSettings
 /// <summary>Whether a launch can attach to the running daemon now; <see cref="Reason"/> says why not, for the fallback notice.</summary>
 public sealed record CodexDaemonState(bool Attach, string? Reason = null);
 
+/// <summary>Which of the user's own Codex config an answer about writable roots reads: the workspace (for its scratch folder) and the launch's <c>--profile</c>.</summary>
+public sealed record CodexRootsParams(string? WorkspaceId = null, string? Profile = null);
+
+/// <summary>
+/// The writable roots of the user's own Codex config, in their order, which a launch keeps. <see cref="Add"/> false means the
+/// launch passes no roots override at all: the config cannot be read, a profile sets its own roots, or the scratch folder is already listed.
+/// </summary>
+public sealed record CodexWritableRoots(IReadOnlyList<string> Roots, bool Add = true);
+
 public static class CodexContract
 {
-    public const int WireVersion = 5;
+    public const int WireVersion = 6;
 
     public static readonly PluginMethod<CodexIdeReply, bool> IdeReply = new("ideReply");
     public static readonly PluginMethod<CodexNoParams, CodexAccount> Account = new("account");
     public static readonly PluginMethod<CodexNoParams, IReadOnlyList<CodexModel>> Models = new("models");
     /// <summary>A bounded, briefly cached <c>codex app-server daemon version</c> probe; never starts the daemon.</summary>
     public static readonly PluginMethod<CodexNoParams, CodexDaemonState> Daemon = new("daemon");
+    /// <summary>The user's own <c>sandbox_workspace_write.writable_roots</c>, read for a launch that adds the scratch folder to them.</summary>
+    public static readonly PluginMethod<CodexRootsParams, CodexWritableRoots> WritableRoots = new("writableRoots");
     public static readonly PluginMethod<CodexConfigParams, CodexConfigSnapshot> ConfigGet = new("configGet");
     public static readonly PluginMethod<CodexSetValueParams, CodexConfigSnapshot> SetValue = new("setValue");
     public static readonly PluginMethod<CodexCreateInstructionsParams, CodexCreatedInstructions> CreateInstructions = new("createInstructions");
@@ -201,7 +212,7 @@ public static class CodexContract
     public static readonly PluginChannel<InstructionSectionsChanged> InstructionsChanged = PluginChannel<InstructionSectionsChanged>.Event("instructionsChanged");
 
     public static readonly PluginContract Contract = PluginContract.Create<CodexSettings>(CodexManifest.Id, WireVersion,
-        [IdeReply, Account, Models, Daemon, ConfigGet, SetValue, CreateInstructions, InstallHooks, StatusSnapshot, SystemPromptGet, Installed, InstructionsList, InstructionsSet], [IdeRequest, Status, InstructionsChanged],
+        [IdeReply, Account, Models, Daemon, WritableRoots, ConfigGet, SetValue, CreateInstructions, InstallHooks, StatusSnapshot, SystemPromptGet, Installed, InstructionsList, InstructionsSet], [IdeRequest, Status, InstructionsChanged],
         CodexJson.Default);
 }
 
@@ -214,6 +225,8 @@ public static class CodexContract
 [JsonSerializable(typeof(CodexAccount))]
 [JsonSerializable(typeof(IReadOnlyList<CodexModel>))]
 [JsonSerializable(typeof(CodexDaemonState))]
+[JsonSerializable(typeof(CodexRootsParams))]
+[JsonSerializable(typeof(CodexWritableRoots))]
 [JsonSerializable(typeof(CodexConfigParams))]
 [JsonSerializable(typeof(CodexConfigSnapshot))]
 [JsonSerializable(typeof(CodexSetValueParams))]

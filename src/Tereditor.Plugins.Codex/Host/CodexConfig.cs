@@ -43,6 +43,52 @@ public static partial class CodexConfig
         catch (Exception error) when (error is TomlException or IOException or UnauthorizedAccessException) { return new(true, [], error.Message); }
     }
 
+    /// <summary>The largest user config read for its writable roots.</summary>
+    public const long MaxRootsFileBytes = 64 * 1024;
+
+    /// <summary>
+    /// The writable roots of the user's own <c>config.toml</c> (<c>sandbox_workspace_write.writable_roots</c>, in any TOML spelling
+    /// of that key) for a launch to keep. Nothing is added when the file is too large or unreadable, the key is not a list of
+    /// strings, the profile in use sets its own roots (Codex's layering of those is not relied on), or the scratch folder is already listed.
+    /// A missing file or key means no roots. File contents are never logged.
+    /// </summary>
+    public static CodexWritableRoots WritableRoots(string? scratch, string? profile, string? home = null)
+    {
+        var none = new CodexWritableRoots([], false);
+        var path = Path.Combine(home ?? Home(), "config.toml");
+        JsonObject root;
+        try
+        {
+            if (new FileInfo(path) is not { Exists: true } file) return new([]);
+            if (file.Length > MaxRootsFileBytes) return none;
+            root = Parse(File.ReadAllText(path));
+        }
+        catch (Exception error) when (error is TomlException or IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException) { return none; }
+
+        profile ??= root["profile"] is JsonValue { } selected && selected.GetValueKind() == JsonValueKind.String ? (string?)selected : null;
+        if (profile is not null && root["profiles"] is JsonObject profiles && profiles[profile] is JsonObject chosen &&
+            chosen["sandbox_workspace_write"] is { } profileWrite && (profileWrite is not JsonObject table || table.ContainsKey("writable_roots")))
+            return none;
+
+        if (root["sandbox_workspace_write"] is not { } write) return new([]);
+        if (write is not JsonObject writeTable) return none;
+        if (!writeTable.TryGetPropertyValue("writable_roots", out var list)) return new([]);
+        if (list is not JsonArray array || array.Any(item => item is not JsonValue value || value.GetValueKind() != JsonValueKind.String)) return none;
+        var roots = array.Select(item => (string)item!).ToList();
+        return scratch is { Length: > 0 } && roots.Any(item => SamePath(item, scratch)) ? new(roots, false) : new(roots);
+    }
+
+    private static bool SamePath(string left, string right)
+    {
+        static string Normal(string path)
+        {
+            try { path = Path.GetFullPath(path); }
+            catch (Exception error) when (error is ArgumentException or NotSupportedException or PathTooLongException) { }
+            return path.Length > 1 ? Path.TrimEndingDirectorySeparator(path) : path;
+        }
+        return string.Equals(Normal(left), Normal(right), OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
+
     /// <summary>A TOML document as JSON: tables become objects, dates their text.</summary>
     public static JsonObject Parse(string text) => (JsonObject)ToNode(TomlSerializer.Deserialize(text, CodexTomlContext.Default.TomlTable) ?? new TomlTable())!;
 

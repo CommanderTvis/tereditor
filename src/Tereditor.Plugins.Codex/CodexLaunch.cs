@@ -33,6 +33,8 @@ public sealed record CodexLaunchOptions(bool Mcp, bool Windows)
     public string? SystemPrompt { get; init; }
     public string? InitialPrompt { get; init; }
     public IReadOnlyList<string> Images { get; init; } = [];
+    /// <summary>The user's own writable roots to keep beside the scratch folder; null means none are known, so only the scratch folder is passed.</summary>
+    public CodexWritableRoots? WritableRoots { get; init; }
     /// <summary>A resume: of that session id, or with a null id of the last one.</summary>
     public bool Resume { get; init; }
     public string? ResumeSessionId { get; init; }
@@ -60,6 +62,29 @@ public static partial class CodexLaunch
     public static bool HasTereditorPrompt(string command) => command.StartsWith(PromptLaunchPrefix + " ", StringComparison.Ordinal);
 
     public static string ShellQuote(string word) => SafeWord().IsMatch(word) ? word : "'" + word.Replace("'", "'\\''") + "'";
+
+    // -c replaces the user's own roots, so theirs come first and the scratch folder is added; none are passed when the user's roots cannot be kept.
+    private static string? ScratchRootsOverride(CodexWritableRoots? roots)
+    {
+        if (roots is { Add: false }) return null;
+        if (roots is not { Roots.Count: > 0 }) return $"-c \"{ScratchRootsKey}=[\\\"${ScratchVariable}\\\"]\"";
+        var kept = string.Join(",", roots.Roots.Select(root => JsonSerializer.Serialize(root, CodexTextJson.Relaxed.String)));
+        // Single quotes keep the user's text from the shell; the scratch variable alone sits in double quotes to expand.
+        return $"-c '{ScratchRootsKey}=[" + kept.Replace("'", "'\\''") + ",'\"\\\"$" + ScratchVariable + "\\\"\"']'";
+    }
+
+    /// <summary>The <c>--profile</c> a command or preset arguments select, or null.</summary>
+    public static string? ProfileOf(params string?[] sources)
+    {
+        var words = sources.SelectMany(source => ArgumentWord().Matches(source ?? "")).Select(match => match.Value).ToList();
+        string? profile = null;
+        for (var index = 0; index < words.Count; index++)
+        {
+            if (words[index] is "--profile" or "-p" && index + 1 < words.Count) profile = words[++index].Trim('"', '\'');
+            else if (words[index].StartsWith("--profile=", StringComparison.Ordinal)) profile = words[index]["--profile=".Length..].Trim('"', '\'');
+        }
+        return profile is { Length: > 0 } ? profile : null;
+    }
 
     private static string ConfigArg(string key, string value) => "-c " + ShellQuote(key + "=" + JsonSerializer.Serialize(value, CodexTextJson.Relaxed.String));
 
@@ -109,7 +134,7 @@ public static partial class CodexLaunch
         }
         else if (options.SystemPrompt is { Length: > 0 } system) parts.Add(ConfigArg("developer_instructions", system));
         // A config override, not --add-dir: Codex exits with an error on --add-dir under a read-only sandbox, and ignores this there.
-        if (append) parts.Add($"-c \"{ScratchRootsKey}=[\\\"${ScratchVariable}\\\"]\"");
+        if (append && ScratchRootsOverride(options.WritableRoots) is { } scratchRoots) parts.Add(scratchRoots);
         foreach (var image in options.Images) parts.AddRange(["--image", ShellQuote(image)]);
         if (options.InitialPrompt is { Length: > 0 } prompt && !options.Resume)
         {
