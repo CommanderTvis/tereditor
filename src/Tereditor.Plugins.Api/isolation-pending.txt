@@ -95,6 +95,7 @@ M:Tereditor.Plugins.Api.UI.IPluginUIContext.RequestAsync``2(Tereditor.Plugins.Ap
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.RevealTool(System.String,System.String)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.SetDiffScope(System.String,Tereditor.Plugins.Api.UI.GitDiffScope)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.SlotSection(Tereditor.Plugins.Api.UI.SlotSectionRegistration)
+M:Tereditor.Plugins.Api.UI.IPluginUIContext.SlotView(System.String,System.String,System.String)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.Subscribe``1(Tereditor.Plugins.Api.PluginChannel{``0},System.Action{``0},System.Object)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.TabDecoration(System.Func{Tereditor.Plugins.Api.UI.TabRef,Tereditor.Plugins.Api.UI.TabDecoration})
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.TerminalAccessory(Tereditor.Plugins.Api.UI.TerminalAccessoryRegistration)

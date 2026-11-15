@@ -286,6 +286,14 @@ public static class UiSlots
 
     /// <summary>The bottom of the workspace's Language servers pane; the section is created for that pane's workspace.</summary>
     public const string WorkspaceLanguages = "core:workspace-languages";
+
+    /// <summary>
+    /// The model source control of an agent's own settings page: where the agent's model comes from. An agent plugin shows it with
+    /// <see cref="IPluginUIContext.SlotView"/>; whichever plugin supplies model providers contributes a section, and the agent
+    /// plugin never knows which. The section is created without a workspace.
+    /// </summary>
+    /// <param name="agentId">The agent plugin's id, such as <c>claude-code</c>.</param>
+    public static string ModelSource(string agentId) => "core:model-source:" + agentId;
 }
 
 /// <summary>The core Settings pages a plugin may open (W23).</summary>

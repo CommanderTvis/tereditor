@@ -207,6 +207,7 @@ internal sealed class PluginUIContext : IPluginUIContext
     public void SettingsSection(SettingsSectionRegistration section) { Guard(); Registry.AddSettingsSection(Id, section); }
     public void OpenSettings(string page) => Workbench.ActiveWindow?.ShowSettings(page);
     public void SlotSection(SlotSectionRegistration section) { Guard(); Registry.AddSlotSection(Id, section); }
+    public Avalonia.Controls.Control SlotView(string slot, string? workspaceId = null, string? emptyHint = null) => new PluginSlot(Registry, slot, workspaceId, bare: true, emptyHint);
     public void HeaderItem(HeaderItemRegistration item) { Guard(); Registry.AddHeaderItem(Id, item); }
     public void RepoHostUI(RepoHostUIRegistration registration) { Guard(); Registry.AddRepoHostUi(Id, registration); }
     public async ValueTask<PluginBranchDeleteOutcome> DeleteBranchAsync(string branch) =>

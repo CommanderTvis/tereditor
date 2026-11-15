@@ -260,6 +260,18 @@ public interface IPluginUIContext
     void SlotSection(SlotSectionRegistration section);
 
     /// <summary>
+    /// A control that shows the sections plugins contribute to <paramref name="slot"/> with <see cref="SlotSection"/>, now and as
+    /// plugins are turned on and off. It is plain, with no frame; it shows <paramref name="emptyHint"/> while no section is there.
+    /// An agent's settings page embeds <see cref="UiSlots.ModelSource"/> this way.
+    /// </summary>
+    /// <param name="slot">The place.</param>
+    /// <param name="workspaceId">The workspace the sections are created for, or <see langword="null"/>.</param>
+    /// <param name="emptyHint">One plain sentence shown while the place is empty, or <see langword="null"/> for nothing.</param>
+    /// <returns>The control.</returns>
+    [PluginAmbient, PluginCrossing(PluginCrossing.LocalInRunner, IsolatedShape = "a placeholder control in the plugin's tree; the app composites the real sections into its rectangle")]
+    Avalonia.Controls.Control SlotView(string slot, string? workspaceId = null, string? emptyHint = null);
+
+    /// <summary>
     /// Contributes an item to the trailing end of each workbench window's header (W24). It exists only while the plugin
     /// is enabled; a compact (phone) workbench has no header row for it and shows none.
     /// </summary>

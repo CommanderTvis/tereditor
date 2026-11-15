@@ -16,14 +16,19 @@ internal sealed class PluginSlot : StackPanel
     private readonly PluginRegistry registry;
     private readonly string slot;
     private string? workspace;
+    private readonly bool bare;
+    private readonly string? emptyHint;
+    private bool synced;
     private IReadOnlyList<PluginRow<SlotSectionRegistration>> shown = [];
 
-    internal PluginSlot(PluginRegistry registry, string slot, string? workspace)
+    /// <param name="bare">Sections have no frame or rule; used where a plugin embeds the slot in its own page.</param>
+    /// <param name="emptyHint">A plain sentence shown while no plugin contributes a section.</param>
+    internal PluginSlot(PluginRegistry registry, string slot, string? workspace, bool bare = false, string? emptyHint = null)
     {
-        this.registry = registry; this.slot = slot; this.workspace = workspace;
+        this.registry = registry; this.slot = slot; this.workspace = workspace; this.bare = bare; this.emptyHint = emptyHint;
         Name = "PluginSlot";
         AttachedToVisualTree += (_, _) => { registry.Changed += Changed; Sync(); };
-        DetachedFromVisualTree += (_, _) => { registry.Changed -= Changed; Children.Clear(); shown = []; };
+        DetachedFromVisualTree += (_, _) => { registry.Changed -= Changed; Children.Clear(); shown = []; synced = false; };
     }
 
     /// <summary>Moves the slot to another workspace: the sections of the old one are dropped and built again for the new one.</summary>
@@ -32,6 +37,7 @@ internal sealed class PluginSlot : StackPanel
         if (next == workspace) return;
         workspace = next;
         shown = [];
+        synced = false;
         Children.Clear();
         if (TopLevel.GetTopLevel(this) is not null) Sync();
     }
@@ -45,11 +51,15 @@ internal sealed class PluginSlot : StackPanel
     private void Sync()
     {
         var next = registry.SlotSectionsFor(slot);
-        if (next.SequenceEqual(shown)) return;
+        if (synced && next.SequenceEqual(shown)) return;
+        synced = true;
         shown = next;
         Children.Clear();
+        if (next.Count == 0 && emptyHint is not null)
+            Children.Add(new TextBlock { Name = "PluginSlotHint", Text = emptyHint, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Foreground = Tereditor.Plugins.UI.Kit.Ui.Muted, FontSize = 12 });
         foreach (var row in next)
-            Children.Add(new Border
+            if (bare) Children.Add(WorkbenchWindow.Mount(row.PluginId, () => row.Value.Create(workspace)));
+            else Children.Add(new Border
             {
                 Name = "PluginSlotSection_" + row.PluginId,
                 BorderBrush = Tereditor.Plugins.UI.Kit.Ui.BorderBrush,
