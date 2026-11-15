@@ -76,24 +76,24 @@ public static class PluginCategories
     public static IReadOnlyList<string> Order { get; } =
         [Cpp, CSharp, Css, Dart, Go, JavaScript, Jvm, Php, PowerShell, Python, R, Ruby, Rust, Shell, Swift, Environment, Agents, ModelProviders, VersionControl, Documents, Integrations];
 
-    /// <summary>The icon name (a core icon of the plugin UI kit) shown before a category's chip; a category without one gets the generic puzzle glyph.</summary>
+    /// <summary>The icon name (a core icon of the plugin UI kit, or <c>file-type:&lt;name&gt;</c>, a language's single-colour Material Icon Theme logo) shown before a category's chip; a category without one gets the generic puzzle glyph.</summary>
     public static IReadOnlyDictionary<string, string> Icons { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        [Cpp] = "code",
-        [CSharp] = "code",
-        [Css] = "palette",
-        [Dart] = "code",
-        [Go] = "code",
-        [JavaScript] = "code",
-        [Jvm] = "code",
-        [Php] = "code",
-        [PowerShell] = "terminal",
-        [Python] = "code",
-        [R] = "code",
-        [Ruby] = "code",
-        [Rust] = "code",
-        [Shell] = "terminal",
-        [Swift] = "code",
+        [Cpp] = "file-type:cpp",
+        [CSharp] = "file-type:csharp",
+        [Css] = "file-type:css",
+        [Dart] = "file-type:dart",
+        [Go] = "file-type:go",
+        [JavaScript] = "file-type:javascript",
+        [Jvm] = "file-type:java",
+        [Php] = "file-type:php",
+        [PowerShell] = "file-type:powershell",
+        [Python] = "file-type:python",
+        [R] = "file-type:r",
+        [Ruby] = "file-type:ruby",
+        [Rust] = "file-type:rust",
+        [Shell] = "file-type:console",
+        [Swift] = "file-type:swift",
         [Environment] = "settings",
         [Agents] = "robot",
         [ModelProviders] = "cloud",

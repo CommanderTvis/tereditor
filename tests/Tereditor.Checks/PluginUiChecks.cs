@@ -402,11 +402,18 @@ internal static partial class PluginUiChecks
         int At(string name) => names.IndexOf(name);
         foreach (var category in PluginCategories.Order)
             Require(PluginCategories.Icons.TryGetValue(category, out var iconName) && iconName.Length > 0
-                && Avalonia.Platform.AssetLoader.Exists(new Uri($"avares://Tereditor.Plugins.UI.Kit/Assets/Icons/{iconName}.svg")),
+                && (iconName.StartsWith("file-type:", StringComparison.Ordinal)
+                    ? Tereditor.Plugins.UI.Kit.FileTypeIcons.Resolve(iconName["file-type:".Length..]).Bytes is { Length: > 0 }
+                    : Avalonia.Platform.AssetLoader.Exists(new Uri($"avares://Tereditor.Plugins.UI.Kit/Assets/Icons/{iconName}.svg"))),
                 "Every plugin category declares an icon that exists: " + category);
+        var languages = PluginCategories.Order.Take(15).ToList();
+        Require(languages.All(language => PluginCategories.Icons[language].StartsWith("file-type:", StringComparison.Ordinal)) && languages.Select(language => PluginCategories.Icons[language]).Distinct().Count() == languages.Count,
+            "Every language category has its own Material Icon Theme logo, none falls back to a generic glyph.");
         var chips = settings.GetLogicalDescendants().OfType<WrapPanel>().Single(panel => panel.Name == "PluginOutline").Children.OfType<Button>().ToList();
-        Require(chips.Count == headings.Length && chips.All(chip => chip.GetLogicalDescendants().OfType<Border>().Any(border => border.OpacityMask is not null)),
+        Require(chips.Count == headings.Length && chips.All(chip => chip.GetLogicalDescendants().OfType<Border>().Any(border => border.OpacityMask is not null) || chip.GetLogicalDescendants().OfType<Tereditor.Plugins.UI.Kit.SvgAsset>().Any()),
             "Every category chip shows an icon before its label.");
+        var logos = chips.Where(chip => languages.Contains(chip.Name!["PluginOutline_".Length..])).Select(chip => chip.GetLogicalDescendants().OfType<Tereditor.Plugins.UI.Kit.SvgAsset>().SingleOrDefault()).ToList();
+        Require(logos.Count == 15 && logos.All(logo => logo is { Source: not null, Bounds.Width: 16, Bounds.Height: 16 }), "The 15 language chips draw a 16 by 16 logo.");
         Require(At("PluginCategory_Model providers") < At("PluginRow_providers") && At("PluginRow_air-gateway") > At("PluginCategory_Model providers") && At("PluginRow_air-gateway") < At("PluginCategory_Version Control"), "Model Providers and Air Gateway sit in the Model providers group.");
         Require(At("PluginCategory_Python") < At("PluginRow_lsp-python") && At("PluginRow_lsp-python") < At("PluginRow_env-python") && At("PluginRow_env-python") < At("PluginCategory_R"),
             "The Python language server and the Python environment plugin share the Python group: " + string.Join(", ", names.Take(40)));

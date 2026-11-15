@@ -138,9 +138,13 @@ public static partial class Ui
         return Color.FromRgb(Mix(color.R, background.R), Mix(color.G, background.G), Mix(color.B, background.B));
     }
 
+    /// <param name="name">A core icon name, or <c>file-type:&lt;name&gt;</c> for a single-colour file-type icon such as <c>file-type:python</c>.</param>
     /// <param name="color">The tint; ignored for <c>brand</c>, the app's logo, which shows in its own colours.</param>
     public static Control Icon(string name, IBrush? color = null, double size = 16)
     {
+        // A core file-type icon (the single-colour set): its pale accent keeps the reduced alpha, the rest takes the tint.
+        if (name.StartsWith("file-type:", StringComparison.Ordinal) && FileTypeIcons.Resolve(name["file-type:".Length..]).Bytes is { } artwork)
+            return new SvgAsset(artwork, size, color ?? TextBrush);
         if (!Icons.TryGetValue(name, out var mask))
         {
             using var stream = AssetLoader.Open(new Uri($"avares://Tereditor.Plugins.UI.Kit/Assets/Icons/{name}.{(name == "brand" ? "png" : "svg")}"));

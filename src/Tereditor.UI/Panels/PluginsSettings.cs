@@ -70,7 +70,9 @@ public sealed class PluginsSettings : StackPanel
         Children.Add(error);
         Refresh();
         state.Changed += Changed;
-        DetachedFromVisualTree += (_, _) => state.Changed -= Changed;
+        // A single-colour language logo is tinted when it is built, so the chips are rebuilt for a new theme.
+        Ui.ThemeChanged += RefreshOutline;
+        DetachedFromVisualTree += (_, _) => { state.Changed -= Changed; Ui.ThemeChanged -= RefreshOutline; };
     }
 
     private void Changed(HostState previous, HostState next)

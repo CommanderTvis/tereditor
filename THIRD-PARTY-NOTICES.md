@@ -145,6 +145,7 @@ or Lexilla binary is bundled.
 File Icons bundles 1,251 recoloured SVGs generated from Material Icon Theme 5.38.1
 (MIT; Copyright 2025 Material Extensions). See licenses/Material-Icon-Theme-MIT.txt.
 The source archive checksum is pinned in the plugin generator; generated assets are build output.
+Settings › Plugins draws the single-colour language logos from this set on its category chips.
 
 Codex uses Tomlyn 2.10.1 (BSD-2-Clause; Copyright 2019–2026 Alexandre Mutel).
 See licenses/Tomlyn-BSD-2-Clause.txt. Its Codex SVG derives from LobeHub Icons
