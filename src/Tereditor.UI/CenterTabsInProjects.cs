@@ -203,6 +203,8 @@ public sealed partial class WorkbenchWindow
         {
             terminals = Section(terminals, "WorkspaceTabsPreviewTerminals", null);
             terminals.Children.Add(PreviewTab(workspace, null, tab, selected: false, boxed: true));
+            // A terminal this window only knows from the host's catalog (an agent running there) keeps its slot too.
+            terminals.Children.Add(Tail(tab.Id));
         }
         return groups.Children.Count == 0 ? null : groups;
     }

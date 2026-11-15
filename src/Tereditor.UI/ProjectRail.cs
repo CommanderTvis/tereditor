@@ -197,12 +197,14 @@ public sealed partial class WorkbenchWindow
     /// <summary>The centre tab of a closed parent's preview that created a nested workspace; null when the parent is open or the creator is not a centre tab there.</summary>
     private string? PreviewCreatorTab(string parent, string child)
     {
-        if (parent == Layout.State.ActiveWorkspace || Layout.State.Workspaces.GetValueOrDefault(parent) is not { } view ||
+        if (parent == Layout.State.ActiveWorkspace ||
             state.Current.WorkspaceCreators.FirstOrDefault(entry => entry.Workspace == child)?.Creator is not { } creator) return null;
-        foreach (var group in Layout.State.Center.Leaves())
-            foreach (var (members, _) in GroupUnits(view, group))
-                if (members.FirstOrDefault(tab => IsCreatorTab(tab, creator.TabKey)) is { } member) return member.Id;
-        return null;
+        if (Layout.State.Workspaces.GetValueOrDefault(parent) is { } view)
+            foreach (var group in Layout.State.Center.Leaves())
+                foreach (var (members, _) in GroupUnits(view, group))
+                    if (members.FirstOrDefault(tab => IsCreatorTab(tab, creator.TabKey)) is { } member) return member.Id;
+        // A terminal this window only knows from the host's catalog, as one an agent runs on the host.
+        return TerminalsOutsidePreview(parent).FirstOrDefault(tab => IsCreatorTab(tab, creator.TabKey))?.Id;
     }
 
     /// <summary>The open workspace's tab that created a workspace, if its row is in the live strip.</summary>

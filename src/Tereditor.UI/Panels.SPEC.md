@@ -89,7 +89,7 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   When that tab is in a tab group, the nested row sits inside the group's box, under that tab and before the group's next tab.
   The rows sit in a slot the centre tab row keeps right below it, at the same place in the live strip and in the preview,
   so their spacing, indent, width, guide line and gap to the tab stay the same whether the creator's workspace, its tab or a
-  nested workspace is focused. A terminal kept outside the centre tabs has no slot: what it made sits under its creator's workspace.
+  nested workspace is focused. A terminal this window only knows from the host's catalog (an agent running on the host, as a phone sees it) keeps its slot in a closed workspace's preview too. The preference is per device: with it off, a created workspace stays in the flat list.
   The nested rows are not tabs: reordering, drops and arrow keys count only tabs. A creator tab that is closed, or a
   creator that is unknown or in another project, leaves the workspace in its flat place, or
   under its creator's workspace when only the tab row is unavailable; nesting is one level per creation link. The rail redraws when the preference, a creator

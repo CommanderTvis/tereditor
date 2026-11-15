@@ -192,6 +192,8 @@ public sealed partial class WorkbenchWindow
         if (focusedGroup is var (group, tab) && Layout.State.Workspaces.GetValueOrDefault(workspaceRoot)?.Documents.Values.SelectMany(tabs => tabs).Any(item => item.Id == tab) != true)
             surface.FocusGroupContent(Layout.State.Groups.Any(item => item.Id == group) ? group : Layout.View.FocusedCenter);
         PlaceWorkspaceTabs();
+        // A terminal the catalog brings may be the creator of a workspace the rail lists flat until now.
+        RefreshRailNesting();
         RevealAwaitedTerminal();
     }
 

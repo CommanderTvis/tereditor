@@ -42,6 +42,8 @@ internal static class RailGroupingE2E
             Task.Run(() => server.StartAsync()).GetAwaiter().GetResult();
             var address = new Uri(server.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()!.Addresses.Single());
             using var app = new E2eWorkspace(address, "rail-grouping", project, Path.Combine(root, "rail-grouping-remote", "profile"), project,
+                // As the app: the terminal catalog is the host's, so a terminal an agent runs there arrives as a tab.
+                terminals: new E2eTerminals(null, new Tereditor.Host.Client.RemoteTerminalCatalogAdapter(address, "rail-grouping")),
                 prepare: profile => profile.Data.Preferences.GroupWorkspacesUnderCreator = true, touch: true, compact: phone);
             if (phone) { app.Window.Width = 400; app.Window.Height = 800; }
             Until(() => app.Window.WorkspaceMounted);
@@ -55,7 +57,11 @@ internal static class RailGroupingE2E
             app.Window.Layout.NewTerminal(app.Center);
             var terminal = app.Window.Layout.Tabs(app.Center).Last(tab => tab.Kind == "terminal").Id;
             ShowRail();
+            // Creating a workspace takes the phone back to the current page; the dialog helper reads the rail, so keep it shown meanwhile.
+            void KeepRail() { if (phone && !app.Window.Layout.State.LeftVisible) app.Window.Layout.Visible("left", true); }
+            app.Window.Layout.Changed += KeepRail;
             var child = CreateWorkspaceViaDialog(app);
+            app.Window.Layout.Changed -= KeepRail;
             ((Tereditor.Host.Core.HostStateStore)server.Services.GetRequiredService<Tereditor.Host.Abstractions.IHostStateService>()).RecordWorkspaceCreator(child, new TerminalRef(project, terminal));
             ShowRail();
             // The Android app's switches that headless macOS does not take: touch rows, no hover on nested tab rows, the caption's reserve at the top right.
@@ -72,6 +78,32 @@ internal static class RailGroupingE2E
                 Until(() => Active(app, open));
                 ShowRail();
                 Until(() => Shown(child) && Left(app, child) > Left(app, project) + 0.5);
+            }
+            // The phone's own case: the creator is an agent's terminal that runs on the host and reaches the client only through the host's terminal catalog.
+            // A workspace the host made that this client has never opened, so its layout holds nothing of the terminal.
+            var creatorWorkspace = Task.Run(async () =>
+            {
+                using var host = new Tereditor.Host.Client.RemoteProjectAdapter(address, "rail-grouping");
+                await host.OpenProjectAsync(project);
+                var branches = await host.ListBranchesAsync(false);
+                await host.ApplyGitActionAsync(new("create-worktree", branches.SuggestedPath, branches.SuggestedBranch, "main"));
+                return branches.SuggestedPath;
+            }).GetAwaiter().GetResult();
+            Until(() => Controls(app).OfType<Grid>().Any(item => item.Name == "WorkspaceItem" && Equals(item.Tag, creatorWorkspace)));
+            var made = child;
+            const string hostTerminal = "host-agent";
+            Task.Run(async () => await server.Services.GetRequiredService<Tereditor.Host.Abstractions.ITerminalCatalogService>().ReserveAsync(creatorWorkspace, new Tereditor.Host.Abstractions.TerminalTab(hostTerminal, "Agent"))).GetAwaiter().GetResult();
+            ((Tereditor.Host.Core.HostStateStore)server.Services.GetRequiredService<Tereditor.Host.Abstractions.IHostStateService>()).RecordWorkspaceCreator(made, new TerminalRef(creatorWorkspace, hostTerminal));
+            bool UnderTab() => Controls(app).OfType<Grid>().FirstOrDefault(item => item.Name == "WorkspaceItem" && Equals(item.Tag, made)) is { IsEffectivelyVisible: true } item &&
+                item.GetVisualAncestors().OfType<StackPanel>().Any(panel => panel.Name == "TabTail" && Equals(panel.Tag, hostTerminal) && panel.IsEffectivelyVisible);
+            // Closed (the client sits in the made workspace): the preview row of the host's terminal holds it. Open: the live row does. Then again after the rail is rebuilt.
+            foreach (var open in new[] { made, creatorWorkspace, made, creatorWorkspace })
+            {
+                ShowRail();
+                app.Click(Select(app, open));
+                Until(() => Active(app, open));
+                ShowRail();
+                Until(UnderTab);
             }
         }
         finally
