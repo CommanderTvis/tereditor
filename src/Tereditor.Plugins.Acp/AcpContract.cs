@@ -78,10 +78,12 @@ public static class AcpContract
     public static readonly PluginMethod<AcpChooseParams, AcpAgentList> RemoveAgent = new("removeAgent");
     /// <summary>The registry agents' icons, fetched by the host from the registry's own origin and checked there.</summary>
     public static readonly PluginMethod<AcpIconParams, AcpIconSet> Icons = new("icons");
+    /// <summary>Where an agent's sign-in comes from: names and accounts the host detected, never a secret.</summary>
+    public static readonly PluginMethod<AcpSignInParams, AcpSignInInfo> SignIn = new("signIn");
 
     /// <summary>The chat contract is shared with the other chat plugins: ACP serves its methods and its updates channel.</summary>
     public static readonly PluginContract Contract = PluginContract.Create<AcpSettings>(AcpManifest.Id, WireVersion,
-        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons], [ChatContract.Updates],
+        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, SignIn], [ChatContract.Updates],
         AcpJson.Default, ChatContract.Json);
 }
 
@@ -98,4 +100,6 @@ public static class AcpContract
 [JsonSerializable(typeof(AcpInstallRequest))]
 [JsonSerializable(typeof(AcpIconParams))]
 [JsonSerializable(typeof(AcpIconSet))]
+[JsonSerializable(typeof(AcpSignInParams))]
+[JsonSerializable(typeof(AcpSignInInfo))]
 internal sealed partial class AcpJson : JsonSerializerContext;

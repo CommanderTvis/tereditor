@@ -28,8 +28,15 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
     private int requests;
     private bool flushing;
 
-    public AcpChatSession(string workspaceId, string chatId, string cwd, Func<Task<IAcpTransport>> connect, Action<ChatPush> publish, Action<string> log, IAcpClientMethods? methods = null)
+    private readonly Action<AcpAnswer>? answered;
+    private readonly Func<Task<AcpSignInInfo>>? signIn;
+
+    /// <param name="answered">Told what the agent said at its start (its sign-in methods and, when it offers them, its accounts).</param>
+    /// <param name="signIn">Asked, off the lock, for where the agent's sign-in can come from when the agent says it needs one.</param>
+    public AcpChatSession(string workspaceId, string chatId, string cwd, Func<Task<IAcpTransport>> connect, Action<ChatPush> publish, Action<string> log, IAcpClientMethods? methods = null, Action<AcpAnswer>? answered = null, Func<Task<AcpSignInInfo>>? signIn = null)
     {
+        this.answered = answered;
+        this.signIn = signIn;
         this.workspaceId = workspaceId;
         this.chatId = chatId;
         this.cwd = cwd;
@@ -82,6 +89,7 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
             client = new AcpClient(transport.FromAgent, transport.ToAgent, this);
             _ = WatchAsync(client, transport);
             agent = await client.InitializeAsync("tereditor", "0.1", lifetime.Token);
+            answered?.Invoke(new AcpAnswer(agent.AuthMethods, await AccountsAsync(client, agent)));
             JsonObject session;
             if (resume is { Length: > 0 } && agent.LoadSession)
             {
@@ -106,14 +114,59 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
         }
         catch (Exception error) when (error is AcpException or AcpVersionException or IOException or InvalidOperationException or System.ComponentModel.Win32Exception or TimeoutException)
         {
+            var needsSignIn = error is AcpException { Code: AcpException.AuthRequired } && agent is { AuthMethods.Count: > 0 };
+            AcpSignInInfo? found = null;
+            if (needsSignIn && signIn is not null)
+            {
+                // Detection runs processes and reads files, so it happens before the lock is taken.
+                try { found = await signIn(); }
+                catch (Exception failure) when (failure is IOException or InvalidOperationException or UnauthorizedAccessException or OperationCanceledException) { log("could not work out where the sign-in comes from: " + failure.Message); }
+            }
             lock (gate)
             {
-                if (error is AcpException { Code: AcpException.AuthRequired } && agent is { AuthMethods.Count: > 0 })
-                    folder.Notice(ChatNoticeLevel.Warning, "The agent needs you to sign in: " + string.Join("; ", agent.AuthMethods.Select(method => method.Name + (method.Description is { Length: > 0 } d ? " (" + d + ")" : ""))) + ". Sign in with the agent's own tool, then reopen this chat.", ChatNoticeKinds.Failure);
+                if (needsSignIn) AddSignInNotice(found);
                 folder.SetStatus(ChatStatus.Failed, error is System.ComponentModel.Win32Exception ? "The agent program was not found." : error.Message);
                 FlushNow();
             }
         }
+    }
+
+    /// <summary>The accounts the agent reports through auth/status, only when it says it answers that. A failure or an odd reply shows none.</summary>
+    private static async Task<IReadOnlyList<string>> AccountsAsync(AcpClient asked, AcpAgentInfo info)
+    {
+        if (!info.AdvertisesAuthStatus) return [];
+        try
+        {
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var reply = await asked.AuthStatusAsync(limit.Token);
+            var found = new List<string>();
+            foreach (var account in reply?["accounts"] as JsonArray ?? [])
+            {
+                var name = account is JsonValue value && value.TryGetValue<string>(out var plain) ? plain
+                    : new[] { "label", "name", "login", "account", "id" }.Select(key => AcpFolder.Str(account, key)).FirstOrDefault(candidate => candidate.Length > 0) ?? "";
+                if (name.Length > 0) found.Add(name);
+            }
+            return found;
+        }
+        catch (Exception error) when (error is AcpException or OperationCanceledException or InvalidOperationException or FormatException) { return []; }
+    }
+
+    // The failed-start card says where the sign-in can come from and offers the agent's own terminal login; it is only text and one action.
+    private void AddSignInNotice(AcpSignInInfo? found)
+    {
+        var text = new System.Text.StringBuilder("The agent needs you to sign in.");
+        ChatNoticeAction? action = null;
+        if (found is not null)
+        {
+            text.Append("\nSigns in with:");
+            foreach (var line in found.Display()) text.Append("\n- ").Append(line);
+            text.Append("\nWhy: ").Append(found.Why);
+            if (found.Terminal is { } terminal) action = new ChatNoticeAction(terminal.Label is { Length: > 0 } label ? "Run in terminal: " + label : "Run in terminal", terminal.CommandLine!);
+        }
+        else if (agent is not null)
+            text.Append(' ').Append(string.Join("; ", agent.AuthMethods.Select(method => method.Name + (method.Description is { Length: > 0 } d ? " (" + d + ")" : ""))));
+        text.Append(action is null ? "\nSign in with the agent's own tool, then reopen this chat." : "\nSign in in the terminal, then reopen this chat.");
+        folder.Notice(ChatNoticeLevel.Warning, text.ToString(), ChatNoticeKinds.Failure, action: action);
     }
 
     private async Task WatchAsync(AcpClient watched, IAcpTransport owner)

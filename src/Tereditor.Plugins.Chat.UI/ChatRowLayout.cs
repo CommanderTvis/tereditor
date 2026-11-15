@@ -10,7 +10,7 @@ using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Plugins.Chat.UI;
 
-internal enum ChatHitKind { Toggle, Allow, Deny, Always, Rewind, Fork, OpenDiff, LoadFull, Link, EditInput, OpenThread, OpenText, Pick, OtherText, Submit, CancelAsk, Retry, StopShell, CopyCode, Tip, DismissSide }
+internal enum ChatHitKind { Toggle, Allow, Deny, Always, Rewind, Fork, OpenDiff, LoadFull, Link, EditInput, OpenThread, OpenText, Pick, OtherText, Submit, CancelAsk, Retry, StopShell, CopyCode, Tip, DismissSide, NoticeAction }
 
 internal readonly record struct ChatHit(Rect Bounds, ChatHitKind Kind, string? Arg = null);
 
@@ -1009,6 +1009,16 @@ internal sealed class ChatRowLayout : IDisposable
                     Place(label, box.X + 10, box.Y + 5);
                     hits.Add(new(box, ChatHitKind.Retry));
                     y = box.Bottom;
+                }
+                if (notice.Action is { } noticeAction)
+                {
+                    // The button runs one command line in a terminal; hovering shows the whole line.
+                    var actionLabel = Make(noticeAction.Label, Ui.TextBrush, 12, Math.Max(80, inner - 40), maxLines: 1, bold: true);
+                    var actionBox = new Rect(left + 10, y + 2, actionLabel.Width + 20, actionLabel.Height + 10);
+                    fills.Add(new(actionBox, Ui.Elevated, 4, new Pen(Ui.BorderBrush)));
+                    Place(actionLabel, actionBox.X + 10, actionBox.Y + 5);
+                    hits.Add(new(actionBox, ChatHitKind.NoticeAction, noticeAction.Command));
+                    y = actionBox.Bottom;
                 }
                 y += 6;
                 fills.Insert(0, new(new Rect(left, top, inner, y - top), Ui.DangerWash, 6, new Pen(Ui.Danger)));

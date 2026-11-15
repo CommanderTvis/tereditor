@@ -33,6 +33,23 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
 
     public AcpFetch FetchIcon { get; init; } = AcpIconCache.HttpFetch;
 
+    /// <summary>How sign-in detection reads the launch environment (names only), where it looks for credential files and which agents it knows; a check sets all three.</summary>
+    public Func<string, string?> EnvironmentVariable { get; init; } = System.Environment.GetEnvironmentVariable;
+    public string Home { get; init; } = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+    public IReadOnlyDictionary<string, AcpCredentialFacts>? SignInTable { get; init; }
+
+    private AcpSignIn? detector;
+    private readonly ConcurrentDictionary<string, AcpAnswer> answers = new();
+
+    private AcpSignIn Detector => detector ??= new AcpSignIn(EnvironmentVariable, Home, SignInTable);
+
+    /// <summary>Where an agent's sign-in can come from: detection on this machine plus what the agent itself said when it last started. The agent is not started for this.</summary>
+    public async Task<AcpSignInInfo> SignInAsync(string agentId, CancellationToken cancellationToken)
+    {
+        var entry = ListAgents().Agents.FirstOrDefault(agent => agent.Id == agentId) ?? throw new InvalidOperationException("No such agent: " + agentId);
+        return await Detector.ResolveAsync(entry, answers.GetValueOrDefault(agentId), failures.ContainsKey(agentId), cancellationToken);
+    }
+
     /// <summary>The icons of the registry's agents. The urls come from the registry copy here, never from the UI.</summary>
     public async Task<AcpIconSet> IconsAsync(AcpIconParams p, CancellationToken cancellationToken)
     {
@@ -164,6 +181,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         context.Method(AcpContract.AddAgent, (p, _, _) => ValueTask.FromResult(WithProblems(AddAgent(p))));
         context.Method(AcpContract.Registry, async (p, _, ct) => (await Cache.LoadAsync(p.Refresh, ct)).View);
         context.Method(AcpContract.Icons, async (p, _, ct) => await IconsAsync(p, ct));
+        context.Method(AcpContract.SignIn, async (p, _, ct) => await SignInAsync(p.AgentId, ct));
         context.Method(AcpContract.InstallPlan, async (p, _, ct) => await PlanAsync(p, ct));
         context.Method(AcpContract.Install, async (p, _, ct) => WithProblems(await InstallAsync(p, ct)));
         context.Method(AcpContract.RemoveAgent, (p, _, _) => ValueTask.FromResult(WithProblems(RemoveAgent(p.AgentId))));
@@ -227,7 +245,8 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         var cwd = (await context.WorkspaceAsync(p.WorkspaceId, CancellationToken.None))?.Path ?? p.WorkspaceId;
         var record = await Task.Run(() => LoadRecord(p.WorkspaceId, p.ChatId));
         var entry = ListAgents().Agents.FirstOrDefault(agent => agent.Id == record?.AgentId) ?? throw new InvalidOperationException("Choose an ACP agent for this chat first.");
-        var session = new AcpChatSession(p.WorkspaceId, p.ChatId, cwd, () => connect is null ? LaunchAsync(entry, cwd) : connect(entry, cwd), Publish, message => context.Log.Warn(message), new AcpClientMethods(cwd));
+        var session = new AcpChatSession(p.WorkspaceId, p.ChatId, cwd, () => connect is null ? LaunchAsync(entry, cwd) : connect(entry, cwd), Publish, message => context.Log.Warn(message), new AcpClientMethods(cwd),
+            answer => answers[entry.Id] = answer, () => SignInAsync(entry.Id, CancellationToken.None));
         sessions[(p.WorkspaceId, p.ChatId)] = session;
         if (existing is not null) await existing.DisposeAsync();
         var header = session.Begin();

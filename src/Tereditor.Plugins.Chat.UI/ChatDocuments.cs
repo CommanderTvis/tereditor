@@ -80,6 +80,11 @@ internal static class ChatDocuments
         OpenFile = async path => { if (path.Length > 0) await context.Editors.OpenAsync(workspaceId, path); },
         OpenFileAt = async (path, line) => { if (path.Length > 0) await context.Editors.OpenAsync(workspaceId, path, new() { Line = line > 0 ? line : null }); },
         OpenLink = url => Launch(url),
+        RunInTerminal = async command =>
+        {
+            try { await context.OpenTerminalAsync(workspaceId, new TerminalOpenOptions { Command = command }); }
+            catch (Exception error) when (error is not OperationCanceledException) { context.Notify(PluginNotificationKind.Error, "Couldn't open the terminal", error.Message); }
+        },
         ModelPreference = context.Preference("chat-models"),
         ComposerPreference = context.Preference("chat-composer"),
         ZoomPreference = context.Preference("chat-zoom"),

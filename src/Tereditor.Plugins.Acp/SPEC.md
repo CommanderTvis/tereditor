@@ -115,8 +115,32 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   ignored (the settings say so), so adding it back restores it. Right-click lists every agent in order with the default marked, and ACP settings;
   on a touch screen a tap opens that menu. This is the split of the Claude Code launcher.
 - Custom agents: command, arguments, environment and working directory typed in the settings page; adding one is the confirmation.
-- Credentials: tereditor never shows a field for them. An agent that needs sign-in fails the session with a notice naming its
-  `authMethods`; the user signs in with the agent's own tool.
+- Credentials: tereditor never shows a field for them and never reads a secret.
+- Signs in with: each agent's pane has a "Signs in with" list, and the failed-start card repeats it. The host (`signIn` method, `AcpSignIn`)
+  lists, in the agent's own order and from names and file existence only: variables set in the launch environment (the host's merged with the
+  entry's own; names, never values), a stored credential file that exists, the GitHub CLI account, and what the agent said. The first source
+  known to be there is marked "checked first", and only for an agent whose order is documented. A tooltip gives the reason: what is not set, what was
+  skipped and why, and the order. The list says what is available and in which order the agent checks it. It never claims which source the agent used.
+  - Table (`AcpSignIn.Known`, documented facts only). `github-copilot-cli`: `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, then the OAuth
+    token that `copilot login` keeps in the OS keychain (service `copilot-cli`), then the GitHub CLI login as the last fallback. A variable
+    silently overrides a stored login. With `COPILOT_PROVIDER_BASE_URL`, `COPILOT_PROVIDER_TYPE` or `COPILOT_PROVIDER_API_KEY` no GitHub login is
+    needed; the line names the variable. An agent not in the table shows only variables of its own entry whose names look like credentials
+    (TOKEN, KEY, SECRET, AUTH, PASSWORD, CREDENTIAL), unmarked, and no GitHub CLI. A row can also list credential files under the home folder.
+  - GitHub CLI: `gh auth status --hostname github.com`, run on the host with a 5 second limit, with the token variables removed from its
+    environment. Only the account name is kept from the output; `gh auth token` is never run. The answer is cached for 30 seconds.
+  - Keychain: never queried. Asking for an item that another program stored can raise a permission prompt, and the prompt would be a surprise
+    while the user is only looking at settings. Once the agent has answered `initialize` in this app run, or a start has failed, the list says
+    "A stored login, if you ran `copilot login`", as something that may be there. Nothing is marked "checked first" after such a line.
+  - The agent's own answer: after `initialize` the host keeps `authMethods` in memory (name, description, and for a terminal login its label).
+    They show as "A sign-in the agent will ask for". If the agent advertises `agentCapabilities.auth.status` (the unstable `auth/status`), it is
+    asked once at start and its accounts show as "The agent says it uses". The settings pane never starts an agent to ask.
+  - Terminal login: a method of `type: "terminal"` runs the entry's program and arguments plus the method's `args`; a method with
+    `_meta["terminal-auth"]` (GitHub Copilot CLI 1.0.112 sends this with no `type`) runs its own `command`. A bare command that is the entry's program
+    is the entry's launch command. The line has the method's own variables first, every part quoted for the shell, and never the entry's
+    environment. "Run in terminal" opens a terminal tab with that line (the tooltip shows it all); the user signs in there. Nothing is run
+    without a click and nothing is typed for the user. The settings pane asks again when the window gets focus back, and "Check again" asks at once.
+  - The failed-start card (`ChatNoticeItem.Action`, `ChatHitKind.NoticeAction`) lists the same lines, the reason and the button.
+  - Checks: `--acp` (`AcpChecks.SignIn`): a fake `gh` that records its arguments, a sentinel token that must appear nowhere, credential files in a temp home, and the fake agent in its terminal, `auth/status` and not-signed-in modes.
 
 ## Not yet supported
 
@@ -125,8 +149,8 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   diffs are shown on the tool card as text.
 - The terminal service: agent terminals are plain child processes owned by the chat, not terminal tabs, and are not in the owned-process
   registry (that registry is keyed by a terminal tab).
-- `authenticate` as buttons or links in the chat: the method is implemented in the client but the chat contract has no authentication call, so it
-  is only listed in a notice. Sign-in in the settings page is not offered.
+- `authenticate` for a method of type `agent`: the method is implemented in the client but nothing calls it; it is only listed. Terminal logins have a button.
+- The keychain and any credential file of an agent other than Copilot: not looked up, because the facts are not verified.
 - The `preview` channel, the registry's `extensions` and per-agent `website` links are not used.
 - A plan record (plans are text), embedded
   resource, audio and resource-link prompts from the composer (images and file attachments are sent when the agent allows them), images in

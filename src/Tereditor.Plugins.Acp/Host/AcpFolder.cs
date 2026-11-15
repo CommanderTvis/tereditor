@@ -81,10 +81,10 @@ internal sealed class AcpFolder
         return item;
     }
 
-    public void Notice(ChatNoticeLevel level, string text, string? category = null, bool? retryable = null)
+    public void Notice(ChatNoticeLevel level, string text, string? category = null, bool? retryable = null, ChatNoticeAction? action = null)
     {
         CloseStreaming();
-        Put(new ChatNoticeItem("n" + ++counter, Next(), level, text) { Category = category, Retryable = retryable });
+        Put(new ChatNoticeItem("n" + ++counter, Next(), level, text) { Category = category, Retryable = retryable, Action = action });
     }
 
     /// <summary>Ends the growing message or thought so the next chunk starts a new item.</summary>

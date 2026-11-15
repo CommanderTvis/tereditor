@@ -25,6 +25,8 @@ internal sealed record ChatEnvironment(IChatClient Client, ChatAgent Agent)
     /// <summary>Opens a workspace file at a one-based line (0 for none).</summary>
     public Func<string, int, Task> OpenFileAt { get; init; } = (_, _) => Task.CompletedTask;
     public Action<string> OpenLink { get; init; } = _ => { };
+    /// <summary>Opens a terminal in the chat's workspace that runs one command line (a notice's action, such as an agent's sign-in).</summary>
+    public Func<string, Task> RunInTerminal { get; init; } = _ => Task.CompletedTask;
     public Func<Task<string?>> PickFile { get; init; } = () => Task.FromResult<string?>(null);
     public Func<Task<string?>> PickFolder { get; init; } = () => Task.FromResult<string?>(null);
     public Action<PluginNotificationKind, string, string?> Notify { get; init; } = (_, _, _) => { };
@@ -694,6 +696,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
             case ChatHitKind.OpenDiff: _ = OpenDiff(row.Item); break;
             case ChatHitKind.OpenThread when arg is not null: OpenThread(arg); break;
             case ChatHitKind.Retry: _ = RetryLast(); break;
+            case ChatHitKind.NoticeAction when arg is { Length: > 0 }: _ = env.RunInTerminal(arg); break;
             case ChatHitKind.StopShell: _ = StopShell(); break;
             case ChatHitKind.DismissSide: _ = DismissSide(row.Item.Id); break;
             case ChatHitKind.Link when arg is not null && Markdown.SafeLink(arg): OpenUrl(arg); break;

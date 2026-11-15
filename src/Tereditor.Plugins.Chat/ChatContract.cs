@@ -264,7 +264,12 @@ public sealed record ChatNoticeItem(string Id, long Seq, ChatNoticeLevel Level, 
     public string? Command { get; init; }
     /// <summary>For a <see cref="ChatNoticeKinds.BashOutput"/> card: the command is still running, and <see cref="ChatContract.StopShell"/> ends it.</summary>
     public bool Running { get; init; }
+    /// <summary>For a <see cref="ChatNoticeKinds.Failure"/> card: a button that opens a terminal running <see cref="ChatNoticeAction.Command"/> (a sign-in the user starts); null for none.</summary>
+    public ChatNoticeAction? Action { get; init; }
 }
+
+/// <summary>A button on a notice that runs one command line in a new terminal. The user sees the whole line before clicking; nothing is typed for them.</summary>
+public sealed record ChatNoticeAction(string Label, string Command);
 
 /// <summary>Obsolete and never emitted: the extension draws nothing for a result; its numbers go to the header, a failure to a notice.</summary>
 public sealed record ChatResultItem(string Id, long Seq, bool IsError) : ChatItem(Id, Seq)

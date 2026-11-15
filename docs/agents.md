@@ -127,7 +127,13 @@ Any agent that speaks the [Agent Client Protocol](https://agentclientprotocol.co
   every agent, with the default marked, and start any of them. With no default the click asks (or starts the only agent).
 - Start a chat with the ACP button in the workspace's tab strip. It runs in the workspace folder; it can read and write
   files and run commands there, and every permission it asks for is shown to you.
-- Sign in with the agent's own tool; tereditor never asks for credentials.
+- Each agent handles its own sign-in, and tereditor never asks for credentials. An agent's pane lists "Signs in with": the sources it can use, in the order
+  the agent checks them. It shows the names of variables that are set (never their values), a stored login file that exists, and your GitHub CLI account
+  for GitHub Copilot. Hover a line to see why. The list says what is available. The agent does not tell tereditor which one it used.
+- tereditor does not look into the OS keychain, because that can ask you for permission. Once the agent has started, the list says "A stored login, if you ran
+  `copilot login`".
+- If the agent offers a sign-in in the terminal, press "Run in terminal". It opens a terminal tab with the command shown in the tooltip. Sign in there, then
+  press "Check again". A chat that fails because the agent needs a sign-in shows the same list and button.
 
 ## Pi
 

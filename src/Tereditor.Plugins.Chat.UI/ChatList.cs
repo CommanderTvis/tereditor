@@ -540,7 +540,7 @@ internal sealed class ChatList : ScrollViewer
             else if (row.Item is ChatToolItem or ChatThinkingItem or ChatActivityItem && local.Y < 24) next = (row.Id, new ChatHit(new Rect(0, 0, width, 22), ChatHitKind.Toggle));
         }
         var overText = next is null && index >= 0 && point.Y <= tops[^1] && OverText(index, point);
-        ToolTip.SetTip(surface, next?.Item2.Kind switch { ChatHitKind.CopyCode => copiedCode == next?.Item2.Arg ? "Copied" : "Copy code", ChatHitKind.Tip => next?.Item2.Arg, _ => null });
+        ToolTip.SetTip(surface, next?.Item2.Kind switch { ChatHitKind.CopyCode => copiedCode == next?.Item2.Arg ? "Copied" : "Copy code", ChatHitKind.Tip => next?.Item2.Arg, ChatHitKind.NoticeAction => "Opens a terminal and runs: " + next?.Item2.Arg, _ => null });
         surface.Cursor = next is not null && next.Value.Item2.Kind != ChatHitKind.Tip ? Hand : selecting || overText ? TextCursor : null;
         if (next?.Item1 == hoverHit?.RowId && next?.Item2 == hoverHit?.Hit) return;
         hoverHit = next;

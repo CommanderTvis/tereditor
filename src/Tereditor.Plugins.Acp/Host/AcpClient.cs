@@ -3,9 +3,44 @@ using System.Text.Json.Nodes;
 namespace Tereditor.Plugins.Acp.Host;
 
 /// <summary>The agent's answer to <c>initialize</c>, reduced to what the client uses.</summary>
-internal sealed record AcpAgentInfo(int ProtocolVersion, bool LoadSession, bool Image, bool Audio, bool EmbeddedContext, IReadOnlyList<AcpAuthMethod> AuthMethods, string? Name, string? Version, bool CanListSessions, JsonObject Raw);
+internal sealed record AcpAgentInfo(int ProtocolVersion, bool LoadSession, bool Image, bool Audio, bool EmbeddedContext, IReadOnlyList<AcpAuthMethod> AuthMethods, string? Name, string? Version, bool CanListSessions, JsonObject Raw)
+{
+    /// <summary>Whether the agent says it answers auth/status (a <c>status</c> entry under <c>agentCapabilities.auth</c>).</summary>
+    public bool AdvertisesAuthStatus => ((Raw["agentCapabilities"] as JsonObject)?["auth"] as JsonObject)?.ContainsKey("status") == true;
+}
 
-internal sealed record AcpAuthMethod(string Id, string Name, string? Description);
+/// <summary>
+/// A sign-in the agent offers. A terminal login is a method of <c>type</c> "terminal" (the client runs the agent program with <see cref="Args"/> and <see cref="Env"/>)
+/// or one with <c>_meta["terminal-auth"]</c> (its own <see cref="Command"/>); GitHub Copilot CLI sends the second form with no <c>type</c>.
+/// </summary>
+internal sealed record AcpAuthMethod(string Id, string Name, string? Description)
+{
+    public bool Terminal { get; init; }
+    /// <summary>The program of a terminal login; null means the agent's own program.</summary>
+    public string? Command { get; init; }
+    public IReadOnlyList<string> Args { get; init; } = [];
+    public IReadOnlyDictionary<string, string> Env { get; init; } = new Dictionary<string, string>();
+    public string? Label { get; init; }
+
+    public static AcpAuthMethod Parse(JsonObject method)
+    {
+        var meta = (method["_meta"] as JsonObject)?["terminal-auth"] as JsonObject;
+        var source = meta ?? method;
+        var args = (source["args"] as JsonArray ?? []).Select(arg => arg is JsonValue value && value.TryGetValue<string>(out var text) ? text : null).OfType<string>().ToArray();
+        var env = new Dictionary<string, string>();
+        if (source["env"] is JsonObject map)
+            foreach (var (name, value) in map)
+                if (value is JsonValue text && text.TryGetValue<string>(out var content)) env[name] = content;
+        return new AcpAuthMethod(AcpFolder.Str(method, "id"), AcpFolder.Str(method, "name"), AcpFolder.Str(method, "description") is { Length: > 0 } description ? description : null)
+        {
+            Terminal = meta is not null || AcpFolder.Str(method, "type") == "terminal",
+            Command = meta is not null && AcpFolder.Str(meta, "command") is { Length: > 0 } command ? command : null,
+            Args = args,
+            Env = env,
+            Label = meta is not null && AcpFolder.Str(meta, "label") is { Length: > 0 } label ? label : null
+        };
+    }
+}
 
 /// <summary>Raised when the agent speaks a protocol version this client does not.</summary>
 public sealed class AcpVersionException(int agent) : InvalidOperationException($"The agent speaks ACP version {agent}; tereditor supports version {AcpClient.ProtocolVersion}.")
@@ -66,10 +101,17 @@ internal sealed class AcpClient : IAsyncDisposable
         return new AcpAgentInfo(version,
             capabilities?["loadSession"]?.GetValue<bool>() == true,
             prompt?["image"]?.GetValue<bool>() == true, prompt?["audio"]?.GetValue<bool>() == true, prompt?["embeddedContext"]?.GetValue<bool>() == true,
-            [.. (result["authMethods"] as JsonArray ?? []).OfType<JsonObject>().Select(method => new AcpAuthMethod(method["id"]?.GetValue<string>() ?? "", method["name"]?.GetValue<string>() ?? "", method["description"]?.GetValue<string>()))],
+            [.. (result["authMethods"] as JsonArray ?? []).OfType<JsonObject>().Select(AcpAuthMethod.Parse)],
             info?["title"]?.GetValue<string>() ?? info?["name"]?.GetValue<string>(), info?["version"]?.GetValue<string>(),
             (capabilities?["sessionCapabilities"] as JsonObject)?.ContainsKey("list") == true, result);
     }
+
+    /// <summary>
+    /// auth/status, an unstable method: the accounts the agent uses. Ask only an agent that advertises it (<see cref="AcpAgentInfo.AdvertisesAuthStatus"/>);
+    /// the schema is not stable, so the caller reads the reply leniently and ignores a failure.
+    /// </summary>
+    public Task<JsonNode?> AuthStatusAsync(CancellationToken cancellationToken) =>
+        connection.RequestAsync("auth/status", new JsonObject(), cancellationToken);
 
     public Task<JsonNode?> AuthenticateAsync(string methodId, CancellationToken cancellationToken) =>
         connection.RequestAsync("authenticate", new JsonObject { ["methodId"] = methodId }, cancellationToken);

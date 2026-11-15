@@ -189,6 +189,7 @@ internal sealed partial class AcpSettingsView : StackPanel
         }
         Field(panel, "Environment (one NAME=value per line)", AcpEntryText.FormatEnvironment(entry.Env), "", "AcpEnvironment", true, text => Edit(item => item with { Env = AcpEntryText.ParseEnvironment(text) }));
         Field(panel, "Working directory (blank: the workspace)", entry.Cwd, "", "AcpDirectory", false, text => Edit(item => item with { Cwd = text.Trim() }));
+        panel.Children.Add(new AcpSignInSection(context, entry.Id));
         panel.Children.Add(Text("Runs:", detail: true));
         panel.Children.Add(runs);
 

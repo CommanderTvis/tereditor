@@ -31,6 +31,12 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
     public Stream ClientInput => fromAgent.Reader.AsStream();
     public Stream ClientOutput => toAgent.Writer.AsStream();
 
+    /// <summary>session/new answers "authentication required" (-32000), as an agent that is not signed in does.</summary>
+    public bool AuthRequired { get; init; }
+    /// <summary>Advertises <c>agentCapabilities.auth.status</c> and answers auth/status with two accounts.</summary>
+    public bool AuthStatus { get; init; }
+    /// <summary>Offers a sign-in of <c>type: "terminal"</c> (arguments and a variable) and one of <c>type: "agent"</c>.</summary>
+    public bool TerminalType { get; init; }
     public AcpOffer Offer { get; }
     /// <summary>The params of the last request of each method.</summary>
     public Dictionary<string, JsonNode?> Last { get; } = [];
@@ -188,11 +194,17 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
                 return new JsonObject
                 {
                     ["protocolVersion"] = ProtocolVersion,
-                    ["agentCapabilities"] = new JsonObject { ["loadSession"] = LoadSession, ["promptCapabilities"] = new JsonObject { ["image"] = true, ["embeddedContext"] = true } },
-                    ["authMethods"] = new JsonArray(new JsonObject { ["id"] = "login", ["name"] = "Log in", ["description"] = "Sign in with the agent's own flow." }),
+                    ["agentCapabilities"] = new JsonObject { ["loadSession"] = LoadSession, ["promptCapabilities"] = new JsonObject { ["image"] = true, ["embeddedContext"] = true }, ["auth"] = AuthStatus ? new JsonObject { ["status"] = new JsonObject() } : null },
+                    ["authMethods"] = TerminalType
+                        ? new JsonArray(
+                            new JsonObject { ["id"] = "term", ["name"] = "Sign in in a terminal", ["type"] = "terminal", ["args"] = new JsonArray("login", "--web"), ["env"] = new JsonObject { ["FAKE_LOGIN_MODE"] = "it's web" } },
+                            new JsonObject { ["id"] = "agent-login", ["name"] = "Let the agent do it", ["type"] = "agent" })
+                        : new JsonArray(new JsonObject { ["id"] = "login", ["name"] = "Log in", ["description"] = "Sign in with the agent's own flow." }),
                     ["agentInfo"] = new JsonObject { ["name"] = "fake-agent", ["title"] = "Fake agent", ["version"] = "1.0.0" }
                 };
             case "authenticate": return new JsonObject();
+            case "auth/status": return new JsonObject { ["accounts"] = new JsonArray(new JsonObject { ["label"] = "octocat" }, "second-account") };
+            case "session/new" when AuthRequired: throw new AcpException(AcpException.AuthRequired, "Authentication required");
             case "session/new": return NewSession("sess-" + Interlocked.Increment(ref sessions));
             case "session/load":
                 {

@@ -705,6 +705,134 @@ internal static class AcpChecks
         Require(launcher.IsSealed || launcher.IsAbstract, "The launcher decisions are static.");
     }
 
+    private static string Dump(AcpSignInInfo info) =>
+        string.Join('\n', info.Lines.Select(line => line.Kind + "|" + line.Display()).Concat([info.Why, info.AgentId]).Concat(info.Methods.Select(method => $"{method.Id}|{method.Name}|{method.Description}|{method.Label}|{method.CommandLine}")));
+
+    private static void FakeGh(string directory, string body)
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "gh");
+        File.WriteAllText(path, "#!/bin/sh\n" + body);
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
+
+    // Where an agent's sign-in can come from, found without reading a secret: names, existence of files, the GitHub CLI account and the agent's own answer.
+    internal static async Task SignIn(string root)
+    {
+        const string Secret = "ghp_SENTINEL_do_not_leak_1234";
+        var windows = OperatingSystem.IsWindows();
+        var home = Path.Combine(root, "home");
+        var logged = Path.Combine(root, "bin-logged");
+        var stderrOnly = Path.Combine(root, "bin-old");
+        var loggedOut = Path.Combine(root, "bin-out");
+        var argsLog = Path.Combine(root, "gh-args.log");
+        Directory.CreateDirectory(home);
+        if (!windows)
+        {
+            // The fake gh records its arguments, prints the account line like gh does, and a token line that must never be read or shown.
+            FakeGh(logged, $"echo \"$@\" >> '{argsLog}'\necho 'github.com'\necho '  ✓ Logged in to github.com account octocat (keyring)'\necho '  - Token: {Secret}'\n");
+            FakeGh(stderrOnly, $"echo \"$@\" >> '{argsLog}'\necho 'github.com' >&2\necho '  ✓ Logged in to github.com as olduser (keyring)' >&2\necho '  - Token: {Secret}' >&2\n");
+            FakeGh(loggedOut, $"echo \"$@\" >> '{argsLog}'\necho 'You are not logged into any GitHub hosts. To log in, run: gh auth login' >&2\nexit 1\n");
+        }
+        Func<string?, Func<string, string?>> shell = path => name => name switch { "GH_TOKEN" => Secret, "PATH" => path, _ => null };
+        Func<string?, Func<string, string?>> clean = path => name => name == "PATH" ? path : null;
+        var copilot = new AcpAgentEntry("github-copilot-cli", "GitHub Copilot", "copilot") { Origin = "registry" };
+        var ct = CancellationToken.None;
+        var secrets = new List<string>();
+
+        // The shell's GH_TOKEN comes first; before the agent has answered, the keychain item is not even mentioned, and the reason says so.
+        var info = await new AcpSignIn(shell(logged), home).ResolveAsync(copilot, null, false, ct);
+        secrets.Add(Dump(info));
+        Require(info.Lines[0] is { Kind: "env", Text: "GH_TOKEN in your shell", CheckedFirst: true } && info.Lines[0].Display() == "GH_TOKEN in your shell (checked first)", "A present variable shows by name, marked as checked first.");
+        Require(info.Why.Contains("COPILOT_GITHUB_TOKEN, GITHUB_TOKEN are not set", StringComparison.Ordinal) && info.Why.Contains("not looked up", StringComparison.Ordinal) && info.Why.Contains("checks them in this order: COPILOT_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN, stored login, GitHub CLI", StringComparison.Ordinal) && info.Why.Contains("has not told us which one it used", StringComparison.Ordinal), "The reason lists what is not set, why the keychain is skipped and the agent's order, and does not claim a winner.");
+        Require(!info.Lines.Any(line => line.Kind == "stored"), "No stored-login line before the agent has run.");
+        if (!windows)
+        {
+            Require(info.Lines.Select(line => line.Display()).SequenceEqual(["GH_TOKEN in your shell (checked first)", "GitHub CLI account octocat"]), "The GitHub CLI account follows the variable, unmarked.");
+            Require(info.Why.Contains("GitHub CLI account octocat is used by Copilot as the last fallback", StringComparison.Ordinal), "The reason says the CLI account is the last fallback.");
+        }
+
+        // A variable set in the agent's own settings is read before the shell's, and the order is the agent's.
+        var own = copilot with { Env = new Dictionary<string, string> { ["COPILOT_GITHUB_TOKEN"] = Secret } };
+        info = await new AcpSignIn(shell(logged), home).ResolveAsync(own, null, false, ct);
+        secrets.Add(Dump(info));
+        Require(info.Lines.Take(2).Select(line => line.Display()).SequenceEqual(["COPILOT_GITHUB_TOKEN in this agent's settings (checked first)", "GH_TOKEN in your shell"]), "The agent's own variable comes first in the order and is the one marked.");
+
+        // Once the agent has answered, the stored login shows as maybe there; the line that may win is not marked after it.
+        var (started, fake) = await Started(AcpOffer.Copilot);
+        var answer = new AcpAnswer(started.Agent!.AuthMethods, []);
+        await started.DisposeAsync();
+        info = await new AcpSignIn(clean(logged), home).ResolveAsync(copilot, answer, false, ct);
+        secrets.Add(Dump(info));
+        Require(info.Lines[0] is { Kind: "stored", CheckedFirst: false } && info.Lines[0].Text == "A stored login, if you ran `copilot login`", "After the agent answered, the stored login shows as something that may be there, not as found.");
+        Require(info.Lines.All(line => !line.CheckedFirst), "Nothing is marked when an earlier source may be the one in use.");
+        Require(info.Lines[^1] is { Kind: "agent" } last && last.Text == "A sign-in the agent will ask for: Log in with Copilot CLI (Copilot Login)", "The agent's own sign-in is listed with its terminal label.");
+        Require(info.Methods.Single() is { Id: "copilot-login", Label: "Copilot Login", CommandLine: "/path/copilot login" } && info.Terminal is not null, "Copilot's method has no type but carries a terminal login; its command line is the exact one.");
+        info = await new AcpSignIn(clean(logged), home).ResolveAsync(copilot, null, true, ct);
+        Require(info.Lines[0].Kind == "stored", "A failed start also makes the stored login show.");
+
+        // The GitHub CLI: status on stdout or on stderr, a logged-out answer, and no gh at all. The account name is all that is read.
+        if (!windows)
+        {
+            info = await new AcpSignIn(clean(stderrOnly), home).ResolveAsync(copilot, null, false, ct);
+            secrets.Add(Dump(info));
+            Require(info.Lines.Single() is { Kind: "gh", Text: "GitHub CLI account olduser", CheckedFirst: true }, "An older gh that prints on stderr is read the same way, and the CLI is first when nothing else is there.");
+            info = await new AcpSignIn(clean(loggedOut), home).ResolveAsync(copilot, null, false, ct);
+            Require(info.Lines.Single().Kind == "none" && info.Why.Contains("no GitHub CLI login was found", StringComparison.Ordinal), "A logged-out gh adds no line and says so.");
+        }
+        info = await new AcpSignIn(clean(Path.Combine(root, "nothing")), home).ResolveAsync(copilot, null, false, ct);
+        Require(info.Lines.Single().Kind == "none" && info.Why.Contains("(gh) was not found", StringComparison.Ordinal), "Without gh on the path the reason says it was not found.");
+
+        // Your own model provider needs no login; only the variable's name is shown.
+        info = await new AcpSignIn(name => name switch { "COPILOT_PROVIDER_BASE_URL" => "http://provider.example/secret-path", "PATH" => Path.Combine(root, "nothing"), _ => null }, home).ResolveAsync(copilot, null, false, ct);
+        secrets.Add(Dump(info));
+        Require(info.Lines[0] is { Kind: "provider", Text: "Your own model provider (COPILOT_PROVIDER_BASE_URL): no account login is needed" } && !Dump(info).Contains("secret-path", StringComparison.Ordinal), "A provider variable shows by name and no GitHub login is asked.");
+
+        // An unknown agent: only credential-like variables of its own entry, no order claimed, and the GitHub CLI is not asked.
+        var asked = File.Exists(argsLog) ? File.ReadAllLines(argsLog).Length : 0;
+        var custom = new AcpAgentEntry("custom-x", "X", "/bin/x") { Env = new Dictionary<string, string> { ["X_API_KEY"] = Secret, ["PLAIN"] = "1" } };
+        info = await new AcpSignIn(shell(logged), home).ResolveAsync(custom, null, false, ct);
+        secrets.Add(Dump(info));
+        Require(info.Lines.Single() is { Kind: "env", Text: "X_API_KEY in this agent's settings", CheckedFirst: false } && (File.Exists(argsLog) ? File.ReadAllLines(argsLog).Length : 0) == asked, "An unknown agent shows only its own credential-like variables, unmarked, and does not start gh.");
+
+        // A credential file: only whether it exists is read, never what is in it.
+        var table = new Dictionary<string, AcpCredentialFacts> { ["fake"] = new("Fake") { EnvNames = ["FAKE_TOKEN"], CredentialFiles = [".fake/auth.json"], KnownOrder = true } };
+        var fakeEntry = new AcpAgentEntry("fake", "Fake", "/bin/fake");
+        info = await new AcpSignIn(clean(null), home, table).ResolveAsync(fakeEntry, null, false, ct);
+        Require(info.Lines.Single().Kind == "none" && info.Why.Contains("no stored login file at ~/.fake/auth.json", StringComparison.Ordinal), "A missing credential file is said in the reason.");
+        Directory.CreateDirectory(Path.Combine(home, ".fake"));
+        File.WriteAllText(Path.Combine(home, ".fake", "auth.json"), "{\"token\":\"" + Secret + "\"}");
+        info = await new AcpSignIn(clean(null), home, table).ResolveAsync(fakeEntry, null, false, ct);
+        secrets.Add(Dump(info));
+        Require(info.Lines.Single() is { Kind: "stored", Text: "A stored login file (~/.fake/auth.json)", CheckedFirst: true }, "An existing credential file shows by path and is checked first.");
+
+        // authMethods: with a type, the agent program runs again with the method's arguments and variable; an agent-type method has no terminal line.
+        var typed = new AcpFakeAgent { TerminalType = true, AuthStatus = true, AuthRequired = true };
+        var captured = new List<string>();
+        var noticeEntry = new AcpAgentEntry("custom-typed", "Typed", "/bin/fake-agent") { Args = ["acp"] };
+        AcpAnswer? seen = null;
+        var detector = new AcpSignIn(clean(null), home);
+        await using var failing = new AcpChatSession("ws", "chat-auth", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(typed)), _ => { }, captured.Add, null,
+            got => seen = got, () => detector.ResolveAsync(noticeEntry, seen, false, ct));
+        failing.Begin();
+        await failing.StartAsync(null);
+        var expectedCommand = windows ? "/bin/fake-agent acp login --web" : "FAKE_LOGIN_MODE='it'\\''s web' /bin/fake-agent acp login --web";
+        Require(failing.Header.Status == ChatStatus.Failed && typed.Methods.Contains("auth/status"), "A not signed-in agent fails the start, and auth/status is asked because the agent advertised it.");
+        var notice = Items(failing).OfType<ChatNoticeItem>().Single(item => item.Category == ChatNoticeKinds.Failure);
+        Require(notice.Action is { Label: "Run in terminal" } action && (windows || action.Command == expectedCommand), "The failure card carries the exact terminal command as its button.");
+        Require(notice.Text.Contains("Signs in with:", StringComparison.Ordinal) && notice.Text.Contains("- A sign-in the agent will ask for: Sign in in a terminal", StringComparison.Ordinal) && notice.Text.Contains("- The agent says it uses: octocat", StringComparison.Ordinal) && notice.Text.Contains("- The agent says it uses: second-account", StringComparison.Ordinal) && notice.Text.Contains("- A sign-in the agent will ask for: Let the agent do it", StringComparison.Ordinal) && notice.Text.Contains("Why:", StringComparison.Ordinal), "The failure card lists where the sign-in comes from, with the agent's own methods and accounts.");
+        info = await detector.ResolveAsync(noticeEntry, seen, false, ct);
+        Require(info.Methods.Count == 2 && info.Methods[1].CommandLine is null && info.Terminal!.Id == "term", "Only the terminal-type method has a command line.");
+        secrets.Add(notice.Text + "\n" + notice.Action?.Command + "\n" + string.Join('\n', captured));
+
+        // An agent that does not advertise auth/status is never asked it.
+        Require(!fake.Methods.Contains("auth/status"), "Copilot's initialize does not advertise auth/status, so it is not asked.");
+
+        if (!windows)
+            Require(File.ReadAllLines(argsLog).Length > 0 && File.ReadAllLines(argsLog).All(argsLine => argsLine == "auth status --hostname github.com"), "gh was run only as auth status for github.com: never auth token, and no keychain tool at all.");
+        Require(secrets.All(text => !text.Contains(Secret, StringComparison.Ordinal)), "No token value shows in a line, a reason, a method, the failure card, its command or the log.");
+    }
+
     internal static async Task Run(string root)
     {
         Manifest();
@@ -725,5 +853,6 @@ internal static class AcpChecks
         await Registry(Path.Combine(root, "registry"));
         await Icons(Path.Combine(root, "icons"));
         await Verification(Path.Combine(root, "verify"));
+        await SignIn(Path.Combine(root, "signin"));
     }
 }
