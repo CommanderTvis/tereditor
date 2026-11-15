@@ -20,6 +20,10 @@ public sealed class AcpUI : PluginUIModule
         var client = new PluginChatClient(context);
         // The agent edits files through the client methods the host serves, so the diff of a proposal has no file to read here.
         var selections = ChatDocuments.Register(context, client, AcpChat.Agent, (_, _) => Task.FromResult(""));
+        AcpTabIcons tabIcons = null!;
+        tabIcons = new AcpTabIcons { AskAgents = workspace => _ = LoadTabIconsAsync(context, tabIcons, workspace) };
+        context.TabDecoration(tabIcons.Decorate);
+        _ = LoadTabIconsAsync(context, tabIcons, null);
         context.SettingsSection(new("ACP", AcpManifest.Manifest.Icon, () => new AcpSettingsView(context)));
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("acp-chat", (workspace, group) =>
         {
@@ -42,10 +46,10 @@ public sealed class AcpUI : PluginUIModule
             else
             {
                 ToolTip.SetTip(button, Label + " (right-click to choose an agent)");
-                button.Click += (_, _) => _ = LaunchAsync(context, button, workspace);
+                button.Click += (_, _) => _ = LaunchAsync(context, button, workspace, tabIcons);
             }
-            menu.Opening += (_, _) => _ = FillMenuAsync(context, menu, workspace);
-            _ = FillMenuAsync(context, menu, workspace);
+            menu.Opening += (_, _) => _ = FillMenuAsync(context, menu, workspace, tabIcons);
+            _ = FillMenuAsync(context, menu, workspace, tabIcons);
             button.ContextMenu = menu;
             return button;
         }));
@@ -53,12 +57,13 @@ public sealed class AcpUI : PluginUIModule
     }
 
     /// <summary>Fills the right-click menu with every configured agent, the default marked, and a way to the settings. It shows the last list at once and refreshes while it opens.</summary>
-    private static async Task FillMenuAsync(IPluginUIContext context, ContextMenu menu, string workspace)
+    private static async Task FillMenuAsync(IPluginUIContext context, ContextMenu menu, string workspace, AcpTabIcons tabIcons)
     {
         AcpAgentList list;
         try { list = await Task.Run(() => context.RequestAsync(AcpContract.Agents, new AcpNoParams()).AsTask()); }
         catch (Exception error) when (error is not OperationCanceledException) { return; }
         var icons = await CachedIconsAsync(context);
+        if (tabIcons.SetIcons(icons)) Dispatcher.UIThread.Post(context.Invalidate);
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var defaultId = context.Settings<AcpSettings>().DefaultAgent;
@@ -66,7 +71,7 @@ public sealed class AcpUI : PluginUIModule
             foreach (var (agent, isDefault) in AcpLauncher.MenuEntries(defaultId, list.Agents))
             {
                 var item = new MenuItem { Name = "AcpLaunch_" + agent.Id, Header = isDefault ? agent.Name + " (default)" : agent.Name, Icon = AcpGlyph.For(icons.GetValueOrDefault(agent.Id), 14) };
-                item.Click += (_, _) => _ = StartAsync(context, workspace, agent);
+                item.Click += (_, _) => _ = StartAsync(context, workspace, agent, tabIcons);
                 menu.Items.Add(item);
             }
             if (list.Agents.Count > 0) menu.Items.Add(new Separator());
@@ -77,7 +82,7 @@ public sealed class AcpUI : PluginUIModule
     }
 
     /// <summary>A left click: the default agent starts at once. Without a usable default it is the picker, or the only agent when there is just one.</summary>
-    private static async Task LaunchAsync(IPluginUIContext context, Button anchor, string workspace)
+    private static async Task LaunchAsync(IPluginUIContext context, Button anchor, string workspace, AcpTabIcons tabIcons)
     {
         AcpAgentList list;
         try { list = await Task.Run(() => context.RequestAsync(AcpContract.Agents, new AcpNoParams()).AsTask()); }
@@ -87,8 +92,9 @@ public sealed class AcpUI : PluginUIModule
             return;
         }
         var choice = AcpLauncher.Resolve(context.Settings<AcpSettings>().DefaultAgent, list.Agents);
-        if (choice is { Kind: "start", Agent: { } agent }) { await StartAsync(context, workspace, agent); return; }
+        if (choice is { Kind: "start", Agent: { } agent }) { await StartAsync(context, workspace, agent, tabIcons); return; }
         var icons = await CachedIconsAsync(context);
+        if (tabIcons.SetIcons(icons)) Dispatcher.UIThread.Post(context.Invalidate);
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (choice.Kind == "none")
@@ -100,11 +106,25 @@ public sealed class AcpUI : PluginUIModule
             foreach (var agent in AcpLauncher.Enabled(list.Agents))
             {
                 var item = new MenuItem { Header = agent.Name, Icon = AcpGlyph.For(icons.GetValueOrDefault(agent.Id), 14) };
-                item.Click += (_, _) => _ = StartAsync(context, workspace, agent);
+                item.Click += (_, _) => _ = StartAsync(context, workspace, agent, tabIcons);
                 menu.Items.Add(item);
             }
             menu.Open(anchor);
         });
+    }
+
+    /// <summary>Reads the icons on disk and, for a workspace, the agent of each of its chats, so restored chat tabs show their agent's logo.</summary>
+    private static async Task LoadTabIconsAsync(IPluginUIContext context, AcpTabIcons tabIcons, string? workspace)
+    {
+        var changed = tabIcons.SetIcons(await CachedIconsAsync(context));
+        if (workspace is not null)
+            try
+            {
+                var chats = await Task.Run(() => context.RequestAsync(AcpContract.ChatAgents, new AcpChatAgentsParams(workspace)).AsTask());
+                changed |= tabIcons.SetAgents(workspace, chats.Agents);
+            }
+            catch (Exception error) when (error is not OperationCanceledException) { }
+        if (changed) Dispatcher.UIThread.Post(context.Invalidate);
     }
 
     /// <summary>The icons already on disk. The menu never waits for the network: an agent without one shows the generic glyph.</summary>
@@ -114,7 +134,7 @@ public sealed class AcpUI : PluginUIModule
         catch (Exception error) when (error is not OperationCanceledException) { return new Dictionary<string, string>(); }
     }
 
-    private static async Task StartAsync(IPluginUIContext context, string workspace, AcpAgentEntry agent)
+    private static async Task StartAsync(IPluginUIContext context, string workspace, AcpAgentEntry agent, AcpTabIcons tabIcons)
     {
         var id = ChatDocuments.NewId();
         try { await Task.Run(() => context.RequestAsync(AcpContract.Choose, new AcpChooseParams(workspace, id, agent.Id)).AsTask()); }
@@ -123,6 +143,7 @@ public sealed class AcpUI : PluginUIModule
             context.Notify(PluginNotificationKind.Error, "Couldn't start the chat", error.Message);
             return;
         }
+        tabIcons.SetAgent(workspace, id, agent.Id);
         await Dispatcher.UIThread.InvokeAsync(() => ChatDocuments.Open(context, AcpChat.Agent, workspace, id, agent.Name, new ChatOpenParams(workspace, id), null, []));
     }
 }

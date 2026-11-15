@@ -113,6 +113,14 @@ public static class PluginIcons
         return buffer.ToArray();
     }
 
+    /// <summary>A plugin's own SVG drawn in the given colour wherever it uses <c>currentColor</c>, with the puzzle glyph while it cannot be drawn.</summary>
+    internal static Control ResolveSvg(string svg, IBrush brush, double size)
+    {
+        var icon = new AssetIcon("svg", Fallback, brush, size);
+        icon.Show(System.Text.Encoding.UTF8.GetBytes(svg), brush, size);
+        return icon;
+    }
+
     /// <summary>A control for the icon; an asset is drawn once read, with the supplied fallback if unavailable.</summary>
     public static Control Resolve(string? name, PluginRosterEntry? entry, IBrush? color = null, double size = 16, string fallbackGlyph = Fallback)
     {

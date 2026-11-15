@@ -93,6 +93,10 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
 
     private static string RecordKey(string workspaceId, string chatId) => workspaceId + "\0" + chatId;
 
+    /// <summary>The agent each chat of the workspace chose, by chat id.</summary>
+    internal AcpChatAgents ChatAgents(string workspaceId) => new(context.ReadState<Dictionary<string, AcpChatRecord>>(RecordsState, []).Values
+        .Where(record => record.WorkspaceId == workspaceId && !string.IsNullOrEmpty(record.AgentId)).ToDictionary(record => record.ChatId, record => record.AgentId!));
+
     private AcpChatRecord? LoadRecord(string workspaceId, string chatId) =>
         context.ReadState<Dictionary<string, AcpChatRecord>>(RecordsState, []).GetValueOrDefault(RecordKey(workspaceId, chatId));
 
@@ -185,6 +189,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         context.Method(AcpContract.InstallPlan, async (p, _, ct) => await PlanAsync(p, ct));
         context.Method(AcpContract.Install, async (p, _, ct) => WithProblems(await InstallAsync(p, ct)));
         context.Method(AcpContract.RemoveAgent, (p, _, _) => ValueTask.FromResult(WithProblems(RemoveAgent(p.AgentId))));
+        context.Method(AcpContract.ChatAgents, (p, _, _) => ValueTask.FromResult(ChatAgents(p.WorkspaceId)));
         context.Method(AcpContract.Choose, (p, _, _) =>
         {
             SaveRecord(p.WorkspaceId, p.ChatId, record => record with { AgentId = p.AgentId });

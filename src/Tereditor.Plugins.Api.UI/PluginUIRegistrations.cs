@@ -124,6 +124,12 @@ public sealed record TabDecoration
     /// <summary>Replaces the tab's icon: a Remix Icon name or <c>asset:&lt;path&gt;</c>.</summary>
     public string? Icon { get; init; }
 
+    /// <summary>
+    /// Replaces the tab's icon with this SVG, drawn in the tab's text colour wherever it uses <c>currentColor</c>. The plugin checks the
+    /// document first; wins over <see cref="Icon"/>.
+    /// </summary>
+    public string? IconSvg { get; init; }
+
     /// <summary>Creates extra content shown after the tab's title, such as a badge.</summary>
     public Func<Control>? Adornment { get; init; }
 
@@ -139,6 +145,12 @@ public abstract record TabRef(string WorkspaceId);
 /// <param name="WorkspaceId">The tab's workspace.</param>
 /// <param name="TabKey">The terminal's tab key.</param>
 public sealed record TerminalTabRef(string WorkspaceId, string TabKey) : TabRef(WorkspaceId);
+
+/// <summary>A tab of a plugin's own document (<see cref="PluginDocumentRegistration"/>).</summary>
+/// <param name="WorkspaceId">The tab's workspace.</param>
+/// <param name="Scheme">The document scheme.</param>
+/// <param name="Id">The document's id within its scheme.</param>
+public sealed record PluginDocumentTabRef(string WorkspaceId, string Scheme, string Id) : TabRef(WorkspaceId);
 
 /// <summary>A side tool tab.</summary>
 /// <param name="WorkspaceId">The tab's workspace.</param>

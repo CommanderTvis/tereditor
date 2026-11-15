@@ -1118,3 +1118,20 @@ static Tereditor.Plugins.Api.UI.AgentRosterEntry.operator ==(Tereditor.Plugins.A
 static Tereditor.Plugins.Api.UI.AgentRoster.Build(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentLauncher!>! launchers, System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.PluginRosterEntry!>! plugins) -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentRosterEntry!>!
 static Tereditor.Plugins.Api.UI.AgentRoster.Read(Tereditor.Plugins.Api.UI.IPluginUIContext! context) -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentRosterEntry!>!
 static Tereditor.Plugins.Api.UI.AgentRoster.Watch(Tereditor.Plugins.Api.UI.IPluginUIContext! context, System.Action<System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentRosterEntry!>!>! handler) -> System.IDisposable!
+Tereditor.Plugins.Api.UI.PluginDocumentTabRef
+Tereditor.Plugins.Api.UI.PluginDocumentTabRef.PluginDocumentTabRef(string! WorkspaceId, string! Scheme, string! Id) -> void
+Tereditor.Plugins.Api.UI.PluginDocumentTabRef.Scheme.get -> string!
+Tereditor.Plugins.Api.UI.PluginDocumentTabRef.Scheme.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentTabRef.Id.get -> string!
+Tereditor.Plugins.Api.UI.PluginDocumentTabRef.Id.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentTabRef.Deconstruct(out string! WorkspaceId, out string! Scheme, out string! Id) -> void
+Tereditor.Plugins.Api.UI.PluginDocumentTabRef.Equals(Tereditor.Plugins.Api.UI.PluginDocumentTabRef? other) -> bool
+override Tereditor.Plugins.Api.UI.PluginDocumentTabRef.<Clone>$() -> Tereditor.Plugins.Api.UI.PluginDocumentTabRef!
+override Tereditor.Plugins.Api.UI.PluginDocumentTabRef.Equals(object? obj) -> bool
+override sealed Tereditor.Plugins.Api.UI.PluginDocumentTabRef.Equals(Tereditor.Plugins.Api.UI.TabRef? other) -> bool
+override Tereditor.Plugins.Api.UI.PluginDocumentTabRef.GetHashCode() -> int
+override Tereditor.Plugins.Api.UI.PluginDocumentTabRef.ToString() -> string!
+static Tereditor.Plugins.Api.UI.PluginDocumentTabRef.operator !=(Tereditor.Plugins.Api.UI.PluginDocumentTabRef? left, Tereditor.Plugins.Api.UI.PluginDocumentTabRef? right) -> bool
+static Tereditor.Plugins.Api.UI.PluginDocumentTabRef.operator ==(Tereditor.Plugins.Api.UI.PluginDocumentTabRef? left, Tereditor.Plugins.Api.UI.PluginDocumentTabRef? right) -> bool
+Tereditor.Plugins.Api.UI.TabDecoration.IconSvg.get -> string?
+Tereditor.Plugins.Api.UI.TabDecoration.IconSvg.init -> void

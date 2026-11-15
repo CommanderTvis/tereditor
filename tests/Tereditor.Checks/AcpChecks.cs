@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Tereditor.Plugins.Acp;
 using Tereditor.Plugins.Acp.Host;
 using Tereditor.Plugins.Api;
+using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.Chat;
 
 namespace Tereditor.Checks;
@@ -673,6 +674,27 @@ internal static class AcpChecks
         Require(!Tereditor.Plugins.Acp.UI.AcpGlyph.HasIcon(null) && !Tereditor.Plugins.Acp.UI.AcpGlyph.HasIcon(" ") && Tereditor.Plugins.Acp.UI.AcpGlyph.HasIcon(GoodIcon), "Without an icon the generic glyph is drawn: custom agents, rejected, missing or not yet fetched icons.");
     }
 
+    // A chat tab wears the logo of its own agent from the icons already on disk; anything else keeps the generic ACP icon. No fetch is involved.
+    internal static void TabIcons()
+    {
+        var goose = GoodIcon;
+        var asked = new List<string>();
+        var icons = new Tereditor.Plugins.Acp.UI.AcpTabIcons { AskAgents = asked.Add };
+        static TabRef chat(string id) => new PluginDocumentTabRef("w", AcpContract.DocumentScheme, id);
+        Require(icons.Decorate(chat("c1")) is null && asked.SequenceEqual(["w"]), "A restored tab with no known agent keeps the generic icon and asks the host once.");
+        icons.Decorate(chat("c2"));
+        Require(asked.Count == 1, "The host is asked once per workspace.");
+        Require(!icons.SetAgents("w", new Dictionary<string, string> { ["c1"] = "goose", ["c2"] = "mine" }), "Agents without icons on disk change nothing on screen.");
+        Require(icons.SetIcons(new Dictionary<string, string> { ["goose"] = goose }), "Icons arriving for a chat's agent change its tab.");
+        Require(icons.Decorate(chat("c1")) is { IconSvg: { } svg, Icon: null } && svg == goose, "A chat tab of a known agent carries that agent's SVG, drawn through currentColor in the tab's text colour.");
+        Require(icons.Decorate(chat("c2")) is null, "A custom agent, or one with no icon on disk, keeps the generic ACP icon.");
+        Require(icons.Decorate(chat("unknown")) is null && icons.Decorate(new PluginDocumentTabRef("w", "other-scheme", "c1")) is null && icons.Decorate(new TerminalTabRef("w", "c1")) is null, "Other chats and other tabs are left alone.");
+        Require(icons.SetIcons(new Dictionary<string, string> { ["goose"] = " " }) && icons.Decorate(chat("c1")) is null, "A blank icon is the generic one, never an empty slot.");
+        Require(icons.SetAgent("w", "c3", "goose") is false, "A new chat of an agent without a usable icon changes nothing.");
+        icons.SetIcons(new Dictionary<string, string> { ["goose"] = goose });
+        Require(icons.SetAgent("w", "c1", "other") is false && icons.Decorate(chat("c1")) is null, "A chat moved to another agent follows that agent's icon.");
+    }
+
     // The install confirmation shows the same facts as before in the overlay dialog: name and version, source, command, checksum, license, repository, the plain explanation and the not-recommended line.
     internal static void Confirmation()
     {
@@ -852,6 +874,7 @@ internal static class AcpChecks
         await ClientMethods(root);
         await Registry(Path.Combine(root, "registry"));
         await Icons(Path.Combine(root, "icons"));
+        TabIcons();
         await Verification(Path.Combine(root, "verify"));
         await SignIn(Path.Combine(root, "signin"));
     }

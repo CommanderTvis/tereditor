@@ -212,6 +212,7 @@ public sealed partial class WorkbenchWindow
         "terminal" => new TerminalTabRef(workspace ?? Layout.State.ActiveWorkspace, tab.Id),
         "tool" => new ToolTabRef(workspace ?? workspaceRoot, tab.Id),
         "diff" => new FileTabRef(workspace ?? workspaceRoot, EditorKind.Diff, tab.Path),
+        PluginDocumentKind when tab.Path.IndexOf(':') is var split and > 0 => new PluginDocumentTabRef(workspace ?? Layout.State.ActiveWorkspace, tab.Path[..split], tab.Path[(split + 1)..]),
         _ => new FileTabRef(workspace ?? workspaceRoot, EditorKind.File, tab.Path)
     };
 
@@ -242,6 +243,8 @@ public sealed partial class WorkbenchWindow
 
     private Control? TabIcon(DockTab tab, IBrush brush, string? workspace)
     {
+        if (Decoration(tab, workspace) is { Decoration.IconSvg: { Length: > 0 } svg })
+            return PluginIcons.ResolveSvg(svg, brush, 14);
         if (Decoration(tab, workspace) is { Decoration.Icon: { } decorated } decoration)
             return PluginIcons.Resolve(decorated, Plugins.Entry(decoration.PluginId), brush, 14);
         if (tab.IsTool && Plugins.Tool(tab.Id) is { } tool)
@@ -292,7 +295,7 @@ public sealed partial class WorkbenchWindow
     {
         var decoration = Decoration(tab, workspace);
         var icon = tab.IsTool ? Plugins.Tool(tab.Id)?.Icon : tab.Path.Length > 0 ? FileIconAnswer(tab.Path)?.Icon : null;
-        return decoration is null && icon is null ? "" : $"{tab.Id}\t{decoration?.PluginId}\t{decoration?.Decoration.Icon}\t{decoration?.Decoration.Adornment is not null}\t{icon}";
+        return decoration is null && icon is null ? "" : $"{tab.Id}\t{decoration?.PluginId}\t{decoration?.Decoration.Icon}\t{decoration?.Decoration.IconSvg?.GetHashCode()}\t{decoration?.Decoration.Adornment is not null}\t{icon}";
     }
 
     // Like the fork's renderCenterActions: every workspace action follows New terminal in each center group's strip.
