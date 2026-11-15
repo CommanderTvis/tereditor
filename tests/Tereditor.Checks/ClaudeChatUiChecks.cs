@@ -289,6 +289,7 @@ internal static class ClaudeChatUiChecks
         AttachmentChipsContained();
         PasteImages();
         PasteCollapse();
+        PasteAgain();
         WrappedHistory();
         DraftSurvivesHistory();
         DraftWithoutHost();
@@ -1246,6 +1247,7 @@ internal static class ClaudeChatUiChecks
             view.Input.Text = "see "; view.Input.SelectionStart = view.Input.SelectionEnd = view.Input.CaretIndex = 4; Frame(window);
             Press(Key.V, KeyModifiers.Meta);
             E2eWorkspace.Until(() => view.Input.Text == "see " + Token(1));
+            Press(Key.End); // any other key ends the paste-again window
             Press(Key.V, KeyModifiers.Control);
             E2eWorkspace.Until(() => view.Input.Text == "see " + Token(1) + Token(2));
 
@@ -1292,6 +1294,97 @@ internal static class ClaudeChatUiChecks
         }
         catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
         finally { window.Close(); ChatView.Histories.Remove((Workspace, Chat)); ChatView.ForgetLocalDrafts(); }
+    }
+
+    // Pressing paste again right after a paste that collapsed puts the text in full; the note says so while the window is open.
+    private static void PasteAgain()
+    {
+        static string Lines(int count) => string.Join('\n', Enumerable.Range(1, count).Select(line => "line " + line));
+        Require(ChatView.PasteKeyName(KeyModifiers.Meta) == "Cmd" && ChatView.PasteKeyName(KeyModifiers.Control) == "Ctrl", "The hint names Cmd where the command key is Meta and Ctrl elsewhere.");
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        ChatView.ForgetLocalDrafts();
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
+        var window = new Window { Width = 600, Height = 500, Content = view, Background = Ui.Surface };
+        window.Show();
+        var big = Lines(12);
+        var small = Lines(3);
+        var saved = ChatView.PasteAgainWindow;
+        string Token(int number) => PastedTexts.Token(number, 12);
+        void Press(Key key, KeyModifiers modifiers = KeyModifiers.None) { view.Input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers }); Frame(window); }
+        void Clip(string text) => Await(Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(window.Clipboard!, text));
+        void Caret(int at) { view.Input.SelectionStart = view.Input.SelectionEnd = view.Input.CaretIndex = at; Frame(window); Frame(window); }
+        void Reset() { view.Input.Text = ""; Frame(window); }
+        void PasteKey() { Press(Key.V, KeyModifiers.Meta); }
+        var note = () => view.GetVisualDescendants().OfType<TextBlock>().First(text => text.Name == "ChatPasteNote");
+        try
+        {
+            Frame(window);
+            view.Input.Focus();
+            Clip(big);
+
+            // The second paste inside the window expands the token; the hint shows meanwhile and goes with it.
+            PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text == Token(1));
+            Require(note().IsVisible && note().Text!.Contains("again to paste all 12 lines", StringComparison.Ordinal) && note().Text!.Contains("+V", StringComparison.Ordinal), $"A collapsed paste shows the hint (got '{note().Text}').");
+            Require(OperatingSystem.IsAndroid() || note().Text!.StartsWith("Press Cmd+V", StringComparison.Ordinal) || note().Text!.StartsWith("Press Ctrl+V", StringComparison.Ordinal), "The hint names the key.");
+            PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text == big);
+            Require(!note().IsVisible, "The hint goes when the text is pasted in full.");
+
+            // Shift+Insert and the box's own Paste count as paste.
+            Reset(); PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text == Token(1) || view.Input.Text == Token(2));
+            Press(Key.Insert, KeyModifiers.Shift);
+            E2eWorkspace.Until(() => view.Input.Text == big);
+
+            // After the window a second paste adds a second token, and the hint is gone.
+            ChatView.PasteAgainWindow = TimeSpan.FromMilliseconds(300);
+            Reset(); PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.StartsWith("[Pasted", StringComparison.Ordinal));
+            var first = view.Input.Text!;
+            E2eWorkspace.Until(() => !note().IsVisible);
+            PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.Length > first.Length);
+            Require(view.Input.Text!.StartsWith(first, StringComparison.Ordinal) && view.Input.Text != first + big && view.Input.Text!.Count(c => c == '[') == 2, $"After the window a paste adds a second token (got '{view.Input.Text}').");
+            ChatView.PasteAgainWindow = saved;
+
+            // An edit or a caret move in between resets the window.
+            Reset(); PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.StartsWith("[Pasted", StringComparison.Ordinal));
+            var one = view.Input.Text!;
+            view.Input.Text = one + "x"; Caret(one.Length + 1); Caret(one.Length);
+            PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.Length > one.Length + 1);
+            Require(view.Input.Text!.Count(c => c == '[') == 2, $"An edit between two pastes resets the window (got '{view.Input.Text}').");
+            Reset(); PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.StartsWith("[Pasted", StringComparison.Ordinal));
+            var two = view.Input.Text!;
+            Caret(0); Caret(two.Length);
+            Require(!note().IsVisible, "A caret move takes the hint off.");
+            PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.Length > two.Length);
+            Require(view.Input.Text!.Count(c => c == '[') == 2, $"A caret move between two pastes resets the window (got '{view.Input.Text}').");
+            Reset(); PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.StartsWith("[Pasted", StringComparison.Ordinal));
+            Press(Key.Left); Press(Key.Right);
+            PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.Count(c => c == '[') == 2);
+
+            // Another text on the clipboard does not expand, and a small paste has no token and no hint.
+            Reset(); PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.StartsWith("[Pasted", StringComparison.Ordinal));
+            var other = Lines(13) + "!";
+            Clip(other); PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text!.Count(c => c == '[') == 2);
+            Reset(); Clip(small); PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text == small);
+            Require(!note().IsVisible, "A small paste shows no hint.");
+            PasteKey();
+            E2eWorkspace.Until(() => view.Input.Text == small + small);
+        }
+        catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
+        finally { ChatView.PasteAgainWindow = saved; window.Close(); ChatView.Histories.Remove((Workspace, Chat)); ChatView.ForgetLocalDrafts(); }
     }
 
     // Every clickable text in the drawn list shows it: a hand, a wash and an underline under the pointer, and a ring on the target keyboard focus is on.

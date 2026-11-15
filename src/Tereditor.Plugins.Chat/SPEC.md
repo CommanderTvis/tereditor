@@ -71,6 +71,11 @@ agent and the transcript get what was pasted (the whole message is trimmed, as b
 before it remove it whole, and a caret moved into it goes on to its edge (a selection is left alone). A token edited by hand no longer
 matches and is plain text. Cmd+Shift+V (Ctrl+Shift+V), and "Paste as plain text" in the box's menu, paste the text itself; "Expand
 pasted text" in that menu puts back the token at the caret, or every token when the caret is on none. Bash mode always pastes plainly.
+Press the paste shortcut again (Cmd+V, or Ctrl+V on Windows and Linux; Shift+Insert and the menu's Paste count too) within 3 seconds
+of a paste that became a token, and the token is replaced by the full text. This only works while the box is as that paste left it: the
+caret still sits at the end of the token, nothing was typed or moved, and the clipboard holds the same text. Any other key, edit or
+caret move ends the window. While it is open the paste note says "Press Cmd+V again to paste all N lines" and names Cmd+Shift+V; the hint
+is not shown on Android, which has no paste key.
 The shared draft carries the expanded text, so a host restart or another client shows the pasted text in full; a rebuilt view in the same
 process keeps the tokens.
 

@@ -267,7 +267,7 @@ internal sealed partial class ChatView
             shellPrevious = input.Text;
             Navigator.TextChanged(input.Text ?? "");
             // The box raises its change after the setter returns, so a change that left the text a remote draft put there is told by its text.
-            if (!applyingRemote && input.Text != appliedText) { appliedText = null; pasteNote.IsVisible = false; lastTyped = Environment.TickCount64; ScheduleDraft(); }
+            if (!applyingRemote && input.Text != appliedText) { appliedText = null; if (collapsedPaste?.Box != input.Text) pasteNote.IsVisible = false; lastTyped = Environment.TickCount64; ScheduleDraft(); }
             Drafts[(workspaceId, chatId)] = (bashMode ? "!" : "") + (input.Text ?? "");
             UpdateMenu(); UpdateSend(); UpdateMentions();
         };
@@ -1052,6 +1052,7 @@ internal sealed partial class ChatView
         if (e.Key is Key.Back or Key.Delete && e.KeyModifiers == KeyModifiers.None && RemovePastedToken(e.Key == Key.Back)) { e.Handled = true; return; }
         // Paste is ours, before the box sees it: a clipboard may hold an image or files and no text at all, which the box would silently ignore.
         // Text-only clipboards are inserted below; everything else becomes attachments. With Shift, Cmd+V (Ctrl+V) pastes big text plainly.
+        if (e.Key is not (Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin or Key.V or Key.Insert)) ResetPasteAgain();
         if (e.Key == Key.V && (e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta)) || e.Key == Key.Insert && e.KeyModifiers == KeyModifiers.Shift)
         {
             e.Handled = true;
@@ -1379,13 +1380,58 @@ internal sealed partial class ChatView
         }
     }
 
-    /// <summary>Puts pasted text at the caret: big text as a token (its text kept for the send), the rest as it is.</summary>
+    /// <summary>How long after a paste that collapsed the same paste shortcut, pressed again, pastes the text in full.</summary>
+    internal static TimeSpan PasteAgainWindow = TimeSpan.FromSeconds(3);
+
+    /// <summary>The name of the paste shortcut's command key for the hint: Cmd where the command key is Meta, Ctrl elsewhere.</summary>
+    internal static string PasteKeyName(KeyModifiers command) => command.HasFlag(KeyModifiers.Meta) ? "Cmd" : "Ctrl";
+
+    // The last paste that collapsed to a token: the box as it was left, the token's span and the clipboard text, until the window ends.
+    private (string Box, int Start, int End, string Clip, long Tick)? collapsedPaste;
+
+    /// <summary>Puts pasted text at the caret: big text as a token (its text kept for the send), the rest as it is. The same paste again right after a token puts the text in full.</summary>
     private void InsertPasted(string text, bool plain)
     {
+        var again = collapsedPaste;
+        ResetPasteAgain();
+        if (again is { } last && !plain && !bashMode && text == last.Clip && Environment.TickCount64 - last.Tick <= PasteAgainWindow.TotalMilliseconds
+            && input.Text == last.Box && input.SelectionStart == input.SelectionEnd && input.CaretIndex == last.End)
+        {
+            input.SelectionStart = last.Start;
+            input.SelectionEnd = last.End;
+            input.SelectedText = text;
+            return;
+        }
         if (plain || bashMode || !PastedTexts.Collapses(text)) { input.SelectedText = text; return; }
         var key = (workspaceId, chatId);
         var pastes = Pastes.TryGetValue(key, out var found) ? found : Pastes[key] = new PastedTexts();
-        input.SelectedText = pastes.Add(text);
+        var start = Math.Min(input.SelectionStart, input.SelectionEnd);
+        var token = pastes.Add(text);
+        input.SelectedText = token;
+        var tick = Environment.TickCount64;
+        collapsedPaste = (input.Text ?? "", start, start + token.Length, text, tick);
+        if (OperatingSystem.IsAndroid()) return;
+        var command = Application.Current?.PlatformSettings?.HotkeyConfiguration.CommandModifiers ?? (OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control);
+        var name = PasteKeyName(command);
+        var lines = PastedTexts.Lines(text);
+        var hint = $"Press {name}+V again to paste {(lines == 1 ? "all of it" : $"all {lines} lines")}. {name}+Shift+V pastes plain text.";
+        pasteHint = pasteNote.Text = hint;
+        pasteNote.IsVisible = true;
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (collapsedPaste is { } now && now.Tick == tick) ResetPasteAgain();
+        }, PasteAgainWindow);
+    }
+
+    private string? pasteHint;
+
+    // Ends the double-paste window and takes its hint off the note.
+    private void ResetPasteAgain()
+    {
+        collapsedPaste = null;
+        if (pasteHint is null) return;
+        if (pasteNote.Text == pasteHint) pasteNote.IsVisible = false;
+        pasteHint = null;
     }
 
     /// <summary>Removes the whole pasted-text token before the caret (Backspace) or after it (Delete); false when there is none.</summary>
@@ -1415,6 +1461,7 @@ internal sealed partial class ChatView
         var caret = input.CaretIndex;
         var previous = lastCaret;
         lastCaret = caret;
+        if (collapsedPaste is { } pasted && caret != pasted.End) ResetPasteAgain();
         if (input.SelectionStart != input.SelectionEnd || Pasted?.At(input.Text ?? "", caret) is not { } token || caret == token.Start || caret == token.End) return;
         var target = caret > previous && previous >= token.Start ? token.End : token.Start;
         input.SelectionStart = input.SelectionEnd = input.CaretIndex = lastCaret = target;
