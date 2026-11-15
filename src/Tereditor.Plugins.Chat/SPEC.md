@@ -45,6 +45,10 @@ bash mode only then (a leading `!` is plain text otherwise). `chatRunShell` star
 for a failure, the exit code (`stopped` when the user ended it). `chatStopShell` ends the running command. Only one command of a chat runs at a time.
 The finished cards are not a turn: the host carries them in front of the user's next message.
 
+## Failure card action
+
+A `ChatNoticeItem` of category `failure` may carry an `Action` (`ChatNoticeAction`: a `Label` and a `Command`). The view draws it as a button on the card. Pressing it opens a terminal that runs the command, for example a sign-in the user starts. Android and the browser draw no button, because they have no terminal to open. A card with no `Action` is unchanged.
+
 ## Side questions
 
 A host may answer `/btw <question>` itself: it shows a `ChatNoticeItem` of category `side-answer` whose `Label` is the question, `Text`
