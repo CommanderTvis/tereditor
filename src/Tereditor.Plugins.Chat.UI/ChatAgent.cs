@@ -8,6 +8,8 @@ internal sealed record ChatAgent(string Name, string Short, string Scheme, strin
 {
     /// <summary>The agent's kind in a terminal tab's agent record (<c>claude</c>), so a session a terminal already runs is not resumed here.</summary>
     public string TerminalKind { get; init; } = "";
+    /// <summary>Whether the editor selection or open file goes out as a chip the host turns into content (an attachment of kind "selection" or "file"), instead of an <c>@path#Lstart-end</c> mention in the prompt text. For an agent that does not read that mention.</summary>
+    public bool StructuredContext { get; init; }
     /// <summary>Where the "View help docs" action goes; null omits it.</summary>
     public string? HelpUrl { get; init; }
     /// <summary>The end of the message shown when the host has no chat handler; the first sentence is fixed.</summary>

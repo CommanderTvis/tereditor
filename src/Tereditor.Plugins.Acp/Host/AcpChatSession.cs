@@ -262,24 +262,19 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
 
     public async Task SendAsync(string text, IReadOnlyList<ChatAttachment>? attachments)
     {
-        var content = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = text });
-        foreach (var attachment in attachments ?? [])
-        {
-            if (attachment.Data is { Length: > 0 } data && attachment.MediaType?.StartsWith("image/", StringComparison.Ordinal) == true && agent is { Image: true })
-                content.Add((JsonNode)new JsonObject { ["type"] = "image", ["data"] = Convert.ToBase64String(data), ["mimeType"] = attachment.MediaType });
-            else if (attachment.Path.Length > 0)
-                content.Add((JsonNode)new JsonObject { ["type"] = "resource_link", ["name"] = attachment.Name, ["uri"] = new Uri(Path.GetFullPath(attachment.Path, cwd)).AbsoluteUri });
-        }
         var active = client ?? throw new InvalidOperationException("The agent is not running.");
         var id = sessionId ?? throw new InvalidOperationException("The agent has no session yet.");
+        // Reading files and asking Git happen here, off the lock.
+        var prompt = await AcpPromptBuilder.BuildAsync(text, attachments, agent, cwd, lifetime.Token);
         lock (gate)
         {
             if (folder.Header.Status is ChatStatus.Running or ChatStatus.AwaitingPermission) throw new InvalidOperationException("Wait for the agent to finish its turn, or interrupt it.");
             folder.AddUser(text, attachments);
+            foreach (var (level, note) in prompt.Notices) folder.Notice(level, note);
             folder.SetStatus(ChatStatus.Running);
             FlushNow();
         }
-        _ = Task.Run(() => TurnAsync(active, id, content));
+        _ = Task.Run(() => TurnAsync(active, id, prompt.Content));
     }
 
     private async Task TurnAsync(AcpClient active, string id, JsonArray content)

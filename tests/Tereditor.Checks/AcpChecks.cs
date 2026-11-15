@@ -204,6 +204,97 @@ internal static class AcpChecks
         Require(future.Header is { Status: ChatStatus.Failed, Error: { } reason } && reason.Contains("version 2", StringComparison.Ordinal), "A protocol mismatch fails the chat and says which version the agent speaks.");
     }
 
+    // What the agent receives for the editor's selection, a preview's selection, picked files and folders, images and the editor's context.
+    internal static async Task Prompts(string root)
+    {
+        var workspace = Path.Combine(root, "workspace");
+        var outside = Path.Combine(root, "outside");
+        Directory.CreateDirectory(Path.Combine(workspace, "src"));
+        Directory.CreateDirectory(Path.Combine(workspace, "docs"));
+        Directory.CreateDirectory(Path.Combine(workspace, "secrets"));
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(workspace, "src", "a.txt"), "one\ntwo\nthree\nfour");
+        File.WriteAllText(Path.Combine(workspace, "docs", "readme.md"), "# Title\n\nSome *rendered* text.");
+        File.WriteAllText(Path.Combine(workspace, "big.log"), new string('x', 300_000));
+        File.WriteAllText(Path.Combine(workspace, "secrets", "key.txt"), "hunter2");
+        File.WriteAllText(Path.Combine(workspace, ".gitignore"), "secrets/\n");
+        File.WriteAllText(Path.Combine(outside, "other.txt"), "elsewhere");
+        using (var init = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git", ["init", "-q", workspace]) { RedirectStandardError = true, UseShellExecute = false })!) await init.WaitForExitAsync();
+        string Full(string relative) => Path.Combine(workspace, relative);
+        string Uri(string path) => new Uri(path).AbsoluteUri;
+
+        async Task<(JsonArray Prompt, ChatNoticeItem[] Notices, ChatUserItem User)> Send(AcpFakeAgent agent, string text, params ChatAttachment[] attachments)
+        {
+            await using var session = new AcpChatSession("ws", "prompts", workspace, () => Task.FromResult<IAcpTransport>(new FakeTransport(agent)), _ => { }, _ => { });
+            session.Begin();
+            await session.StartAsync(null);
+            await session.SendAsync(text, attachments);
+            await Until(() => session.Header.Status == ChatStatus.Idle && agent.Last.ContainsKey("session/prompt"), "The prompt reaches the agent and the turn ends.");
+            var items = Items(session);
+            JsonArray prompt;
+            lock (agent.Last) prompt = (JsonArray)agent.Last["session/prompt"]!["prompt"]!;
+            return (prompt, [.. items.OfType<ChatNoticeItem>()], items.OfType<ChatUserItem>().Single());
+        }
+        string Types(JsonArray prompt) => string.Join(",", prompt.Select(block => block!["type"]!.GetValue<string>()));
+        var selection = new ChatAttachment("a.txt:2-3", "src/a.txt") { Kind = "selection", StartLine = 2, EndLine = 3 };
+
+        // A selection in an editor is embedded text with its range in the label, when the agent takes embedded context.
+        var (prompt, notices, user) = await Send(new AcpFakeAgent(), "explain", selection);
+        Require(Types(prompt) == "text,resource" && prompt[0]!["text"]!.GetValue<string>() == "explain", "A selection follows the text as one embedded resource.");
+        var resource = prompt[1]!["resource"]!;
+        Require(resource["uri"]!.GetValue<string>() == Uri(Full("src/a.txt")) && resource["text"]!.GetValue<string>() == "src/a.txt:2-3\ntwo\nthree" && notices.Length == 0, $"The resource names the file by its host path and the range, and holds exactly those lines ({resource}).");
+        Require(prompt[1]!["_meta"]!["tereditor"]!["startLine"]!.GetValue<int>() == 2 && prompt[1]!["_meta"]!["tereditor"]!["endLine"]!.GetValue<int>() == 3, "The range also rides in _meta.");
+        Require(user.Attachments is [{ Name: "a.txt:2-3" }], "The sent message keeps the chip, so the bubble shows it.");
+
+        // Without embedded context the selection is a link and the lines are a fenced block in the text: nothing is dropped.
+        (prompt, _, _) = await Send(new AcpFakeAgent { EmbeddedContext = false }, "explain", selection);
+        Require(Types(prompt) == "text,resource_link,text" && prompt[1]!["uri"]!.GetValue<string>() == Uri(Full("src/a.txt")) && prompt[1]!["name"]!.GetValue<string>() == "src/a.txt:2-3" && prompt[2]!["text"]!.GetValue<string>() == "src/a.txt:2-3\n```\ntwo\nthree\n```", $"Without embedded context the selection is a link plus a fenced block ({prompt}).");
+
+        // Text selected in a rendered preview has no source lines: its text goes with the file.
+        var quoted = new ChatAttachment("readme.md (selected text)", "docs/readme.md") { Kind = "selection", Quote = "Some rendered text." };
+        (prompt, _, _) = await Send(new AcpFakeAgent(), "what is this", quoted);
+        Require(Types(prompt) == "text,resource" && prompt[1]!["resource"]!["text"]!.GetValue<string>() == "docs/readme.md (selected text)\nSome rendered text." && prompt[1]!["resource"]!["uri"]!.GetValue<string>() == Uri(Full("docs/readme.md")), "A preview selection is the selected text under the source file.");
+        (prompt, _, _) = await Send(new AcpFakeAgent { EmbeddedContext = false }, "what is this", quoted);
+        Require(Types(prompt) == "text,resource_link,text" && prompt[2]!["text"]!.GetValue<string>().Contains("Some rendered text.", StringComparison.Ordinal), "A preview selection reaches an agent without embedded context as a fenced block.");
+
+        // A picked file and a picked folder are links to their host paths; a large file is linked with its size, never embedded.
+        (prompt, _, _) = await Send(new AcpFakeAgent(), "look", new ChatAttachment("a.txt", Full("src/a.txt")), new ChatAttachment("docs", Full("docs")), new ChatAttachment("big.log", Full("big.log")));
+        Require(Types(prompt) == "text,resource_link,resource_link,resource_link", "Files and folders are resource links.");
+        Require(prompt[1]!["uri"]!.GetValue<string>() == Uri(Full("src/a.txt")) && prompt[1]!["name"]!.GetValue<string>() == "a.txt", "A file link carries its URI and name.");
+        Require(prompt[2]!["uri"]!.GetValue<string>() == Uri(Full("docs")) + "/" && prompt[2]!["name"]!.GetValue<string>() == "docs/", $"A folder link ends with a slash ({prompt[2]}).");
+        Require(prompt[3]!["size"]!.GetValue<long>() == 300_000, "A large file is linked with its size.");
+
+        // A typed @path inside the workspace is a link, with a range an excerpt; one outside the workspace stays text.
+        (prompt, _, _) = await Send(new AcpFakeAgent(), $"see @src/a.txt and @src/a.txt#L1-2 and @\"{Path.Combine(outside, "other.txt")}\" now");
+        Require(Types(prompt) == "text,resource_link,resource" && prompt[2]!["resource"]!["text"]!.GetValue<string>() == "src/a.txt:1-2\none\ntwo", $"Mentions inside the workspace become a link and an excerpt, one outside nothing ({prompt}).");
+
+        // An image goes inline only when the agent takes images; otherwise a file is linked and a paste is reported, and the prompt still goes.
+        var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=");
+        var picked = new ChatAttachment("p.png", Full("p.png")) { Kind = "image", Data = png, MediaType = "image/png" };
+        var pasted = new ChatAttachment("pasted-1.png", "") { Kind = "image", Data = png, MediaType = "image/png" };
+        File.WriteAllBytes(Full("p.png"), png);
+        (prompt, notices, _) = await Send(new AcpFakeAgent(), "see", picked, pasted);
+        Require(Types(prompt) == "text,image,image" && prompt[1]!["mimeType"]!.GetValue<string>() == "image/png" && prompt[1]!["data"]!.GetValue<string>() == Convert.ToBase64String(png) && notices.Length == 0, "Images are inline blocks for an agent that takes them.");
+        (prompt, notices, _) = await Send(new AcpFakeAgent { Image = false }, "see", picked, pasted);
+        Require(Types(prompt) == "text,resource_link" && prompt[1]!["uri"]!.GetValue<string>() == Uri(Full("p.png")), "Without image support a picked image is linked.");
+        Require(notices.Length == 2 && notices[0].Level == ChatNoticeLevel.Warning && notices[0].Text.Contains("p.png", StringComparison.Ordinal) && notices[1].Text.Contains("pasted-1.png was not sent", StringComparison.Ordinal), $"Each image the agent cannot take is explained in the chat ({string.Join(" | ", notices.Select(n => n.Text))}).");
+
+        // A selection larger than the cap is a link with its range and a note, not a silent cut.
+        File.WriteAllText(Full("lines.txt"), string.Join('\n', Enumerable.Repeat(new string('y', 99), 2000)));
+        (prompt, notices, _) = await Send(new AcpFakeAgent(), "big", new ChatAttachment("lines.txt:1-2000", "lines.txt") { Kind = "selection", StartLine = 1, EndLine = 2000 });
+        Require(Types(prompt) == "text,resource_link" && prompt[1]!["name"]!.GetValue<string>() == "lines.txt:1-2000" && notices.Single().Text.Contains("too large", StringComparison.Ordinal), "A selection over the cap is linked with its range and the user is told.");
+
+        // The editor's own context: the open file is a link; a file outside the workspace or one the project ignores is left out and said so.
+        (prompt, notices, _) = await Send(new AcpFakeAgent(), "go", new ChatAttachment("a.txt", "src/a.txt") { Kind = "file" });
+        Require(Types(prompt) == "text,resource_link" && prompt[1]!["uri"]!.GetValue<string>() == Uri(Full("src/a.txt")) && notices.Length == 0, "The open file is a link.");
+        (prompt, notices, _) = await Send(new AcpFakeAgent(), "go", new ChatAttachment("other.txt", Path.Combine(outside, "other.txt")) { Kind = "file" }, new ChatAttachment("other.txt:1-1", Path.Combine(outside, "other.txt")) { Kind = "selection", StartLine = 1, EndLine = 1 });
+        Require(Types(prompt) == "text" && notices.Length == 2 && notices.All(n => n.Text.Contains("outside the workspace", StringComparison.Ordinal)), "Editor context outside the workspace is not attached without a pick.");
+        (prompt, notices, _) = await Send(new AcpFakeAgent(), "go", new ChatAttachment("key.txt", Full("secrets/key.txt")) { Kind = "file" });
+        Require(Types(prompt) == "text" && notices.Single().Text.Contains("ignores", StringComparison.Ordinal), "A file the project ignores is not attached as editor context.");
+        (prompt, _, _) = await Send(new AcpFakeAgent(), "go", new ChatAttachment("other.txt", Path.Combine(outside, "other.txt")), new ChatAttachment("key.txt", Full("secrets/key.txt")));
+        Require(Types(prompt) == "text,resource_link,resource_link", "A file the user picks is attached even outside the workspace or under an ignore rule.");
+    }
+
     private static async Task<(AcpChatSession Session, AcpFakeAgent Agent)> Started(AcpOffer offer)
     {
         var agent = new AcpFakeAgent(offer: offer);
@@ -868,6 +959,8 @@ internal static class AcpChecks
         Logo();
         await Protocol();
         await Session();
+        Directory.CreateDirectory(root);
+        await Prompts(Path.Combine(root, "prompts"));
         await Pickers();
         await Approvals();
         Directory.CreateDirectory(root);

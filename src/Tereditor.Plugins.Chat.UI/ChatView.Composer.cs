@@ -479,22 +479,8 @@ internal sealed partial class ChatView
         catch (Exception error) when (error is not OperationCanceledException) { env.Notify(PluginNotificationKind.Error, "Couldn't open the file picker", ChatErrors.Text(error)); }
     }
 
-    /// <summary>A finished <c>@path</c>, <c>@"path with spaces"</c> or either followed by <c>#L10-20</c>: what the composer shows as a chip.</summary>
-    internal static readonly System.Text.RegularExpressions.Regex MentionPattern = new(@"(?<=^|\s)@(?:""(?<q>[^""]*)""|(?<p>[^\s""]+))(?<r>#L\d+(?:-\d+)?)?(?=\s)", System.Text.RegularExpressions.RegexOptions.Compiled);
-
     /// <summary>The mentions in a text as (label, range text, the span in the text), the range split off an unquoted path.</summary>
-    internal static IReadOnlyList<(string Path, string Range, int Start, int Length)> Mentions(string text)
-    {
-        var found = new List<(string, string, int, int)>();
-        foreach (System.Text.RegularExpressions.Match match in MentionPattern.Matches(text))
-        {
-            var path = match.Groups["q"].Success ? match.Groups["q"].Value : match.Groups["p"].Value;
-            var range = match.Groups["r"].Success ? match.Groups["r"].Value : "";
-            if (range.Length == 0 && System.Text.RegularExpressions.Regex.Match(path, @"#L\d+(?:-\d+)?$") is { Success: true } tail) { range = tail.Value; path = path[..^range.Length]; }
-            found.Add((path, range, match.Index, match.Length));
-        }
-        return found;
-    }
+    internal static IReadOnlyList<(string Path, string Range, int Start, int Length)> Mentions(string text) => ChatMentions.Parse(text);
 
     private void UpdateMentions()
     {
@@ -961,10 +947,10 @@ internal sealed partial class ChatView
         }
         // An image still being read from disk is waited for, so it goes out with the message.
         if (attachmentLoads.Count > 0) { await Task.WhenAll(attachmentLoads.ToArray()); attachmentLoads.Clear(); }
-        var sent = attachments.ToArray();
-        text = WithEditorContext(text);
+        var sent = attachments.ToList();
+        text = WithEditorContext(text, sent);
         await FlushDraft();
-        if (await SendText(text, sent.Length > 0 ? sent : null, draft: true))
+        if (await SendText(text, sent.Count > 0 ? sent : null, draft: true))
         {
             var history = Histories.TryGetValue((workspaceId, chatId), out var existing) ? existing : Histories[(workspaceId, chatId)] = [];
             if (text.Length > 0) { history.Add(text); RememberPrompt(text); }

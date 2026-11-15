@@ -71,6 +71,15 @@ internal sealed record ChatSelection(string Path, int StartLine, int EndLine, bo
     /// <summary>The selected text when it maps to no source lines (a rendered preview): the prompt quotes it instead of naming lines.</summary>
     public string? Quote { get; init; }
 
+    /// <summary>The same context as a chip the host turns into content: "selection" with its range or quote, or "file" for the open file alone.</summary>
+    public ChatAttachment ToAttachment()
+    {
+        var name = System.IO.Path.GetFileName(Path);
+        if (Quote is not null) return new ChatAttachment(name + " (selected text)", Path) { Kind = "selection", Quote = Quote };
+        if (HasRange) return new ChatAttachment($"{name}:{StartLine}-{EndLine}", Path) { Kind = "selection", StartLine = StartLine, EndLine = EndLine };
+        return new ChatAttachment(name, Path) { Kind = "file" };
+    }
+
     /// <summary>The <c>@path#Lstart-end</c> mention the extension's at_mentioned carries.</summary>
     public string Mention() => "@" + TerminalFacts.QuoteAttachPath(Path) + (HasRange ? $"#L{StartLine}-{EndLine}" : "") + (Quote is { } quote ? "\n> " + quote.ReplaceLineEndings("\n").Replace("\n", "\n> ") : "");
 }
@@ -613,7 +622,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
 
     private string? lastMention;
 
-    internal string WithEditorContext(string text)
+    internal string WithEditorContext(string text, List<ChatAttachment>? structured = null)
     {
         // A /btw side question must stay first to be one; it is answered from the conversation, not from the editor.
         if (ChatContract.SideQuestion(text) is not null) return text;
@@ -621,6 +630,8 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         var mention = selection.Mention();
         lastMention = mention;
         RefreshSelectionChip();
+        // An agent that does not read the mention gets the context as a chip the host turns into content.
+        if (env.Agent.StructuredContext && structured is not null) { structured.Add(selection.ToAttachment()); return text; }
         return mention + (selection.Quote is null ? " " : "\n\n") + text;
     }
 
