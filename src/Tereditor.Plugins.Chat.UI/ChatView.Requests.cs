@@ -184,7 +184,7 @@ internal sealed partial class ChatView
         {
             choices.Add(Choice("ChatPermYes", "1", "Yes, and auto-accept", () => _ = AnswerPermission(item, true, planMode: "acceptEdits"), true));
             choices.Add(Choice("ChatPermManual", "2", "Yes, and manually approve edits", () => _ = AnswerPermission(item, true, planMode: "default")));
-            choices.Add(Choice("ChatPermNo", "3", string.IsNullOrWhiteSpace(reasonBox.Text) ? "No, keep planning" : "Send feedback and keep planning", () => Reject(item)));
+            choices.Add(Choice("ChatPermNo", "3", string.IsNullOrWhiteSpace(reasonBox!.Text) ? "No, keep planning" : "Send feedback and keep planning", () => Reject(item)));
         }
         else
         {
