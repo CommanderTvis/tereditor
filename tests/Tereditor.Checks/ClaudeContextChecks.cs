@@ -264,6 +264,7 @@ internal static class ClaudeContextChecks
             "With every MCP tool deferred the MCP tools row stays, at 0 loaded with the deferred total in its tip, listing its servers \"if loaded\" and their tools.");
         BaselineLineLayout();
         CapabilityTree();
+        PluginPartsTree();
         Require(rows.Single(row => row.Key == "skills").Children.Select(skill => skill.Label).SequenceEqual(["dataviz", "example:review", "tidy"]),
             "Skills open into each skill, heaviest first.");
 
@@ -475,5 +476,49 @@ internal static class ClaudeContextChecks
         surface.Actions(projectSkill)[1].Run();
         Require(host.Calls.SequenceEqual(["moveskill ponytail project", "moveskill synced user"]), "The move entries reach the pane with the target scope.");
         Console.WriteLine("PASS Claude Code capabilities: marketplaces and their plugins form one tree with the Instructions connectors, fold, and keep their menus");
+    }
+
+    // A plugin row says what it adds in a count line and, opened, lists the parts by kind under it, each opening its file.
+    private static void PluginPartsTree()
+    {
+        ClaudePluginPart[] parts =
+        [
+            new(ClaudePluginPartKind.Skill, "tools:alpha") { Description = "Does alpha", Path = "/cache/tools/skills/alpha/SKILL.md" },
+            new(ClaudePluginPartKind.Skill, "tools:beta"), new(ClaudePluginPartKind.Agent, "tools:helper") { Description = "Helps", Path = "/cache/tools/agents/helper.md" },
+            new(ClaudePluginPartKind.Mcp, "plugin:tools:gh") { Description = "http", Path = "/cache/tools/.mcp.json" }
+        ];
+        ClaudeCapability Plugin(string name, IReadOnlyList<ClaudePluginPart>? contents, bool on = true) =>
+            new(ClaudeCapabilityKind.Plugin, name, new(ClaudeConfigScope.User, "/home/.claude/settings.json") { KeyPath = ["enabledPlugins", name] }, on) { Detail = "market", Parts = contents };
+        IReadOnlyList<ClaudeCapability> capabilities =
+        [
+            new(ClaudeCapabilityKind.Marketplace, "market", new(ClaudeConfigScope.User, "/home/.claude/settings.json"), true) { Detail = "acme/market" },
+            Plugin("tools@market", parts), Plugin("off@market", [parts[0]], on: false), Plugin("gone@market", null), Plugin("bare@market", [])
+        ];
+        var host = new FakeCapabilityHost();
+        var surface = new ClaudeCapabilitiesSurface(host, capabilities);
+        var section = surface.View.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ClaudeCapabilitySection");
+        string[] Summaries() => [.. section.GetLogicalDescendants().OfType<TextBlock>().Where(text => text.Name is "ClaudePluginSummary" or "ClaudePluginMissing").Select(text => text.Text!)];
+        Require(Summaries().SequenceEqual(["2 skills, 1 agent, 1 MCP server", "1 skill", "Files not found", "Adds nothing"]),
+            "Each plugin row counts what it adds, and says so when its files are not found: " + string.Join(" | ", Summaries()));
+        var key = "plugin/tools@market";
+        StackPanel Panel(string id) => section.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ClaudeCapabilityChildren" && Equals(panel.Tag, id));
+        Require(!Panel(key).IsVisible && !Panel("plugin/off@market").IsVisible && !section.GetLogicalDescendants().OfType<StackPanel>().Any(panel => panel.Tag?.Equals("plugin/gone@market") == true),
+            "A plugin's parts start folded, and a plugin with nothing to list has no panel.");
+        surface.Toggle(key);
+        Require(Panel(key).IsVisible && host.Collapsed.Contains(key), "A click on the plugin opens its parts and the pane remembers it.");
+        string[] Headings() => [.. Panel(key).GetLogicalDescendants().OfType<TextBlock>().Where(text => text.Name == "ClaudePluginKind").Select(text => text.Text!)];
+        string[] Names() => [.. Panel(key).GetLogicalDescendants().OfType<StackPanel>().Where(panel => panel.Name == "ClaudePluginPart").Select(panel => ((ClaudePluginPart)panel.Tag!).Name)];
+        Require(Headings().SequenceEqual(["Skills · 2", "Agents · 1", "MCP servers · 1"]) && Names().SequenceEqual(["tools:alpha", "tools:beta", "tools:helper", "plugin:tools:gh"]),
+            "The parts are grouped by kind in a fixed order, with their names as Claude Code shows them.");
+        Require(Panel(key).GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "Does alpha") &&
+            Panel(key).GetLogicalDescendants().OfType<Button>().Count(button => button.Name == "ClaudeOpenSource") == 3, "A part shows its description and a source button where it has a file.");
+        var connectors = Panel(key).GetLogicalDescendants().OfType<Grid>().Where(grid => grid.Name == "ClaudeContextConnector").Select(grid => (string)grid.Tag!).ToArray();
+        Require(connectors.SequenceEqual(["tee", "tee", "last", "tee", "last", "last", "last"]),
+            "Headings and parts hang from the plugin by the shared connectors: " + string.Join(",", connectors));
+        surface.Toggle("plugin/off@market");
+        Require(Math.Abs(Panel("plugin/off@market").Opacity - 0.55) < 0.01 && Panel(key).Opacity == 1, "A disabled plugin's parts are drawn greyed.");
+        var reopened = new ClaudeCapabilitiesSurface(host, capabilities).View.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ClaudeCapabilityChildren" && Equals(panel.Tag, key));
+        Require(reopened.IsVisible, "An open plugin is drawn open after a redraw.");
+        Console.WriteLine("PASS Claude Code plugin tree: a plugin row counts what it adds and opens into its parts by kind, greyed when off");
     }
 }

@@ -224,7 +224,7 @@ internal static partial class ClaudeResolver
         return marketplaces;
     }
 
-    private static List<ClaudeCapability> CollectPlugins(IReadOnlyList<ScopedDocument> documents)
+    private static List<ClaudeCapability> CollectPlugins(string root, IReadOnlyList<ScopedDocument> documents)
     {
         var plugins = new List<ClaudeCapability>();
         var seen = new HashSet<string>();
@@ -237,7 +237,7 @@ internal static partial class ClaudeResolver
                 var marketplace = name.Split('@') is { Length: > 1 } parts && parts[1].Length > 0 ? parts[1] : null;
                 var origin = document.Origin with { KeyPath = ["enabledPlugins", name] };
                 var isOn = Json.IsTrue(on);
-                plugins.Add(new(ClaudeCapabilityKind.Plugin, name, origin, isOn) { Detail = marketplace, DisabledBy = isOn ? null : origin });
+                plugins.Add(new(ClaudeCapabilityKind.Plugin, name, origin, isOn) { Detail = marketplace, DisabledBy = isOn ? null : origin, Parts = PluginParts.Read(name, root) });
             }
         }
         return plugins;
@@ -256,7 +256,11 @@ internal static partial class ClaudeResolver
         void Add(string? path) { if (path is not null && !allowed.Contains(path)) allowed.Add(path); }
         foreach (var entry in snapshot.Inspected) Add(entry.Path);
         foreach (var layer in snapshot.Context) Add(layer.Path);
-        foreach (var capability in snapshot.Capabilities) Add(capability.Origin.Path);
+        foreach (var capability in snapshot.Capabilities)
+        {
+            Add(capability.Origin.Path);
+            foreach (var part in capability.Parts ?? []) Add(part.Path);
+        }
         foreach (var setting in snapshot.Settings)
         {
             Add(setting.Origin.Path);
@@ -268,11 +272,16 @@ internal static partial class ClaudeResolver
     private static string AllowedPath(string workspaceId, string root, string path, IReadOnlyList<string>? promptFiles) =>
         FilePaths(workspaceId, root, promptFiles).Contains(path) ? path : throw new InvalidOperationException("Not a file this workspace's Claude configuration reports");
 
+    // The files a plugin ships open for reading; Claude Code installs and updates them, so they are never written from here.
+    private static bool IsPluginFile(string workspaceId, string root, string path, IReadOnlyList<string>? promptFiles) =>
+        Resolve(workspaceId, root, promptFiles).Capabilities.Any(capability => capability.Parts?.Any(part => part.Path == path) == true);
+
     public static FileContent ReadFile(string workspaceId, string root, string path, IReadOnlyList<string>? promptFiles = null) =>
         TextFile.Read(AllowedPath(workspaceId, root, path, promptFiles));
 
     public static FileWriteResult WriteFile(string workspaceId, string root, string path, string content, string baseHash, IReadOnlyList<string>? promptFiles = null) =>
         GeneratedInstructions.Owns(path) ? throw new UnauthorizedAccessException(GeneratedInstructions.Notice)
+            : IsPluginFile(workspaceId, root, path, promptFiles) ? throw new UnauthorizedAccessException("A plugin's files belong to Claude Code's plugin cache and are read-only here")
             : TextFile.Write(AllowedPath(workspaceId, root, path, promptFiles), content, baseHash);
 
     public static ClaudeConfigSnapshot Resolve(string workspaceId, string root, IReadOnlyList<string>? promptFiles = null)
@@ -285,7 +294,7 @@ internal static partial class ClaudeResolver
         return new(workspaceId, root,
             CollectContext(root, promptFiles ?? []),
             [.. SettingsMerge.Resolve(documents).Select(entry => ClaudeSettingsReference.Url(entry.Key) is { } url ? entry with { DocsUrl = url } : entry)],
-            [.. CollectCapabilities(root, documents), .. CollectPlugins(documents), .. CollectMarketplaces(documents), .. CollectHooks(documents)],
+            [.. CollectCapabilities(root, documents), .. CollectPlugins(root, documents), .. CollectMarketplaces(documents), .. CollectHooks(documents)],
             DetectProblems(inspected),
             inspected,
             ClaudeSettingsReference.Keys);

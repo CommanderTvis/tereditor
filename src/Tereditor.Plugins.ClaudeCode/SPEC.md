@@ -360,6 +360,26 @@ plugin shows once. Marketplaces keep their listed order, plugins theirs. A click
 children and its stem; the pane remembers which parents are folded until the workspace changes. A
 plugin under its marketplace does not repeat the marketplace name. Capability rows show no token counts.
 
+A plugin row says what the plugin adds. The host reads the plugin's install folder (`installed_plugins.json` names
+it; the entry for the project wins, then the user's) and lists its parts in `ClaudeCapability.Parts`: skills,
+commands, agents, hooks, MCP servers, LSP servers, output styles, workflows, themes and monitors. It reads the default
+folders and files (`skills/`, `commands/`, `agents/`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`, `output-styles/`,
+`workflows/`, `themes/`, `monitors/monitors.json`), the paths and inline values in `.claude-plugin/plugin.json`
+(a path replaces or adds to the default as the plugin reference says), and the servers a marketplace entry declares
+inline. A path must stay inside the plugin folder; links, `..` and absolute paths are ignored. Files are only read,
+never run. A JSON file over 512 KB is skipped, a Markdown file over 1 MB is listed with no description, and a plugin
+lists at most 500 parts. Names are the ones Claude Code shows (`plugin:skill`, `plugin:plugin:server`). A skill,
+command, agent or output style shows its frontmatter `description` on one line. A hook shows its event, matcher and
+type, never its command. An MCP server shows its name and transport, an LSP server its file types. No env value,
+header, argument or token is ever sent to the pane. Not listed: `bin/` executables, channels, user configuration and
+`.mcpb` bundles. `Parts` is null when the files are not found; the row then says "Files not found". The wire change
+is the new `Parts` field and the `ClaudePluginPart` and `ClaudePluginPartKind` types.
+
+The plugin row shows a count line ("12 skills, 3 agents") and folds, shut by default. Opened, it shows one heading
+row per kind ("Skills · 12") with the parts below, each with its name, description and a button that opens the file
+that declares it, through the same viewer as other capability files. A disabled plugin's parts are drawn greyed.
+Plugin files are readable through the pane but never written from it.
+
 A skill row's menu offers "Move to project…" on a user skill (only when a project is open) and "Move to user…" on a
 project skill, after "Turn off". Skills here are folders in `~/.claude/skills` or `<project>/.claude/skills`; skills
 from plugins or managed settings are not listed as folders and cannot be moved. The pane asks the host (`skillMovePlan`)

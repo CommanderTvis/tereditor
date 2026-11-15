@@ -1517,6 +1517,7 @@ internal static class ClaudeCodeChecks
             "A CLI whose help cannot be read gets the fallback modes.");
         await IdeProtocol(runtime, project);
         await ConfigCases(runtime, state, project, directory);
+        PluginPartCases(directory);
         await Skills();
         await CodeIntelHooks();
         await LanguageToolHooks();
@@ -2004,6 +2005,97 @@ internal static class ClaudeCodeChecks
             File.ReadAllText(Path.Combine(user, "faulty", "b.txt")) == "b" && Directory.Exists(Path.Combine(user, "faulty", "c")) && !Path.Exists(Path.Combine(local, "faulty")) &&
             !Directory.EnumerateFileSystemEntries(local, ".moving-*").Any(), "A failed copy keeps the original whole and leaves neither the target nor a partial copy.");
         Console.WriteLine("PASS Claude Code skills: a skill folder moves between user and project scope, refuses overwrites, plugin skills and broken links, and a failed copy leaves no trace");
+    }
+
+    /// <summary>
+    /// A plugin lists what it adds, read from a fake plugin cache: default folders, the manifest's own paths, a marketplace
+    /// entry that declares servers inline, missing files, a file over the cap and a disabled plugin. Nothing secret leaves.
+    /// </summary>
+    private static void PluginPartCases(string directory)
+    {
+        const string Secret = "ghp_SECRETTOKEN123";
+        var home = Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR")!;
+        var cache = Path.Combine(directory, "plugin-cache");
+        static void Write(string path, string text)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, text);
+        }
+        var full = Path.Combine(cache, "full");
+        Write(Path.Combine(full, ".claude-plugin", "plugin.json"), JsonSerializer.Serialize(new JsonObject
+        {
+            ["name"] = "full",
+            ["skills"] = new JsonArray("./extra/skills", "../outside"),
+            ["commands"] = "./cmds",
+            ["agents"] = new JsonArray("./custom/agents/helper.md"),
+            ["outputStyles"] = "./styles",
+            ["lspServers"] = "./lsp/servers.json",
+            ["mcpServers"] = new JsonObject { ["inline-srv"] = new JsonObject { ["type"] = "sse", ["url"] = "https://example.test/?key=" + Secret } },
+            ["hooks"] = new JsonObject { ["PreToolUse"] = new JsonArray(new JsonObject { ["matcher"] = "Bash", ["hooks"] = new JsonArray(new JsonObject { ["type"] = "command", ["command"] = "echo " + Secret }) }) }
+        }));
+        Write(Path.Combine(full, "skills", "alpha", "SKILL.md"), "---\nname: alpha\ndescription: \"Alpha does a thing\"\n---\nbody\n");
+        Write(Path.Combine(full, "skills", "beta", "SKILL.md"), "---\ndescription: >\n  Beta folds\n  two lines\n---\n");
+        Write(Path.Combine(full, "skills", "huge", "SKILL.md"), "---\ndescription: never read\n---\n" + new string('x', 1100 * 1024));
+        Write(Path.Combine(full, "extra", "skills", "gamma", "SKILL.md"), "---\ndescription: From a manifest path\n---\n");
+        Write(Path.Combine(directory, "plugin-cache", "outside", "evil", "SKILL.md"), "---\ndescription: Outside the plugin\n---\n");
+        Write(Path.Combine(full, "commands", "ignored.md"), "---\ndescription: the manifest replaces this folder\n---\n");
+        Write(Path.Combine(full, "cmds", "deploy.md"), "---\ndescription: Ship it\n---\n");
+        Write(Path.Combine(full, "agents", "ignored.md"), "---\ndescription: replaced\n---\n");
+        Write(Path.Combine(full, "custom", "agents", "helper.md"), "---\nname: helper\ndescription: Helps out\n---\n");
+        Write(Path.Combine(full, "hooks", "hooks.json"), "{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"echo " + Secret + "\"}]}]}}");
+        Write(Path.Combine(full, ".mcp.json"), "{\"mcpServers\":{\"gh\":{\"type\":\"http\",\"url\":\"https://api.example.test/\",\"headers\":{\"Authorization\":\"Bearer " + Secret + "\"}},"
+            + "\"local\":{\"command\":\"node\",\"args\":[\"--token=" + Secret + "\"],\"env\":{\"API_KEY\":\"" + Secret + "\"}}}}");
+        Write(Path.Combine(full, ".lsp.json"), "{\"ts\":{\"command\":\"tsls\",\"env\":{\"K\":\"" + Secret + "\"},\"extensionToLanguage\":{\".ts\":\"typescript\",\".tsx\":\"typescriptreact\"}}}");
+        Write(Path.Combine(full, "lsp", "servers.json"), "{\"go\":{\"command\":\"gopls\",\"extensionToLanguage\":{\".go\":\"go\"}}}");
+        Write(Path.Combine(full, "styles", "terse.md"), "---\nname: Terse\ndescription: Short answers\n---\n");
+        Write(Path.Combine(full, "output-styles", "ignored.md"), "---\ndescription: replaced\n---\n");
+        var off = Path.Combine(cache, "off");
+        Write(Path.Combine(off, "skills", "quiet", "SKILL.md"), "---\ndescription: Switched off with its plugin\n---\n");
+        var empty = Path.Combine(cache, "empty");
+        Directory.CreateDirectory(empty);
+        string Entry(string path) => "[{\"scope\":\"user\",\"installPath\":" + JsonSerializer.Serialize(path) + "}]";
+        Write(Path.Combine(home, "plugins", "installed_plugins.json"), "{\"version\":2,\"plugins\":{\"full@fake-market\":" + Entry(full) + ",\"off@fake-market\":" + Entry(off)
+            + ",\"empty@fake-market\":" + Entry(empty) + ",\"gone@fake-market\":" + Entry(Path.Combine(cache, "not-there")) + ",\"lsponly@fake-market\":" + Entry(Path.Combine(cache, "lsponly")) + "}}");
+        Directory.CreateDirectory(Path.Combine(cache, "lsponly"));
+        Write(Path.Combine(home, "plugins", "marketplaces", "fake-market", ".claude-plugin", "marketplace.json"),
+            "{\"plugins\":[{\"name\":\"lsponly\",\"strict\":false,\"lspServers\":{\"rust\":{\"command\":\"ra\",\"extensionToLanguage\":{\".rs\":\"rust\"}}}}]}");
+
+        var parts = PluginParts.Read("full@fake-market", directory)!;
+        string[] Names(ClaudePluginPartKind kind) => [.. parts.Where(part => part.Kind == kind).Select(part => part.Name)];
+        Require(Names(ClaudePluginPartKind.Skill).OrderBy(name => name).SequenceEqual(["full:alpha", "full:beta", "full:gamma", "full:huge"]),
+            "Skills come from the default folder and the manifest's paths, named as Claude Code names them, and a path outside the plugin is ignored: " + string.Join(", ", Names(ClaudePluginPartKind.Skill)));
+        Require(parts.Single(part => part.Name == "full:alpha").Description == "Alpha does a thing" && parts.Single(part => part.Name == "full:beta").Description == "Beta folds two lines" &&
+            parts.Single(part => part.Name == "full:alpha").Path == Path.Combine(full, "skills", "alpha", "SKILL.md"), "A skill shows its frontmatter description on one line and opens its file.");
+        Require(parts.Single(part => part.Name == "full:huge").Description == "File too large to read", "A file over the cap is not read.");
+        Require(Names(ClaudePluginPartKind.Command).SequenceEqual(["full:deploy"]) && Names(ClaudePluginPartKind.Agent).SequenceEqual(["full:helper"]) &&
+            Names(ClaudePluginPartKind.OutputStyle).SequenceEqual(["full:Terse"]), "A manifest path replaces the default commands, agents and output-styles folders.");
+        Require(Names(ClaudePluginPartKind.Hook).OrderBy(name => name).SequenceEqual(["PreToolUse · Bash", "Stop"]) &&
+            parts.Where(part => part.Kind == ClaudePluginPartKind.Hook).All(part => part.Description == "command hook"), "Hooks show their event and type from the file and the manifest.");
+        Require(Names(ClaudePluginPartKind.Mcp).OrderBy(name => name).SequenceEqual(["plugin:full:gh", "plugin:full:inline-srv", "plugin:full:local"]) &&
+            parts.Single(part => part.Name == "plugin:full:gh").Description == "http" && parts.Single(part => part.Name == "plugin:full:local").Description == "stdio" &&
+            parts.Single(part => part.Name == "plugin:full:inline-srv").Description == "sse", "MCP servers show their name and transport only.");
+        Require(Names(ClaudePluginPartKind.Lsp).OrderBy(name => name).SequenceEqual(["plugin:full:go", "plugin:full:ts"]) &&
+            parts.Single(part => part.Name == "plugin:full:ts").Description == "language server for .ts, .tsx", "LSP servers show their name and file types from the default file and the manifest's.");
+        Require(!JsonSerializer.Serialize(parts).Contains(Secret, StringComparison.Ordinal) && !JsonSerializer.Serialize(parts).Contains("echo", StringComparison.Ordinal),
+            "No token, header, argument, env value or hook command appears in what a plugin lists.");
+        Require(PluginParts.Read("gone@fake-market", directory) is null && PluginParts.Read("unknown@fake-market", directory) is null && PluginParts.Read("empty@fake-market", directory) is { Count: 0 },
+            "A plugin whose files are missing lists nothing and says so; one that adds nothing lists an empty set.");
+        Require(PluginParts.Read("lsponly@fake-market", directory) is [{ Kind: ClaudePluginPartKind.Lsp, Name: "plugin:lsponly:rust" }],
+            "A server a marketplace entry declares inline is listed for a plugin with no files of its own.");
+
+        var project = Path.Combine(directory, "plugin-project");
+        Write(Path.Combine(project, ".claude", "settings.json"), "{\"enabledPlugins\":{\"full@fake-market\":true,\"off@fake-market\":false,\"gone@fake-market\":true}}");
+        var snapshot = ClaudeResolver.Resolve("plugin-ws", project);
+        var plugins = snapshot.Capabilities.Where(item => item.Kind == ClaudeCapabilityKind.Plugin).ToDictionary(item => item.Name);
+        Require(plugins["full@fake-market"].Parts is { Count: > 10 } && !plugins["off@fake-market"].Enabled && plugins["off@fake-market"].Parts is [{ Name: "off:quiet" }] &&
+            plugins["gone@fake-market"].Parts is null, "A snapshot carries the parts of every plugin, a disabled one included, and none for a plugin without files.");
+        var skillFile = Path.Combine(full, "skills", "alpha", "SKILL.md");
+        Require(ClaudeResolver.ReadFile("plugin-ws", project, skillFile).Content.Contains("body", StringComparison.Ordinal), "A plugin's file opens for reading.");
+        var refused = false;
+        try { ClaudeResolver.WriteFile("plugin-ws", project, skillFile, "changed", ClaudeResolver.ReadFile("plugin-ws", project, skillFile).Hash); }
+        catch (UnauthorizedAccessException) { refused = true; }
+        Require(refused && File.ReadAllText(skillFile).Contains("body", StringComparison.Ordinal), "A plugin's file is never written from the pane.");
+        Console.WriteLine("PASS Claude Code plugin contents: a plugin lists its skills, commands, agents, hooks, MCP and LSP servers and output styles without secrets, with missing files, a huge file and a disabled plugin");
     }
 
     private static async Task IdeProtocol(PluginRuntime runtime, string project)

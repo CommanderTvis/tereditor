@@ -26,11 +26,15 @@ internal interface IClaudeCapabilityHost
     void SetCollapsed(string key, bool collapsed);
 }
 
+/// <summary>A row that folds: its key, whether anything hangs under it, and whether it starts open (a marketplace does; a plugin, with its many parts, does not).</summary>
+internal sealed record ClaudeFold(string Key, bool HasChildren, bool DefaultOpen);
+
 /// <summary>A marketplace with the plugins installed from it; a null marketplace is the group of plugins whose marketplace is not listed.</summary>
 internal sealed record ClaudePluginGroup(ClaudeCapability? Marketplace, IReadOnlyList<ClaudeCapability> Plugins)
 {
     public string Key => "plugins/" + (Marketplace?.Name ?? "\0none");
     public string Label => Marketplace?.Name ?? "No marketplace";
+    public ClaudeFold Fold => new(Key, Plugins.Count > 0, true);
 }
 
 /// <summary>One entry of a row's menu.</summary>
@@ -45,8 +49,9 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
         (ClaudeCapabilityKind.Agent, "Subagents"), (ClaudeCapabilityKind.Hook, "Hooks")
     ];
 
-    private sealed class Folding(Avalonia.Controls.Shapes.Path chevron, Control? stem)
+    private sealed class Folding(Avalonia.Controls.Shapes.Path chevron, Control? stem, ClaudeFold fold)
     {
+        public ClaudeFold Fold { get; } = fold;
         public Avalonia.Controls.Shapes.Path Chevron { get; } = chevron;
         public Control? Stem { get; } = stem;
         public Control? Parts { get; set; }
@@ -134,20 +139,82 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
     {
         foreach (var group in groups)
         {
-            section.Children.Add(group.Marketplace is { } market ? Row(market, group) : NoMarketplaceRow(group));
+            section.Children.Add(group.Marketplace is { } market ? Row(market, group.Fold) : NoMarketplaceRow(group));
             if (group.Plugins.Count == 0) continue;
-            var parts = new StackPanel { Name = "ClaudeCapabilityChildren", Tag = group.Key, IsVisible = !pane.IsCollapsed(group.Key) };
+            var parts = new StackPanel { Name = "ClaudeCapabilityChildren", Tag = group.Key, IsVisible = IsOpen(group.Fold) };
             for (var index = 0; index < group.Plugins.Count; index++)
-                parts.Children.Add(Child(Row(group.Plugins[index], underMarketplace: group.Marketplace is not null), last: index == group.Plugins.Count - 1));
+            {
+                var plugin = group.Plugins[index];
+                var last = index == group.Plugins.Count - 1;
+                var fold = plugin.Parts is { Count: > 0 } ? new ClaudeFold("plugin/" + plugin.Name, true, false) : null;
+                parts.Children.Add(Child(Row(plugin, fold, underMarketplace: group.Marketplace is not null), 1, last));
+                if (fold is null) continue;
+                var inner = PluginPartsPanel(plugin, fold, last);
+                folding[fold.Key].Parts = inner;
+                parts.Children.Add(inner);
+            }
             folding[group.Key].Parts = parts;
             section.Children.Add(parts);
         }
     }
 
-    private static Control Child(Control content, bool last)
+    // What a folded row stands for: a plugin's panel is shut until the user opens it, a marketplace's is open until the user shuts it.
+    private bool IsOpen(ClaudeFold fold) => fold.DefaultOpen ? !pane.IsCollapsed(fold.Key) : pane.IsCollapsed(fold.Key);
+
+    private static readonly (ClaudePluginPartKind Kind, string Heading, string One, string Many)[] PartKinds =
+    [
+        (ClaudePluginPartKind.Skill, "Skills", "skill", "skills"), (ClaudePluginPartKind.Command, "Commands", "command", "commands"),
+        (ClaudePluginPartKind.Agent, "Agents", "agent", "agents"), (ClaudePluginPartKind.Hook, "Hooks", "hook", "hooks"),
+        (ClaudePluginPartKind.Mcp, "MCP servers", "MCP server", "MCP servers"), (ClaudePluginPartKind.Lsp, "LSP servers", "LSP server", "LSP servers"),
+        (ClaudePluginPartKind.OutputStyle, "Output styles", "output style", "output styles"), (ClaudePluginPartKind.Workflow, "Workflows", "workflow", "workflows"),
+        (ClaudePluginPartKind.Theme, "Themes", "theme", "themes"), (ClaudePluginPartKind.Monitor, "Monitors", "monitor", "monitors")
+    ];
+
+    /// <summary>The count line of a plugin row: "12 skills, 3 agents", or why nothing is listed.</summary>
+    internal static string PartsSummary(ClaudeCapability plugin)
+    {
+        if (plugin.Parts is null) return "Files not found";
+        if (plugin.Parts.Count == 0) return "Adds nothing";
+        return string.Join(", ", PartKinds.Select(kind => (kind, count: plugin.Parts.Count(part => part.Kind == kind.Kind))).Where(item => item.count > 0)
+            .Select(item => $"{item.count} {(item.count == 1 ? item.kind.One : item.kind.Many)}"));
+    }
+
+    // The parts of one plugin, grouped by kind: a heading row per kind under the plugin, the parts under the heading.
+    private StackPanel PluginPartsPanel(ClaudeCapability plugin, ClaudeFold fold, bool pluginLast)
+    {
+        var panel = new StackPanel { Name = "ClaudeCapabilityChildren", Tag = fold.Key, IsVisible = IsOpen(fold), Opacity = plugin.Enabled ? 1 : 0.55 };
+        var kinds = PartKinds.Select(kind => (kind, parts: plugin.Parts!.Where(part => part.Kind == kind.Kind).ToArray())).Where(item => item.parts.Length > 0).ToArray();
+        for (var index = 0; index < kinds.Length; index++)
+        {
+            var (kind, parts) = kinds[index];
+            var headingLast = index == kinds.Length - 1;
+            var heading = Ui.Text($"{kind.Heading} · {parts.Length}", Ui.Muted, 11);
+            heading.Name = "ClaudePluginKind";
+            heading.Tag = kind.Kind;
+            heading.Margin = new Thickness(8, 4);
+            panel.Children.Add(Child(heading, 2, headingLast, [pluginLast]));
+            for (var number = 0; number < parts.Length; number++)
+                panel.Children.Add(Child(PartRow(parts[number]), 3, number == parts.Length - 1, [pluginLast, headingLast]));
+        }
+        return panel;
+    }
+
+    // One thing a plugin adds: its name as Claude Code shows it, what it is for, and the file that declares it.
+    private Control PartRow(ClaudePluginPart part)
+    {
+        var row = new StackPanel { Name = "ClaudePluginPart", Tag = part, Margin = new Thickness(8, 3) };
+        row.Children.Add(Ui.Text(part.Name, Ui.TextBrush, 13));
+        if (part.Description is { Length: > 0 } description) row.Children.Add(ClaudeParts.Wrapped(description, Ui.Hint, 11));
+        if (part.Path is { } path) row.Children.Add(ClaudeParts.SourceButton(path, null, pane.Open));
+        Avalonia.Automation.AutomationProperties.SetName(row, part.Name);
+        if (part.Description is not null) Avalonia.Automation.AutomationProperties.SetHelpText(row, part.Description);
+        return new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Child = row };
+    }
+
+    private static Control Child(Control content, int depth, bool last, IReadOnlyList<bool>? endedAbove = null)
     {
         var line = new DockPanel();
-        foreach (var guide in ClaudeTree.Guides(1, last)) line.Children.Add(guide);
+        foreach (var guide in ClaudeTree.Guides(depth, last, endedAbove)) line.Children.Add(guide);
         line.Children.Add(content);
         return line;
     }
@@ -157,20 +224,20 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
     {
         if (!folding.TryGetValue(key, out var slot) || slot.Parts is not { } parts) return;
         var open = !parts.IsVisible;
-        pane.SetCollapsed(key, !open);
+        pane.SetCollapsed(key, slot.Fold.DefaultOpen ? !open : open);
         parts.IsVisible = open;
         ClaudeTree.SetChevron(slot.Chevron, open);
         if (slot.Stem is not null) slot.Stem.IsVisible = open;
     }
 
     // The name, then a chevron when there is something to fold; the whole head row is the click target.
-    private Control Disclosure(Control name, DockPanel head, ClaudePluginGroup group)
+    private Control Disclosure(Control name, DockPanel head, ClaudeFold group)
     {
-        var open = !pane.IsCollapsed(group.Key);
+        var open = IsOpen(group);
         var chevron = ClaudeTree.Chevron(open);
-        chevron.IsVisible = group.Plugins.Count > 0;
+        chevron.IsVisible = group.HasChildren;
         var named = new StackPanel { Orientation = Orientation.Horizontal, Children = { name, chevron } };
-        if (group.Plugins.Count == 0) return named;
+        if (!group.HasChildren) return named;
         head.Cursor = new Cursor(StandardCursorType.Hand);
         head.PointerPressed += (_, args) =>
         {
@@ -182,12 +249,12 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
     }
 
     // The parent's own glyph carries the stem; the wrapper keeps the row's name, tag and bottom rule.
-    private Control Parent(StackPanel row, ClaudePluginGroup group)
+    private Control Parent(StackPanel row, ClaudeFold group)
     {
-        var glyph = ClaudeTree.Glyph(Ui.Icon("box", Ui.Hint, 14), group.Plugins.Count > 0);
+        var glyph = ClaudeTree.Glyph(Ui.Icon("box", Ui.Hint, 14), group.HasChildren);
         var chevron = row.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Path>().First(path => path.Name == "ClaudeCapabilityChevron");
-        folding[group.Key] = new(chevron, glyph.Children.OfType<Border>().FirstOrDefault(border => border.Name == "ClaudeContextStem"));
-        if (folding[group.Key].Stem is { } stem) stem.IsVisible = !pane.IsCollapsed(group.Key);
+        folding[group.Key] = new(chevron, glyph.Children.OfType<Border>().FirstOrDefault(border => border.Name == "ClaudeContextStem"), group);
+        if (folding[group.Key].Stem is { } stem) stem.IsVisible = IsOpen(group);
         row.Margin = new Thickness(0);
         var line = new DockPanel { Margin = new Thickness(8, 4) };
         line.Children.Add(glyph);
@@ -199,11 +266,11 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
     {
         var row = new StackPanel { Name = "ClaudeCapabilityGroup", Tag = group.Key, Margin = new Thickness(8, 4) };
         var head = new DockPanel { Background = Brushes.Transparent };
-        head.Children.Add(Disclosure(Ui.Text(group.Label, Ui.TextBrush, 13), head, group));
+        head.Children.Add(Disclosure(Ui.Text(group.Label, Ui.TextBrush, 13), head, group.Fold));
         row.Children.Add(head);
         var hint = Ui.Text("Installed from a marketplace that is not listed, or from a local folder", Ui.Hint, 11);
         row.Children.Add(hint);
-        return Parent(row, group);
+        return Parent(row, group.Fold);
     }
 
     /// <summary>What a row's menu offers, in order.</summary>
@@ -236,7 +303,7 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
         return actions;
     }
 
-    private Control Row(ClaudeCapability item, ClaudePluginGroup? group = null, bool underMarketplace = false)
+    private Control Row(ClaudeCapability item, ClaudeFold? group = null, bool underMarketplace = false)
     {
         var row = new StackPanel { Name = "ClaudeCapability", Tag = item, Margin = new Thickness(8, 4) };
         var head = new DockPanel { Background = Brushes.Transparent };
@@ -294,6 +361,12 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
         }
         // Under its marketplace a plugin's marketplace name is the parent row; elsewhere it stays on the row.
         if (item.Detail is { } detail && !underMarketplace) row.Children.Add(ClaudeParts.Code(detail, Ui.Hint));
+        if (item.Kind == ClaudeCapabilityKind.Plugin)
+        {
+            var summary = Ui.Text(PartsSummary(item), Ui.Hint, 11);
+            summary.Name = item.Parts is null ? "ClaudePluginMissing" : "ClaudePluginSummary";
+            row.Children.Add(summary);
+        }
         return group is not null ? Parent(row, group) : new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Child = row };
     }
 }

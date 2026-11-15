@@ -45,9 +45,25 @@ public sealed record ClaudeContextLayer(ClaudeContextKind Kind, string Label, st
 
 public enum ClaudeCapabilityKind { Mcp, Plugin, Skill, Agent, Hook, Marketplace }
 
+/// <summary>What a plugin adds to Claude Code, by kind.</summary>
+public enum ClaudePluginPartKind { Skill, Command, Agent, Hook, Mcp, Lsp, OutputStyle, Workflow, Theme, Monitor }
+
+/// <summary>
+/// One thing an installed plugin adds. The name is the one Claude Code shows (<c>plugin:skill</c>). The description is a
+/// one-line summary, never a secret: an MCP or LSP server shows its transport or file types only.
+/// </summary>
+public sealed record ClaudePluginPart(ClaudePluginPartKind Kind, string Name)
+{
+    public string? Description { get; init; }
+    /// <summary>The file that declares it, which the pane opens; null for a part declared inline with no file of its own.</summary>
+    public string? Path { get; init; }
+}
+
 public sealed record ClaudeCapability(ClaudeCapabilityKind Kind, string Name, ClaudeConfigOrigin Origin, bool Enabled)
 {
     public string? Detail { get; init; }
+    /// <summary>For a plugin: what it adds, read from its installed files; null when those files are not found.</summary>
+    public IReadOnlyList<ClaudePluginPart>? Parts { get; init; }
     /// <summary>The setting that switched this off, when something did.</summary>
     public ClaudeConfigOrigin? DisabledBy { get; init; }
 }
@@ -483,7 +499,7 @@ public static class ClaudeCodeContract
         [Status, IdeAction, ContextUsage, AccountUsage, InstructionsChanged, ChatContract.Updates], ClaudeCodeJson.Default, ChatContract.Json);
 }
 
-[JsonSourceGenerationOptions(Converters = [typeof(PluginJson.EnumConverter<ClaudeConfigScope>), typeof(PluginJson.EnumConverter<ClaudeWritableScope>), typeof(PluginJson.EnumConverter<ClaudeContextKind>), typeof(PluginJson.EnumConverter<ClaudeCapabilityKind>), typeof(PluginJson.EnumConverter<ClaudeUsageSeverity>), typeof(PluginJson.EnumConverter<ClaudeProblemSeverity>), typeof(PluginJson.EnumConverter<ClaudeFileTemplate>), typeof(PluginJson.EnumConverter<ClaudeMcpTransport>), typeof(PluginJson.EnumConverter<ClaudeHookEvent>), typeof(PluginJson.EnumConverter<ClaudeDiffKind>), typeof(PluginJson.EnumConverter<IdeActionKind>), typeof(PluginJson.EnumConverter<ClaudeCodeStatus>), typeof(PluginJson.EnumConverter<AgentTodoStatus>), typeof(PluginJson.EnumConverter<ClaudeCodeMode>)])]
+[JsonSourceGenerationOptions(Converters = [typeof(PluginJson.EnumConverter<ClaudeConfigScope>), typeof(PluginJson.EnumConverter<ClaudeWritableScope>), typeof(PluginJson.EnumConverter<ClaudeContextKind>), typeof(PluginJson.EnumConverter<ClaudeCapabilityKind>), typeof(PluginJson.EnumConverter<ClaudePluginPartKind>), typeof(PluginJson.EnumConverter<ClaudeUsageSeverity>), typeof(PluginJson.EnumConverter<ClaudeProblemSeverity>), typeof(PluginJson.EnumConverter<ClaudeFileTemplate>), typeof(PluginJson.EnumConverter<ClaudeMcpTransport>), typeof(PluginJson.EnumConverter<ClaudeHookEvent>), typeof(PluginJson.EnumConverter<ClaudeDiffKind>), typeof(PluginJson.EnumConverter<IdeActionKind>), typeof(PluginJson.EnumConverter<ClaudeCodeStatus>), typeof(PluginJson.EnumConverter<AgentTodoStatus>), typeof(PluginJson.EnumConverter<ClaudeCodeMode>)])]
 [JsonSerializable(typeof(ClaudeCodeSettings))]
 [JsonSerializable(typeof(AccountParams))]
 [JsonSerializable(typeof(ClaudeAccount))]
