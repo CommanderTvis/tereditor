@@ -36,6 +36,7 @@
     "EditorLineHeight": 0,
     "Accent": "",
     "TerminalHiddenChips": "",
+    "GroupWorkspacesUnderCreator": false,
     "SettleIdleDays": 14,
     "FutureSetting": {
       "nested": [

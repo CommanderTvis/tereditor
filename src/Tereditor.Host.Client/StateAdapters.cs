@@ -117,6 +117,7 @@ public sealed class RemoteStateAdapter : IHostStateService, IDisposable
             EditorTabWidth = reply.Settings.EditorTabWidth,
             Accent = reply.Settings.Accent ?? "",
             TerminalHiddenChips = HostSettings.NormalizeTerminalHiddenChips(reply.Settings.TerminalHiddenChips ?? "") ?? "",
+            GroupWorkspacesUnderCreator = reply.Settings.GroupWorkspacesUnderCreator,
             EditorLineNumbers = !reply.Settings.EditorLineNumbersHidden,
             EditorIndentWithTabs = reply.Settings.EditorIndentWithTabs,
             EditorDetectIndent = !reply.Settings.EditorDetectIndentOff,

@@ -168,7 +168,8 @@ public sealed partial class HostStateStore : IHostStateService
     /// <summary>Opens the store; when the directory has no state file yet, <paramref name="seed"/> supplies migrated state.</summary>
     /// <param name="verticalCenterTabs">The embedded desktop profile's fallback for a previously unset tab mode.</param>
     /// <param name="verticalTabsInProjects">The embedded desktop profile's fallback for a previously unset Projects tab home.</param>
-    public HostStateStore(string? directory, Func<HostState>? seed = null, bool? verticalCenterTabs = null, bool? verticalTabsInProjects = null)
+    /// <param name="groupWorkspacesUnderCreator">The embedded desktop profile's value of the grouping under creators, which seeds the host's shared value once, while it is unset.</param>
+    public HostStateStore(string? directory, Func<HostState>? seed = null, bool? verticalCenterTabs = null, bool? verticalTabsInProjects = null, bool? groupWorkspacesUnderCreator = null)
     {
         path = directory is null ? null : Path.Combine(directory, FileName);
         HostState initial;
@@ -272,7 +273,8 @@ public sealed partial class HostStateStore : IHostStateService
             Settings = state.Settings with
             {
                 VerticalCenterTabs = state.Settings.VerticalCenterTabs ?? verticalCenterTabs ?? false,
-                VerticalTabsInProjects = state.Settings.VerticalTabsInProjects ?? verticalTabsInProjects ?? false
+                VerticalTabsInProjects = state.Settings.VerticalTabsInProjects ?? verticalTabsInProjects ?? false,
+                GroupWorkspacesUnderCreator = state.Settings.GroupWorkspacesUnderCreator ?? groupWorkspacesUnderCreator ?? false
             }
         };
         OpenLanguageMetadata();
@@ -857,6 +859,7 @@ public sealed partial class HostStateStore : IHostStateService
                     "window-decorations" when value is "client" or "system" => settings with { WindowDecorations = value },
                     "keymap" when value.Length == 0 || Keymaps.IsBuiltin(value) => settings with { ActiveKeymap = "" },
                     "keymap" when current.KeymapPresets.Any(preset => preset.Name == value) => settings with { ActiveKeymap = value },
+                    "group-workspaces-under-creator" when bool.TryParse(value, out var grouped) => settings with { GroupWorkspacesUnderCreator = grouped },
                     "tabs-in-projects" when bool.TryParse(value, out var inProjects) => settings with { VerticalTabsInProjects = inProjects },
                     _ => throw new ArgumentException($"Invalid setting {key}.")
                 };

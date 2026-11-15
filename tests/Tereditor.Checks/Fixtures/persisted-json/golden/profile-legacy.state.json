@@ -35,7 +35,8 @@
     "EditorFontFamily": "",
     "EditorLineHeight": 0,
     "Accent": "",
-    "TerminalHiddenChips": ""
+    "TerminalHiddenChips": "",
+    "GroupWorkspacesUnderCreator": true
   },
   "Presets": [
     {

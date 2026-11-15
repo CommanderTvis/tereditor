@@ -82,17 +82,17 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   only the diff numbers sit at the row's end.
 - An expanded project lists its rows with Default first, then the others newest created first (the registry reversed, never
   re-sorted by activity, so rows stay put while you work).
-- The per-app preference "Group workspaces under the terminal or chat that created them" (Settings > Projects, off by
-  default) lists a live workspace made by `workspace_create` indented, with a guide line that runs under the middle of the creating tab row's icon, directly below the tab row
+- The host setting "Group workspaces under the terminal or chat that created them" (Settings > Projects, off by
+  default, one value for every window and client of the host, changed from any of them and applied on the host's broadcast; a host below protocol 25 keeps none, so there the box edits this app's own profile value) lists a live workspace made by `workspace_create` indented, with a guide line that runs under the middle of the creating tab row's icon, directly below the tab row
   that created it in the creator's workspace, whether that list is the open workspace's live one or a closed
   workspace's preview (a chat is recorded by its chat id, matched against its plugin tab's path after the scheme).
   When that tab is in a tab group, the nested row sits inside the group's box, under that tab and before the group's next tab.
   The rows sit in a slot the centre tab row keeps right below it, at the same place in the live strip and in the preview,
   so their spacing, indent, width, guide line and gap to the tab stay the same whether the creator's workspace, its tab or a
-  nested workspace is focused. A terminal this window only knows from the host's catalog (an agent running on the host, as a phone sees it) keeps its slot in a closed workspace's preview too. The preference is per device: with it off, a created workspace stays in the flat list.
+  nested workspace is focused. A terminal this window only knows from the host's catalog (an agent running on the host, as a phone sees it) keeps its slot in a closed workspace's preview too. With it off, a created workspace stays in the flat list.
   The nested rows are not tabs: reordering, drops and arrow keys count only tabs. A creator tab that is closed, or a
   creator that is unknown or in another project, leaves the workspace in its flat place, or
-  under its creator's workspace when only the tab row is unavailable; nesting is one level per creation link. The rail redraws when the preference, a creator
+  under its creator's workspace when only the tab row is unavailable; nesting is one level per creation link. The rail redraws when the setting, a creator
   or the creator's tab changes.
 - Landing on a workspace of another project, or mounting the first one, shows that project expanded on top
   of the persisted collapsed set, which it leaves untouched; collapsing it ends the reveal, and it is not

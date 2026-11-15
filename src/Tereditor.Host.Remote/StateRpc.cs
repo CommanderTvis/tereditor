@@ -90,6 +90,7 @@ public sealed class StateRpc(IHostStateService host, IHostApplicationLifetime li
             EditorTabWidth = state.Settings.EditorTabWidth,
             Accent = state.Settings.Accent,
             TerminalHiddenChips = state.Settings.TerminalHiddenChips,
+            GroupWorkspacesUnderCreator = state.Settings.GroupWorkspacesUnderCreator,
             EditorLineNumbersHidden = !state.Settings.EditorLineNumbers,
             EditorIndentWithTabs = state.Settings.EditorIndentWithTabs,
             EditorDetectIndentOff = !state.Settings.EditorDetectIndent,

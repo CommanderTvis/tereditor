@@ -1316,6 +1316,7 @@ const Tereditor.Host.Abstractions.HostProtocol.FileTypeIconStyle = 14 -> int
 const Tereditor.Host.Abstractions.HostProtocol.FileTypeIconsHidden = 20 -> int
 const Tereditor.Host.Abstractions.HostProtocol.TerminalHiddenChips = 22 -> int
 const Tereditor.Host.Abstractions.HostProtocol.FileNameSearch = 23 -> int
+const Tereditor.Host.Abstractions.HostProtocol.RailGroupingFollowsHost = 25 -> int
 Tereditor.Host.Abstractions.HostSettings.FileTypeIconStyle.get -> string!
 Tereditor.Host.Abstractions.HostSettings.FileTypeIconStyle.set -> void
 Tereditor.Host.Abstractions.HostSettings.FileTypeIconsEnabled.get -> bool
@@ -2207,7 +2208,7 @@ Tereditor.Host.Abstractions.HostSettings.ActiveKeymap.get -> string!
 Tereditor.Host.Abstractions.HostSettings.ActiveKeymap.set -> void
 Tereditor.Host.Abstractions.HostState.KeymapPresets.get -> System.Collections.Generic.IReadOnlyList<Tereditor.Host.Abstractions.KeymapPreset!>!
 Tereditor.Host.Abstractions.HostState.KeymapPresets.init -> void
-const Tereditor.Host.Abstractions.HostProtocol.Current = 24 -> int
+const Tereditor.Host.Abstractions.HostProtocol.Current = 25 -> int
 const Tereditor.Host.Abstractions.HostProtocol.TerminalMemoryInPlugin = 24 -> int
 const Tereditor.Host.Abstractions.HostProtocol.IsolatedSurfaces = 19 -> int
 const Tereditor.Host.Abstractions.HostProtocol.Keymaps = 18 -> int
@@ -2458,4 +2459,6 @@ Tereditor.Host.Abstractions.TerminalGuardNotice.Text.init -> void
 Tereditor.Host.Abstractions.TerminalGuardNotice.TerminalGuardNotice(Tereditor.Plugins.Api.TerminalRef! Terminal, string! Text, System.Collections.Generic.IReadOnlyList<string!>! Lines, int Count, long Sequence) -> void
 Tereditor.Host.Abstractions.HostSettings.TerminalHiddenChips.get -> string!
 Tereditor.Host.Abstractions.HostSettings.TerminalHiddenChips.set -> void
+Tereditor.Host.Abstractions.HostSettings.GroupWorkspacesUnderCreator.get -> bool?
+Tereditor.Host.Abstractions.HostSettings.GroupWorkspacesUnderCreator.init -> void
 static Tereditor.Host.Abstractions.HostSettings.NormalizeTerminalHiddenChips(string! value) -> string?

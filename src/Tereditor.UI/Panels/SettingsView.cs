@@ -1065,10 +1065,20 @@ public sealed partial class SettingsView : UserControl
     {
         var panel = Page("ProjectsPage");
         var group = PageControl<CheckBox>(panel, "GroupWorkspacesUnderCreator");
-        group.IsChecked = state.Preferences.GroupWorkspacesUnderCreator;
+        group.IsChecked = state.Preferences.GroupsUnderCreator;
         group.IsCheckedChanged += (_, _) =>
         {
-            state.Preferences.GroupWorkspacesUnderCreator = group.IsChecked == true;
+            var requested = group.IsChecked == true;
+            if (requested == state.Preferences.GroupsUnderCreator) return;
+            if (state.Preferences.HostGroupWorkspacesUnderCreator is not null)
+            {
+                // The host holds the value: every client takes it from the broadcast, and the box shows the host's answer meanwhile.
+                Share(HostStateChange.Setting("group-workspaces-under-creator", Setting(requested)));
+                group.IsChecked = state.Preferences.GroupsUnderCreator;
+                return;
+            }
+            // A host below protocol 25 keeps none, so the choice stays this app's own.
+            state.Preferences.GroupWorkspacesUnderCreator = requested;
             Save();
             foreach (var open in window.Workbench.Windows) open.ApplyTabLayout();
         };

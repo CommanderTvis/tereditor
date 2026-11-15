@@ -34,6 +34,7 @@ profiles carrying a Metal preference from another platform.
 
 ## Boundary
 
+- `Preferences.GroupWorkspacesUnderCreator` stays in the profile file as the fallback for a host below protocol 25 and as the seed of a new host's shared value; against a newer host the rail reads `GroupsUnderCreator`, the host's value mirrored into the non-persisted `HostGroupWorkspacesUnderCreator`.
 - Owns: `Profile`, `Preferences`, `WindowProfile`, `GitSelection` and their normalization; atomic profile
   writes; each window's `ToastQueue`; the one-time migration of pre-host fields into the local host's `state.json`; the shared-state
   subscription, its reconnect loop and the mirroring of snapshot settings into `Preferences`.

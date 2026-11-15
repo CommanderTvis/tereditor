@@ -46,8 +46,16 @@ public sealed class Preferences
     public double VerticalCenterTabsWidth { get; set; } = VerticalTabs.DefaultWidth;
     /// <summary>Legacy Projects-mode value; tabs always live under their workspace.</summary>
     public bool VerticalTabsInProjects { get; set; }
-    /// <summary>Projects lists a workspace made by <c>workspace_create</c> under the terminal or chat that created it, while that tab is listed.</summary>
+    /// <summary>
+    /// The fallback for a host below protocol 25, which keeps no shared value: Projects lists a workspace made by <c>workspace_create</c> under
+    /// the terminal or chat that created it, while that tab is listed. A newer host holds the one value every client follows
+    /// (<see cref="HostGroupWorkspacesUnderCreator"/>); the first load of the host on this machine seeds it from here.
+    /// </summary>
     public bool GroupWorkspacesUnderCreator { get; set; }
+    /// <summary>The host's shared value, or null while the connected host serves none; set from the host's state, never saved in the profile.</summary>
+    [JsonIgnore] public bool? HostGroupWorkspacesUnderCreator { get; set; }
+    /// <summary>Whether Projects groups workspaces under their creator now: the host's value when it serves one, else this app's own.</summary>
+    [JsonIgnore] public bool GroupsUnderCreator => HostGroupWorkspacesUnderCreator ?? GroupWorkspacesUnderCreator;
     /// <summary>How two tabs first shown together are arranged: <c>horizontal</c> columns or <c>vertical</c> rows.</summary>
     public string DefaultPaneDirection { get; set; } = "horizontal";
     /// <summary>Read from profiles that predate window-local defaults.</summary>
@@ -279,7 +287,7 @@ public sealed class ProfileStore
     public HostStateStore OpenState()
     {
         var store = new HostStateStore(DirectoryPath, Data.StateMigrated ? null : MigratedState,
-            Data.Preferences.VerticalCenterTabs, Data.Preferences.VerticalTabsInProjects);
+            Data.Preferences.VerticalCenterTabs, Data.Preferences.VerticalTabsInProjects, Data.Preferences.GroupWorkspacesUnderCreator);
         if (store.LastError is not null || Data.StateMigrated) return store;
         Data.StateMigrated = true;
         Data.LegacyProjects = null; Data.LegacyRecentProjects = null; Data.LegacyWorkspaceLabels = null;

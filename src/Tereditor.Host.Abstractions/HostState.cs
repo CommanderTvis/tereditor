@@ -82,6 +82,11 @@ public sealed record HostSettings
     /// empty shows every chip, and a chip whose id is not listed, a new kind included, shows.
     /// </summary>
     public string TerminalHiddenChips { get; set; } = "";
+    /// <summary>
+    /// Whether Projects lists a workspace under the terminal or chat that created it, one value for every client. Null only before the host's
+    /// first load, which seeds it from the profile of the machine running the host; a host below protocol 25 serves none.
+    /// </summary>
+    public bool? GroupWorkspacesUnderCreator { get; init; }
 
     public const int DefaultEditorTabWidth = 4, MinEditorTabWidth = 1, MaxEditorTabWidth = 8;
     public const int DefaultEditorLineHeight = 10, MinEditorLineHeight = 10, MaxEditorLineHeight = 20, MaxEditorFontFamilyLength = 200;

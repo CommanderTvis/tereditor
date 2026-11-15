@@ -121,6 +121,26 @@ internal static class StateChecks
         using var browserSubscription = new Tereditor.UI.State.SharedState(new LocalStateAdapter(migratedStore), browserPreferences, migratedStore.Current);
         Require(!browserPreferences.VerticalCenterTabs && browserPreferences.VerticalTabsInProjects,
             "A browser's fresh preferences must inherit both saved host tab-mode fields, including false.");
+        // Grouping workspaces under their creator is one host value: the host's first load takes the profile's, and after that the profile is only the older-host fallback.
+        Directory.CreateDirectory(Path.Combine(root, "grouping-migration"));
+        File.WriteAllText(Path.Combine(root, "grouping-migration", "profile.json"), """{ "Preferences": { "ThemeMode": "fixed", "GroupWorkspacesUnderCreator": true } }""");
+        var groupingProfile = new Tereditor.UI.State.ProfileStore(Path.Combine(root, "grouping-migration"));
+        var groupingStore = groupingProfile.OpenState();
+        Require(groupingStore.Current.Settings.GroupWorkspacesUnderCreator == true, "A new host takes the grouping from the profile of the machine that runs it.");
+        await groupingStore.ChangeAsync([HostStateChange.Setting("group-workspaces-under-creator", "false")]);
+        Require(groupingProfile.OpenState().Current.Settings.GroupWorkspacesUnderCreator == false && groupingProfile.Data.Preferences.GroupWorkspacesUnderCreator,
+            "The profile seeds the host once: a later host value is not overwritten, and the profile keeps its own for older hosts.");
+        var hostFollowing = new Tereditor.UI.State.Preferences { GroupWorkspacesUnderCreator = true };
+        using (var followed = new Tereditor.UI.State.SharedState(new LocalStateAdapter(groupingStore), hostFollowing, groupingStore.Current))
+        {
+            Require(!hostFollowing.GroupsUnderCreator && hostFollowing.GroupWorkspacesUnderCreator, "Against a host that serves it, the rail follows the host's value, not the profile's.");
+            await groupingStore.ChangeAsync([HostStateChange.Setting("group-workspaces-under-creator", "true")]);
+            for (var attempt = 0; attempt < 200 && !hostFollowing.GroupsUnderCreator; attempt++) await Task.Delay(25);
+            Require(hostFollowing.GroupsUnderCreator, "A change of the host's value reaches the preferences on the broadcast.");
+        }
+        var oldHostGrouping = new Tereditor.UI.State.Preferences { GroupWorkspacesUnderCreator = true };
+        using (new Tereditor.UI.State.SharedState(new LocalStateAdapter(new HostStateStore(null)), oldHostGrouping, new HostState { Settings = new() { ThemeMode = "fixed" } }))
+            Require(oldHostGrouping.HostGroupWorkspacesUnderCreator is null && oldHostGrouping.GroupsUnderCreator, "A host below protocol 25 serves none: the rail falls back to the profile's value.");
         var accentPreferences = new Tereditor.UI.State.Preferences();
         using var accentSubscription = new Tereditor.UI.State.SharedState(new LocalStateAdapter(new HostStateStore(null)), accentPreferences, new HostState { Settings = new() { Accent = "purple" } });
         Require(accentPreferences.Accent == "purple" && new Tereditor.UI.State.Preferences().Accent.Length == 0,
@@ -142,7 +162,7 @@ internal static class StateChecks
             HostStateChange.Setting("system-light", "light"), HostStateChange.Setting("system-dark", "high-contrast-dark"),
             HostStateChange.Setting("accent", "#3b82f6"), HostStateChange.Setting("markdown-width", "80"), HostStateChange.Setting("file-bounded", "false"),
             HostStateChange.Setting("notifications", "false"), HostStateChange.Setting("window-decorations", "client"), HostStateChange.Setting("file-type-icons", "false"), HostStateChange.Setting("file-type-icon-style", "material"), HostStateChange.Setting("terminal-notifications", "false"), HostStateChange.Setting("bell-features", "title, system"),
-            HostStateChange.Setting("terminal-hidden-chips", "model, env/env-mise,model"),
+            HostStateChange.Setting("terminal-hidden-chips", "model, env/env-mise,model"), HostStateChange.Setting("group-workspaces-under-creator", "true"),
             HostStateChange.Setting("vertical-tabs", "true"), HostStateChange.Setting("tabs-in-projects", "false"),
             HostStateChange.Setting("editor-indent-tabs", "true"), HostStateChange.Setting("editor-detect-indent", "false"),
             HostStateChange.Setting("editor-font-family", " Fira Code "), HostStateChange.Setting("editor-line-height", "15"),
@@ -192,7 +212,7 @@ internal static class StateChecks
                     throw new InvalidOperationException($"The {name} host accepted the accent {bad}.");
                 }
                 catch (Exception error) when (error is ArgumentException or Tereditor.Host.Protocol.RpcException) { }
-            foreach (var (key, bad) in new[] { ("editor-line-height", "9"), ("editor-line-height", "21"), ("editor-line-height", "1.5"), ("editor-font-family", "Mono\nFont"), ("editor-indent-tabs", "yes") })
+            foreach (var (key, bad) in new[] { ("editor-line-height", "9"), ("editor-line-height", "21"), ("editor-line-height", "1.5"), ("editor-font-family", "Mono\nFont"), ("editor-indent-tabs", "yes"), ("group-workspaces-under-creator", "yes") })
                 try
                 {
                     await service.ChangeAsync([HostStateChange.Setting(key, bad)]);
@@ -232,12 +252,15 @@ internal static class StateChecks
         Require(state.Settings is
         {
             Theme: "light", ThemeMode: "system", SystemDark: "high-contrast-dark", Accent: "#3b82f6", MarkdownLineWidth: 80, FileLineWidthBounded: false, NotificationsEnabled: false, FileTypeIconsEnabled: false, FileTypeIconStyle: "material", WindowDecorations: "client", TerminalNotificationsEnabled: false, BellFeatures: "system,title",
-            EditorIndentWithTabs: true, EditorDetectIndent: false, EditorFontFamily: "Fira Code", EditorLineHeight: 15, TerminalHiddenChips: "env/env-mise,model"
+            EditorIndentWithTabs: true, EditorDetectIndent: false, EditorFontFamily: "Fira Code", EditorLineHeight: 15, TerminalHiddenChips: "env/env-mise,model", GroupWorkspacesUnderCreator: true
         } &&
             state.Presets.Single().Name == "Renamed" && state.Projects.SequenceEqual([project]) && state.RecentProjects.SequenceEqual([other]),
             "Changes apply in order: presets rename, closing moves a project to the recents.");
         Require(new HostStateStore(localDirectory).Current.Settings.TerminalHiddenChips == "env/env-mise,model" && new HostSettings().TerminalHiddenChips.Length == 0,
             "The hidden terminal chips persist as distinct ids in order, and a fresh host hides none.");
+        Require(new HostStateStore(localDirectory).Current.Settings.GroupWorkspacesUnderCreator == true && (await remote.GetStateAsync()).Settings.GroupWorkspacesUnderCreator == true &&
+            new HostStateStore(Path.Combine(root, "state-grouping-default")).Current.Settings.GroupWorkspacesUnderCreator == false && new HostSettings().GroupWorkspacesUnderCreator is null,
+            "The shared grouping under creators persists and reaches a remote client; a fresh host starts it off.");
         Require(state.PluginSettings["probe"].GetRawText() == """{"size":1,"enabled":false}""" && state.PluginSettings["other"].GetRawText() == """{"kept":true}""" &&
             state.PluginPaths.Single().EndsWith("state-plugins", StringComparison.Ordinal) && state.Platform is not null,
             "Plugin namespaces merge member by member, roots replace, and the host names its platform.");

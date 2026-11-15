@@ -236,7 +236,7 @@ public sealed partial class WorkbenchWindow
     private Dictionary<string, List<WorkspaceRecord>> RailNesting(IReadOnlyList<WorkspaceRecord> live)
     {
         var nesting = new Dictionary<string, List<WorkspaceRecord>>();
-        if (!Preferences.GroupWorkspacesUnderCreator) return nesting;
+        if (!Preferences.GroupsUnderCreator) return nesting;
         var creators = state.Current.WorkspaceCreators;
         foreach (var worktree in live)
         {
@@ -274,7 +274,7 @@ public sealed partial class WorkbenchWindow
     private void RefreshRailNesting()
     {
         if (projectsTree is null) return;
-        var signature = Preferences.GroupWorkspacesUnderCreator
+        var signature = Preferences.GroupsUnderCreator
             ? string.Join("\n", state.Current.Projects.SelectMany(project => RailNesting(RailOrder(project)).SelectMany(pair => pair.Value.Select(child => pair.Key + "\t" + child.Path + "\t" + PreviewCreatorTab(pair.Key, child.Path) + "\t" + (pair.Key == Layout.State.ActiveWorkspace ? OpenCreatorTab(child.Path) : null)))))
             : "";
         if (signature == railNestingSignature) return;

@@ -467,7 +467,7 @@
         <Border Classes="settings-row">
           <StackPanel Spacing="4">
             <CheckBox x:Name="GroupWorkspacesUnderCreator" Content="Group workspaces under the terminal or chat that created them" />
-            <TextBlock Text="A workspace an agent made with workspace_create is listed under that agent's terminal or chat while it is open. Off, every workspace is listed flat. This preference belongs to this app." Classes="settings-description" />
+            <TextBlock Text="A workspace an agent made with workspace_create is listed under that agent's terminal or chat while it is open. Off, every workspace is listed flat. Every window and client of this host uses the same choice. A host too old to share it leaves the choice to each app." Classes="settings-description" />
           </StackPanel>
         </Border>
         <TextBlock Text="Recent projects" Classes="settings-label" />

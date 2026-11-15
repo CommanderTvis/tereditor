@@ -130,6 +130,8 @@ public sealed class SharedState : IDisposable
         Preferences.Accent = settings.Accent ?? "";
         if (settings.VerticalCenterTabs is { } vertical) Preferences.VerticalCenterTabs = vertical;
         if (settings.VerticalTabsInProjects is { } inProjects) Preferences.VerticalTabsInProjects = inProjects;
+        // Null from a host below protocol 25: the rail then follows this app's own value.
+        Preferences.HostGroupWorkspacesUnderCreator = settings.GroupWorkspacesUnderCreator;
         var presets = new Dictionary<string, DockState>();
         foreach (var preset in state.Presets)
         {

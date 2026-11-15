@@ -10,7 +10,9 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 
 using Tereditor.Host.Abstractions;
+using Tereditor.Host.Core;
 using Tereditor.Host.Remote;
+using Tereditor.Plugins.Api;
 using Tereditor.UI.State;
 
 using static Tereditor.Checks.E2E.E2eWorkspace;
@@ -37,6 +39,7 @@ internal static class MultiClientE2E
         HandshakeSurvivesReconnect(Path.Combine(root, "sync-handshake-reconnect"));
         TransientReadFailure(Path.Combine(root, "sync-transient-read"));
         WindowsKeepPlacement(Path.Combine(root, "sync-placement"));
+        GroupingFollowsHost(Path.Combine(root, "sync-grouping"));
     }
 
     private sealed class RemoteHost : IDisposable
@@ -52,6 +55,8 @@ internal static class MultiClientE2E
         }
 
         internal Uri Endpoint => new($"http://127.0.0.1:{Port}");
+
+        internal HostStateStore State => (HostStateStore)server.Services.GetRequiredService<IHostStateService>();
 
         public void Dispose() => Task.Run(() => server.StopAsync()).GetAwaiter().GetResult();
     }
@@ -188,6 +193,44 @@ internal static class MultiClientE2E
         Until(() => Status(app) == "Remote" && RenameInput(app, created) is null && Shown(app, created) == "Rename After Reconnect");
         Require(proxy.Accepted > 1 && ItemText(app, created, "WorkspaceBranch") == branch, "The rename commits after reconnecting, with the branch unchanged.");
         Console.WriteLine("PASS upstream workspace-actions.spec.ts: an open inline rename survives reconnect");
+    }
+
+    /// <summary>Grouping workspaces under their creator is one host value: a change in one client's Settings reaches the other's box and rail, whatever either profile says.</summary>
+    private static void GroupingFollowsHost(string directory)
+    {
+        var project = FixtureProject(directory);
+        using var host = new RemoteHost(project);
+        using var source = RemoteClient(host.Endpoint, project, project + "-source-profile");
+        using var peer = RemoteClient(host.Endpoint, project, project + "-peer-profile");
+        // A workspace the peer's own terminal tab created, recorded by the host.
+        peer.Click(Select(peer, project));
+        Until(() => Active(peer, project));
+        peer.Window.Layout.NewTerminal(peer.Center);
+        var terminal = peer.Window.Layout.Tabs(peer.Center).Last(tab => tab.Kind == "terminal").Id;
+        var made = CreateWorkspaceViaDialog(peer);
+        host.State.RecordWorkspaceCreator(made, new TerminalRef(project, terminal));
+        double Left(string path) => (Item(peer, path).TranslatePoint(default, peer.Window) ?? default).X;
+        Until(() => Math.Abs(Left(made) - Left(project)) <= 0.5);
+
+        bool Box(E2eWorkspace app) => Named<CheckBox>(app.Window.OpenSettingsViews.Single(window => window.IsVisible), "GroupWorkspacesUnderCreator").IsChecked == true;
+        void Open(E2eWorkspace app)
+        {
+            app.OpenSettings();
+            Until(() => app.Window.OpenSettingsViews.Any(window => window.IsVisible));
+            app.Click(Named<Button>(app.Window.OpenSettingsViews.Single(window => window.IsVisible), "Settings_Projects"));
+        }
+        Open(source);
+        Require(!Box(source), "Grouping starts off on a fresh host.");
+        Named<CheckBox>(source.Window.OpenSettingsViews.Single(window => window.IsVisible), "GroupWorkspacesUnderCreator").IsChecked = true;
+        // The peer, whose profile never changed, takes the host's value on the broadcast: its rail nests the row under the terminal's workspace.
+        Until(() => peer.Window.Preferences.GroupsUnderCreator && !peer.Window.Preferences.GroupWorkspacesUnderCreator);
+        Until(() => Left(made) > Left(project) + 0.5);
+        Open(peer);
+        Require(Box(peer), "The peer's Settings box shows the host's value.");
+        Named<CheckBox>(peer.Window.OpenSettingsViews.Single(window => window.IsVisible), "GroupWorkspacesUnderCreator").IsChecked = false;
+        Until(() => !source.Window.Preferences.GroupsUnderCreator && !Box(source));
+        Until(() => Math.Abs(Left(made) - Left(project)) <= 0.5);
+        Console.WriteLine("PASS rail grouping follows the host: one client's Settings change nests and un-nests the rail of another");
     }
 
     private static void HandshakeSurvivesReconnect(string directory)

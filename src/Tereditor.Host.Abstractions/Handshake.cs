@@ -9,10 +9,16 @@ namespace Tereditor.Host.Abstractions;
 /// </summary>
 public static class HostProtocol
 {
-    public const int Current = 24;
+    public const int Current = 25;
 
     /// <summary>The terminals' memory guard is the Processes plugin's: its limits are that plugin's settings, no longer the <c>terminal-memory</c> host setting (wire member 34, retired). A host below it still holds them as that setting, so a client edits them there.</summary>
     public const int TerminalMemoryInPlugin = 24;
+
+    /// <summary>
+    /// Whether Projects groups a workspace under the terminal or chat that created it (<c>group-workspaces-under-creator</c>) is one host setting every
+    /// client follows. A host below it serves none, so a client falls back to its own profile value there.
+    /// </summary>
+    public const int RailGroupingFollowsHost = 25;
 
     /// <summary>Go to file (<c>IProjectRpc.FindFilesAsync</c>): files matched by name. A host below it answers <c>Unimplemented</c>, so a client offers no file-name search there.</summary>
     public const int FileNameSearch = 23;

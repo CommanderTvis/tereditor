@@ -40,11 +40,17 @@ internal static class RailGroupingE2E
         try
         {
             Task.Run(() => server.StartAsync()).GetAwaiter().GetResult();
+            // The thin client's own profile keeps the grouping off, as the Android app's does: the host's value is the one that counts.
+            var hostState = server.Services.GetRequiredService<Tereditor.Host.Abstractions.IHostStateService>();
+            void HostGrouping(bool on) => Task.Run(() => hostState.ChangeAsync([Tereditor.Host.Abstractions.HostStateChange.Setting("group-workspaces-under-creator", on ? "true" : "false")])).GetAwaiter().GetResult();
+            HostGrouping(true);
             var address = new Uri(server.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()!.Addresses.Single());
             using var app = new E2eWorkspace(address, "rail-grouping", project, Path.Combine(root, "rail-grouping-remote", "profile"), project,
                 // As the app: the terminal catalog is the host's, so a terminal an agent runs there arrives as a tab.
                 terminals: new E2eTerminals(null, new Tereditor.Host.Client.RemoteTerminalCatalogAdapter(address, "rail-grouping")),
-                prepare: profile => profile.Data.Preferences.GroupWorkspacesUnderCreator = true, touch: true, compact: phone);
+                touch: true, compact: phone);
+            Until(() => app.Window.Preferences.HostGroupWorkspacesUnderCreator == true);
+            Require(!app.Window.Preferences.GroupWorkspacesUnderCreator && app.Window.Preferences.GroupsUnderCreator, "The client's own profile stays off; the host's value is the one the rail follows.");
             if (phone) { app.Window.Width = 400; app.Window.Height = 800; }
             Until(() => app.Window.WorkspaceMounted);
             // The phone's rail is the Projects page.
@@ -79,6 +85,13 @@ internal static class RailGroupingE2E
                 ShowRail();
                 Until(() => Shown(child) && Left(app, child) > Left(app, project) + 0.5);
             }
+            // The host's broadcast alone un-nests and nests the rows again.
+            HostGrouping(false);
+            ShowRail();
+            Until(() => Shown(child) && Math.Abs(Left(app, child) - Left(app, project)) <= 0.5);
+            HostGrouping(true);
+            ShowRail();
+            Until(() => Shown(child) && Left(app, child) > Left(app, project) + 0.5);
             // The phone's own case: the creator is an agent's terminal that runs on the host and reaches the client only through the host's terminal catalog.
             // A workspace the host made that this client has never opened, so its layout holds nothing of the terminal.
             var creatorWorkspace = Task.Run(async () =>
@@ -230,7 +243,8 @@ internal static class RailGroupingE2E
         Console.WriteLine("PASS rail grouping: a workspace made by a tab in a tab group sits inside the group, under that tab");
 
         var reloaded = new ProfileStore(Path.Combine(root, "rail-grouping", "sample-project") + "-profile");
-        Require(reloaded.Data.Preferences.GroupWorkspacesUnderCreator, "The preference must be stored and restored.");
+        Require(!reloaded.Data.Preferences.GroupWorkspacesUnderCreator && new HostStateStore(app.State!.DirectoryPath).Current.Settings.GroupWorkspacesUnderCreator == true,
+            "The choice must be stored and restored by the host, and the profile must keep its own value for older hosts.");
         Require(new HostStateStore(app.State.DirectoryPath).Current.WorkspaceCreators.Any(entry => entry.Workspace == child && entry.Creator.TabKey == terminal),
             "The host must restore the recorded creator after a restart.");
         Console.WriteLine("PASS rail grouping: the preference and the creators are stored and restored");
@@ -276,7 +290,8 @@ internal static class RailGroupingE2E
         Require(toggle.IsChecked == false, "Grouping is off by default.");
         toggle.IsChecked = true;
         settings.Close(); Until(() => !settings.IsVisible);
-        Require(app.Window.Preferences.GroupWorkspacesUnderCreator, "The switch must change the app preference.");
+        Until(() => app.State!.Current.Settings.GroupWorkspacesUnderCreator == true && app.Window.Preferences.GroupsUnderCreator);
+        Require(!app.Window.Preferences.GroupWorkspacesUnderCreator, "The switch must change the host's value, not the profile's.");
     }
 
     /// <summary>Opens a workspace by its rail row; for the creator's workspace, also selects the creator's tab as a click selects it.</summary>

@@ -75,6 +75,8 @@ public sealed class SettingsMessage
     [ProtoMember(38)] public int EditorLineHeight { get; set; }
     /// <summary>Empty, from a host that predates the setting, shows every terminal chip.</summary>
     [ProtoMember(39)] public string TerminalHiddenChips { get; set; } = "";
+    /// <summary>Optional: absent, from a host that predates the setting (protocol 25), means the client keeps its own profile value.</summary>
+    [ProtoMember(40)] public bool? GroupWorkspacesUnderCreator { get; set; }
 }
 
 [ProtoContract]
