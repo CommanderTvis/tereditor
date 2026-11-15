@@ -77,14 +77,14 @@ public static partial class AirLaunch
     /// </summary>
     public const string OmpLauncher = "omp";
 
-    /// <summary>What the user runs to install Central's Pi integration, which governed omp launches read their wire from.</summary>
-    public const string PiInstallCommand = "central add pi";
+    /// <summary>The line a governed omp launch prints when Central's proxy wire is unknown.</summary>
+    public const string PiMissingMessage = "Air Gateway: sign in to JetBrains Central first (central login), then start again.";
 
     /// <summary>
-    /// The executable a governed omp launch gets when Central's Pi wire is unknown: a command that cannot exist, so
-    /// the launch fails in the shell, naming the fix, instead of starting an ungoverned omp.
+    /// The script a governed omp launch runs when Central's wire is unknown: it prints <see cref="PiMissingMessage"/> and
+    /// exits 1, so the launch fails readably instead of starting an ungoverned omp.
     /// </summary>
-    public const string PiMissingCommand = "air-gateway-needs-central-pi-integration--run-central-add-pi";
+    public const string PiMissingScript = "echo '" + PiMissingMessage + "' >&2; exit 1";
 
     /// <summary>The executable a governed omp launch gets on Windows, whose shells receive no contributed environment.</summary>
     public const string WindowsUnsupportedCommand = "air-gateway-cannot-govern-omp-on-windows";
@@ -98,7 +98,7 @@ public static partial class AirLaunch
     /// </summary>
     public const string ProxyStartScript = "\"$0\" proxy start --ensure-updated --caller agent >/dev/null 2>&1; exec \"$@\"";
 
-    /// <summary>Where <c>central add pi</c> installs the integration under a home directory.</summary>
+    /// <summary>Where <c>central add pi</c> installed the Pi integration under a home directory (read only, as a fallback).</summary>
     public static string PiExtensionPath(string home) => Path.Combine(home, ".pi", "agent", "extensions", "jetbrains-central.ts");
 
     [GeneratedRegex(@"registerProvider\(\s*""anthropic""\s*,\s*\{\s*baseUrl:\s*""(http://127\.0\.0\.1:[0-9]{1,5}/wire/[A-Za-z0-9]+/pi)/anthropic""")]
@@ -109,6 +109,34 @@ public static partial class AirLaunch
     /// integration, or <see langword="null"/> when it names no loopback Anthropic wire.
     /// </summary>
     public static string? PiWire(string extensionText) => AnthropicWire().Match(extensionText) is { Success: true } match ? match.Groups[1].Value : null;
+
+    /// <summary>Where Central keeps its settings under a home directory.</summary>
+    public static string CentralConfigPath(string home) => Path.Combine(home, ".jetbrains-central", "config.json");
+
+    /// <summary>
+    /// Central's Pi wire (<c>http://127.0.0.1:&lt;port&gt;/wire/&lt;secret&gt;/pi</c>) built from the text of Central's
+    /// <c>config.json</c> (<c>proxy_port</c>, <c>proxy_secret</c>), or <see langword="null"/> when either is missing or
+    /// malformed. <paramref name="portOverride"/> is the value of <c>WIRE_PROXY_PORT</c>, which wins over the file's port;
+    /// an invalid override is ignored.
+    /// </summary>
+    public static string? PiWireFromConfig(string configText, string? portOverride = null)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(configText);
+            if (document.RootElement is not { ValueKind: System.Text.Json.JsonValueKind.Object } root) return null;
+            if (!root.TryGetProperty("proxy_secret", out var secretElement) || secretElement.ValueKind != System.Text.Json.JsonValueKind.String) return null;
+            var secret = secretElement.GetString();
+            if (secret is not { Length: >= 1 and <= 256 } || !secret.All(char.IsAsciiLetterOrDigit)) return null;
+            int port;
+            if (!(int.TryParse(portOverride, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out port) && port is >= 1 and <= 65535))
+            {
+                if (!root.TryGetProperty("proxy_port", out var portElement) || !portElement.TryGetInt32(out port) || port is < 1 or > 65535) return null;
+            }
+            return $"http://127.0.0.1:{port}/wire/{secret}/pi";
+        }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
 
     /// <summary>Whether Central is the chosen source and governs at least one agent's launches.</summary>
     public static bool Wired(AirSettings settings) => CentralNames.Keys.Append(OmpLauncher).Any(launcherId => Enabled(settings, launcherId));
@@ -122,7 +150,7 @@ public static partial class AirLaunch
     /// with the bare name when Central has not been found, so a missing CLI fails the launch in the shell. omp, which
     /// <c>central run</c> cannot start, gets the equivalent of <c>central run pi</c>: the proxy is started first and
     /// <c>ANTHROPIC_BASE_URL</c> and <c>ANTHROPIC_API_KEY</c> point it at Central's Pi wire (<paramref name="piWire"/>);
-    /// without a known wire, or on Windows, the launch runs a command that cannot exist.
+    /// without a known wire the launch prints <see cref="PiMissingMessage"/> and exits 1, and on Windows it runs a command that cannot exist.
     /// </summary>
     public static AgentLaunchContribution? Contribution(AirSettings settings, string launcherId, string? centralPath, string? piWire = null, bool windows = false)
     {
@@ -130,7 +158,7 @@ public static partial class AirLaunch
         var central = centralPath is { Length: > 0 } ? centralPath : "central";
         if (launcherId != OmpLauncher) return new() { Wrapper = [central, "run", CentralNames[launcherId], "--"], ReplacesExecutable = true };
         if (windows) return new() { Wrapper = [WindowsUnsupportedCommand], ReplacesExecutable = true };
-        if (piWire is not { Length: > 0 }) return new() { Wrapper = [PiMissingCommand], ReplacesExecutable = true };
+        if (piWire is not { Length: > 0 }) return new() { Wrapper = ["sh", "-c", PiMissingScript], ReplacesExecutable = true };
         return new()
         {
             Wrapper = ["sh", "-c", ProxyStartScript, central],
@@ -143,7 +171,7 @@ public static partial class AirLaunch
         Contribution(settings, launcherId, centralPath, piWire, windows) switch
         {
             null => null,
-            { Wrapper: [PiMissingCommand] } => "blocked: Air Gateway needs Central's Pi integration: run `" + PiInstallCommand + "`",
+            { Wrapper: ["sh", "-c", PiMissingScript] } => "blocked: " + PiMissingMessage,
             { Wrapper: [WindowsUnsupportedCommand] } => "blocked: Air Gateway cannot govern omp on Windows",
             { ReplacesExecutable: false } contribution => string.Join(' ', contribution.Environment.Select(pair => pair.Key + "=" + pair.Value)) + " "
                 + contribution.Wrapper[^1] + " proxy start, then " + launcherId + " <" + launcherId + " arguments>",

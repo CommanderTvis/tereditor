@@ -82,22 +82,44 @@ internal static class OmpChecks
         foreach (var name in new[] { "omp", "central" }) File.SetUnixFileMode(Path.Combine(bin, name), UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var settings = new AirSettings { Source = AirSources.Central };
         using var missing = new Tereditor.Plugins.AirGateway.Host.AirGatewayRuntime(new(home, bin), () => settings, _ => { });
-        Require(missing.PiWire() is null && missing.Contribution(OmpManifest.Id) is { Wrapper: [AirLaunch.PiMissingCommand], ReplacesExecutable: true },
-            "governed omp without Central's Pi integration is blocked");
-        Require((await missing.StatusAsync(false, default)).Agents.Single(agent => agent.Id == OmpManifest.Id).Launch!.Contains("run `central add pi`", StringComparison.Ordinal),
-            "the pane names `central add pi`");
+        Require(missing.PiWire() is null && missing.Contribution(OmpManifest.Id) is { Wrapper: ["sh", "-c", AirLaunch.PiMissingScript], ReplacesExecutable: true },
+            "governed omp without a Central wire is blocked");
+        var paneLaunch = (await missing.StatusAsync(false, default)).Agents.Single(agent => agent.Id == OmpManifest.Id).Launch!;
+        Require(paneLaunch.Contains("central login", StringComparison.Ordinal) && !paneLaunch.Contains("central add", StringComparison.Ordinal), "the pane says what is needed, not `central add pi`");
+        const string Secret = "s3cr3tK3y0123";
         const string Wire = "http://127.0.0.1:19516/wire/0123abcd/pi";
+        const string ConfigWire = "http://127.0.0.1:19517/wire/" + Secret + "/pi";
+        var config = AirLaunch.CentralConfigPath(home);
+        Directory.CreateDirectory(Path.GetDirectoryName(config)!);
+        File.WriteAllText(config, "{\"proxy_port\":19517,\"proxy_secret\":\"" + Secret + "\"}");
+        Require(missing.PiWire() == ConfigWire, "the wire is built from Central's config, with no Pi integration installed");
+        using (var overridden = new Tereditor.Plugins.AirGateway.Host.AirGatewayRuntime(new(home, bin, WireProxyPort: "19600"), () => settings, _ => { }))
+            Require(overridden.PiWire() == "http://127.0.0.1:19600/wire/" + Secret + "/pi", "WIRE_PROXY_PORT overrides the config port");
+        File.WriteAllText(config, "{\"proxy_port\":99999,\"proxy_secret\":\"" + Secret + "\"}");
+        Require(missing.PiWire() is null, "an invalid config port is rejected");
+        File.WriteAllText(config, "{\"proxy_port\":19517,\"proxy_secret\":\"bad secret!\"}");
+        Require(missing.PiWire() is null, "an invalid config secret is rejected");
+        var message = await Run(missing.Contribution(OmpManifest.Id), true);
+        Require(message.Length == 1 && message[0] == AirLaunch.PiMissingMessage && !message[0].Contains(Secret, StringComparison.Ordinal), "the failure is one plain line and omp never starts");
+        File.WriteAllText(config, "{\"proxy_port\":19517,\"proxy_secret\":\"" + Secret + "\"}");
+        var fromConfig = await Run(missing.Contribution(OmpManifest.Id));
+        Require(fromConfig.SequenceEqual(["CENTRAL=proxy start --ensure-updated --caller agent", "BASE=" + ConfigWire + "/anthropic", "KEY=wire-proxy", "ARG=--model", "ARG=anthropic/x", "ARG=--no-lsp"]),
+            "governed omp launches from Central's config alone");
+        File.Delete(config);
         var extension = AirLaunch.PiExtensionPath(home);
         Directory.CreateDirectory(Path.GetDirectoryName(extension)!);
         File.WriteAllText(extension, "export default function (pi) {\n  pi.registerProvider(\"anthropic\", { baseUrl: \"" + Wire + "/anthropic\", apiKey: \"wire-proxy\" });\n}\n");
         var before = File.ReadAllText(extension);
-        Require(missing.PiWire() == Wire, "the wire is read from Central's Pi integration");
+        Require(missing.PiWire() == Wire, "without the config the wire falls back to Central's Pi integration");
+        File.WriteAllText(config, "{\"proxy_port\":19517,\"proxy_secret\":\"" + Secret + "\"}");
+        Require(missing.PiWire() == ConfigWire, "the config wins over the Pi integration");
+        File.Delete(config);
         Require(AirLaunch.PiWire("registerProvider(\"anthropic\", { baseUrl: \"https://example.test/wire/x/pi/anthropic\" })") is null, "only a loopback wire is accepted");
         Require(AirLaunch.Contribution(settings, OmpManifest.Id, "/c", Wire, windows: true) is { Wrapper: [AirLaunch.WindowsUnsupportedCommand] }, "Windows, which gets no contributed environment, is blocked");
         Require(AirLaunch.Contribution(settings with { Omp = false }, OmpManifest.Id, "/c", Wire) is null && AirLaunch.Contribution(new(), OmpManifest.Id, "/c", Wire) is null,
             "direct or switched off contributes nothing");
 
-        async Task<string[]> Run(AgentLaunchContribution? contribution)
+        async Task<string[]> Run(AgentLaunchContribution? contribution, bool stderr = false)
         {
             File.Delete(record);
             var line = OmpLaunch.Line("omp", new() { Mcp = false, Model = "anthropic/x", Contributions = contribution is null ? [] : [contribution] });
@@ -106,8 +128,9 @@ internal static class OmpChecks
             start.Environment.Remove("ANTHROPIC_BASE_URL");
             start.Environment.Remove("ANTHROPIC_API_KEY");
             using var process = System.Diagnostics.Process.Start(start)!;
-            await process.StandardError.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
+            if (stderr) return error.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             return File.Exists(record) ? File.ReadAllLines(record) : [];
         }
 
@@ -117,7 +140,7 @@ internal static class OmpChecks
         var direct = await Run(AirLaunch.Contribution(new(), OmpManifest.Id, null, Wire));
         Require(direct.SequenceEqual(["BASE=", "KEY=", "ARG=--model", "ARG=anthropic/x", "ARG=--no-lsp"]), "a direct omp gets no wire: " + string.Join(" | ", direct));
         File.Delete(extension);
-        Require(await Run(missing.Contribution(OmpManifest.Id)) is [], "without the integration the launch fails in the shell and omp never starts");
+        Require(await Run(missing.Contribution(OmpManifest.Id)) is [], "without any wire the launch fails in the shell and omp never starts");
         Require(!File.Exists(extension) && before.Length > 0, "the integration is only read");
     }
 

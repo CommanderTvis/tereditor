@@ -48,25 +48,25 @@ is never rewritten and so is not governed; the pane says so. Running terminals k
 rather than silently starting an ungoverned agent. The pane shows the exact command shape each agent will get.
 
 omp is governed without `central run`, which (Central 1.13.0) has no omp agent and no way to name another binary.
-Central's own Pi integration (`central add pi`, installed at `~/.pi/agent/extensions/jetbrains-central.ts`) routes
-Pi's built-in providers to the proxy's Pi wire `http://127.0.0.1:<port>/wire/<id>/pi/...` with the key `wire-proxy`
-and runs `central proxy start --ensure-updated --caller agent` at session start. Loading that file into omp with `-e`
-does not work: in a real run (Central 1.13.0, omp 18.12.6) omp applied the key but not the base URL and the request
-went straight to Anthropic (401). Setting `ANTHROPIC_BASE_URL=<wire>/anthropic` and `ANTHROPIC_API_KEY=wire-proxy`
-answered through Central's proxy. So with omp governed, the host reads (never writes) the wire from that file's
-Anthropic `registerProvider` line (loopback only, at most 64 KiB) and publishes it in the status; the contribution to
-launcher id `omp` sets those two variables and a non-replacing wrapper
+Central's proxy listens on `127.0.0.1:<port>` and takes requests at `/wire/<secret>/<agent>/<route>/...`; its port and
+secret are `proxy_port` and `proxy_secret` in `~/.jetbrains-central/config.json`, and `WIRE_PROXY_PORT` overrides the
+port. The Pi wire is `http://127.0.0.1:<port>/wire/<secret>/pi`. The host reads (never writes) that file (at most
+64 KiB; port 1 to 65535, secret ASCII letters and digits, 1 to 256 long; a bad value rejects the file) and builds the
+wire from it. If the file is missing or unusable, it falls back to the wire in the Anthropic `registerProvider` line of
+the Pi integration that `central add pi` may have installed (`~/.pi/agent/extensions/jetbrains-central.ts`, loopback only,
+at most 64 KiB). The plugin never needs, runs or suggests `central add`. The wire is published in the status as before; the failure line, notices and logs never contain it. Loading that extension into omp with `-e` does not work: in a real run (Central
+1.13.0, omp 18.12.6) omp applied the key but not the base URL and the request went straight to Anthropic (401). Setting
+`ANTHROPIC_BASE_URL=<wire>/anthropic` and `ANTHROPIC_API_KEY=wire-proxy` answered through Central's proxy. So the
+contribution to launcher id `omp` sets those two variables and a non-replacing wrapper
 `sh -c '"$0" proxy start --ensure-updated --caller agent >/dev/null 2>&1; exec "$@"' <central>` that starts the
-proxy best effort, as the integration does, and execs omp with its usual arguments. Only Anthropic models are
-governed: omp documents `ANTHROPIC_BASE_URL` but no base-URL variable for OpenAI or Vertex, so the integration's
-OpenAI and Vertex routes are not mirrored, and an omp model from another provider runs on omp's own account; an
-`ANTHROPIC_OAUTH_TOKEN` in the environment takes precedence in omp over the key. Nothing under `~/.pi` or `~/.omp` is
-written and `-e` is not passed. When the integration is missing, its wire cannot be read, or the UI has not yet
-received the status, the governed omp launch runs a command that cannot exist
-(`air-gateway-needs-central-pi-integration--run-central-add-pi`), failing in the shell like a missing Central; on
-Windows, whose shells get no contributed environment, it runs `air-gateway-cannot-govern-omp-on-windows`. The pane
-then says "Air Gateway needs Central's Pi integration: run `central add pi`" with the command and a Copy button;
-the plugin never runs `central add`.
+proxy best effort and execs omp with its usual arguments. Only Anthropic models are governed; an omp model from another
+provider runs on omp's own account. OpenAI route for omp: not wired yet. An `ANTHROPIC_OAUTH_TOKEN` in the
+environment takes precedence in omp over the key. Nothing under `~/.pi` or `~/.omp` is written and `-e` is not passed.
+When no wire can be found, or the UI has not yet received the status, the governed omp launch fails closed with one
+plain line, "Air Gateway: sign in to JetBrains Central first (central login), then start again.", and exit status 1
+(a launch contribution can only be a command today); on Windows, whose shells get no contributed environment, it runs
+`air-gateway-cannot-govern-omp-on-windows`. The pane then says that governed omp needs Central installed and signed in
+and that the launch starts its proxy.
 
 Central chooses its own AI access source and proxy; `central access <id>` (switch, then `central proxy restart`)
 stays the way to change it, as in the fork. The pane states persistently that switching affects every app using the

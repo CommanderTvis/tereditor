@@ -83,7 +83,7 @@ No real omp run backs them; the checks use a fixture `omp`.
   detected; this is not verified against a real install.
 - Air Gateway can govern omp (its `omp` switch, with Central chosen): Central's `central run` (1.13.0) has no omp
   agent, so Air Gateway contributes Central's Pi wire as `ANTHROPIC_BASE_URL`/`ANTHROPIC_API_KEY` and a proxy start
-  before omp, read from Central's Pi integration (`central add pi`); without it the launch fails in the shell. Only
+  before omp, read from Central's `config.json` (else from Central's Pi integration if present); without a wire the launch prints a plain message and exits 1. Only
   Anthropic models are governed. Details and the real-run evidence are in Air Gateway's SPEC; the launch line
   applies the contribution like any other.
 - Mark: the manifest icon is `asset:omp.svg`, omp's π mark from the omp.sh site header redrawn as one `currentColor`

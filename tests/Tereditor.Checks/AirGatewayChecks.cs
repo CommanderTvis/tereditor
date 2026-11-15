@@ -223,8 +223,18 @@ internal static partial class AirGatewayChecks
         Require(AirLaunch.Contribution(central, "omp", "/c", "http://127.0.0.1:1/wire/a/pi") is { ReplacesExecutable: false, Wrapper: ["sh", "-c", AirLaunch.ProxyStartScript, "/c"] } omp &&
             omp.Environment["ANTHROPIC_BASE_URL"] == "http://127.0.0.1:1/wire/a/pi/anthropic" && omp.Environment["ANTHROPIC_API_KEY"] == AirLaunch.WireApiKey,
             "omp starts Central's proxy and gets its Pi wire through the environment.");
-        Require(AirLaunch.Contribution(central, "omp", "/c") is { Wrapper: [AirLaunch.PiMissingCommand] } && AirLaunch.Contribution(central with { Omp = false }, "omp", "/c") is null &&
-            AirLaunch.Shape(central, "omp", "/c") == "blocked: Air Gateway needs Central's Pi integration: run `central add pi`", "Without Central's Pi integration omp is blocked, and it has its own switch.");
+        Require(AirLaunch.Contribution(central, "omp", "/c") is { Wrapper: ["sh", "-c", AirLaunch.PiMissingScript] } && AirLaunch.Contribution(central with { Omp = false }, "omp", "/c") is null &&
+            AirLaunch.Shape(central, "omp", "/c") == "blocked: " + AirLaunch.PiMissingMessage && !AirLaunch.PiMissingMessage.Contains("central add", StringComparison.Ordinal),
+            "Without a Central wire omp is blocked with a plain message, and it has its own switch.");
+        Require(AirLaunch.PiWireFromConfig("{\"proxy_port\":4000,\"proxy_secret\":\"abc123\"}") == "http://127.0.0.1:4000/wire/abc123/pi" &&
+            AirLaunch.PiWireFromConfig("{\"proxy_port\":4000,\"proxy_secret\":\"abc123\"}", "4100") == "http://127.0.0.1:4100/wire/abc123/pi" &&
+            AirLaunch.PiWireFromConfig("{\"proxy_port\":4000,\"proxy_secret\":\"abc123\"}", "nope") == "http://127.0.0.1:4000/wire/abc123/pi" &&
+            AirLaunch.PiWireFromConfig("{\"proxy_secret\":\"abc123\"}", "4100") == "http://127.0.0.1:4100/wire/abc123/pi",
+            "The wire is built from Central's config, the port override wins, and a bad override is ignored.");
+        Require(new[] { "{\"proxy_port\":0,\"proxy_secret\":\"a\"}", "{\"proxy_port\":70000,\"proxy_secret\":\"a\"}", "{\"proxy_port\":\"4000\",\"proxy_secret\":\"a\"}",
+                "{\"proxy_port\":4000}", "{\"proxy_port\":4000,\"proxy_secret\":\"\"}", "{\"proxy_port\":4000,\"proxy_secret\":\"a/b\"}",
+                "{\"proxy_port\":4000,\"proxy_secret\":\"" + new string('a', 257) + "\"}", "[]", "not json" }.All(text => AirLaunch.PiWireFromConfig(text) is null),
+            "An invalid port or secret, or a malformed file, gives no wire.");
     }
 
     private static string[] Snapshot(Fixture fixture) => [.. Directory.EnumerateFiles(fixture.Home, "*", SearchOption.AllDirectories)

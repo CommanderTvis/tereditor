@@ -152,4 +152,4 @@ their own accounts.
 
 - Choose the source in Settings › Air Gateway.
 - tereditor starts each agent through your own `central` CLI and edits none of the agents' configuration.
-- For omp, only Anthropic models are governed, and Central's Pi integration (`central add pi`) must be installed.
+- For omp, only Anthropic models are governed, and Central must be installed and signed in. The launch starts Central's proxy.

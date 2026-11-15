@@ -93,13 +93,21 @@ internal sealed class AirGatewayRuntime : IDisposable
         AirLaunch.Contribution(settings(), launcherId, cli.Locate(), PiWire(), OperatingSystem.IsWindows()) is { } contribution
             ? contribution with { Account = new("Central", AccountAsync) } : null;
 
-    /// <summary>Central's Pi wire, read (never written) from the Pi integration <c>central add pi</c> installed on this host, or <see langword="null"/> when it is missing or names none.</summary>
-    public string? PiWire()
+    /// <summary>
+    /// Central's Pi wire, read (never written) from Central's <c>config.json</c> (proxy port and secret, the port overridden by
+    /// <c>WIRE_PROXY_PORT</c>), else from the Pi integration <c>central add pi</c> may have installed; <see langword="null"/>
+    /// when neither names one.
+    /// </summary>
+    public string? PiWire() =>
+        ReadSmall(AirLaunch.CentralConfigPath(cli.Environment.Home)) is { } config && AirLaunch.PiWireFromConfig(config, cli.Environment.WireProxyPort) is { } fromConfig ? fromConfig
+        : ReadSmall(AirLaunch.PiExtensionPath(cli.Environment.Home)) is { } extension ? AirLaunch.PiWire(extension) : null;
+
+    private static string? ReadSmall(string path)
     {
         try
         {
-            var file = new FileInfo(AirLaunch.PiExtensionPath(cli.Environment.Home));
-            return file is { Exists: true, Length: <= 64 * 1024 } ? AirLaunch.PiWire(File.ReadAllText(file.FullName)) : null;
+            var file = new FileInfo(path);
+            return file is { Exists: true, Length: <= 64 * 1024 } ? File.ReadAllText(file.FullName) : null;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return null; }
     }

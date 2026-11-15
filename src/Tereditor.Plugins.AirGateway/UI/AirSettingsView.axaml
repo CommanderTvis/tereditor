@@ -42,13 +42,7 @@
     <StackPanel Spacing="6">
       <TextBlock Text="What new launches will run" Foreground="{x:Static kit:Ui.TextBrush}" />
       <TextBlock x:Name="AirLaunches" TextWrapping="Wrap" FontFamily="{x:Static kit:Ui.CodeFont}" Foreground="{x:Static kit:Ui.TextBrush}" />
-      <StackPanel x:Name="AirPiInstall" Spacing="4" IsVisible="False">
-        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.TextBrush}" Text="Air Gateway needs Central's Pi integration: run `central add pi`. Until then governed omp launches fail in the terminal." />
-        <WrapPanel Orientation="Horizontal">
-          <TextBox x:Name="AirPiInstallCommand" IsReadOnly="True" FontFamily="{x:Static kit:Ui.CodeFont}" Text="central add pi" Margin="0,0,8,0" />
-          <Button x:Name="AirPiInstallCopy" Content="Copy" />
-        </WrapPanel>
-      </StackPanel>
+      <TextBlock x:Name="AirPiInstall" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.TextBrush}" IsVisible="False" Text="Governed omp needs Central installed and signed in. The launch starts its proxy. Until then governed omp launches stop with a message in the terminal." />
       <TextBlock x:Name="AirLaunchNote" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />
       <TextBlock x:Name="AirResult" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />
     </StackPanel>

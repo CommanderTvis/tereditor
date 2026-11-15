@@ -22,7 +22,8 @@ internal sealed partial class AirSettingsView : UserControl
 {
     private readonly IPluginUIContext context;
     private readonly TextBlock centralLine, credits, launches, launchNote, result, accessNote;
-    private readonly StackPanel install, access, piInstall;
+    private readonly StackPanel install, access;
+    private readonly TextBlock piInstall;
     private readonly TextBox installCommand;
     private readonly RadioButton direct, central;
     private readonly CheckBox claudeCode, codex, omp;
@@ -59,7 +60,7 @@ internal sealed partial class AirSettingsView : UserControl
         installCommand = Get<TextBox>("AirInstallCommand");
         direct = Get<RadioButton>("AirSourceDirect"); central = Get<RadioButton>("AirSourceCentral");
         claudeCode = Get<CheckBox>("AirAgentClaudeCode"); codex = Get<CheckBox>("AirAgentCodex"); omp = Get<CheckBox>("AirAgentOmp");
-        piInstall = Get<StackPanel>("AirPiInstall");
+        piInstall = Get<TextBlock>("AirPiInstall");
         signIn = Get<Button>("AirSignIn"); signOut = Get<Button>("AirSignOut");
         startProxy = Get<Button>("AirStartProxy"); update = Get<Button>("AirUpdate");
         direct.IsCheckedChanged += (_, _) => { if (!applying && direct.IsChecked == true) Save(Settings with { Source = AirSources.Direct }); };
@@ -67,10 +68,6 @@ internal sealed partial class AirSettingsView : UserControl
         claudeCode.IsCheckedChanged += (_, _) => { if (!applying) Save(Settings with { ClaudeCode = claudeCode.IsChecked == true }); };
         codex.IsCheckedChanged += (_, _) => { if (!applying) Save(Settings with { Codex = codex.IsChecked == true }); };
         omp.IsCheckedChanged += (_, _) => { if (!applying) Save(Settings with { Omp = omp.IsChecked == true }); };
-        Get<Button>("AirPiInstallCopy").Click += async (_, _) =>
-        {
-            if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard) await clipboard.SetTextAsync(AirLaunch.PiInstallCommand);
-        };
         signIn.Click += (_, _) => _ = RunAsync(AirGatewayContract.SignIn);
         signOut.Click += (_, _) => _ = RunAsync(AirGatewayContract.SignOut);
         startProxy.Click += (_, _) => _ = RunAsync(AirGatewayContract.StartProxy);
