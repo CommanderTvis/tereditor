@@ -600,7 +600,7 @@ internal static partial class AirGatewayChecks
     private sealed class Recorder(Action<IPluginHostContext> activated) : PluginHostModule
     {
         public override PluginContract Contract { get; } = PluginContract.Create<AirSettings>("agents", 1, [], [], AirGatewayJson.Default);
-        public override ValueTask<PluginDisposer?> ActivateAsync(IPluginHostContext context) { activated(context); return ValueTask.FromResult<PluginDisposer?>(null); }
+        public override ValueTask<Tereditor.Plugins.Api.Host.PluginDisposer?> ActivateAsync(IPluginHostContext context) { activated(context); return ValueTask.FromResult<Tereditor.Plugins.Api.Host.PluginDisposer?>(null); }
     }
 
     private static async Task Transport(string directory)
