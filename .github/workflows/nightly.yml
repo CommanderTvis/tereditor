@@ -287,6 +287,57 @@ jobs:
         with:
           name: headless-${{ matrix.rid }}
 
+  # The headless host for macOS arm64 as one archive, the same publish and NativeAOT gate as the Linux archives above. It is an
+  # artifact of this run only: the release job does not attach it, so it does not gate or change the release.
+  headless-macos:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - id: stamp
+        run: echo "name=tereditor-nightly-$(date -u +%Y%m%d)-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.local/share/mise
+            ~/.cache/tereditor
+          key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Publish headless osx-arm64" sh scripts/mise x -- dotnet publish src/Tereditor.Host.Headless -c Release -r osx-arm64 -o artifacts/headless/osx-arm64
+      # The archive has no .NET runtime and no external plugins: fail unless the publish is one NativeAOT binary.
+      - run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Require NativeAOT headless osx-arm64" env TEREDITOR_PACKAGED_HEADLESS="$PWD/artifacts/headless/osx-arm64" sh scripts/mise x -- dotnet run --project tests/Tereditor.Checks -c Release -- --case packaged-binaries
+      # One top-level folder, readable by everyone, owner root. macOS tar has no --sort, so entries keep the order of the directory.
+      - name: Archive
+        run: |
+          set -eu
+          stage="$RUNNER_TEMP/stage"
+          rm -rf "$stage" && mkdir -p "$stage" artifacts
+          cp -R artifacts/headless/osx-arm64 "$stage/tereditor-headless"
+          chmod -R a+rX,go-w "$stage/tereditor-headless"
+          tar -C "$stage" --uid 0 --gid 0 --uname root --gname wheel -cf - tereditor-headless | gzip -9n > "artifacts/${{ steps.stamp.outputs.name }}-headless-osx-arm64.tar.gz"
+          ls -l "artifacts/${{ steps.stamp.outputs.name }}-headless-osx-arm64.tar.gz"
+      # The archive must unpack and answer on this machine.
+      - name: Smoke test the archive
+        env:
+          TEREDITOR_STATE_DIR: ${{ runner.temp }}/headless-state
+        run: |
+          set -eu
+          check="$RUNNER_TEMP/unpacked"
+          rm -rf "$check" && mkdir -p "$check"
+          tar -xzf "artifacts/${{ steps.stamp.outputs.name }}-headless-osx-arm64.tar.gz" -C "$check"
+          test -x "$check/tereditor-headless/tereditor-headless"
+          "$check/tereditor-headless/tereditor-headless" languages | grep -q '^csharp'
+          "$check/tereditor-headless/tereditor-headless" check-config --workspace "$check" > /dev/null
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.stamp.outputs.name }}-headless-macos-arm64
+          path: artifacts/${{ steps.stamp.outputs.name }}-headless-osx-arm64.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+      - if: failure()
+        uses: ./.github/actions/diagnostics
+        with:
+          name: headless-osx-arm64
+
   windows:
     runs-on: windows-2025
     timeout-minutes: 90
