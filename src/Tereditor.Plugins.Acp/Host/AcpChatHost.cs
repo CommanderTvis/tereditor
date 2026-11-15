@@ -33,6 +33,10 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
 
     public AcpFetch FetchIcon { get; init; } = AcpIconCache.HttpFetch;
 
+    private AcpAgentIcons? agentIcons;
+
+    private AcpAgentIcons AgentIcons => agentIcons ??= new(Path.Combine(DataDirectory, "registry", "icons"), FetchIcon, Cache.CachedAsync, message => context.Log.Debug(message));
+
     /// <summary>How sign-in detection reads the launch environment (names only), where it looks for credential files and which agents it knows; a check sets all three.</summary>
     public Func<string, string?> EnvironmentVariable { get; init; } = System.Environment.GetEnvironmentVariable;
     public string Home { get; init; } = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
@@ -190,9 +194,14 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         context.Method(AcpContract.Install, async (p, _, ct) => WithProblems(await InstallAsync(p, ct)));
         context.Method(AcpContract.RemoveAgent, (p, _, _) => ValueTask.FromResult(WithProblems(RemoveAgent(p.AgentId))));
         context.Method(AcpContract.ChatAgents, (p, _, _) => ValueTask.FromResult(ChatAgents(p.WorkspaceId)));
+        context.Method(AcpContract.AgentIcon, async (p, _, _) =>
+            ListAgents().Agents.FirstOrDefault(agent => agent.Id == p.AgentId) is { } entry && await AgentIcons.EnsureAsync(entry) is { } svg
+                ? new AcpIconSet(new Dictionary<string, string> { [entry.Id] = svg }) : new AcpIconSet(new Dictionary<string, string>()));
         context.Method(AcpContract.Choose, (p, _, _) =>
         {
             SaveRecord(p.WorkspaceId, p.ChatId, record => record with { AgentId = p.AgentId });
+            // The agent's logo for its tab: fetched in the background when the disk has none; the chat never waits for it.
+            if (ListAgents().Agents.FirstOrDefault(agent => agent.Id == p.AgentId) is { } chosen) _ = AgentIcons.EnsureAsync(chosen);
             return ValueTask.FromResult(new Ack());
         });
         context.Method(ChatContract.Open, (p, _, _) => OpenAsync(p));

@@ -53,6 +53,19 @@ internal sealed class AcpTabIcons
         }
     }
 
+    /// <summary>Adds the icons the host fetched for chats that just started, keeping the others. True when one a chat uses changed.</summary>
+    public bool AddIcons(IReadOnlyDictionary<string, string> svgs)
+    {
+        lock (gate)
+        {
+            var merged = new Dictionary<string, string>(icons);
+            foreach (var (agent, svg) in svgs) merged[agent] = svg;
+            var changed = svgs.Keys.Any(agent => icons.GetValueOrDefault(agent) != merged[agent] && agents.Values.Contains(agent));
+            icons = merged;
+            return changed;
+        }
+    }
+
     /// <summary>The SVG for a chat's tab, or null for the generic icon.</summary>
     public string? SvgFor(string workspace, string chat)
     {

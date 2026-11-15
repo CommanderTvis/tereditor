@@ -674,6 +674,60 @@ internal static class AcpChecks
         Require(!Tereditor.Plugins.Acp.UI.AcpGlyph.HasIcon(null) && !Tereditor.Plugins.Acp.UI.AcpGlyph.HasIcon(" ") && Tereditor.Plugins.Acp.UI.AcpGlyph.HasIcon(GoodIcon), "Without an icon the generic glyph is drawn: custom agents, rejected, missing or not yet fetched icons.");
     }
 
+    // Starting a chat for a registry agent fills that agent's icon once when the disk has none; custom agents and failures change nothing and never hold the chat up.
+    internal static async Task ChatIcons(string root)
+    {
+        Directory.CreateDirectory(root);
+        var fixture = AcpRegistry.Parse(FixtureText()) ?? throw new InvalidOperationException("acp: The captured registry does not parse.");
+        var directory = Path.Combine(root, "icons");
+        var calls = new List<string>();
+        var logs = new List<string>();
+        var online = true;
+        var seenDuringFetch = new List<bool>();
+        var gate = new TaskCompletionSource();
+        var slow = false;
+        AcpFetch fetch = async (url, _, _, _) =>
+        {
+            calls.Add(url);
+            seenDuringFetch.Add(File.Exists(Path.Combine(directory, "goose.svg")));
+            if (slow) await gate.Task;
+            if (!online) throw new HttpRequestException("no network");
+            return new AcpFetchResult(200, GoodIcon, "\"i1\"", null);
+        };
+        AcpAgentIcons make() => new(directory, fetch, _ => Task.FromResult<System.Text.Json.Nodes.JsonObject?>(fixture), logs.Add);
+        var registryAgent = new AcpAgentEntry("goose", "Goose", "goose") { Origin = "registry" };
+
+        var icons = make();
+        Require(await icons.EnsureAsync(new AcpAgentEntry("mine", "Mine", "x")) is null && calls.Count == 0, "A custom agent fetches nothing.");
+        Require(await icons.EnsureAsync(registryAgent) == GoodIcon && calls.Count == 1 && calls[0].EndsWith("goose.svg", StringComparison.Ordinal), "A chat for a registry agent downloads its icon once, from the registry's url.");
+        Require(seenDuringFetch.SequenceEqual([false]) && File.Exists(Path.Combine(directory, "goose.svg")) && File.Exists(Path.Combine(directory, "goose.json")) && !Directory.EnumerateFiles(directory, "*.tmp").Any(), "The icon is written atomically: nothing is visible before the download ends and no temporary file is left.");
+        await icons.EnsureAsync(registryAgent);
+        Require(calls.Count == 1, "Starting more chats of the same agent in this run does not download again.");
+        Require(await make().EnsureAsync(registryAgent) == GoodIcon && calls.Count == 1, "An icon already on disk is not downloaded, even by a new host run.");
+
+        File.Delete(Path.Combine(directory, "goose.svg"));
+        online = false;
+        var failing = make();
+        Require(await failing.EnsureAsync(registryAgent) is null, "A failed download gives no icon.");
+        var attempts = calls.Count;
+        await failing.EnsureAsync(registryAgent);
+        Require(calls.Count == attempts, "A failed download is not retried in the same run.");
+
+        online = true;
+        slow = true;
+        var pending = make().EnsureAsync(registryAgent);
+        Require(!pending.IsCompleted, "The download is still running; the caller got its task back at once, so a chat start that does not await it is never delayed.");
+        gate.SetResult();
+        Require(await pending == GoodIcon, "The icon arrives after the slow download.");
+
+        var broken = new AcpAgentIcons(directory, fetch, _ => throw new InvalidOperationException("secret-token"), logs.Add);
+        Require(await broken.EnsureAsync(new AcpAgentEntry("pi-acp", "Pi", "pi") { Origin = "registry" }) is null && logs.Count == 1 && !logs[0].Contains("secret-token", StringComparison.Ordinal), "An unexpected failure is logged without its message and does not escape.");
+
+        var tabs = new Tereditor.Plugins.Acp.UI.AcpTabIcons();
+        tabs.SetAgent("w", "c1", "goose");
+        Require(tabs.AddIcons(new Dictionary<string, string> { ["goose"] = GoodIcon }) && tabs.SvgFor("w", "c1") == GoodIcon && !tabs.AddIcons(new Dictionary<string, string> { ["goose"] = GoodIcon }), "An icon fetched after the tab opened changes that tab once and keeps the other icons.");
+    }
+
     // A chat tab wears the logo of its own agent from the icons already on disk; anything else keeps the generic ACP icon. No fetch is involved.
     internal static void TabIcons()
     {
@@ -875,6 +929,7 @@ internal static class AcpChecks
         await Registry(Path.Combine(root, "registry"));
         await Icons(Path.Combine(root, "icons"));
         TabIcons();
+        await ChatIcons(Path.Combine(root, "chat-icons"));
         await Verification(Path.Combine(root, "verify"));
         await SignIn(Path.Combine(root, "signin"));
     }

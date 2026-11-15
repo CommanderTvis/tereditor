@@ -127,6 +127,17 @@ public sealed class AcpUI : PluginUIModule
         if (changed) Dispatcher.UIThread.Post(context.Invalidate);
     }
 
+    /// <summary>Asks the host for the icon of an agent whose chat just started (it fetches one the disk lacks) and refreshes the tabs when it arrives. Never awaited by the chat.</summary>
+    private static async Task FetchAgentIconAsync(IPluginUIContext context, AcpTabIcons tabIcons, string agentId)
+    {
+        try
+        {
+            var set = await Task.Run(() => context.RequestAsync(AcpContract.AgentIcon, new AcpAgentIconParams(agentId)).AsTask());
+            if (tabIcons.AddIcons(set.Svgs)) Dispatcher.UIThread.Post(context.Invalidate);
+        }
+        catch (Exception error) when (error is not OperationCanceledException) { }
+    }
+
     /// <summary>The icons already on disk. The menu never waits for the network: an agent without one shows the generic glyph.</summary>
     private static async Task<IReadOnlyDictionary<string, string>> CachedIconsAsync(IPluginUIContext context)
     {
@@ -144,6 +155,7 @@ public sealed class AcpUI : PluginUIModule
             return;
         }
         tabIcons.SetAgent(workspace, id, agent.Id);
+        if (agent.Origin == "registry") _ = FetchAgentIconAsync(context, tabIcons, agent.Id);
         await Dispatcher.UIThread.InvokeAsync(() => ChatDocuments.Open(context, AcpChat.Agent, workspace, id, agent.Name, new ChatOpenParams(workspace, id), null, []));
     }
 }
