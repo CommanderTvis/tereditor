@@ -364,9 +364,9 @@ internal static class PluginSurfaceChecks
             var settings = window.OpenSettingsViews.Single();
             settings.ShowSection("plugin:" + Id + ":" + Id);
             var section = Surface(settings, surface => surface != board);
-            var sectionShown = Settle(section, "the settings section");
-            // The pixels settle on the plugin's render; the page's own layout pass may land after them on a slow runner.
+            // The page's own layout pass can land after the first settled frame, which is then a render of an empty surface: wait for the height, then settle on the render at that size.
             E2eWorkspace.Until(() => section.Bounds.Height > 20);
+            var sectionShown = Settle(section, "the settings section at the height the plugin asks for");
             Require(Opaque(sectionShown) > 200 && section.Bounds.Height > 20, "The settings section takes the height the plugin asks for and shows what it drew.");
             Console.WriteLine($"PASS plugin surface settings section: sized to the {section.Bounds.Height:0} pixels the plugin asks for, its pixels equal the plugin's render");
             settings.Close();

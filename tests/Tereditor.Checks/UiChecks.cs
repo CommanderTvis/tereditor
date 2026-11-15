@@ -129,6 +129,8 @@ internal static class UiChecks
         SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
         Gate.Case("CreateProjectChecks", () => CreateProjectChecks.Run(root));
         Gate.Case("ProcessesPaneChecks", ProcessesChecks.RunUi);
+        // Needs the headless platform, so it runs here and not among the host cases.
+        Gate.Case("processes-settings-ui", () => ProcessesSettingsUiChecks.Run(root));
         Gate.Case("SyntaxHighlightChecks", () => SyntaxHighlightChecks.Run());
         Gate.Case("EditorChecks", () => EditorChecks.Run());
         Gate.Case("EditorTextChecks", () => EditorTextChecks.Run());
