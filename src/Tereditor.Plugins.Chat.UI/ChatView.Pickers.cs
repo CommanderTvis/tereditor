@@ -158,6 +158,20 @@ internal sealed partial class ChatView
             menu.Items.Add(Ui.Menu($"Waiting for {env.Agent.Name}\u2026", () => { }, false));
             return menu;
         }
+        // An agent that tells no model families (ACP) gets its whole list, with no Claude effort levels; a long list opens the searchable panel.
+        if (!header.Models.Any(model => model.Family is { Length: > 0 }))
+        {
+            foreach (var model in header.Models.Take(MenuModelLimit))
+                menu.Items.Add(ChatPopup.Choice("ChatModel_" + model.Id, model.Label, ModelPicks.Matches(model, header.Model), () => _ = SetModel(model.Id), model.Description));
+            if (header.Models.Count > MenuModelLimit)
+                menu.Items.Add(ChatPopup.Item("ChatModelMore", "More models\u2026", () => Dispatcher.UIThread.Post(() =>
+                {
+                    var flyout = new Flyout { Placement = PlacementMode.TopEdgeAlignedLeft };
+                    flyout.Content = ModelPanel(header, flyout);
+                    ChatPopup.Show(flyout, anchor);
+                }, DispatcherPriority.Background)));
+            return menu;
+        }
         foreach (var model in header.Models.Where(model => !ModelPicks.IsDefault(model) && model.Family is { Length: > 0 }).GroupBy(model => model.Family).Select(group => group.First()))
             menu.Items.Add(ChatPopup.Choice("ChatModel_" + model.Id, model.Label, ModelPicks.Matches(model, header.Model), () => _ = SetModel(model.Id), model.Description));
         menu.Items.Add(new Separator());
@@ -172,6 +186,45 @@ internal sealed partial class ChatView
             flyout.Content = ModelPanel(header, flyout);
             ChatPopup.Show(flyout, anchor);
         }, DispatcherPriority.Background)));
+        return menu;
+    }
+
+    private const int MenuModelLimit = 12;
+
+    /// <summary>A chip for one of the agent's options: the value in force, and a menu of the other values (or On and Off for a switch).</summary>
+    internal Button OptionPicker(ChatOption option)
+    {
+        var shown = pendingOptions.GetValueOrDefault(option.Id) ?? option.Current;
+        var boolean = option.Kind == "boolean";
+        var label = boolean ? option.Label + (shown == "true" ? "" : " off") : option.Values.FirstOrDefault(value => value.Value == shown)?.Label ?? shown;
+        if (pendingOptions.ContainsKey(option.Id)) label += "\u2026";
+        var title = option.Label + (option.Description is { Length: > 0 } description ? ". " + description : "") + ". Click to change.";
+        var picker = PickerButton("option_" + option.Id, label, title, _ => OptionMenu(option));
+        return picker;
+    }
+
+    internal ContextMenu OptionMenu(ChatOption option)
+    {
+        var menu = ChatPopup.Menu("ChatOptionMenu_" + option.Id);
+        if (option.Kind == "boolean")
+        {
+            foreach (var on in new[] { true, false })
+                menu.Items.Add(ChatPopup.Choice("ChatOption_" + option.Id + "_" + (on ? "on" : "off"), on ? "On" : "Off", (option.Current == "true") == on, () => _ = SetOption(option.Id, on ? "true" : "false")));
+            return menu;
+        }
+        string? group = null;
+        foreach (var value in option.Values)
+        {
+            if (value.Group != group && value.Group is { Length: > 0 })
+            {
+                if (menu.Items.Count > 0) menu.Items.Add(new Separator());
+                menu.Items.Add(new MenuItem { Header = value.Group, IsEnabled = false });
+            }
+            group = value.Group;
+            var item = ChatPopup.Choice("ChatOption_" + option.Id + "_" + value.Value, value.Label, value.Value == option.Current, () => _ = SetOption(option.Id, value.Value));
+            if (value.Description is { Length: > 0 } text) ToolTip.SetTip(item, text);
+            menu.Items.Add(item);
+        }
         return menu;
     }
 

@@ -150,7 +150,20 @@ public sealed record ChatPermissionItem(string Id, long Seq, string RequestId, s
     /// <summary>The destination the CLI suggested, one of <see cref="ChatPermissionDestinations"/>.</summary>
     public string? DefaultDestination { get; init; }
     public IReadOnlyList<ChatDestination> Destinations { get; set; } = [];
+    /// <summary>The agent's tool kind (ACP: read, edit, execute...); null for Claude Code.</summary>
+    public string? Kind { get; init; }
+    /// <summary>The files the agent says the call touches (ACP <c>locations</c>), with a line when it gave one ("a.cs:12").</summary>
+    public IReadOnlyList<string> Locations { get; set; } = [];
+    /// <summary>The file changes the call would make (ACP diff content); a new file has no <see cref="ChatPermissionDiff.OldText"/>.</summary>
+    public IReadOnlyList<ChatPermissionDiff> Diffs { get; set; } = [];
+    /// <summary>The answers the agent offered, in its order. When not empty the card shows exactly these, and <see cref="ChatAnswerParams.OptionId"/> names the chosen one.</summary>
+    public IReadOnlyList<ChatPermissionOption> Options { get; set; } = [];
 }
+
+/// <summary>One answer of a permission request: the agent's id and label, and its kind (allow_once, allow_always, reject_once, reject_always).</summary>
+public sealed record ChatPermissionOption(string Id, string Label, string Kind);
+
+public sealed record ChatPermissionDiff(string Path, string? OldText, string NewText);
 
 public sealed record ChatDestination(string Key, string Label, string Tooltip);
 
@@ -287,6 +300,22 @@ public sealed record ChatMcpServer(string Name, string Status);
 
 public sealed record ChatBanner(string Key, string Text, ChatNoticeLevel Level);
 
+/// <summary>A session option the agent offers: a list of values to pick from (<see cref="Kind"/> select) or an on/off switch (boolean, <see cref="Current"/> "true" or "false").</summary>
+public sealed record ChatOption(string Id, string Label, string Kind, string Current)
+{
+    public string? Description { get; init; }
+    /// <summary>The agent's own category (thought_level, model_config, ...), when it gave one.</summary>
+    public string? Category { get; init; }
+    public IReadOnlyList<ChatOptionValue> Values { get; set; } = [];
+}
+
+public sealed record ChatOptionValue(string Value, string Label)
+{
+    public string? Description { get; init; }
+    /// <summary>The group header the agent listed it under; null when ungrouped.</summary>
+    public string? Group { get; init; }
+}
+
 public sealed record ChatMode(string Key, string Label, string Description)
 {
     /// <summary>Skips permission checks: offered only while the session already runs in it, and drawn in the danger colour.</summary>
@@ -347,6 +376,8 @@ public sealed record ChatHeader(ChatStatus Status)
     public IReadOnlyList<ChatMode> PermissionModes { get; set; } = [];
     public IReadOnlyList<ChatCommand> Commands { get; set; } = [];
     public IReadOnlyList<ChatModel> Models { get; set; } = [];
+    /// <summary>The agent's other session options (ACP config options that are not the model or the mode), each set by <see cref="ChatContract.SetOption"/>; empty for agents with none.</summary>
+    public IReadOnlyList<ChatOption> Options { get; set; } = [];
     public IReadOnlyList<string> Agents { get; set; } = [];
     public IReadOnlyList<ChatMcpServer> McpServers { get; set; } = [];
     public IReadOnlyList<ChatTask> Tasks { get; set; } = [];
@@ -429,6 +460,8 @@ public sealed record ChatShellParams(string WorkspaceId, string ChatId, string C
 
 public sealed record ChatSetParams(string WorkspaceId, string ChatId, string Value);
 
+public sealed record ChatSetOptionParams(string WorkspaceId, string ChatId, string OptionId, string Value);
+
 public sealed record ChatAnswerParams(string WorkspaceId, string ChatId, string RequestId, bool Allow)
 {
     public string? Message { get; init; }
@@ -444,6 +477,8 @@ public sealed record ChatAnswerParams(string WorkspaceId, string ChatId, string 
     public string? PlanMode { get; init; }
     /// <summary>For ExitPlanMode kept planning: comments on selected plan text, sent as feedback.</summary>
     public IReadOnlyList<ChatPlanComment>? PlanComments { get; init; }
+    /// <summary>For a request with <see cref="ChatPermissionItem.Options"/>: the id of the answer chosen; it decides, <see cref="Allow"/> only repeats its meaning.</summary>
+    public string? OptionId { get; init; }
 }
 
 public sealed record ChatPlanComment(string Quote, string Comment);
@@ -529,6 +564,8 @@ public static class ChatContract
     public static readonly PluginMethod<ChatSetParams, ChatHeader> SetModel = new("chatSetModel");
     public static readonly PluginMethod<ChatSetParams, ChatHeader> SetPermissionMode = new("chatSetPermissionMode");
     public static readonly PluginMethod<ChatSetParams, ChatHeader> SetEffort = new("chatSetEffort");
+    /// <summary>Sets one of <see cref="ChatHeader.Options"/>. Not in <see cref="Methods"/>: only a host that offers such options (ACP) serves it.</summary>
+    public static readonly PluginMethod<ChatSetOptionParams, ChatHeader> SetOption = new("chatSetOption");
     /// <summary>Names the chat (the value, trimmed and non-empty); the host keeps the name with the chat and shows it as the header's title.</summary>
     public static readonly PluginMethod<ChatSetParams, Ack> SetTitle = new("chatSetTitle");
     public static readonly PluginMethod<ChatAnswerParams, Ack> Answer = new("chatAnswer");
@@ -595,6 +632,7 @@ public static class ChatContract
 [JsonSerializable(typeof(Ack))]
 [JsonSerializable(typeof(ChatSendParams))]
 [JsonSerializable(typeof(ChatSetParams))]
+[JsonSerializable(typeof(ChatSetOptionParams))]
 [JsonSerializable(typeof(ChatAnswerParams))]
 [JsonSerializable(typeof(ChatAnswerQuestionParams))]
 [JsonSerializable(typeof(ChatQueuedParams))]

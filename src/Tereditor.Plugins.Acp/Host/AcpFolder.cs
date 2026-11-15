@@ -241,34 +241,98 @@ internal sealed class AcpFolder
         Put(new ChatToolItem(id, existing?.Seq ?? Next(), name, input, state) { Summary = summary, Output = truncated ? output![..ChatContract.OutputLimit] : output, OutputTruncated = truncated, FilePath = path });
     }
 
-    /// <summary>The agent's session options as the header's mode, model and effort lists.</summary>
+    /// <summary>The id of the config option that sets the model, or null when the agent lists its models through <c>models</c> (set by <c>session/set_model</c>).</summary>
+    public string? ModelConfigId { get; private set; }
+
+    /// <summary>The id of the config option that sets the mode, or null when the agent lists its modes through <c>modes</c> (set by <c>session/set_mode</c>).</summary>
+    public string? ModeConfigId { get; private set; }
+
+    /// <summary>Whether a config option with this id is a boolean (set with a JSON boolean).</summary>
+    public bool IsBoolean(string configId) => Header.Options.FirstOrDefault(option => option.Id == configId)?.Kind == "boolean";
+
+    private static string CategoryOf(JsonObject option) => Str(option, "category") is { Length: > 0 } category ? category : Str(option, "id") switch
+    {
+        "model" => "model",
+        "mode" => "mode",
+        "thought_level" => "thought_level",
+        _ => ""
+    };
+
+    /// <summary>The values of a select option, flat or grouped (<c>[{group, name, options}]</c>); a group's name goes to <see cref="ChatOptionValue.Group"/>.</summary>
+    private static List<ChatOptionValue> Values(JsonArray? options)
+    {
+        var values = new List<ChatOptionValue>();
+        foreach (var entry in (options ?? []).OfType<JsonObject>())
+        {
+            if (entry["options"] is JsonArray inner)
+            {
+                var group = Str(entry, "name") is { Length: > 0 } name ? name : Str(entry, "group");
+                values.AddRange(inner.OfType<JsonObject>().Where(value => value.ContainsKey("value")).Select(value => Value(value, group.Length > 0 ? group : null)));
+            }
+            else if (entry.ContainsKey("value")) values.Add(Value(entry, null));
+        }
+        return values;
+    }
+
+    private static ChatOptionValue Value(JsonObject value, string? group) =>
+        new(Str(value, "value"), Str(value, "name") is { Length: > 0 } label ? label : Str(value, "value")) { Description = Str(value, "description") is { Length: > 0 } d ? d : null, Group = group };
+
+    /// <summary>
+    /// The agent's session options, which replace <c>modes</c> and <c>models</c> for the same purpose. The option that sets the model and the one that
+    /// sets the mode fill the header's model and mode lists (an option with no category is told by its id); every other select or boolean option
+    /// is listed as an option of its own (thought level, model parameters, anything custom).
+    /// </summary>
     public void ApplyConfig(JsonArray? options)
     {
-        foreach (var option in (options ?? []).OfType<JsonObject>())
+        if (options is null) return;
+        var others = new List<ChatOption>();
+        foreach (var option in options.OfType<JsonObject>())
         {
-            var values = (option["options"] as JsonArray ?? []).OfType<JsonObject>().Where(value => value.ContainsKey("value")).ToArray();
+            var id = Str(option, "id");
+            if (id.Length == 0) continue;
+            var label = Str(option, "name") is { Length: > 0 } name ? name : id;
+            var description = Str(option, "description") is { Length: > 0 } d ? d : null;
+            var category = CategoryOf(option);
+            if (Str(option, "type") == "boolean")
+            {
+                var on = option["currentValue"] is JsonValue flag && flag.TryGetValue<bool>(out var value) && value;
+                others.Add(new ChatOption(id, label, "boolean", on ? "true" : "false") { Description = description, Category = category.Length > 0 ? category : null });
+                continue;
+            }
+            var values = Values(option["options"] as JsonArray);
             var current = Str(option, "currentValue");
-            switch (Str(option, "category"))
+            switch (category)
             {
                 case "model":
+                    ModelConfigId = id;
                     Update(header => header with
                     {
                         Model = current,
-                        Models = [.. values.Select(value => new ChatModel(Str(value, "value"), Str(value, "name")) { Description = Str(value, "description") is { Length: > 0 } d ? d : null })]
+                        Models = [.. values.Select(value => new ChatModel(value.Value, value.Label) { Description = value.Description, Provider = value.Group })]
                     });
                     break;
                 case "mode":
+                    ModeConfigId = id;
                     Update(header => header with
                     {
                         PermissionMode = current,
-                        PermissionModes = [.. values.Select(value => new ChatMode(Str(value, "value"), Str(value, "name"), Str(value, "description")))]
+                        PermissionModes = [.. values.Select(value => new ChatMode(value.Value, value.Label, value.Description ?? ""))]
                     });
                     break;
-                case "thought_level":
-                    Update(header => header with { Effort = current });
+                default:
+                    others.Add(new ChatOption(id, label, "select", current) { Description = description, Category = category.Length > 0 ? category : null, Values = values });
                     break;
             }
         }
+        Update(header => header with { Options = others });
+    }
+
+    /// <summary>An agent that confirmed a change without sending the new options: the value the user chose is the current one.</summary>
+    public void SetCurrent(string configId, string value)
+    {
+        if (configId == ModelConfigId) Update(header => header with { Model = value });
+        else if (configId == ModeConfigId) Update(header => header with { PermissionMode = value });
+        else Update(header => header with { Options = [.. header.Options.Select(option => option.Id == configId ? option with { Current = value } : option)] });
     }
 
     /// <summary>Modes from <c>session/new</c>: <c>{currentModeId, availableModes: [{id, name, description}]}</c>.</summary>
@@ -278,7 +342,7 @@ internal sealed class AcpFolder
         Update(header => header with
         {
             PermissionMode = Str(modes, "currentModeId"),
-            PermissionModes = [.. (modes["availableModes"] as JsonArray ?? []).OfType<JsonObject>().Select(mode => new ChatMode(Str(mode, "id"), Str(mode, "name"), Str(mode, "description")))]
+            PermissionModes = [.. (modes["availableModes"] as JsonArray ?? []).OfType<JsonObject>().Select(mode => new ChatMode(Str(mode, "id"), Str(mode, "name") is { Length: > 0 } name ? name : Str(mode, "id"), Str(mode, "description")))]
         });
     }
 
@@ -286,24 +350,48 @@ internal sealed class AcpFolder
     public void ApplyModels(JsonObject? models)
     {
         if (models is null) return;
+        string IdOf(JsonObject model) => Str(model, "modelId") is { Length: > 0 } id ? id : Str(model, "id");
         Update(header => header with
         {
             Model = Str(models, "currentModelId"),
-            Models = [.. (models["availableModels"] as JsonArray ?? []).OfType<JsonObject>().Select(model => new ChatModel(Str(model, "modelId"), Str(model, "name")) { Description = Str(model, "description") is { Length: > 0 } d ? d : null })]
+            Models = [.. (models["availableModels"] as JsonArray ?? []).OfType<JsonObject>().Select(model =>
+                new ChatModel(IdOf(model), Str(model, "name") is { Length: > 0 } name ? name : IdOf(model)) { Description = Str(model, "description") is { Length: > 0 } d ? d : null })]
         });
     }
 
+    /// <summary>A permission request as the card shows it: the tool's title and kind, the files, the diffs it would apply and the agent's own answers.</summary>
     public ChatPermissionItem AddPermission(string requestId, JsonObject toolCall, IReadOnlyList<AcpPermissionOption> options)
     {
         CloseStreaming();
         var title = Str(toolCall, "title");
         var always = options.FirstOrDefault(option => option.Kind == "allow_always");
+        var locations = (toolCall["locations"] as JsonArray ?? []).OfType<JsonObject>().Where(location => Str(location, "path").Length > 0)
+            .Select(location => Str(location, "path") + (location["line"] is JsonValue line && line.TryGetValue<int>(out var number) ? ":" + number : "")).ToList();
+        var diffs = new List<ChatPermissionDiff>();
+        var notes = new StringBuilder();
+        foreach (var block in (toolCall["content"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            switch (Str(block, "type"))
+            {
+                case "diff":
+                    diffs.Add(new ChatPermissionDiff(Str(block, "path"), block["oldText"] is JsonValue old && old.TryGetValue<string>(out var oldText) ? oldText : null, Str(block, "newText")));
+                    break;
+                case "content" when BlockText(block["content"]) is { Length: > 0 } text:
+                    notes.AppendLine(text);
+                    break;
+            }
+        }
         var item = new ChatPermissionItem("p" + ++counter, Next(), requestId, title.Length > 0 ? title : Str(toolCall, "kind"), AcpLocalJson.Input(toolCall["rawInput"]))
         {
             Title = title,
+            Description = notes.Length > 0 ? notes.ToString().TrimEnd() : null,
             Prompt = title.Length > 0 ? $"Allow \"{title}\"?" : "Allow this action?",
             AlwaysLabel = always?.Name,
-            Decision = ChatPermissionDecision.Pending
+            Decision = ChatPermissionDecision.Pending,
+            Kind = Str(toolCall, "kind") is { Length: > 0 } kind ? kind : null,
+            Locations = locations,
+            Diffs = diffs,
+            Options = [.. options.Select(option => new ChatPermissionOption(option.Id, option.Name, option.Kind))]
         };
         Put(item);
         return item;

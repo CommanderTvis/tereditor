@@ -120,8 +120,11 @@ internal sealed partial class ChatView
         if (requestFolded) return root;
 
         commandBox = null;
+        var offered = item.Options.Count > 0;
         string Str(string name) => item.Input.ValueKind == JsonValueKind.Object && item.Input.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
-        switch (item.ToolName)
+        // An agent that sent its own answers (ACP) is shown what it said the call is: kind, files, the command or input, diffs.
+        if (offered) AcpDetails(root, item);
+        else switch (item.ToolName)
         {
             case "Bash":
                 // The command is editable; what is accepted replaces the call's own.
@@ -163,10 +166,21 @@ internal sealed partial class ChatView
                 break;
         }
 
-        reasonBox = new TextBox { Name = "ChatPermReason", PlaceholderText = plan ? $"Add feedback for {env.Agent.Short}" : $"Tell {env.Agent.Short} what to do instead", FontSize = 12 };
-        reasonBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { Reject(item); e.Handled = true; } };
+        // ACP has no way to send a reason with a rejection, so its card has no such box.
+        reasonBox = offered ? null : new TextBox { Name = "ChatPermReason", PlaceholderText = plan ? $"Add feedback for {env.Agent.Short}" : $"Tell {env.Agent.Short} what to do instead", FontSize = 12 };
+        if (reasonBox is not null) reasonBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { Reject(item); e.Handled = true; } };
         var choices = new List<Button>();
-        if (plan)
+        if (offered)
+        {
+            // The agent's own answers, in its order, with its words; the first "allow once" (else the first) is the primary one.
+            var main = Math.Max(0, item.Options.ToList().FindIndex(option => option.Kind == "allow_once"));
+            for (var at = 0; at < item.Options.Count; at++)
+            {
+                var option = item.Options[at];
+                choices.Add(Choice("ChatPermOption_" + at, (at + 1).ToString(), option.Label, () => _ = AnswerPermission(item, option.Kind.StartsWith("allow", StringComparison.Ordinal), optionId: option.Id), at == main));
+            }
+        }
+        else if (plan)
         {
             choices.Add(Choice("ChatPermYes", "1", "Yes, and auto-accept", () => _ = AnswerPermission(item, true, planMode: "acceptEdits"), true));
             choices.Add(Choice("ChatPermManual", "2", "Yes, and manually approve edits", () => _ = AnswerPermission(item, true, planMode: "default")));
@@ -186,10 +200,48 @@ internal sealed partial class ChatView
             choices.Add(Choice("ChatPermNo", choices.Count == 1 ? "2" : "3", "No", () => Reject(item)));
         }
         foreach (var choice in choices) root.Children.Add(choice);
-        root.Children.Add(reasonBox);
+        if (reasonBox is not null) root.Children.Add(reasonBox);
         root.Children.Add(Ui.Text("Esc to cancel", Ui.Hint, 11));
         root.KeyDown += (_, e) => PermissionKey(item, choices, e);
         return root;
+    }
+
+    private void AcpDetails(StackPanel root, ChatPermissionItem item)
+    {
+        if (item.Kind is { Length: > 0 } kind) root.Children.Add(Ui.Text(kind, Ui.Muted, 11));
+        if (item.Locations.Count > 0)
+        {
+            var files = new SelectableTextBlock { Name = "ChatPermFiles", Text = string.Join("\n", item.Locations), TextWrapping = TextWrapping.Wrap, FontFamily = Ui.CodeFont, FontSize = 12, Foreground = Ui.Muted };
+            root.Children.Add(files);
+        }
+        if (item.Description is { Length: > 0 } detail) root.Children.Add(new SelectableTextBlock { Name = "ChatPermNote", Text = detail, TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = Ui.Muted });
+        var facts = PermissionFacts.Of(item.Input);
+        if (facts.Count > 0)
+        {
+            var box = new StackPanel { Name = "ChatPermFacts", Spacing = 2 };
+            foreach (var (name, value) in facts)
+            {
+                box.Children.Add(Ui.Text(name, Ui.Hint, 11));
+                box.Children.Add(new SelectableTextBlock { Text = value, TextWrapping = TextWrapping.Wrap, FontFamily = Ui.CodeFont, FontSize = 12, Foreground = Ui.TextBrush, MaxHeight = 160 });
+            }
+            root.Children.Add(box);
+        }
+        for (var at = 0; at < item.Diffs.Count; at++)
+        {
+            var diff = item.Diffs[at];
+            var open = Ui.Button("Open diff", () => _ = env.OpenDiff(new ChatDiffRequest(Relative(diff.Path), _ => diff.NewText)));
+            open.Name = "ChatPermDiff" + (at == 0 ? "" : "_" + at);
+            root.Children.Add(Ui.Text(diff.Path + (diff.OldText is null ? " (new file)" : ""), Ui.Muted, 12));
+            var lines = new SelectableTextBlock { Name = "ChatPermDiffText", Text = PermissionFacts.Unified(diff.OldText, diff.NewText), FontFamily = Ui.CodeFont, FontSize = 11, Foreground = Ui.TextBrush };
+            root.Children.Add(new ScrollViewer { MaxHeight = 160, Content = lines, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto });
+            root.Children.Add(open);
+        }
+        // The whole raw input stays one fold away, selectable so it can be copied; it is folded because it can be long.
+        if (item.Input.ValueKind == JsonValueKind.Object && item.Input.EnumerateObject().Any())
+        {
+            var json = JsonSerializer.Serialize(item.Input, ChatUIJson.Indented.JsonElement);
+            root.Children.Add(new Expander { Name = "ChatPermRaw", Header = "Details", Content = new ScrollViewer { MaxHeight = 200, Content = new SelectableTextBlock { Text = json, FontFamily = Ui.CodeFont, FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = Ui.Muted } }, IsExpanded = false });
+        }
     }
 
     private string? DestinationKey(ChatPermissionItem item) => destinationIndex >= 0 && destinationIndex < item.Destinations.Count ? item.Destinations[destinationIndex].Key : null;
@@ -245,7 +297,7 @@ internal sealed partial class ChatView
     }
 
     internal async Task AnswerPermission(ChatPermissionItem item, bool allow, bool remember = false, string? destination = null, string? reason = null, string? planMode = null,
-        JsonElement? updated = null, IReadOnlyList<ChatPlanComment>? comments = null)
+        JsonElement? updated = null, IReadOnlyList<ChatPlanComment>? comments = null, string? optionId = null)
     {
         if (item.Decision != ChatPermissionDecision.Pending || !answering.Add(item.RequestId)) return;
         planQuotes.Clear();
@@ -258,7 +310,8 @@ internal sealed partial class ChatView
                 Reason = reason,
                 PlanMode = planMode,
                 UpdatedInput = updated,
-                PlanComments = comments
+                PlanComments = comments,
+                OptionId = optionId
             });
         }
         catch (Exception error) when (error is not OperationCanceledException)
@@ -526,5 +579,59 @@ internal sealed partial class ChatView
         var last = transcript.AllItems().OfType<ChatUserItem>().OrderByDescending(item => item.Seq).FirstOrDefault(item => !item.Queued);
         if (last is null) return;
         await SendText(last.Text, last.Attachments);
+    }
+}
+
+/// <summary>What a permission card says of an ACP call: the readable facts of its raw input, and a short diff.</summary>
+internal static class PermissionFacts
+{
+    private static readonly (string Name, string[] Keys)[] Known =
+    [
+        ("Command", ["command", "cmd"]),
+        ("Path", ["path", "file_path", "filePath", "filename"]),
+        ("Pattern", ["pattern", "query"]),
+        ("URL", ["url"]),
+        ("Description", ["description"])
+    ];
+
+    /// <summary>The command, path, pattern, URL and description of the raw input, each as text; an argument list reads as one command line.</summary>
+    internal static IReadOnlyList<(string Name, string Value)> Of(JsonElement input)
+    {
+        var facts = new List<(string, string)>();
+        if (input.ValueKind != JsonValueKind.Object) return facts;
+        foreach (var (name, keys) in Known)
+        {
+            foreach (var key in keys)
+            {
+                if (!input.TryGetProperty(key, out var value)) continue;
+                var text = value.ValueKind switch
+                {
+                    JsonValueKind.String => value.GetString() ?? "",
+                    JsonValueKind.Array => string.Join(" ", value.EnumerateArray().Select(part => part.ValueKind == JsonValueKind.String ? part.GetString() : part.GetRawText())),
+                    _ => ""
+                };
+                if (text.Length == 0) continue;
+                facts.Add((name, text));
+                break;
+            }
+        }
+        return facts;
+    }
+
+    /// <summary>The lines that differ, with two lines of context: the text both sides share at the start and the end is cut, so a one-line change in a long file stays short.</summary>
+    internal static string Unified(string? oldText, string newText, int limit = 80)
+    {
+        var before = string.IsNullOrEmpty(oldText) ? [] : oldText.Split('\n');
+        var after = newText.Split('\n');
+        var start = 0;
+        while (start < before.Length && start < after.Length && before[start] == after[start]) start++;
+        var end = 0;
+        while (end < before.Length - start && end < after.Length - start && before[^(end + 1)] == after[^(end + 1)]) end++;
+        var lines = new List<string>();
+        lines.AddRange(before[Math.Max(0, start - 2)..start].Select(line => "  " + line));
+        lines.AddRange(before[start..(before.Length - end)].Select(line => "- " + line));
+        lines.AddRange(after[start..(after.Length - end)].Select(line => "+ " + line));
+        lines.AddRange(after[(after.Length - end)..Math.Min(after.Length, after.Length - end + 2)].Select(line => "  " + line));
+        return lines.Count <= limit ? string.Join("\n", lines) : string.Join("\n", lines.Take(limit)) + $"\n\u2026 {lines.Count - limit} more lines";
     }
 }

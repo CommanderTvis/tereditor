@@ -128,6 +128,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
     private string chipSignature = "";
     private bool densityPosted;
     private string? pendingModel, pendingEffort, pendingMode;
+    private readonly Dictionary<string, string> pendingOptions = [];
     private IReadOnlyList<ChatMode> modes = [];
     private readonly bool ideInitial = true;
     private bool ide;
@@ -471,7 +472,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
     private void RebuildChips(ChatHeader header)
     {
         var signature = string.Join("|", densityLevel, string.Join(",", Composer.HiddenChips ?? DefaultHiddenChips), header.Pending, header.Status, header.Model, header.Effort, header.PermissionMode, string.Join(",", header.PermissionModes.Select(mode => mode.Key)), header.Cwd, pendingModel, pendingEffort, pendingMode, ide, header.Advisor, header.Chrome,
-            string.Join(",", header.Models.Select(model => model.Id)), string.Join(",", header.McpServers.Select(server => server.Name + server.Status)));
+            string.Join(",", header.Models.Select(model => model.Id)), string.Join(",", header.Options.Select(option => option.Id + "=" + option.Current + pendingOptions.GetValueOrDefault(option.Id))), string.Join(",", header.McpServers.Select(server => server.Name + server.Status)));
         if (signature == chipSignature) return;
         chipSignature = signature;
         // The gear stays in the row across rebuilds: taking it out would close the popup it opened.
@@ -490,15 +491,21 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         var shortened = densityLevel >= 2;
         var effortLabel = header.Effort is { } known ? known : waiting ? "effort" : "default";
         var effortShown = pendingEffort is null || pendingEffort == header.Effort ? effortLabel : effortLabel + "…";
-        AddPicker(PickerButton("model", modelShown, pendingModel is null ? (header.Model ?? "Model") + " — click to switch the model or the effort (" + (header.Effort ?? "default") + ")" : "Waiting for Claude Code to confirm the model", button => ModelMenu(header, button),
-            shortened || (header.Effort is null && pendingEffort is null && !waiting) ? null : effortShown));
         var offeredModes = ModeList(header);
+        // An agent that lists no models and no modes gets neither chip; one that lists them gets the chip as soon as the list arrives.
+        var showModel = !env.Agent.PickersWhenOffered || header.Models.Count > 0 || header.Model is { Length: > 0 };
+        var showMode = ChipShown("mode") && (!env.Agent.PickersWhenOffered || offeredModes.Count > 0);
+        if (showModel)
+            AddPicker(PickerButton("model", modelShown, pendingModel is null ? (header.Model ?? "Model") + (env.Agent.EffortLevels.Count > 0 ? " — click to switch the model or the effort (" + (header.Effort ?? "default") + ")" : " — click to switch the model") : $"Waiting for {env.Agent.Name} to confirm the model", button => ModelMenu(header, button),
+                shortened || env.Agent.PickersWhenOffered || (header.Effort is null && pendingEffort is null && !waiting) ? null : effortShown));
         var currentMode = offeredModes.FirstOrDefault(mode => mode.Key == header.PermissionMode);
         var modeLabel = header.PermissionMode is null && waiting ? "permissions" : currentMode?.Label ?? ModeLabel(header.PermissionMode);
         var modeShown = shortened ? (header.PermissionMode is null or "default" ? "ask" : modeLabel.Split(' ')[^1].ToLowerInvariant()) : modeLabel;
-        if (ChipShown("mode")) AddPicker(PickerButton("permission", pendingMode is null || pendingMode == header.PermissionMode ? modeShown : modeShown + "…",
+        if (showMode) AddPicker(PickerButton("permission", pendingMode is null || pendingMode == header.PermissionMode ? modeShown : modeShown + "…",
             (currentMode?.Description ?? env.Agent.DescribeMode(header.PermissionMode ?? "default").Description) + ". Click to change, or press Shift+Tab to cycle.",
             _ => ModeMenu(header)));
+        // The agent's other options (thought level, model parameters, switches), each a chip with its own menu; only what the agent listed.
+        foreach (var option in header.Options) AddPicker(OptionPicker(option));
         if (header.PermissionMode == "plan") Add(TerminalFacts.FactChip("plan", "Plan mode", $"{env.Agent.Short} plans and asks before changing anything"));
         foreach (var row in ChipShown("environment") ? environmentChips ??= env.WorkspaceChips() : Array.Empty<Control>())
         {
@@ -532,6 +539,28 @@ internal sealed partial class ChatView : Grid, IChatRowActions
     private string ModeLabel(string? id) => env.Agent.DescribeMode(id ?? "default").Label;
 
     internal async Task SetModel(string id) => await Set(value => pendingModel = value, id, ChatContract.SetModel, "model");
+
+    internal async Task SetOption(string optionId, string value)
+    {
+        pendingOptions[optionId] = value;
+        if (transcript.Header is { } before) { chipSignature = ""; RebuildChips(before); }
+        try
+        {
+            var header = await env.Client.RequestAsync(ChatContract.SetOption, new ChatSetOptionParams(workspaceId, chatId, optionId, value));
+            Enqueue(new ChatHeaderPush(workspaceId, chatId, header));
+            Dispatcher.UIThread.Post(Flush, DispatcherPriority.Render);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            env.Notify(PluginNotificationKind.Error, "Couldn't change the option", ChatErrors.Text(error));
+        }
+        // After the pushed header is applied, so the chip never shows the old value in between.
+        Dispatcher.UIThread.Post(() =>
+        {
+            pendingOptions.Remove(optionId);
+            if (transcript.Header is { } after) { chipSignature = ""; RebuildChips(after); }
+        }, DispatcherPriority.Render);
+    }
 
     private async Task SetEffort(string level) => await Set(value => pendingEffort = value, level, ChatContract.SetEffort, "effort");
 

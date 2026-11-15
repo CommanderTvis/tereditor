@@ -52,6 +52,7 @@ internal static class ClaudeChatUiChecks
         public List<string> Sends { get; } = [];
         public List<string> DraftWrites { get; } = [];
         public List<(string Method, string Value)> Sets { get; } = [];
+        public List<(string Option, string Value)> OptionSets { get; } = [];
         public TaskCompletionSource<ChatHeader>? ModelGate { get; set; }
         public ChatHeader Header { get; set; } = new(ChatStatus.Idle);
         public int Subscriptions { get; private set; }
@@ -87,6 +88,7 @@ internal static class ClaudeChatUiChecks
                 ChatSetParams { Value: var value } when method.Name == ChatContract.SetModel.Name =>
                     ModelGate is { } gate ? await gate.Task : Header with { Model = value },
                 ChatSetParams plain => Plain(method.Name, plain),
+                ChatSetOptionParams option => SetOption(option),
                 ChatPathParams { Prefix: var prefix } => PathHost(prefix),
                 ChatFilesParams { Query: var query } => new ChatFileList([.. new[] { "src/Alpha.cs", "src/Beta.cs", "README.md" }.Where(path => path.Contains(query, StringComparison.OrdinalIgnoreCase))]),
                 ChatAnswerParams answer => Answered(answer),
@@ -143,6 +145,8 @@ internal static class ClaudeChatUiChecks
             });
             return new Ack();
         }
+
+        private ChatHeader SetOption(ChatSetOptionParams option) { OptionSets.Add((option.OptionId, option.Value)); return Header; }
 
         private ChatHeader Plain(string method, ChatSetParams set) { Sets.Add((method, set.Value)); return Header; }
 
@@ -253,6 +257,7 @@ internal static class ClaudeChatUiChecks
         ItemKinds();
         ImageMarkers();
         Requests();
+        AcpOffered();
         Pickers();
         PopupFamily();
         PopupLook();
@@ -3166,6 +3171,78 @@ internal static class ClaudeChatUiChecks
             PressKey(view.RequestPanel.GetVisualDescendants().OfType<StackPanel>().First(item => item.Name == "ChatPermission"), Key.Escape);
             E2eWorkspace.Until(() => chat.Answers.Count == 3);
             Require(chat.Answers[2] is { Allow: false, Reason: null }, "Esc rejects with the plain refusal.");
+        }
+        finally { window.Close(); }
+    }
+
+    // An ACP agent's chat: the chips are what the agent offered (model, mode, other options), and the approval card shows what the agent said and its own answers.
+    private static void AcpOffered()
+    {
+        var agent = new ChatAgent("ACP agent", "agent", "acp-chat", "acp") { PickersWhenOffered = true };
+        static bool Has(ChatView view, string name) => view.GetVisualDescendants().OfType<Control>().Any(control => control.Name == name && control.IsVisible);
+        // Nothing offered: no model chip and no permission chip, only the facts.
+        var bare = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
+        bare.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, bare.Header));
+        var bareView = new ChatView(new ChatEnvironment(bare, agent), Workspace, Chat);
+        var bareWindow = new Window { Width = 900, Height = 700, Content = bareView, Background = Ui.Surface };
+        bareWindow.Show();
+        try
+        {
+            Frame(bareWindow); Frame(bareWindow);
+            Require(!Has(bareView, "TerminalAgentFact_model") && !Has(bareView, "TerminalAgentFact_permission"), "An agent that offers no model and no mode gets neither chip.");
+        }
+        finally { bareWindow.Close(); }
+
+        ChatOption thought = new("thought", "Thought level", "select", "high") { Category = "thought_level", Description = "How hard it thinks", Values = [new("low", "Low"), new("high", "High")] };
+        ChatOption verbose = new("verbose", "Verbose", "boolean", "false");
+        ChatPermissionItem Ask() => new("ask", 1, "req-ask", "Create file", JsonSerializer.SerializeToElement(new { command = new[] { "echo", "hi" }, file_path = "/work/a.txt" }))
+        {
+            Prompt = "Allow \"Create file\"?", Kind = "edit", Locations = ["/work/a.txt:3"], Diffs = [new("/work/a.txt", null, "one\ntwo")],
+            Options = [new("once", "Yes, once", "allow_once"), new("always", "Yes, always", "allow_always"), new("no", "No", "reject_once"), new("never", "Never", "reject_always")]
+        };
+        var chat = new FakeChat
+        {
+            Header = new ChatHeader(ChatStatus.Idle)
+            {
+                Model = "m1",
+                Models = [new("m1", "Mini"), new("m2", "Max") { Description = "The best one" }],
+                PermissionMode = "auto",
+                PermissionModes = [new("auto", "Auto", "Runs without asking"), new("review", "Review", "Asks before it edits")],
+                Options = [thought, verbose]
+            }
+        };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        var view = new ChatView(new ChatEnvironment(chat, agent), Workspace, Chat);
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Frame(window); Frame(window);
+            Require(ChipText(view, "TerminalAgentFact_model").Contains("Mini", StringComparison.Ordinal) && ChipText(view, "TerminalAgentFact_permission").Contains("Auto", StringComparison.Ordinal), "The model and mode chips show the agent's names.");
+            Require(ChipText(view, "TerminalAgentFact_option_thought").Contains("High", StringComparison.Ordinal) && ChipText(view, "TerminalAgentFact_option_verbose").Contains("Verbose off", StringComparison.Ordinal), "Each other option has a chip with its value.");
+            var models = view.ModelMenu(chat.Header, view).Items.OfType<MenuItem>().Select(item => item.Name).ToList();
+            Require(models.SequenceEqual(["ChatModel_m1", "ChatModel_m2"]), "The model menu lists the agent's models alone, with no Claude effort levels.");
+            view.ModelMenu(chat.Header, view).Items.OfType<MenuItem>().First(item => item.Name == "ChatModel_m2").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            E2eWorkspace.Until(() => chat.Sets.Contains((ChatContract.SetModel.Name, "m2")));
+            Require(view.ModeMenu(chat.Header).Items.OfType<MenuItem>().Select(item => item.Name).SequenceEqual(["ChatMode_auto", "ChatMode_review"]), "The mode menu lists the agent's modes.");
+            view.OptionMenu(thought).Items.OfType<MenuItem>().First(item => item.Name == "ChatOption_thought_low").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            E2eWorkspace.Until(() => chat.OptionSets.Contains(("thought", "low")));
+            view.OptionMenu(verbose).Items.OfType<MenuItem>().First(item => item.Name == "ChatOption_verbose_on").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            E2eWorkspace.Until(() => chat.OptionSets.Contains(("verbose", "true")));
+            Require(true, "A pick on an option goes to chatSetOption with the option id and value.");
+
+            chat.Push(Item(Ask())); Frame(window); Frame(window);
+            var panel = view.RequestPanel;
+            string Text() => string.Join("\n", panel.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text));
+            var buttons = panel.GetVisualDescendants().OfType<Button>().Where(button => button.Name?.StartsWith("ChatPermOption_", StringComparison.Ordinal) == true).ToList();
+            Require(view.RequestPrompt == "Allow \"Create file\"?" && buttons.Count == 4 && string.Join("|", buttons.Select(button => string.Concat(button.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text + " ")).Trim())) == "1 Yes, once|2 Yes, always|3 No|4 Never",
+                "The card shows the agent's own answers, in its order.");
+            Require(Text().Contains("/work/a.txt:3", StringComparison.Ordinal) && Text().Contains("echo hi", StringComparison.Ordinal) && Text().Contains("+ one", StringComparison.Ordinal) && Text().Contains("(new file)", StringComparison.Ordinal) && Text().Contains("edit", StringComparison.Ordinal),
+                "The card shows the kind, the file, the command and the new file's lines.");
+            Require(panel.GetVisualDescendants().OfType<Expander>().Any(fold => fold.Name == "ChatPermRaw" && !fold.IsExpanded) && !panel.GetVisualDescendants().OfType<TextBox>().Any(box => box.Name == "ChatPermReason"), "The raw input is folded, and there is no reason box ACP could not send.");
+            PressKey(panel.GetVisualDescendants().OfType<StackPanel>().First(item => item.Name == "ChatPermission"), Key.D4);
+            E2eWorkspace.Until(() => chat.Answers.Count == 1);
+            Require(chat.Answers[0] is { Allow: false, OptionId: "never" }, "Key 4 sends the fourth option's id, and a reject kind is a denial.");
         }
         finally { window.Close(); }
     }

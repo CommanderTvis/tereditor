@@ -53,7 +53,8 @@ internal sealed class AcpClient : IAsyncDisposable
             ["clientCapabilities"] = new JsonObject
             {
                 ["fs"] = new JsonObject { ["readTextFile"] = true, ["writeTextFile"] = true },
-                ["terminal"] = true
+                ["terminal"] = true,
+                ["session"] = new JsonObject { ["configOptions"] = new JsonObject { ["boolean"] = new JsonObject() } }
             },
             ["clientInfo"] = new JsonObject { ["name"] = clientName.ToLowerInvariant(), ["title"] = clientName, ["version"] = clientVersion }
         }, cancellationToken) as JsonObject ?? throw new AcpException(AcpException.Internal, "The agent answered initialize with no result.");
@@ -95,8 +96,11 @@ internal sealed class AcpClient : IAsyncDisposable
     public Task<JsonNode?> SetModeAsync(string sessionId, string modeId, CancellationToken cancellationToken) =>
         connection.RequestAsync("session/set_mode", new JsonObject { ["sessionId"] = sessionId, ["modeId"] = modeId }, cancellationToken);
 
-    public Task<JsonNode?> SetConfigOptionAsync(string sessionId, string configId, string value, CancellationToken cancellationToken) =>
-        connection.RequestAsync("session/set_config_option", new JsonObject { ["sessionId"] = sessionId, ["configId"] = configId, ["value"] = value }, cancellationToken);
+    /// <summary>session/set_config_option; the answer carries the full set of options as they now stand. A boolean option is set with <c>type: "boolean"</c> and a JSON boolean.</summary>
+    public Task<JsonNode?> SetConfigOptionAsync(string sessionId, string configId, string value, CancellationToken cancellationToken, bool boolean = false) =>
+        connection.RequestAsync("session/set_config_option", boolean
+            ? new JsonObject { ["sessionId"] = sessionId, ["configId"] = configId, ["type"] = "boolean", ["value"] = value == "true" }
+            : new JsonObject { ["sessionId"] = sessionId, ["configId"] = configId, ["value"] = value }, cancellationToken);
 
     public ValueTask DisposeAsync() => connection.DisposeAsync();
 }

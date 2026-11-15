@@ -21,7 +21,7 @@ one today; the seams below are what a second agent protocol (the Agent Client Pr
   UI project and the checks), `ChatDocuments` (registering a plugin's chat document, opening chats) and `ChatAgent`.
 - A `ChatAgent` is how a plugin describes itself to the view: display and short name, document scheme, icon, the terminal agent kind (so a
   session a terminal already runs is not resumed in a chat), a help link, the end of the "host has no chat handler" message, effort levels,
-  and the permission modes it offers with their words (`Modes`, `DescribeMode`). `ChatMode.Dangerous` marks a mode offered only while the
+  `PickersWhenOffered` (the model and mode chips show only once the agent has listed something; ACP sets it), and the permission modes it offers with their words (`Modes`, `DescribeMode`). `ChatMode.Dangerous` marks a mode offered only while the
   session already runs in it.
 - Chat rows read inline Markdown with their own scanner (`Markdown.Inline`), not the kit preview. Inline styles compose: code inside bold, italic, strikethrough or link text keeps its monospace face with the weight, slant and decorations around it, and no marker is copied.
 - Allowed dependencies: Chat -> Api; Chat.UI -> Chat, Api.UI, Kit, Agent.UI. Plugins depend on Chat (and their UI on Chat.UI); the host
@@ -130,7 +130,8 @@ An ACP agent needs no view change: its plugin supplies a `ChatAgent` and a host 
 | `plan` | an assistant item or a notice; the contract has no plan record |
 | `available_commands_update` | `ChatHeader.Commands` |
 | session modes and `current_mode_update` | `ChatHeader.PermissionModes` and `PermissionMode`, set by `SetPermissionMode`; the words come from the agent's `ChatAgent.DescribeMode` or from the mode names the agent sends |
-| session models (config options) | `ChatHeader.Models` and `Model`, set by `SetModel` |
+| session models and the model config option | `ChatHeader.Models` and `Model`, set by `SetModel` |
+| other config options | `ChatHeader.Options` (select or boolean, with the agent's labels and descriptions), set by `SetOption`; the method is not in `ChatContract.Methods`, only a host that offers options serves it |
 | `usage_update` | `ChatHeader.Usage` |
 
 The ACP client methods the agent calls (`fs/read_text_file`, `fs/write_text_file`, `terminal/*`) are served by the host half from the
@@ -138,13 +139,13 @@ workspace, never by the view.
 
 ### ChatContract gaps for ACP
 
-- Permission options: `ChatPermissionItem` has allow, deny and "always" answers with destinations (Claude's settings files). ACP offers
-  an arbitrary list of options (`allow_once`, `allow_always`, `reject_once`, `reject_always`, each with its own id and label). The
-  host half can map `allow_once` and `allow_always` onto the two answers and the rejects onto Denied, but the labels are lost until
-  the item carries a list of `{id, label, kind}` options.
+- Permission options: `ChatPermissionItem.Options` lists `{id, label, kind}` as the agent sent them. When it is not empty the card shows exactly
+  those answers and `ChatAnswerParams.OptionId` names the chosen one; `Allow` only repeats whether its kind is an allow. Claude Code leaves
+  `Options` empty and keeps its own three answers. `Kind`, `Locations` and `Diffs` carry what the call is. ACP has no rejection reason, so such a card has
+  no reason box.
 - Plans: no record for an agent's task plan with entry status; today it is text.
 - Content blocks: user and tool content are text, images and documents (`ChatAttachment`); ACP resource links, embedded resources and
-  audio have no record. Tool diffs (`Diff` content) reach the card only as `FilePath`, not as old and new text.
+  audio have no record. Tool diffs (`Diff` content) reach a tool card only as `FilePath` and `-`/`+` lines of text; a permission card has the old and new text.
 - Tool kinds: tool cards pick their layout by Claude Code tool name (Bash, Edit, Read, Grep, ExitPlanMode...). An ACP tool has a `kind`
   (read, edit, execute, search, fetch...) but its own title; the card falls back to the generic layout until the kind drives it.
 - tereditor's own MCP tools (server `plugin_tereditor_tereditor`, `tereditor` or `plugin:tereditor:tereditor`) read "tereditor [LSP navigate]" with a short line from the call's input (operation and query, first path, search query, title, id, description); the long `workspace` argument is never shown, in the header or the expanded IN row.

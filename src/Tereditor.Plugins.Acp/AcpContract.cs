@@ -81,7 +81,7 @@ public static class AcpContract
 
     /// <summary>The chat contract is shared with the other chat plugins: ACP serves its methods and its updates channel.</summary>
     public static readonly PluginContract Contract = PluginContract.Create<AcpSettings>(AcpManifest.Id, WireVersion,
-        [.. ChatContract.Methods, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons], [ChatContract.Updates],
+        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons], [ChatContract.Updates],
         AcpJson.Default, ChatContract.Json);
 }
 

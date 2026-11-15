@@ -14,6 +14,8 @@ internal sealed record ChatAgent(string Name, string Short, string Scheme, strin
     public string UnavailableHint { get; init; } = ".";
     /// <summary>The effort (thinking) levels offered when the current model reports none of its own.</summary>
     public IReadOnlyList<string> EffortLevels { get; init; } = [];
+    /// <summary>Whether the model and permission pickers show only once the agent has listed something to pick from, instead of a placeholder chip from the start (ACP agents list what they offer; they may offer neither).</summary>
+    public bool PickersWhenOffered { get; init; }
     /// <summary>The modes to offer when the host sent none, with the machine's own list when it has one.</summary>
     public Func<Task<IReadOnlyList<ChatMode>>> Modes { get; init; } = () => Task.FromResult<IReadOnlyList<ChatMode>>([]);
     /// <summary>The words for one mode id; an unknown id keeps itself as its label.</summary>

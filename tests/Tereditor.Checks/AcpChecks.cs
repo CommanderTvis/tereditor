@@ -203,6 +203,92 @@ internal static class AcpChecks
         Require(future.Header is { Status: ChatStatus.Failed, Error: { } reason } && reason.Contains("version 2", StringComparison.Ordinal), "A protocol mismatch fails the chat and says which version the agent speaks.");
     }
 
+    private static async Task<(AcpChatSession Session, AcpFakeAgent Agent)> Started(AcpOffer offer)
+    {
+        var agent = new AcpFakeAgent(offer: offer);
+        var session = new AcpChatSession("ws", "chat-" + offer, "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(agent)), _ => { }, _ => { });
+        session.Begin();
+        await session.StartAsync(null);
+        return (session, agent);
+    }
+
+    // What the agent offers is what the header lists, set through the request that matches how it offered it, and kept in step with its own updates.
+    internal static async Task Pickers()
+    {
+        // Only configOptions: grouped models, a mode, a thought level and a switch. set_mode does not exist, so the mode goes through set_config_option.
+        var (config, configAgent) = await Started(AcpOffer.ConfigOptions);
+        await using (config)
+        {
+            var header = config.Header;
+            Require(header.Models.Select(model => model.Id).SequenceEqual(["m1", "m2"]) && header.Model == "m1" && header.Models[1] is { Label: "Max", Provider: "smart", Description: "The best one" }, "Grouped model options are flattened into the model list with their group and description.");
+            Require(header.PermissionModes.Select(mode => mode.Key).SequenceEqual(["auto", "review"]) && header.PermissionMode == "auto" && header.PermissionModes[0].Description == "Runs without asking", "A mode option fills the mode list with the agent's names and descriptions.");
+            Require(header.Options.Select(option => option.Id).SequenceEqual(["thought", "verbose"]) && header.Options[0] is { Kind: "select", Category: "thought_level", Current: "high" } && header.Options[1] is { Kind: "boolean", Current: "false" }, "The other options are listed with their kind, category and value.");
+            Require(configAgent.ClientCapabilities!["session"]!["configOptions"]!["boolean"] is JsonObject, "The client says it handles boolean options.");
+
+            var after = await config.SetModeAsync("review");
+            Require(after.PermissionMode == "review" && configAgent.Last["session/set_config_option"]!["configId"]!.GetValue<string>() == "mode" && configAgent.Last["session/set_config_option"]!["value"]!.GetValue<string>() == "review" && !configAgent.Last.ContainsKey("session/set_mode"), "A mode from config options is set with session/set_config_option, never session/set_mode.");
+            await config.SetModelAsync("m2");
+            Require(config.Header.Model == "m2" && configAgent.Last["session/set_config_option"]!["configId"]!.GetValue<string>() == "model" && !configAgent.Last.ContainsKey("session/set_model"), "A model from config options is set with session/set_config_option.");
+            await config.SetOptionAsync("thought", "low");
+            Require(config.Header.Options[0].Current == "low" && configAgent.Last["session/set_config_option"]!["configId"]!.GetValue<string>() == "thought", "A select option is set by its id and shows the value the agent answers with.");
+            await config.SetOptionAsync("verbose", "true");
+            Require(config.Header.Options[1].Current == "true" && configAgent.Last["session/set_config_option"]!["type"]!.GetValue<string>() == "boolean" && configAgent.Last["session/set_config_option"]!["value"]!.GetValue<bool>(), "A switch is set with a JSON boolean and type boolean.");
+            await configAgent.ChangeOptionAsync("sess-1", "mode", "auto");
+            await Until(() => config.Header.PermissionMode == "auto", "A config_option_update changes the shown mode.");
+        }
+
+        // Only modes: set_mode, and current_mode_update. No model, no option.
+        var (modes, modesAgent) = await Started(AcpOffer.Modes);
+        await using (modes)
+        {
+            Require(modes.Header.Models.Count == 0 && modes.Header.Model is null && modes.Header.Options.Count == 0, "An agent with only modes lists no model and no option.");
+            await modes.SetModeAsync("code");
+            Require(modes.Header.PermissionMode == "code" && modesAgent.Last["session/set_mode"]!["modeId"]!.GetValue<string>() == "code", "A mode from the modes list is set with session/set_mode.");
+            await modesAgent.SetModeUpdateAsync("sess-1", "ask");
+            await Until(() => modes.Header.PermissionMode == "ask", "A current_mode_update changes the shown mode.");
+        }
+
+        // Only models: set_model; no mode list.
+        var (models, modelsAgent) = await Started(AcpOffer.Models);
+        await using (models)
+        {
+            Require(models.Header.Models.Select(model => model.Label).SequenceEqual(["Mini", "Max"]) && models.Header.Model == "m1" && models.Header.PermissionModes.Count == 0, "An agent with only models lists them and no mode.");
+            await models.SetModelAsync("m2");
+            Require(models.Header.Model == "m2" && modelsAgent.Last["session/set_model"]!["modelId"]!.GetValue<string>() == "m2", "A model from the models list is set with session/set_model.");
+        }
+
+        var (nothing, _) = await Started(AcpOffer.Nothing);
+        await using (nothing) Require(nothing.Header is { Models.Count: 0, PermissionModes.Count: 0, Options.Count: 0 }, "An agent that offers nothing gets nothing remembered for it.");
+    }
+
+    // A permission request shows what the agent said the call is, and its own answers go back by id.
+    internal static async Task Approvals()
+    {
+        var (session, agent) = await Started(AcpOffer.Modes);
+        await using (session)
+        {
+            await session.SendAsync("ask2", null);
+            await Until(() => session.Header.Status == ChatStatus.AwaitingPermission, "The file request waits.");
+            var request = Items(session).OfType<ChatPermissionItem>().Single();
+            Require(request is { Title: "Create file", Kind: "edit", Prompt: "Allow \"Create file\"?" } && request.Locations.SequenceEqual(["/work/a.txt:3"]), "The request keeps the tool's title, kind and file with its line.");
+            Require(request.Diffs.Single() is { Path: "/work/a.txt", OldText: null, NewText: "one\ntwo" }, "The request carries the diff of the file it would create.");
+            Require(request.Options.Select(option => (option.Id, option.Label, option.Kind)).SequenceEqual([("once", "Yes, once", "allow_once"), ("always", "Yes, always", "allow_always"), ("no", "No", "reject_once"), ("never", "Never", "reject_always")]), "The request lists the agent's options in its order with its names and kinds.");
+            Require(Tereditor.Plugins.Chat.UI.PermissionFacts.Of(request.Input).Select(fact => fact.Name + "=" + fact.Value).SequenceEqual(["Command=echo hi", "Path=/work/a.txt"]), "The raw input reads as a command line and a path.");
+            session.AnswerOption(request.RequestId, "never");
+            await Until(() => Items(session).OfType<ChatAssistantItem>().Any(item => item.Text == "outcome never"), "An answer by option id picks that option, even a reject_always the two-button answers never reach.");
+            Require(Items(session).OfType<ChatPermissionItem>().Single().Decision == ChatPermissionDecision.Denied, "A reject kind settles the card as denied.");
+            await Until(() => session.Header.Status == ChatStatus.Idle, "The turn ends.");
+            await session.SendAsync("ask2", null);
+            await Until(() => session.Header.Status == ChatStatus.AwaitingPermission, "A second file request waits.");
+            var refused = false;
+            try { session.AnswerOption(Items(session).OfType<ChatPermissionItem>().Last().RequestId, "made-up"); } catch (InvalidOperationException) { refused = true; }
+            Require(refused, "An option id the agent did not offer is refused.");
+            session.AnswerOption(Items(session).OfType<ChatPermissionItem>().Last().RequestId, "always");
+            await Until(() => Items(session).OfType<ChatAssistantItem>().Any(item => item.Text == "outcome always"), "allow_always answers with its option.");
+        }
+        Require(Tereditor.Plugins.Chat.UI.PermissionFacts.Unified(null, "a\nb") == "+ a\n+ b" && Tereditor.Plugins.Chat.UI.PermissionFacts.Unified("a\nb\nc\nd", "a\nb\nX\nd") == "  a\n  b\n- c\n+ X\n  d", "A short diff shows only the changed lines and their neighbours.");
+    }
+
     // The agent's file and terminal calls through a session whose workspace is a temporary directory: reads and writes stay inside it.
     internal static async Task ClientMethods(string root)
     {
@@ -611,6 +697,8 @@ internal static class AcpChecks
         Logo();
         await Protocol();
         await Session();
+        await Pickers();
+        await Approvals();
         Directory.CreateDirectory(root);
         await ClientMethods(root);
         await Registry(Path.Combine(root, "registry"));

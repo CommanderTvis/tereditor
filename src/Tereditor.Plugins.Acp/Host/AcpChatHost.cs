@@ -191,10 +191,12 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         });
         context.Method(ChatContract.SetModel, async (p, _, _) => await Session(p.WorkspaceId, p.ChatId).SetModelAsync(p.Value));
         context.Method(ChatContract.SetPermissionMode, async (p, _, _) => await Session(p.WorkspaceId, p.ChatId).SetModeAsync(p.Value));
+        context.Method(ChatContract.SetOption, async (p, _, _) => await Session(p.WorkspaceId, p.ChatId).SetOptionAsync(p.OptionId, p.Value));
         context.Method(ChatContract.SetEffort, (_, _, _) => throw Unsupported("This agent exposes no effort levels."));
         context.Method(ChatContract.Answer, (p, _, _) =>
         {
-            if (p.Allow) Session(p.WorkspaceId, p.ChatId).Answer(p.RequestId, true, p.Remember == true);
+            if (p.OptionId is { Length: > 0 } optionId) Session(p.WorkspaceId, p.ChatId).AnswerOption(p.RequestId, optionId);
+            else if (p.Allow) Session(p.WorkspaceId, p.ChatId).Answer(p.RequestId, true, p.Remember == true);
             else Session(p.WorkspaceId, p.ChatId).Answer(p.RequestId, false, false);
             return ValueTask.FromResult(new Ack());
         });

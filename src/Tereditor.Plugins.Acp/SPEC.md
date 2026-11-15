@@ -29,6 +29,12 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 - Session: `session/new` (modes, models and config options of the answer fill the header), `session/load` when the agent advertises
   `loadSession` and the chat has a stored session id (the replayed updates rebuild the transcript; otherwise a new session starts),
   `session/prompt` for a turn, `session/cancel`, `session/set_mode`, `session/set_model`, `session/set_config_option`.
+- Pickers: the chat shows what the agent offers and nothing else. An option with category `mode` or `model` (or id `mode` or `model` when it has
+  no category) fills the mode or model picker, and is set with `session/set_config_option`; `session/set_mode` and `session/set_model` are used only
+  when the agent offered `modes` or `models` instead. Config options replace `modes` and `models` for the same purpose. Grouped select values are
+  flattened; a group becomes the model's provider. Every other select or boolean option (thought level, model parameters, custom ones) is a chip
+  of its own, set by `chatSetOption`. The answer of `session/set_config_option` and every `config_option_update` carry the full set of options and
+  replace what is shown. The client advertises boolean options. An agent that offers no model and no mode gets neither chip.
 - Updates folded by `AcpFolder`: `user_message_chunk`, `agent_message_chunk` and `agent_thought_chunk` (grow one item until another kind of update
   arrives), `tool_call` and `tool_call_update` (keyed by `toolCallId`; text content, diffs as `-`/`+` lines with the file path for the card,
   terminal references), `plan` (one assistant item replaced in place, entries as a checklist), `available_commands_update` (slash menu),
@@ -36,6 +42,9 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 - Stop reasons: `end_turn` is Idle; `cancelled` adds an interrupt marker; `refusal` and errors add a failure notice; `max_tokens` and
   `max_turn_requests` add a warning.
 - Permissions: `session/request_permission` becomes a permission card with the agent's own title; the call stays open until the user answers.
+  The card shows the tool kind, the files with their lines, the command, path or pattern of the raw input, the agent's text, and a short diff for
+  each file change (a new file shows all its lines), with the whole raw input one fold away. Its buttons are the agent's options, in its order and
+  with its names, and the answer carries the chosen option id, so `reject_always` works. ACP cannot send a reason, so the card has no reason box.
   Nothing is auto-approved. Allow answers with the agent's `allow_once` option, or `allow_always` when the user asks to remember it and the
   agent offered one; deny answers `reject_once`. An agent that offers no option of the wanted kind is answered as cancelled. Cancelling a turn
   answers every waiting request as `cancelled`, as the protocol requires.
@@ -117,17 +126,17 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 - `authenticate` as buttons or links in the chat: the method is implemented in the client but the chat contract has no authentication call, so it
   is only listed in a notice. Sign-in in the settings page is not offered.
 - The `preview` channel, the registry's `extensions` and per-agent `website` links are not used.
-- Permission option labels other than the agent's "always" label (the contract has no option list), a plan record (plans are text), embedded
+- A plan record (plans are text), embedded
   resource, audio and resource-link prompts from the composer (images and file attachments are sent when the agent allows them), images in
   agent output, `session/list` and `session/fork`, the agent's `mcpServers` (none are passed), steering or queuing a message while a turn
-  runs (the send is refused until the turn ends), effort levels, and a headless UI check of the chat view with streamed ACP output (the shared
-  view is covered by `--claude-chat-ui`; the ACP folding is covered by `--acp`).
+  runs (the send is refused until the turn ends), and a headless UI check of the chat view with streamed ACP output (the chips and the
+  approval card are covered by `--claude-chat-ui`; the ACP folding is covered by `--acp`). A thought level is an option chip, not the model menu's effort.
 - Unstable ACP methods and extensions.
 
 ## Checks
 
 `--acp`: the manifest and Early support label; framing, version negotiation, session new, prompt streaming, cancel, load and crash against the
-in-process fake agent (`tests/Tereditor.Checks/AcpFakeAgent.cs`); the folded transcript; permission answers and cancellation; fs and terminal
+in-process fake agent (`tests/Tereditor.Checks/AcpFakeAgent.cs`); the folded transcript; permission answers by option id and cancellation; the pickers for an agent that offers only config options, only modes or only models and the request each one sets; fs and terminal
 methods and their confinement (including a symbolic link and `..`); registry parsing against the fixture, the cache, offline fallback and
 seed; registry icons (url rules, unsafe SVGs, size cap, cache and offline, the generic glyph); the row model and search; the install confirmation facts; the agent list model, detail model and tags, the add popup's validation, checksum and trust checks, the launcher's default, removed default, turned-off agents and menu; install confirmation, version mismatch, checksum failure and unpacking; the settings page's text forms. Checks never launch a real agent
 or download from the registry.

@@ -195,6 +195,18 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
         entry.Answer.TrySetResult(option?.Id);
     }
 
+    /// <summary>Answers a permission card with the agent's own option, by id.</summary>
+    public void AnswerOption(string requestId, string optionId)
+    {
+        (TaskCompletionSource<string?> Answer, IReadOnlyList<AcpPermissionOption> Options) entry;
+        lock (gate)
+        {
+            if (!permissions.TryGetValue(requestId, out entry)) throw new InvalidOperationException("That permission request is no longer waiting.");
+        }
+        if (entry.Options.All(option => option.Id != optionId)) throw new InvalidOperationException("The agent did not offer that answer.");
+        entry.Answer.TrySetResult(optionId);
+    }
+
     public async Task SendAsync(string text, IReadOnlyList<ChatAttachment>? attachments)
     {
         var content = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = text });
@@ -246,20 +258,46 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
         try { await client.CancelAsync(sessionId); } catch (Exception error) when (error is IOException or ObjectDisposedException) { }
     }
 
+    /// <summary>The mode goes through the config option that sets it when the agent offers one, else through <c>session/set_mode</c>.</summary>
     public async Task<ChatHeader> SetModeAsync(string value)
     {
         var active = client ?? throw new InvalidOperationException("The agent is not running.");
+        string? configId;
+        lock (gate) configId = folder.ModeConfigId;
+        if (configId is not null) return await SetOptionAsync(configId, value, "mode");
         try { await active.SetModeAsync(sessionId!, value, lifetime.Token); }
         catch (AcpException error) { throw new InvalidOperationException("The agent did not change mode: " + error.Message); }
         lock (gate) { folder.Update(header => header with { PermissionMode = value }); FlushNow(); return folder.Header; }
     }
 
+    /// <summary>The model goes through the config option that sets it when the agent offers one, else through <c>session/set_model</c>.</summary>
     public async Task<ChatHeader> SetModelAsync(string value)
     {
         var active = client ?? throw new InvalidOperationException("The agent is not running.");
+        string? configId;
+        lock (gate) configId = folder.ModelConfigId;
+        if (configId is not null) return await SetOptionAsync(configId, value, "model");
         try { await active.SetModelAsync(sessionId!, value, lifetime.Token); }
         catch (AcpException error) { throw new InvalidOperationException("The agent did not change model: " + error.Message); }
         lock (gate) { folder.Update(header => header with { Model = value }); FlushNow(); return folder.Header; }
+    }
+
+    /// <summary>session/set_config_option. The answer is the full set of options as they now stand; an agent that answers with none is taken at its word for this one value.</summary>
+    public async Task<ChatHeader> SetOptionAsync(string configId, string value, string what = "option")
+    {
+        var active = client ?? throw new InvalidOperationException("The agent is not running.");
+        bool boolean;
+        lock (gate) boolean = folder.IsBoolean(configId);
+        JsonNode? answer;
+        try { answer = await active.SetConfigOptionAsync(sessionId!, configId, value, lifetime.Token, boolean); }
+        catch (AcpException error) { throw new InvalidOperationException($"The agent did not change the {what}: " + error.Message); }
+        lock (gate)
+        {
+            if (answer?["configOptions"] is JsonArray options) folder.ApplyConfig(options);
+            else folder.SetCurrent(configId, value);
+            FlushNow();
+            return folder.Header;
+        }
     }
 
     public string? ItemDetail(string id)
