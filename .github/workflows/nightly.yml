@@ -540,7 +540,19 @@ jobs:
           # shellcheck disable=SC2086
           sha256sum $assets > SHA256SUMS
           assets="$assets SHA256SUMS"
-          notes="Built from ${GITHUB_SHA} on $(date -u +%Y-%m-%d). The disk image is not notarized; the Android package is a client for a tereditor host; the Linux AppImages are for distributions with glibc 2.35 or newer (run it with --appimage-extract-and-run when FUSE is unavailable); the tereditor-headless archives hold the headless host for Linux x64 and ARM64, which scripts/headless-cloud-setup.sh installs, and for macOS arm64; SHA256SUMS lists the checksum of every other file; the unsigned Windows x64 and ARM64 ZIPs each contain the desktop client and standalone host."
+          notes="Built from ${GITHUB_SHA} on $(date -u +%Y-%m-%d).
+
+          ## Artifacts
+
+          | Artifact | Purpose |
+          |---|---|
+          | tereditor-nightly.dmg | Apple silicon disk image, not notarized. |
+          | tereditor-nightly.apk | Android client for a tereditor host. |
+          | tereditor-nightly-linux-x64.AppImage, tereditor-nightly-linux-arm64.AppImage | Linux desktop for glibc 2.35 or newer (Ubuntu 22.04 and newer). Run with --appimage-extract-and-run when FUSE is unavailable. |
+          | tereditor-headless-nightly-linux-x64.tar.gz, tereditor-headless-nightly-linux-arm64.tar.gz | Headless host for Linux x64 and ARM64. scripts/headless-cloud-setup.sh installs it. |
+          | tereditor-headless-nightly-macos-arm64.tar.gz | Headless host for macOS arm64, dockerless, as a single executable. |
+          | SHA256SUMS | Checksums of every other file. |
+          | tereditor-nightly-win-x64.zip, tereditor-nightly-win-arm64.zip | Unsigned Windows x64 and ARM64 builds, each with the desktop client and standalone host. |"
           if [ -n "$missing" ]; then
             notes="$notes
 
