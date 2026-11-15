@@ -3198,7 +3198,10 @@ internal static class ClaudeChatUiChecks
         ChatOption verbose = new("verbose", "Verbose", "boolean", "false");
         ChatPermissionItem Ask() => new("ask", 1, "req-ask", "Create file", JsonSerializer.SerializeToElement(new { command = new[] { "echo", "hi" }, file_path = "/work/a.txt" }))
         {
-            Prompt = "Allow \"Create file\"?", ToolKind = "edit", Locations = ["/work/a.txt:3"], Diffs = [new("/work/a.txt", null, "one\ntwo")],
+            Prompt = "Allow \"Create file\"?",
+            ToolKind = "edit",
+            Locations = ["/work/a.txt:3"],
+            Diffs = [new("/work/a.txt", null, "one\ntwo")],
             Options = [new("once", "Yes, once", "allow_once"), new("always", "Yes, always", "allow_always"), new("no", "No", "reject_once"), new("never", "Never", "reject_always")]
         };
         var chat = new FakeChat

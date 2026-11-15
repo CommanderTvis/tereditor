@@ -34,7 +34,7 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
     public AcpOffer Offer { get; }
     /// <summary>The params of the last request of each method.</summary>
     public Dictionary<string, JsonNode?> Last { get; } = [];
-    private JsonArray configOptions = [];
+    private readonly JsonArray configOptions = [];
 
     public AcpFakeAgent(int protocolVersion = 1, bool loadSession = true, AcpOffer offer = AcpOffer.Modes)
     {
@@ -66,7 +66,10 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
     private static JsonArray CopilotOptions() => new(
         new JsonObject
         {
-            ["type"] = "select", ["id"] = "mode", ["name"] = "Mode", ["category"] = "mode",
+            ["type"] = "select",
+            ["id"] = "mode",
+            ["name"] = "Mode",
+            ["category"] = "mode",
             ["description"] = "Controls how Copilot responds: a conversational agent, planning multi-step work, or autonomous autopilot.",
             ["currentValue"] = CopilotModes + "#agent",
             ["options"] = new JsonArray(
@@ -76,7 +79,10 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
         },
         new JsonObject
         {
-            ["type"] = "select", ["id"] = "allow_all", ["name"] = "Allow All", ["category"] = "permissions",
+            ["type"] = "select",
+            ["id"] = "allow_all",
+            ["name"] = "Allow All",
+            ["category"] = "permissions",
             ["description"] = "Controls whether Copilot prompts for approval before using tools, accessing paths, or fetching URLs.",
             ["currentValue"] = "off",
             ["options"] = new JsonArray(
@@ -90,7 +96,11 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
         new JsonObject { ["id"] = "mode", ["name"] = "Mode", ["category"] = "mode", ["type"] = "select", ["currentValue"] = "auto", ["options"] = new JsonArray(Value("auto", "Auto", "Runs without asking"), Value("review", "Review", "Asks before it edits")) },
         new JsonObject
         {
-            ["id"] = "model", ["name"] = "Model", ["category"] = "model", ["type"] = "select", ["currentValue"] = "m1",
+            ["id"] = "model",
+            ["name"] = "Model",
+            ["category"] = "model",
+            ["type"] = "select",
+            ["currentValue"] = "m1",
             ["options"] = new JsonArray(
                 new JsonObject { ["group"] = "fast", ["name"] = "Fast", ["options"] = new JsonArray(Value("m1", "Mini")) },
                 new JsonObject { ["group"] = "smart", ["name"] = "Smart", ["options"] = new JsonArray(Value("m2", "Max", "The best one")) })
@@ -260,7 +270,10 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
                         ["sessionId"] = id,
                         ["toolCall"] = new JsonObject
                         {
-                            ["toolCallId"] = "t3", ["title"] = "Create file", ["kind"] = "edit", ["status"] = "pending",
+                            ["toolCallId"] = "t3",
+                            ["title"] = "Create file",
+                            ["kind"] = "edit",
+                            ["status"] = "pending",
                             ["locations"] = new JsonArray(new JsonObject { ["path"] = "/work/a.txt", ["line"] = 3 }),
                             ["rawInput"] = new JsonObject { ["command"] = new JsonArray("echo", "hi"), ["file_path"] = "/work/a.txt" },
                             ["content"] = new JsonArray(new JsonObject { ["type"] = "diff", ["path"] = "/work/a.txt", ["oldText"] = null, ["newText"] = "one\ntwo" })

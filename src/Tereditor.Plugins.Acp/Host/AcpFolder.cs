@@ -350,7 +350,7 @@ internal sealed class AcpFolder
     public void ApplyModels(JsonObject? models)
     {
         if (models is null) return;
-        string IdOf(JsonObject model) => Str(model, "modelId") is { Length: > 0 } id ? id : Str(model, "id");
+        static string IdOf(JsonObject model) => Str(model, "modelId") is { Length: > 0 } id ? id : Str(model, "id");
         Update(header => header with
         {
             Model = Str(models, "currentModelId"),

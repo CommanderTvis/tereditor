@@ -125,46 +125,46 @@ internal sealed partial class ChatView
         // An agent that sent its own answers (ACP) is shown what it said the call is: kind, files, the command or input, diffs.
         if (offered) AcpDetails(root, item);
         else switch (item.ToolName)
-        {
-            case "Bash":
-                // The command is editable; what is accepted replaces the call's own.
-                commandBox = new TextBox { Name = "ChatPermCommand", Text = Str("command"), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, FontFamily = Ui.CodeFont, FontSize = 12, MaxHeight = 160 };
-                root.Children.Add(commandBox);
-                if (Str("description") is { Length: > 0 } description) root.Children.Add(Ui.Text(description, Ui.Muted, 11));
-                break;
-            case "Edit" or "MultiEdit" or "Write" or "NotebookEdit":
-                var open = Ui.Button("Open diff", () => _ = OpenDiff(item));
-                open.Name = "ChatPermDiff";
-                root.Children.Add(Ui.Text(Str("file_path"), Ui.Muted, 12));
-                root.Children.Add(open);
-                break;
-            case "ExitPlanMode":
-                var text = new SelectableTextBlock { Name = "ChatPlanBody", Text = Str("plan"), TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = Ui.TextBrush };
-                root.Children.Add(new ScrollViewer { MaxHeight = 220, Content = text, Name = "ChatPlanText" });
-                // Selecting text of the plan and commenting on it sends the quote with the comment.
-                var quoted = Ui.Text("", Ui.Muted, 11);
-                quoted.Name = "ChatPlanQuotes";
-                quoted.IsVisible = false;
-                var comment = Ui.Button("Comment on selection", () =>
-                {
-                    var quote = text.SelectedText?.Trim();
-                    if (string.IsNullOrEmpty(quote) || reasonBox is null) return;
-                    planQuotes.Add(new ChatPlanComment(quote, reasonBox.Text?.Trim() ?? ""));
-                    reasonBox.Text = "";
-                    quoted.Text = $"{planQuotes.Count} comment(s) on the plan will be sent";
-                    quoted.IsVisible = true;
-                });
-                comment.Name = "ChatPlanComment";
-                root.Children.Add(comment);
-                root.Children.Add(quoted);
-                break;
-            default:
-                if (item.Description is { Length: > 0 } detail) root.Children.Add(Ui.Text(detail, Ui.Muted, 12));
-                var json = JsonSerializer.Serialize(item.Input, ChatUIJson.Indented.JsonElement);
-                var expander = new Expander { Header = "Details", Content = new TextBlock { Text = json, FontFamily = Ui.CodeFont, FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = Ui.Muted }, IsExpanded = false };
-                root.Children.Add(expander);
-                break;
-        }
+            {
+                case "Bash":
+                    // The command is editable; what is accepted replaces the call's own.
+                    commandBox = new TextBox { Name = "ChatPermCommand", Text = Str("command"), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, FontFamily = Ui.CodeFont, FontSize = 12, MaxHeight = 160 };
+                    root.Children.Add(commandBox);
+                    if (Str("description") is { Length: > 0 } description) root.Children.Add(Ui.Text(description, Ui.Muted, 11));
+                    break;
+                case "Edit" or "MultiEdit" or "Write" or "NotebookEdit":
+                    var open = Ui.Button("Open diff", () => _ = OpenDiff(item));
+                    open.Name = "ChatPermDiff";
+                    root.Children.Add(Ui.Text(Str("file_path"), Ui.Muted, 12));
+                    root.Children.Add(open);
+                    break;
+                case "ExitPlanMode":
+                    var text = new SelectableTextBlock { Name = "ChatPlanBody", Text = Str("plan"), TextWrapping = TextWrapping.Wrap, FontSize = 12, Foreground = Ui.TextBrush };
+                    root.Children.Add(new ScrollViewer { MaxHeight = 220, Content = text, Name = "ChatPlanText" });
+                    // Selecting text of the plan and commenting on it sends the quote with the comment.
+                    var quoted = Ui.Text("", Ui.Muted, 11);
+                    quoted.Name = "ChatPlanQuotes";
+                    quoted.IsVisible = false;
+                    var comment = Ui.Button("Comment on selection", () =>
+                    {
+                        var quote = text.SelectedText?.Trim();
+                        if (string.IsNullOrEmpty(quote) || reasonBox is null) return;
+                        planQuotes.Add(new ChatPlanComment(quote, reasonBox.Text?.Trim() ?? ""));
+                        reasonBox.Text = "";
+                        quoted.Text = $"{planQuotes.Count} comment(s) on the plan will be sent";
+                        quoted.IsVisible = true;
+                    });
+                    comment.Name = "ChatPlanComment";
+                    root.Children.Add(comment);
+                    root.Children.Add(quoted);
+                    break;
+                default:
+                    if (item.Description is { Length: > 0 } detail) root.Children.Add(Ui.Text(detail, Ui.Muted, 12));
+                    var json = JsonSerializer.Serialize(item.Input, ChatUIJson.Indented.JsonElement);
+                    var expander = new Expander { Header = "Details", Content = new TextBlock { Text = json, FontFamily = Ui.CodeFont, FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = Ui.Muted }, IsExpanded = false };
+                    root.Children.Add(expander);
+                    break;
+            }
 
         // ACP has no way to send a reason with a rejection, so its card has no such box.
         reasonBox = offered ? null : new TextBox { Name = "ChatPermReason", PlaceholderText = plan ? $"Add feedback for {env.Agent.Short}" : $"Tell {env.Agent.Short} what to do instead", FontSize = 12 };
