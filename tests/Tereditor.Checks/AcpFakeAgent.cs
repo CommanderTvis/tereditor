@@ -13,8 +13,8 @@ namespace Tereditor.Checks;
 //   "run"     creates a terminal (echo hi), waits for exit and reports its output.
 //   "ask2"    asks permission for a file edit with locations, raw input, a new-file diff and four options (once, always, no, never).
 //   "wait"    streams a chunk and then waits for session/cancel; stops with "cancelled".
-/// <summary>What <c>session/new</c> offers: the modes, only config options (with grouped models, a thought level and a switch), only models, or nothing.</summary>
-internal enum AcpOffer { Modes, ConfigOptions, Models, Nothing }
+/// <summary>What <c>session/new</c> offers: the modes, only config options (with grouped models, a thought level and a switch), only models, nothing, or exactly what GitHub Copilot CLI 1.0.112 sent (URL-valued modes, a permissions select, no models).</summary>
+internal enum AcpOffer { Modes, ConfigOptions, Models, Nothing, Copilot }
 
 internal sealed class AcpFakeAgent : IAsyncDisposable
 {
@@ -61,7 +61,32 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
 
     private static JsonObject Value(string value, string name, string? description = null) => new() { ["value"] = value, ["name"] = name, ["description"] = description };
 
-    private static JsonArray Options() => new(
+    private const string CopilotModes = "https://agentclientprotocol.com/protocol/session-modes";
+
+    private static JsonArray CopilotOptions() => new(
+        new JsonObject
+        {
+            ["type"] = "select", ["id"] = "mode", ["name"] = "Mode", ["category"] = "mode",
+            ["description"] = "Controls how Copilot responds: a conversational agent, planning multi-step work, or autonomous autopilot.",
+            ["currentValue"] = CopilotModes + "#agent",
+            ["options"] = new JsonArray(
+                Value(CopilotModes + "#agent", "Agent", "Default agent mode for conversational interactions"),
+                Value(CopilotModes + "#plan", "Plan", "Plan mode for creating and executing multi-step plans"),
+                Value(CopilotModes + "#autopilot", "Autopilot", "Autonomous mode that enables allow-all and runs until task completion without user interaction (experimental)"))
+        },
+        new JsonObject
+        {
+            ["type"] = "select", ["id"] = "allow_all", ["name"] = "Allow All", ["category"] = "permissions",
+            ["description"] = "Controls whether Copilot prompts for approval before using tools, accessing paths, or fetching URLs.",
+            ["currentValue"] = "off",
+            ["options"] = new JsonArray(
+                Value("on", "On", "Automatically approve all tool, path, and URL requests"),
+                Value("off", "Off", "Require approval for tool, path, and URL requests"))
+        });
+
+    private JsonArray Options() => Offer == AcpOffer.Copilot ? CopilotOptions() : GenericOptions();
+
+    private static JsonArray GenericOptions() => new(
         new JsonObject { ["id"] = "mode", ["name"] = "Mode", ["category"] = "mode", ["type"] = "select", ["currentValue"] = "auto", ["options"] = new JsonArray(Value("auto", "Auto", "Runs without asking"), Value("review", "Review", "Asks before it edits")) },
         new JsonObject
         {
@@ -84,6 +109,31 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
                     ["currentModeId"] = "ask",
                     ["availableModes"] = new JsonArray(new JsonObject { ["id"] = "ask", ["name"] = "Ask" }, new JsonObject { ["id"] = "code", ["name"] = "Code" })
                 };
+                break;
+            case AcpOffer.Copilot:
+                result["configOptions"] = configOptions.DeepClone();
+                result["modes"] = new JsonObject
+                {
+                    ["currentModeId"] = CopilotModes + "#agent",
+                    ["availableModes"] = new JsonArray(
+                        new JsonObject { ["id"] = CopilotModes + "#agent", ["name"] = "Agent", ["description"] = "Default agent mode for conversational interactions" },
+                        new JsonObject { ["id"] = CopilotModes + "#plan", ["name"] = "Plan", ["description"] = "Plan mode for creating and executing multi-step plans" },
+                        new JsonObject { ["id"] = CopilotModes + "#autopilot", ["name"] = "Autopilot", ["description"] = "Autonomous mode that enables allow-all and runs until task completion without user interaction (experimental)" })
+                };
+                // Like the real CLI: the commands arrive after the answer, three times.
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(30);
+                    for (var round = 0; round < 3; round++)
+                        await Update(id, new JsonObject
+                        {
+                            ["sessionUpdate"] = "available_commands_update",
+                            ["availableCommands"] = new JsonArray(
+                                new JsonObject { ["name"] = "plan", ["description"] = "Plan" },
+                                new JsonObject { ["name"] = "allow-all", ["description"] = "Allow everything" },
+                                new JsonObject { ["name"] = "model", ["description"] = "Choose a model" })
+                        });
+                });
                 break;
             case AcpOffer.ConfigOptions: result["configOptions"] = configOptions.DeepClone(); break;
             case AcpOffer.Models:
@@ -116,6 +166,13 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
         lock (Methods) Methods.Add(method);
         switch (method)
         {
+            case "initialize" when Offer == AcpOffer.Copilot:
+                ClientCapabilities = parameters?["clientCapabilities"] as JsonObject;
+                return JsonNode.Parse("""
+                    {"protocolVersion":1,"agentCapabilities":{"auth":{"logout":{}},"loadSession":true,"mcpCapabilities":{"http":true,"sse":true},"promptCapabilities":{"image":true,"audio":false,"embeddedContext":true},"sessionCapabilities":{"close":{},"list":{}}},
+                    "agentInfo":{"name":"Copilot","title":"Copilot","version":"1.0.112"},
+                    "authMethods":[{"id":"copilot-login","name":"Log in with Copilot CLI","description":"Run `copilot login` in the terminal","_meta":{"terminal-auth":{"command":"/path/copilot","args":["login"],"label":"Copilot Login"}}}]}
+                    """);
             case "initialize":
                 ClientCapabilities = parameters?["clientCapabilities"] as JsonObject;
                 return new JsonObject

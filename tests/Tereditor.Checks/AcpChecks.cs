@@ -257,6 +257,27 @@ internal static class AcpChecks
             Require(models.Header.Model == "m2" && modelsAgent.Last["session/set_model"]!["modelId"]!.GetValue<string>() == "m2", "A model from the models list is set with session/set_model.");
         }
 
+        // GitHub Copilot CLI 1.0.112, as it answered: URL-valued modes, a "permissions" select, no model of any kind, commands sent after the answer.
+        const string Uri = "https://agentclientprotocol.com/protocol/session-modes";
+        var (copilot, copilotAgent) = await Started(AcpOffer.Copilot);
+        await using (copilot)
+        {
+            var header = copilot.Header;
+            Require(copilot.Agent is { Name: "Copilot", Version: "1.0.112", AuthMethods.Count: 1 } && copilot.Agent.AuthMethods[0].Id == "copilot-login", "Copilot's initialize reads, though its sign-in method has no type.");
+            Require(header.PermissionModes.Select(mode => mode.Label).SequenceEqual(["Agent", "Plan", "Autopilot"]) && header.PermissionMode == Uri + "#agent" && header.PermissionModes[1].Key == Uri + "#plan", "Copilot's modes show as Agent, Plan and Autopilot with Agent current.");
+            Require(header.Models.Count == 0 && header.Model is null, "Copilot offers no model, so none is listed.");
+            Require(header.Options.Count == 1 && header.Options[0] is { Id: "allow_all", Label: "Allow All", Category: "permissions", Current: "off" } && header.Options[0].Values.Select(value => value.Label).SequenceEqual(["On", "Off"]), "The permissions select is an option of its own, whatever its category: Allow All, Off.");
+            await Until(() => copilot.Header.Commands.Count == 3, "The slash commands sent after the answer still arrive.");
+            await copilot.SetModeAsync(Uri + "#plan");
+            Require(copilotAgent.Last["session/set_config_option"]!["configId"]!.GetValue<string>() == "mode" && copilotAgent.Last["session/set_config_option"]!["value"]!.GetValue<string>() == Uri + "#plan" && !copilotAgent.Last.ContainsKey("session/set_mode") && copilot.Header.PermissionMode == Uri + "#plan", "Picking Plan sends set_config_option for mode with the whole URL.");
+            await copilot.SetOptionAsync("allow_all", "on");
+            Require(copilotAgent.Last["session/set_config_option"]!["configId"]!.GetValue<string>() == "allow_all" && copilotAgent.Last["session/set_config_option"]!["value"]!.GetValue<string>() == "on" && copilot.Header.Options[0].Current == "on", "Flipping Allow All sends configId allow_all with value on.");
+            await copilotAgent.ChangeOptionAsync("sess-1", "allow_all", "off");
+            await Until(() => copilot.Header.Options[0].Current == "off", "A config_option_update turns Allow All off again on the chip.");
+            await copilotAgent.ChangeOptionAsync("sess-1", "mode", Uri + "#autopilot");
+            await Until(() => copilot.Header.PermissionMode == Uri + "#autopilot", "A config_option_update moves the mode.");
+        }
+
         var (nothing, _) = await Started(AcpOffer.Nothing);
         await using (nothing) Require(nothing.Header is { Models.Count: 0, PermissionModes.Count: 0, Options.Count: 0 }, "An agent that offers nothing gets nothing remembered for it.");
     }

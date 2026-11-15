@@ -32,8 +32,10 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 - Pickers: the chat shows what the agent offers and nothing else. An option with category `mode` or `model` (or id `mode` or `model` when it has
   no category) fills the mode or model picker, and is set with `session/set_config_option`; `session/set_mode` and `session/set_model` are used only
   when the agent offered `modes` or `models` instead. Config options replace `modes` and `models` for the same purpose. Grouped select values are
-  flattened; a group becomes the model's provider. Every other select or boolean option (thought level, model parameters, custom ones) is a chip
-  of its own, set by `chatSetOption`. The answer of `session/set_config_option` and every `config_option_update` carry the full set of options and
+  flattened; a group becomes the model's provider. Every other select or boolean option gets a chip of its own whatever its category
+  (thought level, model parameters, permissions, custom ones), set by `chatSetOption`; a select of exactly on and off reads like a switch
+  ("Allow All off"). An agent may offer no model list at all: GitHub Copilot CLI sends only a mode option, an Allow All select and `modes`, so it
+  has Mode and Allow All chips and no model chip. The answer of `session/set_config_option` and every `config_option_update` carry the full set of options and
   replace what is shown. The client advertises boolean options. An agent that offers no model and no mode gets neither chip.
 - Updates folded by `AcpFolder`: `user_message_chunk`, `agent_message_chunk` and `agent_thought_chunk` (grow one item until another kind of update
   arrives), `tool_call` and `tool_call_update` (keyed by `toolCallId`; text content, diffs as `-`/`+` lines with the file path for the card,

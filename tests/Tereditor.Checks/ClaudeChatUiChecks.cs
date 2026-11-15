@@ -258,6 +258,7 @@ internal static class ClaudeChatUiChecks
         ImageMarkers();
         Requests();
         AcpOffered();
+        AcpCopilot();
         Pickers();
         PopupFamily();
         PopupLook();
@@ -3243,6 +3244,45 @@ internal static class ClaudeChatUiChecks
             PressKey(panel.GetVisualDescendants().OfType<StackPanel>().First(item => item.Name == "ChatPermission"), Key.D4);
             E2eWorkspace.Until(() => chat.Answers.Count == 1);
             Require(chat.Answers[0] is { Allow: false, OptionId: "never" }, "Key 4 sends the fourth option's id, and a reject kind is a denial.");
+        }
+        finally { window.Close(); }
+    }
+
+    // Copilot's header as the host builds it from the real replies: modes by URL, an Allow All select, no model.
+    private static void AcpCopilot()
+    {
+        var agent = new ChatAgent("ACP agent", "agent", "acp-chat", "acp") { PickersWhenOffered = true };
+        const string Uri = "https://agentclientprotocol.com/protocol/session-modes";
+        ChatOption allowAll = new("allow_all", "Allow All", "select", "off") { Category = "permissions", Values = [new("on", "On"), new("off", "Off")] };
+        var chat = new FakeChat
+        {
+            Header = new ChatHeader(ChatStatus.Idle)
+            {
+                PermissionMode = Uri + "#agent",
+                PermissionModes = [new(Uri + "#agent", "Agent", "Default agent mode"), new(Uri + "#plan", "Plan", "Plan mode"), new(Uri + "#autopilot", "Autopilot", "Autonomous mode")],
+                Options = [allowAll]
+            }
+        };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        var view = new ChatView(new ChatEnvironment(chat, agent), Workspace, Chat);
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Frame(window); Frame(window);
+            bool Has(string name) => view.GetVisualDescendants().OfType<Control>().Any(control => control.Name == name && control.IsVisible);
+            Require(Has("TerminalAgentFact_permission") && ChipText(view, "TerminalAgentFact_permission").Contains("Agent", StringComparison.Ordinal), "Copilot's mode chip shows Agent.");
+            Require(!Has("TerminalAgentFact_model"), "Copilot has no model chip.");
+            Require(ChipText(view, "TerminalAgentFact_option_allow_all").Contains("Allow All off", StringComparison.Ordinal), "The Allow All chip reads like a switch and says off.");
+            var modeItems = view.ModeMenu(chat.Header).Items.OfType<MenuItem>().ToList();
+            Require(modeItems.Select(item => (string?)item.Header).SequenceEqual(["Agent", "Plan", "Autopilot"]) && modeItems[0].IsChecked, "The mode menu lists Agent, Plan and Autopilot with Agent checked.");
+            modeItems[1].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            E2eWorkspace.Until(() => chat.Sets.Contains((ChatContract.SetPermissionMode.Name, Uri + "#plan")));
+            Require(view.OptionMenu(allowAll).Items.OfType<MenuItem>().Select(item => (string?)item.Header).SequenceEqual(["On", "Off"]), "The Allow All menu is On and Off.");
+            view.OptionMenu(allowAll).Items.OfType<MenuItem>().First(item => item.Name == "ChatOption_allow_all_on").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            E2eWorkspace.Until(() => chat.OptionSets.Contains(("allow_all", "on")));
+            chat.Push(new ChatHeaderPush(Workspace, Chat, chat.Header with { PermissionMode = Uri + "#plan", Options = [allowAll with { Current = "on" }] })); Frame(window); Frame(window);
+            Require(ChipText(view, "TerminalAgentFact_permission").Contains("Plan", StringComparison.Ordinal) && ChipText(view, "TerminalAgentFact_option_allow_all").Contains("Allow All on", StringComparison.Ordinal), "The chips follow a pushed header.");
         }
         finally { window.Close(); }
     }

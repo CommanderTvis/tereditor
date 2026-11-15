@@ -196,12 +196,18 @@ internal sealed partial class ChatView
     {
         var shown = pendingOptions.GetValueOrDefault(option.Id) ?? option.Current;
         var boolean = option.Kind == "boolean";
-        var label = boolean ? option.Label + (shown == "true" ? "" : " off") : option.Values.FirstOrDefault(value => value.Value == shown)?.Label ?? shown;
+        // A select of exactly on and off (Copilot's "Allow All") reads like a switch: its name, then the state.
+        var label = boolean ? option.Label + (shown == "true" ? "" : " off")
+            : IsSwitch(option) ? option.Label + " " + (option.Values.FirstOrDefault(value => value.Value == shown)?.Label ?? shown).ToLowerInvariant()
+            : option.Values.FirstOrDefault(value => value.Value == shown)?.Label ?? shown;
         if (pendingOptions.ContainsKey(option.Id)) label += "\u2026";
         var title = option.Label + (option.Description is { Length: > 0 } description ? ". " + description : "") + ". Click to change.";
         var picker = PickerButton("option_" + option.Id, label, title, _ => OptionMenu(option));
         return picker;
     }
+
+    internal static bool IsSwitch(ChatOption option) =>
+        option.Kind == "select" && option.Values.Count == 2 && option.Values.Select(value => value.Value.ToLowerInvariant()).Order().SequenceEqual(["off", "on"]);
 
     internal ContextMenu OptionMenu(ChatOption option)
     {
