@@ -16,7 +16,7 @@ internal static class ClaudeSettingSuggestions
     private static readonly (string Pattern, string[] Values)[] Strings =
     [
         ("permissions.defaultMode", ["default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions", "manual", "delegate"]), // S, H
-        ("model", ["default", "best", "fable", "opus", "sonnet", "haiku", "opus[1m]", "sonnet[1m]", "opusplan"]), // M
+        ("model", [.. ClaudeLaunch.ModelSuggestions.Select(suggestion => suggestion.Id)]), // M
         ("advisorModel", ["opus", "sonnet", "fable"]), // S
         ("effortLevel", ["low", "medium", "high", "xhigh"]), // S, M (max is session-only)
         ("modelSettings.*.effortLevel", ["low", "medium", "high", "xhigh"]), // M

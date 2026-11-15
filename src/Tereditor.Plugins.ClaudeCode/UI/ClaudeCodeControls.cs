@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
@@ -33,7 +34,17 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
         this.context = context;
         command = this.FindControl<TextBox>("ClaudeCommandInput")!;
         model = this.FindControl<AutoCompleteBox>("ClaudeDefaultModel")!;
-        model.ItemsSource = ClaudeLaunch.Models.Select(choice => choice.Id).ToList();
+        model.ItemsSource = ClaudeLaunch.ModelSuggestions.Select(suggestion => suggestion.Id).ToList();
+        model.ItemTemplate = new FuncDataTemplate<string>((id, _) => id is null ? null : new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                new TextBlock { Text = id, FontFamily = Ui.CodeFont },
+                new TextBlock { Text = ClaudeLaunch.ModelSuggestions.FirstOrDefault(suggestion => suggestion.Id == id)?.Description, Foreground = Ui.Muted }
+            }
+        });
         mode = this.FindControl<ComboBox>("ClaudeMode")!;
         mode.Items.Add(new ComboBoxItem { Content = "Terminal", Tag = ClaudeCodeMode.Terminal });
         mode.Items.Add(new ComboBoxItem { Content = "Chat", Tag = ClaudeCodeMode.Chat });

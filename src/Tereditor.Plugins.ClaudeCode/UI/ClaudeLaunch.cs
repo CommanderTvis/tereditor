@@ -9,6 +9,8 @@ internal sealed record ClaudeLaunchPreset(string Id, string Label, string Args, 
 
 internal sealed record ClaudeModel(string Id, string Label);
 
+internal sealed record ClaudeModelSuggestion(string Id, string Description);
+
 /// <summary>
 /// The command lines a Claude Code session starts with. Every session tereditor starts appends its system prompt file
 /// and, by default, turns off the CLI's own agent view, each in the syntax of the shell that will read it.
@@ -17,6 +19,27 @@ internal static partial class ClaudeLaunch
 {
     /// <summary>The model aliases the claude CLI accepts, one list for the launcher and the running session's chip.</summary>
     public static readonly IReadOnlyList<ClaudeModel> Models = [new("opus", "Opus"), new("fable", "Fable"), new("sonnet", "Sonnet"), new("haiku", "Haiku")];
+
+    /// <summary>
+    /// What the default model field offers: the aliases https://code.claude.com/docs/en/model-config lists, then full ids of the
+    /// current family (the ids the chat's model chip shows). Suggestions only; any text is accepted and an empty value means default.
+    /// </summary>
+    public static readonly IReadOnlyList<ClaudeModelSuggestion> ModelSuggestions =
+    [
+        new("default", "Claude Code's default for your account"),
+        new("best", "Same as opus"),
+        new("fable", "Hardest and longest tasks"),
+        new("sonnet", "Daily coding"),
+        new("opus", "Complex reasoning"),
+        new("haiku", "Fast, simple tasks"),
+        new("sonnet[1m]", "Sonnet with a 1M token context"),
+        new("opus[1m]", "Opus with a 1M token context"),
+        new("opusplan", "Opus to plan, then Sonnet to build"),
+        new("claude-opus-5-5", "Opus 5.5, pinned"),
+        new("claude-sonnet-5-5", "Sonnet 5.5, pinned"),
+        new("claude-haiku-5-5", "Haiku 5.5, pinned"),
+        new("claude-fable-5-2", "Fable 5.2, pinned")
+    ];
 
     /// <summary>
     /// The models <c>--advisor</c> accepts. The CLI's help hides the flag; its bundle lists fable, opus and sonnet as advisor

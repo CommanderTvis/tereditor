@@ -460,6 +460,14 @@ internal static class ClaudeCodeChecks
         Require(ClaudeSettingSuggestions.For("modelSettings.claude-opus-4-8.effortLevel") is { } levels && levels.Contains("xhigh")
             && ClaudeSettingSuggestions.For("modelSettings.effortLevel") is null && ClaudeSettingSuggestions.For("someUnknownKey") is null,
             "A wildcard pattern matches exactly one key segment; unknown keys get no suggestions.");
+        var model = Compose("model", JsonSerializer.SerializeToElement("sonnet"), () =>
+        {
+            Require(Named<WrapPanel>("ClaudeCheckValueSuggestions").Children.OfType<Control>().Select(chip => chip.Name!["ClaudeCheckValueSuggestion_".Length..]).SequenceEqual(ClaudeSettingSuggestions.For("model")!),
+                "The model composer chips are the shared model list.");
+            Named<TextBox>("ClaudeCheckValueText").Text = "claude-opus-5-5";
+        });
+        Require(model is { Value: { ValueKind: JsonValueKind.String } modelValue } && modelValue.GetString() == "claude-opus-5-5",
+            "A typed model id reaches the settings review exactly as typed.");
         var flag = Compose("", null, () =>
         {
             Named<AutoCompleteBox>("ClaudeCheckValueKey").Text = "alwaysThinkingEnabled";
@@ -1104,6 +1112,17 @@ internal static class ClaudeCodeChecks
         TextBox Command() => window.GetLogicalDescendants().OfType<TextBox>().Single(control => control.Name == "ClaudeCommandInput");
         E2eWorkspace.Until(() => Command().Text == "claude");
         var defaultModel = window.GetLogicalDescendants().OfType<AutoCompleteBox>().Single(control => control.Name == "ClaudeDefaultModel");
+        var offeredModels = defaultModel.ItemsSource!.Cast<string>().ToList();
+        Require(new[] { "default", "best", "sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]", "opusplan", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5" }.All(offeredModels.Contains)
+            && ClaudeLaunch.ModelSuggestions.All(suggestion => suggestion.Description.Length > 0) && defaultModel.ItemTemplate is not null,
+            "The default model field offers the documented aliases and current model ids, each with a short description.");
+        Require(ClaudeSettingSuggestions.For("model")!.SequenceEqual(offeredModels), "The settings.json model composer offers the same list as Settings.");
+        defaultModel.Text = "opus[1m]";
+        defaultModel.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+        E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].TryGetProperty("model", out var value) && value.GetString() == "opus[1m]");
+        defaultModel.Text = "my-gateway/custom-model";
+        defaultModel.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+        E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].TryGetProperty("model", out var value) && value.GetString() == "my-gateway/custom-model");
         defaultModel.Text = "sonnet";
         defaultModel.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
         E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].TryGetProperty("model", out var value) && value.GetString() == "sonnet");

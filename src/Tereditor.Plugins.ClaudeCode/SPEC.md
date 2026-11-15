@@ -60,7 +60,7 @@ older model/effort flags in the recorded command. Sparse reports preserve known 
 session id starts a fresh set of choices.
 
 Settings supplies optional model and effort defaults for new tereditor launches, passed with
-`--model` and `--effort`. Empty choices use the CLI's defaults. Generic launcher selections and
+`--model` and `--effort`. Empty choices use the CLI's defaults. The default model field is an editable combo box: its drop-down lists the aliases the CLI's model docs give (`default`, `best`, `fable`, `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opus[1m]`, `opusplan`) and pinned ids of the current family, each with a short description (`ClaudeLaunch.ModelSuggestions`, shared with the `model` chips of the settings.json composer). It saves exactly what was picked or typed on Enter, focus loss or closing the list; blank means the CLI's default. Generic launcher selections and
 workspace-launcher arguments take precedence over these defaults without editing Claude's saved
 configuration or a running session.
 Settings also holds a default permission mode, mirroring Codex's default permissions mode: a chosen
