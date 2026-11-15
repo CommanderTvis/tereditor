@@ -40,6 +40,8 @@ Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`
 - Launcher: "Pi" in the agent launchers always opens a chat tab (there is no terminal mode yet); Settings › Pi has the command, a default model and
   a thinking level, and the version read from `pi --version`. Model providers and keys are managed in Settings › Model providers.
 
+Settings › Pi also shows the Model source control from Model providers (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks an API Pi takes. The choice is recorded by Model providers and does not change the launch yet. With that plugin off the page shows one hint line and nothing else changes. Pi does not depend on Model providers; its manifest declares `agentRouting` (Anthropic, OpenAI Responses and OpenAI Chat through its models file).
+
 ## Not yet
 
 A terminal launch of Pi, permission-style gating, rewind and fork through Pi's `fork` and session tree, extension dialogs, MCP and tereditor's

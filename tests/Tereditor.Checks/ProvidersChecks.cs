@@ -3,14 +3,13 @@ using System.Text.Json;
 
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
-using Tereditor.Plugins.Providers;
-using Tereditor.Plugins.Providers.Host;
-using Tereditor.Plugins.Providers.UI;
-
 using Tereditor.Plugins.ClaudeCode;
 using Tereditor.Plugins.Codex;
 using Tereditor.Plugins.Omp;
 using Tereditor.Plugins.Pi;
+using Tereditor.Plugins.Providers;
+using Tereditor.Plugins.Providers.Host;
+using Tereditor.Plugins.Providers.UI;
 
 namespace Tereditor.Checks;
 

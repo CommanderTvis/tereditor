@@ -244,6 +244,7 @@ names and enum values, unknown members refused).
 | `enabledByDefault` | honoured for builtin plugins; an external plugin always arrives disabled |
 | `headless` | whether the plugin works in headless tereditor, which has no window, terminal or agent of its own: `yes`, `no` or `undeclared` (the default). A builtin must say `yes` or `no`, and a headless host (`HostKind.Headless`) runs only plugins that say `yes`, refusing the rest and their dependents. An external plugin that says nothing is not headless |
 | `headlessEnabledByDefault` | optional; replaces `enabledByDefault` on a headless host, so a headless plugin can start on there while a desktop leaves it off |
+| `agentRouting` | optional, for an agent plugin: what its model can come from. A list of `accepts` (API kind, how a provider is injected, which credentials it takes: `api-key`, `oauth`) and `ownLogin`. Kinds are `anthropic-messages`, `openai-responses`, `openai-chat`, `google-generative`, `vertex` and `bedrock`; injections are `settings-file`, `config-override` and `models-file`. It is plain data in the roster, so it exists whether or not any plugin reads it. An agent never depends on a plugin that fills it in; tereditor never translates one API kind into another |
 | `dependsOn` | other plugins, by id and exact wire version |
 | `unavailableOn` | host kinds the plugin cannot run on (`pureWeb`: a host that lives in a browser tab with no operating system under it). A host of a listed kind refuses the plugin before load, naming the kind, and refuses its dependents with it; empty means everywhere. A plugin that needs a shell, a process or a socket lists `pureWeb` |
 | `host`, `ui` | relative paths of the two entry assemblies; each holds exactly one public concrete `PluginHostModule` / `PluginUIModule` subclass. An external plugin's are never loaded in this version |
@@ -793,6 +794,13 @@ would have received; `false` falls back to the terminal command, so a launcher w
 W24 has no counterpart in the fork. Core's `PluginHeaderItems` follows the registry like a slot, so a disabled plugin leaves
 no item; the item hides itself while it has nothing to show and reads its data from the plugin's channels. A compact
 (phone) workbench shows no header items.
+
+`SlotView(slot, workspaceId, emptyHint)` is the reading side of W23 for a plugin's own page: it returns a plain control that
+shows the sections plugins contribute to a slot, follows the registry, and shows `emptyHint` while none is there. An agent's
+settings page embeds `UiSlots.ModelSourceView(context, agentId)`, the slot `core:model-source:<agent id>` with a hint for when no
+plugin supplies model providers. The plugin that does (Model providers) contributes one section per agent. The agent never
+knows which plugin that is, and with none on, its page gains only the hint line; its settings, launch line and files are
+unchanged.
 
 W23 has no counterpart in the fork. A slot section exists only while its plugin is enabled: core's `PluginSlot` follows the
 registry, so a disabled plugin leaves no section and no placeholder, and enabling adds it without reopening the page. Core

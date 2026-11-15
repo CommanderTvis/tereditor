@@ -88,6 +88,8 @@ No real omp run backs them; the checks use a fixture `omp`.
   terminal glyph stands in until the asset is read, and a failed read is never remembered: it is retried (six
   attempts, a growing delay) and on the next glyph built, so no launcher icon keeps the stand-in permanently.
 
+Settings › omp also shows the Model source control from Model providers (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks an API omp takes. The choice is recorded by Model providers and does not change the launch yet. With that plugin off the page shows one hint line and nothing else changes. omp does not depend on Model providers; its manifest declares `agentRouting` (Anthropic, OpenAI Responses and OpenAI Chat through its models file).
+
 ## Not yet
 
 Hook-based status (running/blocked/done), account and usage, tereditor's appended instructions (so no generated
