@@ -263,6 +263,7 @@ internal static class ClaudeContextChecks
             deferredMcp.Children.All(server => server.Suffix == " if loaded"),
             "With every MCP tool deferred the MCP tools row stays, at 0 loaded with the deferred total in its tip, listing its servers \"if loaded\" and their tools.");
         BaselineLineLayout();
+        CapabilityTree();
         Require(rows.Single(row => row.Key == "skills").Children.Select(skill => skill.Label).SequenceEqual(["dataviz", "example:review", "tidy"]),
             "Skills open into each skill, heaviest first.");
 
@@ -357,5 +358,104 @@ internal static class ClaudeContextChecks
             Require(Equals(ToolTip.GetTip(name), server.Label), "A row's name has its full text in a tooltip.");
         }
         finally { host.Close(); }
+    }
+
+    private sealed class FakeCapabilityHost : IClaudeCapabilityHost
+    {
+        public HashSet<string> Collapsed { get; } = [];
+        public List<string> Calls { get; } = [];
+        public string? ProjectRoot { get; set; } = "/work/project";
+        public void Open(string path, IReadOnlyList<string>? keyPath) => Calls.Add("open " + path);
+        public void Review(PendingEdit pending) => Calls.Add("review");
+        public void Uninstall(PluginUninstallTarget target) => Calls.Add("uninstall " + target.Name);
+        public void Move(PluginMoveTarget target) => Calls.Add($"move {target.Name} {target.To.Name()}");
+        public void Marketplace(ClaudeMarketplaceAction action) => Calls.Add("marketplace");
+        public void Add(string kind) => Calls.Add("add " + kind);
+        public bool IsCollapsed(string key) => Collapsed.Contains(key);
+        public void SetCollapsed(string key, bool collapsed) { if (collapsed) Collapsed.Add(key); else Collapsed.Remove(key); }
+    }
+
+    // Marketplaces are parent rows and the plugins installed from them hang below by the Instructions section's connectors;
+    // plugins of no listed marketplace go under "No marketplace", so every plugin shows exactly once.
+    private static void CapabilityTree()
+    {
+        static ClaudeCapability Market(string name, ClaudeConfigScope scope, string source) =>
+            new(ClaudeCapabilityKind.Marketplace, name, new(scope, "/home/.claude/settings.json") { KeyPath = ["extraKnownMarketplaces", name] }, true) { Detail = source };
+        static ClaudeCapability Plugin(string name, bool on = true) =>
+            new(ClaudeCapabilityKind.Plugin, name, new(ClaudeConfigScope.Project, "/work/project/.claude/settings.json") { KeyPath = ["enabledPlugins", name] }, on)
+            { Detail = name.Contains('@') ? name[(name.IndexOf('@') + 1)..] : null };
+        IReadOnlyList<ClaudeCapability> capabilities =
+        [
+            Market("claude-code-plugins", ClaudeConfigScope.User, "anthropics/claude-code"), Market("empty-market", ClaudeConfigScope.Project, "/srv/market"),
+            Plugin("ts-lsp@claude-code-plugins"), Plugin("tidy@claude-code-plugins", on: false), Plugin("gone@removed-market"), Plugin("inline"),
+            new(ClaudeCapabilityKind.Skill, "ponytail", new(ClaudeConfigScope.User, "/home/.claude/skills/ponytail"), true)
+        ];
+        var groups = ClaudeCapabilitiesSurface.PluginGroups(capabilities);
+        Require(groups.Select(group => group.Label).SequenceEqual(["claude-code-plugins", "empty-market", "No marketplace"]) &&
+            groups[0].Plugins.Select(plugin => plugin.Name).SequenceEqual(["ts-lsp@claude-code-plugins", "tidy@claude-code-plugins"]) && groups[1].Plugins.Count == 0 &&
+            groups[2].Marketplace is null && groups[2].Plugins.Select(plugin => plugin.Name).SequenceEqual(["gone@removed-market", "inline"]) &&
+            ClaudeCapabilitiesSurface.PluginGroups(capabilities.Where(item => item.Kind != ClaudeCapabilityKind.Plugin).ToArray()).Select(group => group.Label).SequenceEqual(["claude-code-plugins", "empty-market"]),
+            "Plugins group under their listed marketplace in listed order; the rest form a last group, which is absent when empty.");
+
+        var host = new FakeCapabilityHost();
+        var surface = new ClaudeCapabilitiesSurface(host, capabilities);
+        var view = surface.View;
+        var sections = view.GetLogicalDescendants().OfType<StackPanel>().Where(panel => panel.Name == "ClaudeCapabilitySection").ToArray();
+        Require(sections.Select(section => section.Tag).SequenceEqual([ClaudeCapabilityKind.Plugin, ClaudeCapabilityKind.Skill]) &&
+            sections[0].GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "PLUGINS"),
+            "Plugins and marketplaces are one PLUGINS section, before Skills, with no separate marketplaces section.");
+        var section = sections[0];
+        var rows = section.GetLogicalDescendants().OfType<StackPanel>().Where(panel => panel.Name == "ClaudeCapability").Select(panel => ((ClaudeCapability)panel.Tag!).Name).ToArray();
+        Require(rows.Length == 6 && rows.Distinct().Count() == 6 && capabilities.Where(item => item.Kind != ClaudeCapabilityKind.Skill).All(item => rows.Contains(item.Name)),
+            "Every marketplace and plugin is drawn once. Got: " + string.Join(", ", rows));
+        Require(section.GetLogicalDescendants().OfType<StackPanel>().Count(panel => panel.Name == "ClaudeCapabilityGroup") == 1 &&
+            section.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "No marketplace"), "The group without a listed marketplace is a parent row named No marketplace.");
+
+        // Order in the section: parent, its children, next parent.
+        var order = section.Children.Skip(1).Select(child => child switch
+        {
+            StackPanel { Name: "ClaudeCapabilityChildren" } parts => "children:" + parts.Tag,
+            _ => child.GetLogicalDescendants().OfType<StackPanel>().First(panel => panel.Name is "ClaudeCapability" or "ClaudeCapabilityGroup") is { Name: "ClaudeCapability" } row
+                ? "row:" + ((ClaudeCapability)row.Tag!).Name : "group"
+        }).ToArray();
+        Require(order.SequenceEqual(["row:claude-code-plugins", "children:plugins/claude-code-plugins", "row:empty-market", "group", "children:plugins/\0none"]),
+            "Parents come in listed order with their children right after, an empty marketplace has none, and No marketplace is last. Got: " + string.Join(", ", order));
+
+        // The connectors are the Instructions section's: the same component and names, a tee then an elbow, hanging from the parent's stem.
+        Control Children(string key) => section.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ClaudeCapabilityChildren" && Equals(panel.Tag, key));
+        string[] Connectors(Control parts) => [.. parts.GetLogicalDescendants().OfType<Grid>().Where(grid => grid.Name == "ClaudeContextConnector").Select(grid => (string)grid.Tag!)];
+        Require(Connectors(Children("plugins/claude-code-plugins")).SequenceEqual(["tee", "last"]) && Connectors(Children("plugins/\0none")).SequenceEqual(["tee", "last"]) &&
+            ClaudeTree.Guides(1, true).Single() is Grid { Name: "ClaudeContextConnector" } &&
+            section.GetLogicalDescendants().OfType<Border>().Count(border => border.Name == "ClaudeContextStem") == 2,
+            "Plugins hang from their marketplace by the shared tree connectors, and only parents with children carry a stem.");
+
+        // Folding hides the children and the stem, is kept by the host, and does not change what is drawn.
+        var key = "plugins/claude-code-plugins";
+        Require(Children(key).IsVisible && !host.Collapsed.Contains(key), "Parents start open.");
+        surface.Toggle(key);
+        var stems = section.GetLogicalDescendants().OfType<Border>().Where(border => border.Name == "ClaudeContextStem").ToArray();
+        Require(!Children(key).IsVisible && host.Collapsed.Contains(key) && !stems[0].IsVisible && stems[1].IsVisible && Children("plugins/\0none").IsVisible,
+            "Folding a marketplace hides its plugins and its stem, and leaves the other group alone.");
+        var folded = new FakeCapabilityHost { Collapsed = { key } };
+        Require(!new ClaudeCapabilitiesSurface(folded, capabilities).View.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ClaudeCapabilityChildren" && Equals(panel.Tag, key)).IsVisible,
+            "A fold the pane remembers is drawn folded after a redraw.");
+        surface.Toggle(key);
+        Require(Children(key).IsVisible && stems[0].IsVisible && !host.Collapsed.Contains(key), "Unfolding shows them again.");
+
+        // Under a listed marketplace the plugin does not repeat its marketplace; elsewhere the row still names it.
+        var texts = section.GetLogicalDescendants().OfType<TextBlock>().Select(text => text.Text).ToArray();
+        Require(!Children(key).GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "claude-code-plugins") &&
+            Children("plugins/\0none").GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "removed-market") && texts.Contains("OFF"),
+            "A plugin under its marketplace leaves out that name; a loose one keeps it; the OFF mark stays.");
+
+        // Every row keeps its menu.
+        string[] Names(ClaudeCapability item) => [.. surface.Actions(item).Select(action => action.Name)];
+        Require(Names(capabilities[0]).SequenceEqual(["ClaudeMarketplaceUpdate", "ClaudeMarketplaceRemove"]) &&
+            Names(capabilities[2]).SequenceEqual(["ClaudeCapabilityToggle", "ClaudeCapabilityMove_user", "ClaudeCapabilityMove_local", "ClaudeCapabilityUninstall"]) &&
+            surface.Actions(capabilities[3]).First().Label == "Turn on" && surface.Actions(capabilities[2]).First().Label == "Turn off",
+            "Marketplace rows offer update and remove; plugin rows offer switch, move and uninstall as before.");
+        surface.Actions(capabilities[2])[3].Run();
+        Require(host.Calls.SequenceEqual(["uninstall ts-lsp@claude-code-plugins"]), "A menu entry reaches the pane.");
+        Console.WriteLine("PASS Claude Code capabilities: marketplaces and their plugins form one tree with the Instructions connectors, fold, and keep their menus");
     }
 }

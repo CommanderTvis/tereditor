@@ -21,7 +21,7 @@ namespace Tereditor.Plugins.ClaudeCode.UI;
 /// provenance of each part, and the account. It describes one terminal session, the first shown tab running Claude, else
 /// what a new session at the workspace root would load. Every change is composed, scoped, reviewed as a diff, then written.
 /// </summary>
-internal sealed class ClaudeConfigPanel : DockPanel
+internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
 {
     private enum Surface { Context, Settings, Capabilities, Account }
 
@@ -104,6 +104,7 @@ internal sealed class ClaudeConfigPanel : DockPanel
         snapshot = null; reached = []; error = null; contextUsage = null; session = activeTab = null;
         snapshotKey = reachedKey = memoryKey = ""; settingsQuery = ""; surface = Surface.Context;
         expandedRows.Clear();
+        collapsedGroups.Clear();
         rendered = null; renderedScope = null;
         RenderSwitcher();
         ShowUsage();
@@ -430,6 +431,9 @@ internal sealed class ClaudeConfigPanel : DockPanel
     // Rows the user opened, by key, so a re-render keeps them open.
     private readonly HashSet<string> expandedRows = [];
 
+    // Marketplaces (and the group without one) the user folded in the capabilities surface; all start open.
+    private readonly HashSet<string> collapsedGroups = [];
+
     // /context's categories that a fresh session pays for, besides the memory files listed above: deferred tools load
     // only when searched for, free space and the autocompact reserve are not content, and the one message is /context itself.
     internal static List<BaselineEntry> BaselineRows(ClaudeContextBreakdown breakdown, long? claudePrompt)
@@ -581,46 +585,13 @@ internal sealed class ClaudeConfigPanel : DockPanel
             var depth = Math.Min(layer.Depth ?? 0, 4);
             var nextDepth = index + 1 < layers.Count ? layers[index + 1].Depth ?? 0 : 0;
             var row = new DockPanel { Name = "ClaudeContextLayer", Tag = layer.Kind };
-            for (var level = 0; level < depth; level++)
-            {
-                var guide = new Grid { Width = 5, Margin = new Thickness(15, 0, 0, 0), RowDefinitions = new RowDefinitions("*,*") };
-                if (level == depth - 1)
-                {
-                    var last = nextDepth < (layer.Depth ?? 0);
-                    guide.Name = "ClaudeContextConnector";
-                    guide.Tag = last ? "last" : "tee";
-                    var rule = new Border { Width = 1, Background = Ui.BorderBrush, HorizontalAlignment = HorizontalAlignment.Left };
-                    if (!last) Grid.SetRowSpan(rule, 2);
-                    guide.Children.Add(rule);
-                    var arm = new Border { Height = 1, Background = Ui.BorderBrush, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, -8, 0) };
-                    guide.Children.Add(arm);
-                }
-                else guide.Children.Add(new Border { Width = 1, Background = Ui.BorderBrush, HorizontalAlignment = HorizontalAlignment.Left, [Grid.RowSpanProperty] = 2 });
-                SetDock(guide, Dock.Left);
-                row.Children.Add(guide);
-            }
+            foreach (var guide in ClaudeTree.Guides(depth, last: nextDepth < (layer.Depth ?? 0))) row.Children.Add(guide);
             var line = new DockPanel { Margin = new Thickness(8, 4) };
             var size = measured is null ? Unmeasured()
                 : memoryTokens.TryGetValue(layer.Path, out var tokens) ? Measure(tokens, Ui.Muted)
                 : layer.Lazy == true ? ClaudeParts.Code("—", Ui.Hint) : NotLoaded();
             line.Children.Add(SizeColumn(size));
-            var icon = Ui.Icon("fileText", Ui.Hint, 14);
-            icon.VerticalAlignment = VerticalAlignment.Center;
-            var glyph = new Grid { Margin = new Thickness(0, -4, 8, -4), RowDefinitions = new RowDefinitions("*,*") };
-            Grid.SetRowSpan(icon, 2);
-            glyph.Children.Add(icon);
-            if (nextDepth > (layer.Depth ?? 0))
-                glyph.Children.Add(new Border
-                {
-                    Name = "ClaudeContextStem",
-                    Width = 1,
-                    Background = Ui.BorderBrush,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Margin = new Thickness(7, 7, 0, 0),
-                    [Grid.RowProperty] = 1
-                });
-            SetDock(glyph, Dock.Left);
-            line.Children.Add(glyph);
+            line.Children.Add(ClaudeTree.Glyph(Ui.Icon("fileText", Ui.Hint, 14), nextDepth > (layer.Depth ?? 0)));
             var column = new StackPanel();
             var title = Title(layer.Label);
             title.Children.Add(ClaudeParts.ScopeChip(layer.Origin.Scope.Name()));
@@ -848,25 +819,27 @@ internal sealed class ClaudeConfigPanel : DockPanel
     private static string Json(JsonElement value) => JsonSerializer.Serialize(value, ClaudeUIJson.Relaxed.JsonElement);
 
     // What the capabilities surface asks of the pane: open a source, review an edit, run one of Claude's commands.
-    internal void Open(string path, IReadOnlyList<string>? keyPath) => OpenSource(path, keyPath);
-    internal void Review(PendingEdit pending) => Edit(pending);
+    void IClaudeCapabilityHost.Open(string path, IReadOnlyList<string>? keyPath) => OpenSource(path, keyPath);
+    void IClaudeCapabilityHost.Review(PendingEdit pending) => Edit(pending);
+    bool IClaudeCapabilityHost.IsCollapsed(string key) => collapsedGroups.Contains(key);
+    void IClaudeCapabilityHost.SetCollapsed(string key, bool collapsed) { if (collapsed) collapsedGroups.Add(key); else collapsedGroups.Remove(key); }
 
-    internal async void Uninstall(PluginUninstallTarget target)
+    async void IClaudeCapabilityHost.Uninstall(PluginUninstallTarget target)
     {
         if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.UninstallAsync(context, owner, workspaceId, session?.TabKey, target)) Reload();
     }
 
-    internal async void Move(PluginMoveTarget target)
+    async void IClaudeCapabilityHost.Move(PluginMoveTarget target)
     {
         if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.MoveAsync(context, owner, workspaceId, session?.TabKey, target)) Reload();
     }
 
-    internal async void Marketplace(ClaudeMarketplaceAction action)
+    async void IClaudeCapabilityHost.Marketplace(ClaudeMarketplaceAction action)
     {
         if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.MarketplaceAsync(context, owner, workspaceId, session?.TabKey, action)) Reload();
     }
 
-    internal async void Add(string kind)
+    async void IClaudeCapabilityHost.Add(string kind)
     {
         if (ClaudeParts.Owner(this) is not { } owner) return;
         var pending = kind switch

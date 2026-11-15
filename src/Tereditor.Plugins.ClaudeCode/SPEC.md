@@ -352,6 +352,14 @@ instructions, `AGENTS.md` when a directory has no `CLAUDE.md`, local instruction
 memory and appended prompt files. Capabilities include MCP servers, plugins, skills, agents, hooks
 and marketplaces with provenance, disabled sources and discovery problems.
 
+Plugins and marketplaces are one PLUGINS section. Each listed marketplace is a parent row (its scope,
+source and menu as before) and the plugins named `plugin@marketplace` hang below it, drawn with the same
+tree connectors and stem as an `@`-imported file under its importer (`UI/ClaudeTree.cs`). Plugins whose
+marketplace is not listed, or that have none, sit under a last parent row "No marketplace", so every
+plugin shows once. Marketplaces keep their listed order, plugins theirs. A click on a parent folds its
+children and its stem; the pane remembers which parents are folded until the workspace changes. A
+plugin under its marketplace does not repeat the marketplace name. Capability rows show no token counts.
+
 The Settings value composer suggests documented values for keys whose value set is closed
 (`UI/ClaudeSettingSuggestions.cs`: `permissions.defaultMode`, `model` aliases, `effortLevel` and
 `modelSettings.*.effortLevel`, `theme`, `tui`, `outputStyle`, `forceLoginMethod`,
