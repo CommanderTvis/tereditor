@@ -131,7 +131,7 @@ public static partial class AirLaunch
             int port;
             if (!(int.TryParse(portOverride, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out port) && port is >= 1 and <= 65535))
             {
-                if (!root.TryGetProperty("proxy_port", out var portElement) || !portElement.TryGetInt32(out port) || port is < 1 or > 65535) return null;
+                if (!root.TryGetProperty("proxy_port", out var portElement) || portElement.ValueKind != System.Text.Json.JsonValueKind.Number || !portElement.TryGetInt32(out port) || port is < 1 or > 65535) return null;
             }
             return $"http://127.0.0.1:{port}/wire/{secret}/pi";
         }
