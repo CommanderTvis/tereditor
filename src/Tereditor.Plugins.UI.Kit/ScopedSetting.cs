@@ -124,11 +124,11 @@ public static partial class ScopedSetting
 
     /// <summary>
     /// One setting: <c>key = value</c> on one line when it fits, the value below the key otherwise; then its source path
-    /// and scope with the row's actions, then every value it shadows. A documented key links to its reference entry.
+    /// and scope with the row's actions, then every value it shadows. A documented key links to its reference entry and may carry a one-line description with its type and default.
     /// </summary>
     public static Control SettingRow(string namePrefix, string settingKey, Control value, ScopedSettingSource source,
         IReadOnlyList<ScopedSettingShadow> shadowed, Action<string> onOpen, IEnumerable<Control>? actions = null,
-        string? docsUrl = null, string? docsTitle = null)
+        string? docsUrl = null, string? docsTitle = null, string? description = null, string? hint = null)
     {
         var row = new StackPanel { Name = namePrefix + "Setting", Tag = settingKey, Spacing = 2, Margin = new Thickness(8, 4) };
         var head = new WrapPanel { Orientation = Orientation.Horizontal };
@@ -165,6 +165,24 @@ public static partial class ScopedSetting
         head.Children.Add(key);
         head.Children.Add(value);
         row.Children.Add(head);
+        // What the key does, then its type and default: muted lines that wrap, and the row's accessible description.
+        if (description is { Length: > 0 })
+        {
+            var summary = Ui.Text(description, Ui.Muted, 12);
+            summary.Name = namePrefix + "SettingSummary";
+            summary.TextWrapping = TextWrapping.Wrap;
+            summary.TextTrimming = TextTrimming.None;
+            row.Children.Add(summary);
+            AutomationProperties.SetHelpText(row, hint is { Length: > 0 } ? $"{description}. {hint}" : description);
+            if (hint is { Length: > 0 })
+            {
+                var detail = Ui.Text(hint, Ui.Hint, 11);
+                detail.Name = namePrefix + "SettingHint";
+                detail.TextWrapping = TextWrapping.Wrap;
+                detail.TextTrimming = TextTrimming.None;
+                row.Children.Add(detail);
+            }
+        }
 
         var meta = new DockPanel { LastChildFill = false };
         if (source.Path is { } path) meta.Children.Add(SourcePath(path, onOpen, namePrefix + "OpenSource"));

@@ -811,9 +811,11 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             actions.Add(note);
         }
         actions.Add(ScopedSetting.RowAction("ClaudeSettingRemove", "Remove", () => Edit(new(new SettingEdit(entry.Key), $"Remove \"{entry.Key}\"")), danger: true));
+        var reference = ClaudeSettingsReference.NoteFor(entry.Key);
         return ScopedSetting.SettingRow("Claude", entry.Key, value, new(entry.Origin.Scope.Name(), entry.Origin.Path),
             [.. entry.Shadowed.Select(shadow => new ScopedSettingShadow(shadow.Origin.Scope.Name(), shadow.Origin.Path, Json(shadow.Value)))],
-            path => OpenSource(path, entry.Origin.KeyPath), actions, entry.DocsUrl, "What this key does, in Claude Code's reference");
+            path => OpenSource(path, entry.Origin.KeyPath), actions, entry.DocsUrl, "What this key does, in Claude Code's reference",
+            reference?.Summary, reference?.Hint);
     }
 
     private static string Json(JsonElement value) => JsonSerializer.Serialize(value, ClaudeUIJson.Relaxed.JsonElement);

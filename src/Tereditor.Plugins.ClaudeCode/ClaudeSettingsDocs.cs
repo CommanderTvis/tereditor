@@ -37,6 +37,31 @@ public static partial class ClaudeSettingsReference
         }
     }
 
+    /// <summary>What a set key's row says about it: the reference's one-line summary and, for the key's own entry, its type and default.</summary>
+    public sealed record Note(string Summary, string? Hint);
+
+    /// <summary>
+    /// The note for a set key, or null for a key the reference does not list. A key is matched exactly, then against a
+    /// documented pattern (a <c>*</c> segment stands for any one key segment), then by its nearest documented ancestor,
+    /// the same entry <see cref="Url"/> links to; only an exact or pattern match carries a type and default.
+    /// </summary>
+    public static Note? NoteFor(string key)
+    {
+        if (Find(key) is { } exact) return Describe(exact, true);
+        var segments = key.Split('.');
+        var pattern = All.FirstOrDefault(entry => entry.Key.Contains('*') && Matches(entry.Key.Split('.'), segments));
+        if (pattern is not null) return Describe(pattern, true);
+        for (var cut = key.LastIndexOf('.'); cut > 0; cut = key.LastIndexOf('.', cut - 1))
+            if (Find(key[..cut]) is { } ancestor) return Describe(ancestor, false);
+        return null;
+    }
+
+    private static bool Matches(string[] pattern, string[] segments) =>
+        pattern.Length == segments.Length && pattern.Zip(segments).All(pair => pair.First == "*" || pair.First == pair.Second);
+
+    private static Note Describe(ClaudeDocumentedSetting entry, bool own) =>
+        new(entry.Summary, !own || entry.Kind.Length == 0 ? null : entry.Default is { } fallback ? $"{entry.Type} · Default: {fallback}" : entry.Type);
+
     /// <summary>
     /// The settings files the reference lets the key go in, among those the pane writes. Empty for keys only managed
     /// settings or <c>~/.claude.json</c> read, and for entries that are not keys of their own.

@@ -518,6 +518,18 @@ internal static class ClaudeCodeChecks
             deny.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "ClaudeUnsetType").Text!.Contains("permission rule strings", StringComparison.Ordinal) &&
             deny.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "ClaudeUnsetSummary").Text is { Length: > 0 },
             "An unset key links to its own reference entry and shows its type and summary.");
+        var allow = rows.Single(row => Equals(row.Tag, "permissions.allow"));
+        var allowNote = ClaudeSettingsReference.NoteFor("permissions.allow");
+        Require(allowNote is not null && allow.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "ClaudeSettingSummary").Text == allowNote.Summary &&
+            allowNote.Hint is { Length: > 0 } hint && allow.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "ClaudeSettingHint").Text == hint &&
+            Avalonia.Automation.AutomationProperties.GetHelpText(allow)!.StartsWith(allowNote.Summary, StringComparison.Ordinal),
+            "A set documented key shows its summary and its type and default under the key, and says so to assistive tools.");
+        var nested = ClaudeSettingsReference.NoteFor("modelSettings.opus.effortLevel");
+        Require(nested is { Hint: null } && nested.Summary == ClaudeSettingsReference.Find("modelSettings")!.Summary &&
+            ClaudeSettingsReference.NoteFor("zzNewerKey") is null && ClaudeSettingsReference.NoteFor("zzNewerKey.inner") is null,
+            "A nested key uses its documented ancestor's summary with no type, and a key the reference does not list has no note.");
+        Require(!Tereditor.Plugins.UI.Kit.ScopedSetting.SettingRow("Claude", "zzNewerKey", new TextBlock(), new("user", null), [], _ => { }).GetLogicalDescendants()
+            .OfType<TextBlock>().Any(text => text.Name is "ClaudeSettingSummary" or "ClaudeSettingHint"), "A row with no note draws no description and no placeholder.");
         app.Click(deny.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "ClaudeSettingSet"));
         E2eWorkspace.Until(() => Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Any(dialog => Equals(dialog.Tag, "ClaudeValueDialog")));
         var composer = Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Single(dialog => Equals(dialog.Tag, "ClaudeValueDialog"));

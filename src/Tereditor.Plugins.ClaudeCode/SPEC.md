@@ -416,6 +416,12 @@ documented keys. Every documented key links to `settings-reference#<anchor>` wit
 (`permissions.allow` → `#permissions-allow`); an unlisted nested key links to its nearest documented ancestor, an
 unknown key has no link. The checks verify each anchor against the pinned heading ids offline.
 
+Every set key's row shows the reference's one-line summary under the key, muted, wrapping, with the key never cut,
+and under it the type and default (`ClaudeSettingsReference.NoteFor`, drawn by the shared `ScopedSetting.SettingRow`;
+the summary and the hint are the row's accessible description). A key matches exactly first, then a documented pattern
+whose `*` segment stands for any one key segment, then its nearest documented ancestor, which gives the summary but no
+type or default. A key the reference does not list shows no description and no placeholder.
+
 The Settings tab lists the set keys (with source, shadowed values and Remove) and, after them, the documented keys no
 file sets, under "Not set · documented by Claude Code": every match while the filter has text, behind a "Show N
 documented settings that are not set" button while it is empty. A key above or below a set one is not listed
