@@ -140,6 +140,7 @@ internal static class PluginWire
             Category = Optional(entry.Category),
             Support = Optional(entry.Support),
             Reason = Optional(entry.Reason),
+            AgentRouting = entry.AgentRouting.Length == 0 ? null : PluginJson.Deserialize<AgentRouting>(entry.AgentRouting),
             DependsOn = entry.DependsOn.ToArray(),
             Contributes = new()
             {

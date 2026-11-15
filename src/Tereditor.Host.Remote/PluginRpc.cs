@@ -148,6 +148,7 @@ internal static class PluginWire
         Origin = Name(entry.Origin),
         Status = Name(entry.Status),
         Reason = entry.Reason ?? "",
+        AgentRouting = entry.AgentRouting is null ? "" : PluginJson.Serialize(entry.AgentRouting),
         DependsOn = entry.DependsOn.ToList(),
         SideTools = entry.Contributes.SideTools.Select(tool => new PluginSideToolMessage
         {

@@ -81,6 +81,12 @@ public sealed record PluginManifest(string Id, string Label, string Icon, string
     /// </summary>
     public string? Assets { get; init; }
 
+    /// <summary>
+    /// What an agent plugin accepts for its model (API kinds, how each is injected, whether it has its own sign-in).
+    /// Absent for a plugin that is not an agent. Readable by any plugin through the roster, whether or not any plugin uses it.
+    /// </summary>
+    public AgentRouting? AgentRouting { get; init; }
+
     /// <summary>The statically known parts of what the plugin contributes: side tools and file viewers.</summary>
     public PluginContributions Contributes { get; set; } = new();
 

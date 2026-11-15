@@ -1053,6 +1053,7 @@ internal static class RpcCodec
         if (value.Assets is { } field15) writer.String(15, field15);
         if (value.Category is { } field16) writer.String(16, field16);
         if (value.Support is { } field17) writer.String(17, field17);
+        if (value.AgentRouting is { } field18) writer.String(18, field18);
     }
 
     private static PluginRosterMessage ReadPluginRosterMessage(ref ProtoReader reader, PluginRosterMessage? value)
@@ -1096,6 +1097,7 @@ internal static class RpcCodec
                 case 15: value.Assets = reader.String(); break;
                 case 16: value.Category = reader.String(); break;
                 case 17: value.Support = reader.String(); break;
+                case 18: value.AgentRouting = reader.String(); break;
                 default: reader.Skip(); break;
             }
         }

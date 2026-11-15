@@ -96,6 +96,7 @@ internal sealed class PluginEntry(PluginManifest manifest, PluginOrigin origin)
         Support = Manifest.Support,
         Reason = Reason,
         DependsOn = Manifest.DependsOn.Select(dependency => dependency.Id).ToArray(),
+        AgentRouting = Manifest.AgentRouting,
         Contributes = Manifest.Contributes,
         Channels = Module?.Contract.Channels.ToDictionary(channel => channel.Name, channel => new PluginRosterChannel(channel.Kind, channel.Snapshot, channel.Key.ToArray()))
             ?? new Dictionary<string, PluginRosterChannel>(),

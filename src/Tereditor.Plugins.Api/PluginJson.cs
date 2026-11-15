@@ -174,7 +174,9 @@ public static class PluginJson
     typeof(PluginJson.EnumConverter<PluginChannelKind>), typeof(PluginJson.EnumConverter<PluginCallError>),
     typeof(PluginJson.EnumConverter<PluginToolSide>), typeof(PluginJson.EnumConverter<PluginFileRead>),
     typeof(PluginJson.EnumConverter<PluginOrigin>), typeof(PluginJson.EnumConverter<PluginStatus>),
-    typeof(PluginJson.EnumConverter<HostPlatform>), typeof(PluginJson.EnumConverter<HostKind>), typeof(PluginJson.EnumConverter<HeadlessSupport>)])]
+    typeof(PluginJson.EnumConverter<HostPlatform>), typeof(PluginJson.EnumConverter<HostKind>), typeof(PluginJson.EnumConverter<HeadlessSupport>),
+    typeof(PluginJson.EnumConverter<ModelAuthKind>), typeof(PluginJson.EnumConverter<AgentInjection>)])]
+[JsonSerializable(typeof(AgentRouting))]
 [JsonSerializable(typeof(PluginManifest))]
 [JsonSerializable(typeof(PluginRosterEntry[]))]
 [JsonSerializable(typeof(IReadOnlyList<PluginRosterEntry>))]

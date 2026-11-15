@@ -14,6 +14,8 @@ public static class CodexManifest
         // Runs the codex CLI as a process on the host's operating system, which a browser tab does not have.
         UnavailableOn = [HostKind.PureWeb],
         Description = "Runs OpenAI Codex in the terminal with live status and tereditor's MCP tools.",
+        // Codex takes only the OpenAI Responses API, injected through configuration overrides; its own sign-in stays.
+        AgentRouting = new([new(ModelApiKinds.OpenAiResponses, AgentInjection.ConfigOverride, [ModelAuthKind.ApiKey])]),
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.Codex.Host.dll",

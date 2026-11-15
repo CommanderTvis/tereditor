@@ -12,6 +12,11 @@ public static class PiManifest
         Category = PluginCategories.Agents,
         Description = "Chats with the Pi coding agent over its RPC mode, with the model providers Pi is signed in to.",
         Support = PluginSupportLevels.Early,
+        // Pi takes the Anthropic, OpenAI Responses and OpenAI Chat APIs through its models file; its own sign-in stays.
+        AgentRouting = new([
+            new(ModelApiKinds.AnthropicMessages, AgentInjection.ModelsFile, [ModelAuthKind.ApiKey, ModelAuthKind.OAuth]),
+            new(ModelApiKinds.OpenAiResponses, AgentInjection.ModelsFile, [ModelAuthKind.ApiKey, ModelAuthKind.OAuth]),
+            new(ModelApiKinds.OpenAiChat, AgentInjection.ModelsFile, [ModelAuthKind.ApiKey, ModelAuthKind.OAuth])]),
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.Pi.Host.dll",

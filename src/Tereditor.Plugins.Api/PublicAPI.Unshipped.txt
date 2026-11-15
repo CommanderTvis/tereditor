@@ -574,3 +574,53 @@ static Tereditor.Plugins.Api.AgentInstall.operator ==(Tereditor.Plugins.Api.Agen
 const Tereditor.Plugins.Api.PluginCategories.ModelProviders = "Model providers" -> string!
 static Tereditor.Plugins.Api.PluginCategories.Icons.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 static Tereditor.Plugins.Api.PluginCategories.IconOf(string! category) -> string!
+Tereditor.Plugins.Api.AgentInjection
+Tereditor.Plugins.Api.AgentInjection.ConfigOverride = 1 -> Tereditor.Plugins.Api.AgentInjection
+Tereditor.Plugins.Api.AgentInjection.ModelsFile = 2 -> Tereditor.Plugins.Api.AgentInjection
+Tereditor.Plugins.Api.AgentInjection.SettingsFile = 0 -> Tereditor.Plugins.Api.AgentInjection
+Tereditor.Plugins.Api.AgentModelApi
+Tereditor.Plugins.Api.AgentModelApi.<Clone>$() -> Tereditor.Plugins.Api.AgentModelApi!
+Tereditor.Plugins.Api.AgentModelApi.AgentModelApi(string! Kind, Tereditor.Plugins.Api.AgentInjection Injection, System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.ModelAuthKind>! Auth) -> void
+Tereditor.Plugins.Api.AgentModelApi.Auth.get -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.ModelAuthKind>!
+Tereditor.Plugins.Api.AgentModelApi.Auth.init -> void
+Tereditor.Plugins.Api.AgentModelApi.Deconstruct(out string! Kind, out Tereditor.Plugins.Api.AgentInjection Injection, out System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.ModelAuthKind>! Auth) -> void
+Tereditor.Plugins.Api.AgentModelApi.Equals(Tereditor.Plugins.Api.AgentModelApi? other) -> bool
+Tereditor.Plugins.Api.AgentModelApi.Injection.get -> Tereditor.Plugins.Api.AgentInjection
+Tereditor.Plugins.Api.AgentModelApi.Injection.init -> void
+Tereditor.Plugins.Api.AgentModelApi.Kind.get -> string!
+Tereditor.Plugins.Api.AgentModelApi.Kind.init -> void
+Tereditor.Plugins.Api.AgentRouting
+Tereditor.Plugins.Api.AgentRouting.<Clone>$() -> Tereditor.Plugins.Api.AgentRouting!
+Tereditor.Plugins.Api.AgentRouting.Accepts.get -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentModelApi!>!
+Tereditor.Plugins.Api.AgentRouting.Accepts.init -> void
+Tereditor.Plugins.Api.AgentRouting.AgentRouting(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentModelApi!>! Accepts) -> void
+Tereditor.Plugins.Api.AgentRouting.Deconstruct(out System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentModelApi!>! Accepts) -> void
+Tereditor.Plugins.Api.AgentRouting.Equals(Tereditor.Plugins.Api.AgentRouting? other) -> bool
+Tereditor.Plugins.Api.AgentRouting.OwnLogin.get -> bool
+Tereditor.Plugins.Api.AgentRouting.OwnLogin.init -> void
+Tereditor.Plugins.Api.ModelApiKinds
+Tereditor.Plugins.Api.ModelAuthKind
+Tereditor.Plugins.Api.ModelAuthKind.ApiKey = 0 -> Tereditor.Plugins.Api.ModelAuthKind
+Tereditor.Plugins.Api.ModelAuthKind.OAuth = 1 -> Tereditor.Plugins.Api.ModelAuthKind
+Tereditor.Plugins.Api.PluginManifest.AgentRouting.get -> Tereditor.Plugins.Api.AgentRouting?
+Tereditor.Plugins.Api.PluginManifest.AgentRouting.init -> void
+Tereditor.Plugins.Api.PluginRosterEntry.AgentRouting.get -> Tereditor.Plugins.Api.AgentRouting?
+Tereditor.Plugins.Api.PluginRosterEntry.AgentRouting.init -> void
+const Tereditor.Plugins.Api.ModelApiKinds.AnthropicMessages = "anthropic-messages" -> string!
+const Tereditor.Plugins.Api.ModelApiKinds.Bedrock = "bedrock" -> string!
+const Tereditor.Plugins.Api.ModelApiKinds.GoogleGenerative = "google-generative" -> string!
+const Tereditor.Plugins.Api.ModelApiKinds.OpenAiChat = "openai-chat" -> string!
+const Tereditor.Plugins.Api.ModelApiKinds.OpenAiResponses = "openai-responses" -> string!
+const Tereditor.Plugins.Api.ModelApiKinds.Vertex = "vertex" -> string!
+override Tereditor.Plugins.Api.AgentModelApi.Equals(object? obj) -> bool
+override Tereditor.Plugins.Api.AgentModelApi.GetHashCode() -> int
+override Tereditor.Plugins.Api.AgentModelApi.ToString() -> string!
+override Tereditor.Plugins.Api.AgentRouting.Equals(object? obj) -> bool
+override Tereditor.Plugins.Api.AgentRouting.GetHashCode() -> int
+override Tereditor.Plugins.Api.AgentRouting.ToString() -> string!
+static Tereditor.Plugins.Api.AgentModelApi.operator !=(Tereditor.Plugins.Api.AgentModelApi? left, Tereditor.Plugins.Api.AgentModelApi? right) -> bool
+static Tereditor.Plugins.Api.AgentModelApi.operator ==(Tereditor.Plugins.Api.AgentModelApi? left, Tereditor.Plugins.Api.AgentModelApi? right) -> bool
+static Tereditor.Plugins.Api.AgentRouting.operator !=(Tereditor.Plugins.Api.AgentRouting? left, Tereditor.Plugins.Api.AgentRouting? right) -> bool
+static Tereditor.Plugins.Api.AgentRouting.operator ==(Tereditor.Plugins.Api.AgentRouting? left, Tereditor.Plugins.Api.AgentRouting? right) -> bool
+static Tereditor.Plugins.Api.ModelApiKinds.All.get -> System.Collections.Generic.IReadOnlyList<string!>!
+static Tereditor.Plugins.Api.ModelApiKinds.IsKnown(string! kind) -> bool

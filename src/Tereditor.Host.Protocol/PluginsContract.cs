@@ -56,6 +56,8 @@ public sealed class PluginRosterMessage
     [ProtoMember(15)] public string Assets { get; set; } = "";
     [ProtoMember(16)] public string Category { get; set; } = "";
     [ProtoMember(17)] public string Support { get; set; } = "";
+    // An agent plugin's AgentRouting as PluginJson; empty when the plugin is not an agent.
+    [ProtoMember(18)] public string AgentRouting { get; set; } = "";
 }
 
 [ProtoContract]

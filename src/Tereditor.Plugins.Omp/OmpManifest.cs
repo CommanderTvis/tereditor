@@ -15,6 +15,11 @@ public static class OmpManifest
         UnavailableOn = [HostKind.PureWeb],
         Description = "Runs the omp coding agent in the terminal with tereditor's MCP tools and shows its context files.",
         Support = PluginSupportLevels.Early,
+        // omp takes the Anthropic, OpenAI Responses and OpenAI Chat APIs through its models file; its own sign-in stays.
+        AgentRouting = new([
+            new(ModelApiKinds.AnthropicMessages, AgentInjection.ModelsFile, [ModelAuthKind.ApiKey]),
+            new(ModelApiKinds.OpenAiResponses, AgentInjection.ModelsFile, [ModelAuthKind.ApiKey]),
+            new(ModelApiKinds.OpenAiChat, AgentInjection.ModelsFile, [ModelAuthKind.ApiKey])]),
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.Omp.Host.dll",

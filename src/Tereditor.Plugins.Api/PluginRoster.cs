@@ -61,6 +61,9 @@ public sealed record PluginRosterEntry(string Id, string Label, string Icon, str
     /// <summary>The ids of the plugins this one depends on.</summary>
     public IReadOnlyList<string> DependsOn { get; init; } = [];
 
+    /// <summary>What the plugin accepts for its model when it is an agent; null otherwise.</summary>
+    public AgentRouting? AgentRouting { get; init; }
+
     /// <summary>The manifest's static contributions.</summary>
     public PluginContributions Contributes { get; init; } = new();
 
