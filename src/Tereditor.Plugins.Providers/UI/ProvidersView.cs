@@ -43,7 +43,7 @@ internal sealed class ProvidersView : StackPanel
         omp.Click += (_, _) => Choose(ProviderAgent.Omp);
         switcher.Children.Add(pi);
         switcher.Children.Add(omp);
-        Children.Add(Ui.Text("Model providers", Ui.TextBrush, 15));
+        Children.Add(Ui.Text("Keys Pi and omp read themselves", Ui.TextBrush, 13));
         intro.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
         Children.Add(intro);
         Children.Add(switcher);
