@@ -57,6 +57,9 @@ public static class PluginCategories
     /// <summary>AI coding agents and the context they use.</summary>
     public const string Agents = "Agents";
 
+    /// <summary>Model providers: the accounts, gateways and keys that supply models to the agents.</summary>
+    public const string ModelProviders = "Model providers";
+
     /// <summary>Version control views.</summary>
     public const string VersionControl = "Version Control";
 
@@ -71,7 +74,37 @@ public static class PluginCategories
 
     /// <summary>The builtin categories in listing order; any other category follows alphabetically, then <see cref="Other"/>.</summary>
     public static IReadOnlyList<string> Order { get; } =
-        [Cpp, CSharp, Css, Dart, Go, JavaScript, Jvm, Php, PowerShell, Python, R, Ruby, Rust, Shell, Swift, Environment, Agents, VersionControl, Documents, Integrations];
+        [Cpp, CSharp, Css, Dart, Go, JavaScript, Jvm, Php, PowerShell, Python, R, Ruby, Rust, Shell, Swift, Environment, Agents, ModelProviders, VersionControl, Documents, Integrations];
+
+    /// <summary>The icon name (a core icon of the plugin UI kit) shown before a category's chip; a category without one gets the generic puzzle glyph.</summary>
+    public static IReadOnlyDictionary<string, string> Icons { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        [Cpp] = "code",
+        [CSharp] = "code",
+        [Css] = "palette",
+        [Dart] = "code",
+        [Go] = "code",
+        [JavaScript] = "code",
+        [Jvm] = "code",
+        [Php] = "code",
+        [PowerShell] = "terminal",
+        [Python] = "code",
+        [R] = "code",
+        [Ruby] = "code",
+        [Rust] = "code",
+        [Shell] = "terminal",
+        [Swift] = "code",
+        [Environment] = "settings",
+        [Agents] = "robot",
+        [ModelProviders] = "cloud",
+        [VersionControl] = "gitBranch",
+        [Documents] = "fileText",
+        [Integrations] = "plug",
+        [Other] = "puzzle"
+    };
+
+    /// <summary>The icon name for <paramref name="category"/>, from <see cref="Icons"/>.</summary>
+    public static string IconOf(string category) => Icons.TryGetValue(category, out var icon) ? icon : "puzzle";
 }
 
 /// <summary>The support levels a manifest's <see cref="PluginManifest.Support"/> names; Settings › Plugins badges them.</summary>

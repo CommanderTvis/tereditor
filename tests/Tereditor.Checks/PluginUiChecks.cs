@@ -397,9 +397,17 @@ internal static partial class PluginUiChecks
         // and a language server beside the plugin that activates the same language's environments.
         var names = settings.GetLogicalDescendants().OfType<Tereditor.UI.Panels.PluginsSettings>().Single().Listing().ToList();
         var headings = names.Where(name => name.StartsWith("PluginCategory_", StringComparison.Ordinal)).Select(name => name["PluginCategory_".Length..]).ToArray();
-        Require(headings.SequenceEqual(["C & C++", "C#", "CSS", "Dart", "Go", "JavaScript & TypeScript", "JVM", "PHP", "PowerShell", "Python", "R", "Ruby", "Rust", "Shell", "Swift", "Environment", "Agents", "Version Control", "Specs & Documents", "Integrations", "Other", "Unavailable"]),
+        Require(headings.SequenceEqual(["C & C++", "C#", "CSS", "Dart", "Go", "JavaScript & TypeScript", "JVM", "PHP", "PowerShell", "Python", "R", "Ruby", "Rust", "Shell", "Swift", "Environment", "Agents", "Model providers", "Version Control", "Specs & Documents", "Integrations", "Other", "Unavailable"]),
             "Plugins are grouped by category, languages first, then tool groups, with Other, then Unavailable, last: " + string.Join(", ", headings));
         int At(string name) => names.IndexOf(name);
+        foreach (var category in PluginCategories.Order)
+            Require(PluginCategories.Icons.TryGetValue(category, out var iconName) && iconName.Length > 0
+                && Avalonia.Platform.AssetLoader.Exists(new Uri($"avares://Tereditor.Plugins.UI.Kit/Assets/Icons/{iconName}.svg")),
+                "Every plugin category declares an icon that exists: " + category);
+        var chips = settings.GetLogicalDescendants().OfType<WrapPanel>().Single(panel => panel.Name == "PluginOutline").Children.OfType<Button>().ToList();
+        Require(chips.Count == headings.Length && chips.All(chip => chip.GetLogicalDescendants().OfType<Border>().Any(border => border.OpacityMask is not null)),
+            "Every category chip shows an icon before its label.");
+        Require(At("PluginCategory_Model providers") < At("PluginRow_providers") && At("PluginRow_air-gateway") > At("PluginCategory_Model providers") && At("PluginRow_air-gateway") < At("PluginCategory_Version Control"), "Model Providers and Air Gateway sit in the Model providers group.");
         Require(At("PluginCategory_Python") < At("PluginRow_lsp-python") && At("PluginRow_lsp-python") < At("PluginRow_env-python") && At("PluginRow_env-python") < At("PluginCategory_R"),
             "The Python language server and the Python environment plugin share the Python group: " + string.Join(", ", names.Take(40)));
         Require(At("PluginCategory_Other") < At("PluginRow_fixture") && At("PluginRow_fixture") > 0, "A plugin with no category is listed under Other.");

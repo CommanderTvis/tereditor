@@ -571,3 +571,6 @@ override Tereditor.Plugins.Api.AgentInstall.GetHashCode() -> int
 override Tereditor.Plugins.Api.AgentInstall.ToString() -> string!
 static Tereditor.Plugins.Api.AgentInstall.operator !=(Tereditor.Plugins.Api.AgentInstall? left, Tereditor.Plugins.Api.AgentInstall? right) -> bool
 static Tereditor.Plugins.Api.AgentInstall.operator ==(Tereditor.Plugins.Api.AgentInstall? left, Tereditor.Plugins.Api.AgentInstall? right) -> bool
+const Tereditor.Plugins.Api.PluginCategories.ModelProviders = "Model providers" -> string!
+static Tereditor.Plugins.Api.PluginCategories.Icons.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+static Tereditor.Plugins.Api.PluginCategories.IconOf(string! category) -> string!
