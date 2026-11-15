@@ -167,6 +167,10 @@ internal static class AgentLaunchContributionChecks
             "Air Gateway shows an installed or undecided agent");
         Require(AirSettingsView.AgentRow("Codex", "Codex", false, missing).Show == false && AirSettingsView.AgentRow("Codex", "Codex", true, missing) == (true, missing.Reason!, true),
             "Air Gateway hides an agent that is not installed, and keeps a chosen one as a dimmed line with the reason");
+        // Model providers off: nothing contributes, so each agent's launch line is the one the agent builds itself.
+        foreach (var (line, executable) in new[] { ("claude --model opus", "claude"), ("codex -c model=x", "codex"), ("pi --model y", "pi"), ("omp --model z", "omp") })
+            Require(AgentLaunchComposition.Apply(line, executable, []) == line, "with no contribution the launch line of " + executable + " is unchanged");
+        Require(new[] { "claude-code", "codex", "pi", "omp" }.All(id => AgentRoster.Build([], []).Any(entry => entry.Id == id)), "the four agents stay listed with Model providers off");
         Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, true), Entry("omp", AgentPluginState.Active, false)]) == (true, false) && ProvidersView.Offered([Entry("pi", AgentPluginState.Active, null), Entry("omp", AgentPluginState.Active, null)]) == (true, true),
             "Model providers hide an agent that is not installed, and show an undecided one");
     }

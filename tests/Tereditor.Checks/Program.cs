@@ -1436,6 +1436,13 @@ internal static class Program
             OmpChecks.RunUi(Path.Combine(root, "omp-ui"));
             return;
         }
+        if (args.SequenceEqual(["--providers-ui"]))
+        {
+            AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
+            ProvidersUiChecks.Run(Path.Combine(root, "providers-ui-run"));
+            return;
+        }
         if (args.SequenceEqual(["--providers"]))
         {
             ProvidersChecks.Run(root);
@@ -1609,6 +1616,7 @@ internal static class Program
         Gate.Case("number-box-centering", NumberBoxCenteringChecks.RunUi);
         Gate.Case("section-headers", () => SectionHeaderAlignmentChecks.RunUi(root));
         Gate.Case("air-gateway-ui", () => AirGatewayChecks.RunUi(root));
+        Gate.Case("providers-ui", () => ProvidersUiChecks.Run(Path.Combine(root, "providers-ui-run")));
         Gate.Case("language-limits-ui", () => LanguageLimitChecks.Ui(root));
         Gate.Case("intellij-license-ui", () => IntelliJLicenseChecks.Ui(root));
         Gate.Case("settings-terms-ui", () => IntelliJLicenseChecks.SettingsTerms(root));

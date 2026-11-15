@@ -71,12 +71,17 @@ internal sealed class ModelSourceView : StackPanel
         var routing = context.Host().Roster.FirstOrDefault(entry => entry.Id == agentId)?.AgentRouting;
         var offered = Offered(routing, report.Providers);
         var chosen = report.Sources.FirstOrDefault(source => source.AgentId == agentId)?.ProviderId;
+        var entries = new List<(string Name, string? Id)> { ("Use the agent's own provider", null) };
+        entries.AddRange(offered.Select(row => (row.Provider.Name, (string?)row.Provider.Id)));
+        if (chosen is not null && offered.All(row => row.Provider.Id != chosen)) entries.Add((chosen + " (no longer fits this agent)", chosen));
         applying = true;
-        choice.Items.Clear();
-        choice.Items.Add(new ComboBoxItem { Content = "Use the agent's own provider", Tag = null });
-        foreach (var row in offered) choice.Items.Add(new ComboBoxItem { Content = row.Provider.Name, Tag = row.Provider.Id });
-        if (chosen is not null && offered.All(row => row.Provider.Id != chosen)) choice.Items.Add(new ComboBoxItem { Content = chosen + " (no longer fits this agent)", Tag = chosen });
-        choice.SelectedIndex = chosen is null ? 0 : Math.Max(0, choice.Items.OfType<ComboBoxItem>().ToList().FindIndex(item => (string?)item.Tag == chosen));
+        // The list is rebuilt only when it changed: this runs inside the selection event that saved the choice.
+        if (!choice.Items.OfType<ComboBoxItem>().Select(item => ((string)item.Content!, (string?)item.Tag)).SequenceEqual(entries))
+        {
+            choice.Items.Clear();
+            foreach (var (name, id) in entries) choice.Items.Add(new ComboBoxItem { Content = name, Tag = id });
+        }
+        choice.SelectedIndex = Math.Max(0, entries.FindIndex(entry => entry.Id == chosen));
         applying = false;
         hint.Text = routing is null ? "This agent has no provider choice."
             : offered.Count == 0 && chosen is null ? "No provider you added fits this agent yet. Add one in Settings › Model providers."
