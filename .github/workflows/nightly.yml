@@ -287,8 +287,8 @@ jobs:
         with:
           name: headless-${{ matrix.rid }}
 
-  # The headless host for macOS arm64 as one archive, the same publish and NativeAOT gate as the Linux archives above. It is an
-  # artifact of this run only: the release job does not attach it, so it does not gate or change the release.
+  # The headless host for macOS arm64 as one archive, the same publish and NativeAOT gate as the Linux archives above. Like the
+  # ARM64 AppImage it does not gate the release: the release job attaches it when it was built.
   headless-macos:
     runs-on: macos-15
     timeout-minutes: 60
@@ -313,8 +313,8 @@ jobs:
           rm -rf "$stage" && mkdir -p "$stage" artifacts
           cp -R artifacts/headless/osx-arm64 "$stage/tereditor-headless"
           chmod -R a+rX,go-w "$stage/tereditor-headless"
-          tar -C "$stage" --uid 0 --gid 0 --uname root --gname wheel -cf - tereditor-headless | gzip -9n > "artifacts/${{ steps.stamp.outputs.name }}-headless-osx-arm64.tar.gz"
-          ls -l "artifacts/${{ steps.stamp.outputs.name }}-headless-osx-arm64.tar.gz"
+          tar -C "$stage" --uid 0 --gid 0 --uname root --gname wheel -cf - tereditor-headless | gzip -9n > "artifacts/tereditor-headless-osx-arm64.tar.gz"
+          ls -l "artifacts/tereditor-headless-osx-arm64.tar.gz"
       # The archive must unpack and answer on this machine.
       - name: Smoke test the archive
         env:
@@ -323,14 +323,14 @@ jobs:
           set -eu
           check="$RUNNER_TEMP/unpacked"
           rm -rf "$check" && mkdir -p "$check"
-          tar -xzf "artifacts/${{ steps.stamp.outputs.name }}-headless-osx-arm64.tar.gz" -C "$check"
+          tar -xzf "artifacts/tereditor-headless-osx-arm64.tar.gz" -C "$check"
           test -x "$check/tereditor-headless/tereditor-headless"
           "$check/tereditor-headless/tereditor-headless" languages | grep -q '^csharp'
           "$check/tereditor-headless/tereditor-headless" check-config --workspace "$check" > /dev/null
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.stamp.outputs.name }}-headless-macos-arm64
-          path: artifacts/${{ steps.stamp.outputs.name }}-headless-osx-arm64.tar.gz
+          path: artifacts/tereditor-headless-osx-arm64.tar.gz
           if-no-files-found: error
           compression-level: 0
       - if: failure()
@@ -498,8 +498,8 @@ jobs:
           name: windows-arm64
 
   release:
-    needs: [dmg, apk, appimage, appimage-arm64, headless, windows, windows-arm64]
-    # Only the three packages the nightly exists for gate the release. The ARM64 AppImage, both headless archives and both Windows ZIPs attach when
+    needs: [dmg, apk, appimage, appimage-arm64, headless, headless-macos, windows, windows-arm64]
+    # Only the three packages the nightly exists for gate the release. The ARM64 AppImage, the three headless archives and both Windows ZIPs attach when
     # they were built and are listed as missing in the notes when not, so a red Windows job never withholds the release.
     if: ${{ !cancelled() && needs.dmg.result == 'success' && needs.apk.result == 'success' && needs.appimage.result == 'success' }}
     runs-on: ubuntu-24.04
@@ -525,7 +525,7 @@ jobs:
           mv packages/tereditor-linux-x64.AppImage tereditor-nightly-linux-x64.AppImage
           assets="tereditor-nightly.dmg tereditor-nightly.apk tereditor-nightly-linux-x64.AppImage"
           missing=""
-          for pair in tereditor-linux-arm64.AppImage:tereditor-nightly-linux-arm64.AppImage tereditor-headless-linux-x64.tar.gz:tereditor-headless-nightly-linux-x64.tar.gz tereditor-headless-linux-arm64.tar.gz:tereditor-headless-nightly-linux-arm64.tar.gz tereditor-win-x64.zip:tereditor-nightly-win-x64.zip tereditor-win-arm64.zip:tereditor-nightly-win-arm64.zip; do
+          for pair in tereditor-linux-arm64.AppImage:tereditor-nightly-linux-arm64.AppImage tereditor-headless-linux-x64.tar.gz:tereditor-headless-nightly-linux-x64.tar.gz tereditor-headless-linux-arm64.tar.gz:tereditor-headless-nightly-linux-arm64.tar.gz tereditor-headless-osx-arm64.tar.gz:tereditor-headless-nightly-macos-arm64.tar.gz tereditor-win-x64.zip:tereditor-nightly-win-x64.zip tereditor-win-arm64.zip:tereditor-nightly-win-arm64.zip; do
             src="packages/${pair%%:*}"
             dst="${pair##*:}"
             if [ -f "$src" ]; then
@@ -540,7 +540,7 @@ jobs:
           # shellcheck disable=SC2086
           sha256sum $assets > SHA256SUMS
           assets="$assets SHA256SUMS"
-          notes="Built from ${GITHUB_SHA} on $(date -u +%Y-%m-%d). The disk image is not notarized; the Android package is a client for a tereditor host; the Linux AppImages are for distributions with glibc 2.35 or newer (run it with --appimage-extract-and-run when FUSE is unavailable); the tereditor-headless archives hold the headless host for Linux x64 and ARM64, which scripts/headless-cloud-setup.sh installs; SHA256SUMS lists the checksum of every other file; the unsigned Windows x64 and ARM64 ZIPs each contain the desktop client and standalone host."
+          notes="Built from ${GITHUB_SHA} on $(date -u +%Y-%m-%d). The disk image is not notarized; the Android package is a client for a tereditor host; the Linux AppImages are for distributions with glibc 2.35 or newer (run it with --appimage-extract-and-run when FUSE is unavailable); the tereditor-headless archives hold the headless host for Linux x64 and ARM64, which scripts/headless-cloud-setup.sh installs, and for macOS arm64; SHA256SUMS lists the checksum of every other file; the unsigned Windows x64 and ARM64 ZIPs each contain the desktop client and standalone host."
           if [ -n "$missing" ]; then
             notes="$notes
 

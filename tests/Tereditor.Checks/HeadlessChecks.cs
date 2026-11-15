@@ -89,6 +89,7 @@ internal static partial class HeadlessChecks
             Require(release.Contains($"tereditor-headless-linux-{arch}.tar.gz:{archive}", StringComparison.Ordinal), $"The nightly release job does not rename and list {archive}.");
             Require(workflow.Contains($"path: artifacts/tereditor-headless-linux-{arch}.tar.gz", StringComparison.Ordinal) || workflow.Contains("path: artifacts/tereditor-headless-${{ matrix.rid }}.tar.gz", StringComparison.Ordinal), "The nightly headless job uploads no archive.");
         }
+        Require(release.Contains("tereditor-headless-osx-arm64.tar.gz:tereditor-headless-nightly-macos-arm64.tar.gz", StringComparison.Ordinal), "The nightly release job does not rename and list the macOS arm64 headless archive.");
         Require(workflow.Contains("rid: linux-x64", StringComparison.Ordinal) && workflow.Contains("rid: linux-arm64", StringComparison.Ordinal), "The nightly headless job does not build both architectures.");
         Require(release.Contains("assets=\"$assets SHA256SUMS\"", StringComparison.Ordinal) && release.Contains("sha256sum $assets > SHA256SUMS", StringComparison.Ordinal), "The nightly release job does not compute and list SHA256SUMS.");
         Require(Regex.IsMatch(release, @"needs: \[[^\]]*\bheadless\b[^\]]*\]"), "The nightly release job does not wait for the headless job.");

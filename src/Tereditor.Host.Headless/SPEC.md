@@ -103,7 +103,7 @@ Built from `docker/headless/Dockerfile` by `.github/workflows/container.yml`, pu
 - Assets: `tereditor-headless-nightly-linux-x64.tar.gz` and `tereditor-headless-nightly-linux-arm64.tar.gz`, and `SHA256SUMS` (one line per release asset, `sha256sum` format).
 - Contents: a gzip tar of the publish directory under one folder, `tereditor-headless/`: the files of `/opt/tereditor` in the image, with the same `a+rX` modes, owner root and no `preinstalled/clangd` (the arm64 clangd stage is image-only).
 - Built on a native runner per architecture, with the same publish and the same `packaged-binaries` gate as the image; the job unpacks the archive and runs `languages` and `check-config` from it. It does not gate the release; an architecture that fails is missing and the script says so.
-- macOS arm64: the nightly job `headless-macos` runs the same publish and `packaged-binaries` gate and uploads the archive as a dated workflow artifact (`tereditor-nightly-<date>-<sha>-headless-osx-arm64.tar.gz`). The release does not attach it, and the setup script does not use it.
+- macOS arm64: the nightly job `headless-macos` runs the same publish and `packaged-binaries` gate and uploads the archive as a workflow artifact. The release attaches it as `tereditor-headless-nightly-macos-arm64.tar.gz` (and in the dated release), and the setup script does not use it.
 - The setup script installs the archive into `~/.local/share/tereditor-headless/app` and records its sha256 in `archive.sha256`, so a second run with the same release downloads nothing. `TEREDITOR_HEADLESS_SHA256` pins the hash out of band; a mismatch fails and installs nothing.
 
 ## Plugins and security
