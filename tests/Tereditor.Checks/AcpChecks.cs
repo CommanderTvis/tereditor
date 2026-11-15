@@ -713,7 +713,7 @@ internal static class AcpChecks
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "gh");
         File.WriteAllText(path, "#!/bin/sh\n" + body);
-        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
     // Where an agent's sign-in can come from, found without reading a secret: names, existence of files, the GitHub CLI account and the agent's own answer.
