@@ -128,7 +128,7 @@ internal sealed class ProvidersService(ProviderFiles files)
         var path = files.PiAuth();
         var root = ReadObject(path);
         root[id] = new JsonObject { ["type"] = "api_key", ["key"] = key };
-        WritePrivate(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        PrivateFile.Write(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
     }
 
     private void RemovePiKey(string id)
@@ -137,7 +137,7 @@ internal sealed class ProvidersService(ProviderFiles files)
         if (!File.Exists(path)) return;
         var root = ReadObject(path);
         if (!root.Remove(id)) return;
-        WritePrivate(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        PrivateFile.Write(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
     }
 
     private static JsonObject ReadObject(string path)
@@ -179,7 +179,7 @@ internal sealed class ProvidersService(ProviderFiles files)
         var at = lines.FindIndex(line => Assignment(line) == variable);
         if (at >= 0) lines[at] = entry;
         else lines.Add(entry);
-        WritePrivate(path, string.Join('\n', lines) + "\n");
+        PrivateFile.Write(path, string.Join('\n', lines) + "\n");
     }
 
     private void RemoveOmpKey(string variable)
@@ -187,28 +187,15 @@ internal sealed class ProvidersService(ProviderFiles files)
         var path = files.OmpEnv();
         if (!File.Exists(path)) return;
         var lines = File.ReadAllLines(path).Where(line => Assignment(line) != variable).ToList();
-        WritePrivate(path, lines.Count == 0 ? "" : string.Join('\n', lines) + "\n");
+        PrivateFile.Write(path, lines.Count == 0 ? "" : string.Join('\n', lines) + "\n");
     }
 
     private static string Quote(string value) =>
         value.Any(c => char.IsWhiteSpace(c) || c is '#' or '"' or '\'' or '\\' or '$' or '`') ? "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"" : value;
-
-    // Written to a sibling file that only the owner can read, then moved over the real one.
-    private static void WritePrivate(string path, string text)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporary = path + "." + Environment.ProcessId + ".tmp";
-        try
-        {
-            // The file exists, empty and readable by its owner only, before the secret is written into it.
-            File.WriteAllBytes(temporary, []);
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            File.WriteAllText(temporary, text, new UTF8Encoding(false));
-            File.Move(temporary, path, overwrite: true);
-        }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
-    }
 }
 
+[JsonSourceGenerationOptions(Converters = [typeof(Tereditor.Plugins.Api.PluginJson.EnumConverter<ProviderGroup>), typeof(Tereditor.Plugins.Api.PluginJson.EnumConverter<Tereditor.Plugins.Api.ModelAuthKind>), typeof(Tereditor.Plugins.Api.PluginJson.EnumConverter<ProviderAgent>)])]
 [JsonSerializable(typeof(List<CustomProvider>))]
+[JsonSerializable(typeof(List<ProviderDefinition>))]
+[JsonSerializable(typeof(List<ModelSourceChoice>))]
 internal sealed partial class ProvidersHostJson : JsonSerializerContext;
