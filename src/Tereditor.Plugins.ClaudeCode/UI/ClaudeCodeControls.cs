@@ -32,6 +32,7 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
     {
         AvaloniaXamlLoader.Load(this);
         this.context = context;
+        this.FindControl<StackPanel>("ModelSourceHost")!.Children.Add(UiSlots.ModelSourceView(context, ClaudeCodeContract.Id));
         command = this.FindControl<TextBox>("ClaudeCommandInput")!;
         model = this.FindControl<AutoCompleteBox>("ClaudeDefaultModel")!;
         model.ItemsSource = ClaudeLaunch.ModelSuggestions.Select(suggestion => suggestion.Id).ToList();

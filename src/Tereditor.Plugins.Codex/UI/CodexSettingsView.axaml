@@ -63,4 +63,5 @@
       <TextBlock Classes="detail" Text="Attaches new sessions to the Codex daemon that is already running (codex --remote unix://) instead of each starting an embedded server. tereditor never starts the daemon: if it is missing, stopped or a different version, the session starts standalone. Off launches codex --no-daemon." />
     </StackPanel>
   </CheckBox>
+  <StackPanel x:Name="ModelSourceHost" />
 </StackPanel>

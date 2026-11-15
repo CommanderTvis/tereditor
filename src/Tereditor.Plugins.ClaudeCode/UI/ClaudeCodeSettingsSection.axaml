@@ -63,5 +63,6 @@
         <TextBlock Text="Launch sessions with a short system prompt about the workspace and tereditor's tools. Pick its sections in the Claude Code pane's Context tab." />
       </StackPanel>
     </CheckBox>
+    <StackPanel x:Name="ModelSourceHost" />
   </StackPanel>
 </UserControl>

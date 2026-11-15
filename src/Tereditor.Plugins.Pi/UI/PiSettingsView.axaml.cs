@@ -12,6 +12,7 @@ internal sealed partial class PiSettingsView : StackPanel
     internal PiSettingsView(IPluginUIContext context, Func<PiStatus?> status)
     {
         AvaloniaXamlLoader.Load(this);
+        this.FindControl<StackPanel>("ModelSourceHost")!.Children.Add(UiSlots.ModelSourceView(context, PiManifest.Id));
         var applying = false;
         var command = this.FindControl<TextBox>("PiCommandInput")!;
         var model = this.FindControl<TextBox>("PiModel")!;

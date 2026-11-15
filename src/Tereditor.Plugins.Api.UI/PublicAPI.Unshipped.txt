@@ -1137,3 +1137,5 @@ Tereditor.Plugins.Api.UI.TabDecoration.IconSvg.get -> string?
 Tereditor.Plugins.Api.UI.TabDecoration.IconSvg.init -> void
 Tereditor.Plugins.Api.UI.IPluginUIContext.SlotView(string! slot, string? workspaceId = null, string? emptyHint = null) -> Avalonia.Controls.Control!
 static Tereditor.Plugins.Api.UI.UiSlots.ModelSource(string! agentId) -> string!
+const Tereditor.Plugins.Api.UI.UiSlots.ModelSourceHint = "Turn on Model providers in Settings › Plugins to choose another model source." -> string!
+static Tereditor.Plugins.Api.UI.UiSlots.ModelSourceView(Tereditor.Plugins.Api.UI.IPluginUIContext! context, string! agentId) -> Avalonia.Controls.Control!

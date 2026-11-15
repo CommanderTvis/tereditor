@@ -11,6 +11,7 @@ internal sealed partial class CodexSettingsView : StackPanel
     internal CodexSettingsView(IPluginUIContext context)
     {
         AvaloniaXamlLoader.Load(this);
+        this.FindControl<StackPanel>("ModelSourceHost")!.Children.Add(UiSlots.ModelSourceView(context, CodexManifest.Id));
         void Update(Func<CodexSettings, CodexSettings> change) => _ = UpdateAsync(change);
         async Task UpdateAsync(Func<CodexSettings, CodexSettings> change)
         {

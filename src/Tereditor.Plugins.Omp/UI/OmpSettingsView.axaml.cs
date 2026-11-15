@@ -12,6 +12,7 @@ internal sealed partial class OmpSettingsView : StackPanel
     internal OmpSettingsView(IPluginUIContext context)
     {
         AvaloniaXamlLoader.Load(this);
+        this.FindControl<StackPanel>("ModelSourceHost")!.Children.Add(UiSlots.ModelSourceView(context, OmpManifest.Id));
         var applying = false;
         void Update(Func<OmpSettings, OmpSettings> change) => _ = UpdateAsync(change);
         async Task UpdateAsync(Func<OmpSettings, OmpSettings> change)

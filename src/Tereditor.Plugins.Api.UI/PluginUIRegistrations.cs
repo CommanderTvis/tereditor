@@ -294,6 +294,17 @@ public static class UiSlots
     /// </summary>
     /// <param name="agentId">The agent plugin's id, such as <c>claude-code</c>.</param>
     public static string ModelSource(string agentId) => "core:model-source:" + agentId;
+
+    /// <summary>The sentence an agent's settings page shows in its model source place while no plugin fills it.</summary>
+    public const string ModelSourceHint = "Turn on Model providers in Settings › Plugins to choose another model source.";
+
+    /// <summary>
+    /// The model source control for an agent's settings page: the section a model provider plugin contributes, or
+    /// <see cref="ModelSourceHint"/> when none is on. The agent plugin does not depend on that plugin.
+    /// </summary>
+    /// <param name="context">The agent plugin's context.</param>
+    /// <param name="agentId">The agent plugin's id.</param>
+    public static Control ModelSourceView(IPluginUIContext context, string agentId) => context.SlotView(ModelSource(agentId), null, ModelSourceHint);
 }
 
 /// <summary>The core Settings pages a plugin may open (W23).</summary>

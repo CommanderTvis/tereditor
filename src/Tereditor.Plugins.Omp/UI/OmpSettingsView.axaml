@@ -54,4 +54,5 @@
       <TextBlock Classes="detail" Text="Off: sessions start with --no-lsp and use tereditor's shared language servers through the lsp_* tools." />
     </StackPanel>
   </CheckBox>
+  <StackPanel x:Name="ModelSourceHost" />
 </StackPanel>
