@@ -386,8 +386,10 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
             // A revival is tereditor's own launch, whatever started the session it resumes. The command comes from the
             // process table, which holds no environment, so the agent-view setting is applied again rather than carried.
             var agentView = context.Settings<ClaudeCodeSettings>().DisableAgentView ? "CLAUDE_CODE_DISABLE_AGENT_VIEW=true " : "";
-            return new RevivePrefill("TEREDITOR_UI_LAUNCH=claude " + agentView + offer)
-            { Program = true, Fresh = fresh is null ? null : "TEREDITOR_UI_LAUNCH=claude " + agentView + fresh };
+            // The setting's own NAME=value words go first, so tereditor's marker and agent-view variable win over them.
+            var environment = ClaudeCommandLine.Parse(context.Settings<ClaudeCodeSettings>().Command).ShellPrefix(false, null);
+            return new RevivePrefill(environment + "TEREDITOR_UI_LAUNCH=claude " + agentView + offer)
+            { Program = true, Fresh = fresh is null ? null : environment + "TEREDITOR_UI_LAUNCH=claude " + agentView + fresh };
         });
     }
 
