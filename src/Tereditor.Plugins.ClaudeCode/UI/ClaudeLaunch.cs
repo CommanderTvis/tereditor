@@ -41,6 +41,9 @@ internal static partial class ClaudeLaunch
         new("claude-fable-5-2", "Fable 5.2, pinned")
     ];
 
+    /// <summary>The four options the default model field's drop-down shows on click; all are in <see cref="ModelSuggestions"/>.</summary>
+    public static readonly IReadOnlyList<string> BasicModels = ["opus", "sonnet", "haiku", "opusplan"];
+
     /// <summary>
     /// The models <c>--advisor</c> accepts. The CLI's help hides the flag; its bundle lists fable, opus and sonnet as advisor
     /// candidates (each still subject to the account), so the launcher's model aliases less haiku are offered.
