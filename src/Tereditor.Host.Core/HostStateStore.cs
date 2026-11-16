@@ -560,15 +560,15 @@ public sealed partial class HostStateStore : IHostStateService
         }
     }
 
-    public IAsyncEnumerable<HostState> WatchAsync(CancellationToken cancellationToken = default) => WatchAsync(visible: true, cancellationToken);
+    public IAsyncEnumerable<HostState> WatchAsync(CancellationToken cancellationToken = default) => WatchAsync(visible: true, everySnapshot: false, cancellationToken);
 
     /// <summary>
     /// The stored state, folders gone or not: the host's own lifecycle (plugin workspace events) must not take a folder that is
     /// briefly missing, such as an unmounted volume, for a removed workspace and forget what belongs to it.
     /// </summary>
-    internal IAsyncEnumerable<HostState> WatchStoredAsync(CancellationToken cancellationToken = default) => WatchAsync(visible: false, cancellationToken);
+    internal IAsyncEnumerable<HostState> WatchStoredAsync(CancellationToken cancellationToken = default) => WatchAsync(visible: false, everySnapshot: true, cancellationToken);
 
-    private async IAsyncEnumerable<HostState> WatchAsync(bool visible, [EnumeratorCancellation] CancellationToken cancellationToken)
+    private async IAsyncEnumerable<HostState> WatchAsync(bool visible, bool everySnapshot, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var channel = Channel.CreateUnbounded<HostState>(new() { SingleReader = true });
         lock (gate) { watchers.Add(channel); channel.Writer.TryWrite(state); }
@@ -576,7 +576,13 @@ public sealed partial class HostStateStore : IHostStateService
         {
             while (await channel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                // Snapshots are complete; a slow watcher only needs the latest.
+                // Snapshots are complete; a slow watcher only needs the latest. The plugin runtime reads transitions
+                // (who switched what off first), so it gets every snapshot in order.
+                if (everySnapshot)
+                {
+                    while (channel.Reader.TryRead(out var item)) yield return item;
+                    continue;
+                }
                 var latest = default(HostState);
                 while (channel.Reader.TryRead(out var item)) latest = item;
                 if (latest is not null) yield return visible ? Visible(latest) : latest;
