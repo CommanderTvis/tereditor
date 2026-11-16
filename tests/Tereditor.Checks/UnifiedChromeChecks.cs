@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -409,6 +410,20 @@ internal static class UnifiedChromeChecks
                 "The rail header does not touch the window's top edge.");
             ViewMenu(app, unified: true);
             HeaderPopups(app);
+            void DoubleClick(Point point)
+            {
+                for (var click = 0; click < 2; click++) { app.Window.MouseDown(point, Avalonia.Input.MouseButton.Left); app.Window.MouseUp(point, Avalonia.Input.MouseButton.Left); }
+                Dispatcher.UIThread.RunJobs();
+            }
+            var caption = app.Find<Border>("ProjectSegment").GetLogicalDescendants().OfType<TextBlock>().First(text => text.Classes.Contains("location-caption"));
+            var captionPoint = caption.TranslatePoint(new Point(1, caption.Bounds.Height / 2), app.Window)!.Value;
+            DoubleClick(captionPoint);
+            Require(app.Window.WindowState == Avalonia.Controls.WindowState.Maximized, "A double-click on the rail header's blank space zooms the window.");
+            app.Window.WindowState = Avalonia.Controls.WindowState.Normal; Dispatcher.UIThread.RunJobs();
+            var pill = app.Find<Button>("ScopeProject");
+            DoubleClick(pill.TranslatePoint(new Point(pill.Bounds.Width / 2, pill.Bounds.Height / 2), app.Window)!.Value);
+            Require(app.Window.WindowState == Avalonia.Controls.WindowState.Normal, "A double-click on a header button keeps the button's behaviour and does not zoom.");
+            (pill.Flyout as Avalonia.Controls.Primitives.FlyoutBase)?.Hide(); Dispatcher.UIThread.RunJobs();
             Console.WriteLine("PASS unified chrome: no top bar, the rail header, its menus and popups open, no Settings gear in the right bar");
         }
         finally { UnifiedChrome.Override = false; UnifiedChrome.ControlsAtLeftOverride = null; }

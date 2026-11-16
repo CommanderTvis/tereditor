@@ -246,6 +246,7 @@ main column starts at the top edge. A phone-sized workbench keeps its own pages 
   plugins' header items as a captioned Credits block, and last the captioned Host block (Listening and the connection state), gone
   without leaving a gap while it has nothing to show.
   A 1 px line in the border colour closes the header block, and the project list starts right below it.
+  A double-click on the header's blank space (captions, gaps; not a button or text box) zooms or restores the window like a title bar's, through the same `TitleBarDoubleClicked` path (so the macOS preference applies and full screen ignores it); a Mac's first row is left to the system. Desktop only.
   Project, Branch, Credits and Host are one pattern: a caption over a value row with the same inset, icon column and text role, the value filling the rail's width.
 - The window's right bar shows no Settings gear: Settings opens from the application menu on a Mac and from the header's gear elsewhere; the header's context menu lists it with its icon and chord above About tereditor; the right tool bar holds only the tools. The Mac menu's Settings gear is a thin outline drawn as a black-on-transparent template image, never a solid fill.
 

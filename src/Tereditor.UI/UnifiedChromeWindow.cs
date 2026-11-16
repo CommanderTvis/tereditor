@@ -136,6 +136,17 @@ public sealed partial class WorkbenchWindow
         // The header's context menu (right-click, long press) is the View menu, with Settings and About.
         // A panel with no background takes no pointer input, so the menu needs one for the header's empty space (Avalonia raises it on a touch hold).
         header.Background = Avalonia.Media.Brushes.Transparent;
+#if !ANDROID && !BROWSER
+        // The rail header is the window's status area: a double-click on its blank space zooms the window like the title bar does. Buttons keep
+        // their clicks, and a Mac's first row is the native title region, which the system already zooms.
+        header.PointerPressed += (_, e) =>
+        {
+            if (e.ClickCount != 2 || !e.GetCurrentPoint(header).Properties.IsLeftButtonPressed || e.Source is not Control source) return;
+            if (!LinuxWindowChrome.StartsMove(source) || UnifiedChrome.ControlsAtLeft && (ReferenceEquals(railLightsRow, source) || railLightsRow!.IsLogicalAncestorOf(source))) return;
+            e.Handled = true;
+            TitleBarDoubleClicked();
+        };
+#endif
         viewMenu = header.ContextMenu;
         surface.LeftHeader = header;
         // The strip at the top right shares the caption's row with the system's controls; its buttons take their touches there too.
