@@ -45,8 +45,6 @@ managed language servers at runtime, not the build.
   `xcrun --sdk macosx` supplies Zig's SDK (`src/Ghostty.Avalonia/build-native.sh`), and `codesign` and `hdiutil` sign
   the bundle and make the `dmg`.
 - The Metal toolchain (`xcodebuild -downloadComponent MetalToolchain`): libghostty compiles its Metal shaders.
-- LLVM at `/opt/homebrew/opt/llvm` (`brew install llvm`): `build-native.sh` archives libghostty with its `llvm-ar`,
-  since Apple's libtool drops Zig objects. The path is fixed.
 
 ### Linux (`build`, `package:linux`, running the AppImage)
 

@@ -24,8 +24,6 @@ jobs:
       - uses: actions/checkout@v7
       - id: stamp
         run: echo "name=tereditor-nightly-$(date -u +%Y%m%d)-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-      # build-native.sh archives libghostty with Homebrew's llvm-ar.
-      - run: brew install llvm
       - uses: actions/cache@v6
         with:
           path: |

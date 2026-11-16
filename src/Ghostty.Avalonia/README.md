@@ -35,8 +35,7 @@ versions when the application does not use central package management. With
 central package management, add Avalonia 12.1.6, Avalonia.Skia 12.1.6,
 SkiaSharp 4.148.0 and HarfBuzzSharp 14.2.1.301 to the application's package versions.
 
-Build on macOS with Xcode command line tools, Git, curl and LLVM's Darwin archive
-writer at `/opt/homebrew/opt/llvm/bin/llvm-ar`. The script downloads pinned Ghostty
+Build on macOS with Xcode command line tools, Git and curl. The script downloads pinned Ghostty
 sources and Zig toolchains into a machine-wide cache (`$TEREDITOR_CACHE_DIR/ghostty-avalonia`, default
 `~/.cache/tereditor`; Windows `%LOCALAPPDATA%\tereditor\cache`) that every checkout and worktree shares. Each
 finished library is kept there under `results/<key>`, the key hashing the pinned commits, Zig version, native sources

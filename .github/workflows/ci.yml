@@ -164,8 +164,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-      # build-native.sh archives libghostty with Homebrew's llvm-ar.
-      - run: brew install llvm
       - uses: actions/cache@v6
         with:
           path: |
