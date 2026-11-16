@@ -28,7 +28,7 @@ internal sealed class TabHost : IDisposable
 
     public TabHost(ProfileStore profile)
     {
-        // Pi's credentials live on the tab's disk; Settings › Model providers and the in-tab agent read the same file.
+        // Pi's credentials live on the tab's disk; Settings › Plugins › Model providers and the in-tab agent read the same file.
         Environment.SetEnvironmentVariable("PI_CODING_AGENT_DIR", TabPiLink.AgentDirectory);
         Directory.CreateDirectory(TabPiLink.AgentDirectory);
         PiLinks.InTabVersion = TabPiLink.VersionAsync;

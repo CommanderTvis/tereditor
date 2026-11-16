@@ -20,7 +20,7 @@
         <TextBlock Text="Early support" FontSize="11" Foreground="{x:Static kit:Ui.Warning}" />
       </Border>
     </StackPanel>
-    <TextBlock Classes="detail" Text="Pi chats run the pi coding agent from your system installation over its RPC mode. Model providers and keys are managed in Settings › Model providers." />
+    <TextBlock Classes="detail" Text="Pi chats run the pi coding agent from your system installation over its RPC mode. Model providers and keys are managed in Settings › Plugins › Model providers." />
     <TextBlock x:Name="PiVersion" Classes="detail" />
   </StackPanel>
   <StackPanel x:Name="ModelSourceHost" />

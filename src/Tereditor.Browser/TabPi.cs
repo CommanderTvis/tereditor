@@ -7,7 +7,7 @@ namespace Tereditor.UI.Browser;
 /// <summary>Pi running inside this tab (<c>tabpi</c> in <c>tabhost.js</c>), reached as the lines it would have written to a pipe.</summary>
 internal sealed partial class TabPiLink : IPiLink
 {
-    /// <summary>Where the tab keeps Pi's credentials, shared with Settings › Model providers.</summary>
+    /// <summary>Where the tab keeps Pi's credentials, shared with Settings › Plugins › Model providers.</summary>
     public const string AgentDirectory = "/home/tab/.pi/agent";
 
     [JSImport("piOpen", "tabhost")]
