@@ -33,10 +33,7 @@ internal static class IntelliJMavenChecks
         File.WriteAllText(Path.Combine(workspace, "pom.xml"), "<project/>");
         var result = new JsonObject { ["projects"] = new JsonArray(new JsonObject { ["type"] = "maven" }, new JsonObject { ["type"] = "gradle" }), ["buildTools"] = new JsonObject { ["file:///a"] = "maven", ["file:///b"] = "gradle" } };
         Require(IntelliJMaven.Wanted(result, "", workspace), "A Maven project was not recognised.");
-        IntelliJMaven.Skip(result);
-        var projects = (JsonArray)result["projects"]!;
-        Require(projects.Count == 1 && projects[0]!["type"]!.ToString() == "gradle" && ((JsonObject)result["buildTools"]!).Count == 1, "Skipping Maven removed more than Maven.");
-        Require(IntelliJMaven.NotFound.Contains("Maven was not found", StringComparison.Ordinal), "The status sentence changed.");
+        Require(IntelliJMaven.NotFound.Contains("Install Maven", StringComparison.Ordinal) && IntelliJMaven.NotFound.Contains("MAVEN_HOME", StringComparison.Ordinal), "The missing-Maven error does not say what to install.");
 
         var own = Path.Combine(workspace, "mavenPluginInstall-pom-mine.xml");
         File.WriteAllText(own, "user file");
@@ -47,6 +44,6 @@ internal static class IntelliJMavenChecks
         File.WriteAllText(other, "user file");
         Require(IntelliJMaven.Sweep(workspace, true) == 1 && !File.Exists(generated), "A generated plugin-install pom stayed in the workspace.");
         Require(File.Exists(own) && File.Exists(other) && File.Exists(Path.Combine(workspace, "pom.xml")), "The guard removed a file of the user's.");
-        Console.WriteLine("PASS IntelliJ Maven discovery, skipped import and plugin-install pom guard");
+        Console.WriteLine("PASS IntelliJ Maven discovery, missing-Maven error and plugin-install pom guard");
     }
 }

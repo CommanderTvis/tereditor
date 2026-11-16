@@ -44,7 +44,7 @@ internal static class JvmInitialization
         {
             IntelliJ.IntelliJMaven.Remember(workspace, start.Manifests);
             if (IntelliJ.IntelliJMaven.Locate(workspace, Environment.GetEnvironmentVariable("PATH"), Environment.GetEnvironmentVariable("MAVEN_HOME"), Environment.GetEnvironmentVariable("M2_HOME")) is { } maven) start.Log("Maven", "Using " + maven.Path + " (" + maven.Source + ").");
-            else { IntelliJ.IntelliJMaven.Skip(result); start.Log("Maven", IntelliJ.IntelliJMaven.NotFound); }
+            else throw new InvalidOperationException(IntelliJ.IntelliJMaven.NotFound);
         }
         var used = options.ProjectJdk.Length == 0 && options.InitializationSupplied.Contains("defaultSdk")
             ? (Path: result["defaultSdk"]?.ToString() ?? "", Source: "workspace initialization defaultSdk")

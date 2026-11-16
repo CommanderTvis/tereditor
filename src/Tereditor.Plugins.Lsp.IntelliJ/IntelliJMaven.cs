@@ -8,7 +8,7 @@ namespace Tereditor.Plugins.Lsp.IntelliJ;
 /// <summary>Finds Maven before the server imports a <c>pom.xml</c>, and removes the plugin-install poms its import leaves in the workspace.</summary>
 internal static class IntelliJMaven
 {
-    internal const string NotFound = "Maven was not found. Put mvn on PATH, set MAVEN_HOME, or add mvnw to the project. Maven import is skipped; Java and Kotlin answers for single files still work.";
+    internal const string NotFound = "Maven was not found, so this project cannot be imported. Install Maven and put mvn on PATH, set MAVEN_HOME, or add mvnw to the project.";
 
     private const string GeneratedPattern = "mavenPluginInstall-pom*.xml";
     private static readonly ConcurrentDictionary<string, Snapshot> Snapshots = new(StringComparer.Ordinal);
@@ -39,16 +39,6 @@ internal static class IntelliJMaven
     internal static bool Wanted(JsonObject result, string importer, string workspace) =>
         importer == "maven" || result["projects"] is JsonArray projects && projects.OfType<JsonObject>().Any(project => project["type"]?.ToString() == "maven")
         || importer.Length == 0 && File.Exists(Path.Combine(workspace, "pom.xml")) && !new[] { "settings.gradle.kts", "settings.gradle", "build.gradle.kts", "build.gradle" }.Any(name => File.Exists(Path.Combine(workspace, name)));
-
-    /// <summary>Removes the Maven projects and a Maven importer choice from the initialization, so the server never waits on an import that cannot run.</summary>
-    internal static void Skip(JsonObject result)
-    {
-        if (result["projects"] is JsonArray projects)
-            for (var index = projects.Count - 1; index >= 0; index--)
-                if (projects[index] is JsonObject project && project["type"]?.ToString() == "maven") projects.RemoveAt(index);
-        if (result["buildTools"] is JsonObject tools)
-            foreach (var key in tools.Where(pair => pair.Value?.ToString() == "maven").Select(pair => pair.Key).ToArray()) tools.Remove(key);
-    }
 
     /// <summary>Remembers which plugin-install poms the user's workspace already has, so only later ones count as generated.</summary>
     internal static void Remember(string workspace, IEnumerable<string> manifests)
