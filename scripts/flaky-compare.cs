@@ -27,7 +27,7 @@ var runs = Directory.GetDirectories(args[0]).Order(StringComparer.Ordinal).Selec
 if (runs.Count < 2) { Console.Error.WriteLine($"Need result files from at least two runs; found {runs.Count} run(s) with results in {args[0]}."); return 2; }
 
 var cases = runs.SelectMany(run => run.Outcomes.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
-string Outcome(Dictionary<string, string> outcomes, string name) => outcomes.TryGetValue(name, out var value) ? value : "Missing";
+static string Outcome(Dictionary<string, string> outcomes, string name) => outcomes.TryGetValue(name, out var value) ? value : "Missing";
 var flaky = cases.Where(name => runs.Select(run => Outcome(run.Outcomes, name)).Distinct().Count() > 1).ToList();
 var failing = cases.Where(name => runs.All(run => Outcome(run.Outcomes, name) == "Failed")).ToList();
 
