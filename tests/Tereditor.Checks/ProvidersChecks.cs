@@ -169,6 +169,8 @@ internal static class ProvidersChecks
     }
 
     // The launch seams: a chosen source writes the agent's models file with a helper command and no key, and the launch gets only the place to read it.
+    private static string Flat(AgentLaunchContribution c) => string.Join(" ", c.Wrapper.Concat(c.Arguments).Concat(c.Environment.Select(pair => pair.Key + "=" + pair.Value)));
+
     private static void Launch(string root)
     {
         const string Sentinel = "sk-sentinel-77d0e3b1c9";
@@ -213,7 +215,7 @@ internal static class ProvidersChecks
         var ompLaunch = service.Launch("omp")!;
         Require(piLaunch.Environment is { Count: 1 } environment && environment["PI_CODING_AGENT_DIR"] == files.PiAgentDirectory && piLaunch.Arguments.Count == 0 && piLaunch.Wrapper.Count == 0, "Pi's launch gets only its agent directory.");
         Require(ompLaunch.Arguments.SequenceEqual(["--profile", "tereditor"]) && ompLaunch.Environment.Count == 0 && service.Launch("claude-code") is null && service.Launch("codex") is null, "omp's launch gets only its profile, and the other agents get nothing.");
-        Require(!PluginJson.Serialize(piLaunch).Contains("sentinel", StringComparison.Ordinal) && !PluginJson.Serialize(ompLaunch).Contains("sentinel", StringComparison.Ordinal), "A launch contribution carries no key.");
+        Require(!Flat(piLaunch).Contains("sentinel", StringComparison.Ordinal) && !Flat(ompLaunch).Contains("sentinel", StringComparison.Ordinal), "A launch contribution carries no key.");
 
         // The omp launch line: byte-identical without a source, one profile flag with it.
         Require(OmpLaunch.Line("omp", new() { Mcp = true }) == "omp --profile tereditor --no-lsp" && OmpLaunch.Line("omp", new() { Mcp = false }) == "omp --no-lsp", "Without a source the omp line is the one omp builds itself.");
