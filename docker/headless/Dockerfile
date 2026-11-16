@@ -41,17 +41,32 @@ RUN mkdir -p /out \
        fi
 
 # The native binary still loads libicu (globalization) and libssl (HTTPS for installs) at run time, and the .NET SDK it
-# downloads for language servers needs those and libstdc++ and zlib too. runtime-deps carries exactly that set.
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:9cab4d7d886226d47b5489ef9abf0544e2f109fde11a8acc190217610af26c00 AS base
+# downloads for language servers needs those and libstdc++ and zlib too. The chiseled runtime-deps base has libssl, libstdc++
+# and the CA certificates, but no libicu, zlib, tzdata or git, and no shell or package manager. The native-deps stage (noble)
+# supplies the rest: the files of those packages, and the shared libraries git links that the base lacks, at the same paths.
+FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852 AS native-deps
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates tzdata \
+    && apt-get install -y --no-install-recommends git libicu74 tzdata zlib1g \
     && rm -rf /var/lib/apt/lists/* \
-    && (userdel --remove ubuntu 2>/dev/null || true) \
-    && useradd --uid 1000 --home-dir /cache/home --no-create-home --shell /usr/sbin/nologin tereditor \
-    && mkdir -p /cache/home /cache/managed /cache/state /workspace \
-    && chown -R tereditor:tereditor /cache /workspace \
-    && ln -s /opt/tereditor/tereditor-headless /usr/local/bin/tereditor-headless
+    && mkdir -p /out /dirs/cache/home /dirs/cache/managed /dirs/cache/state /dirs/workspace \
+    && for pkg in git libicu74 tzdata; do \
+         dpkg -L "$pkg" | grep -Ev '^/usr/share/(doc|man|info|lintian)/' | while read -r f; do \
+           if [ -d "$f" ] && [ ! -L "$f" ]; then mkdir -p "/out$f"; else cp -a --parents "$f" /out; fi; \
+         done; \
+       done \
+    && ldd /usr/bin/git /usr/lib/git-core/git-remote-http | awk '/=>/ && $3 ~ /^\// {print $1, $3}' | sort -u \
+       | grep -Ev '/(libc|libm|libgcc_s|libstdc\+\+|libpthread|libdl|librt|libresolv|libutil|libnsl|libanl|libssl|libcrypto)\.so' \
+       | while read -r name path; do \
+           real=$(realpath "$path"); mkdir -p "/out$(dirname "$real")"; cp -L "$real" "/out$real"; \
+           [ "$name" = "$(basename "$real")" ] || ln -sfn "$(basename "$real")" "/out$(dirname "$real")/$name"; \
+         done
+
+# The base is the chiseled runtime-deps image of the same noble release: its digest is the multi-architecture index.
+# Its user is `app` with uid 1654 (APP_UID), so the image runs as that number; /cache and /workspace belong to it.
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:40eba5db69594d517c3a61e96bdacc2e3d6f8c99a44b52d55edee844d33518d0 AS base
 COPY --from=clangd --chmod=a+rX /out/ /opt/tereditor/preinstalled/clangd/
+COPY --from=native-deps /out/ /
+COPY --from=native-deps --chown=1654:1654 /dirs/ /
 ENV HOME=/cache/home \
     TEREDITOR_TOOLCHAINS=managed \
     TEREDITOR_MANAGED_CACHE=/cache/managed \
@@ -59,13 +74,14 @@ ENV HOME=/cache/home \
     TEREDITOR_ROOT=/workspace \
     DOTNET_NOLOGO=1 \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     GIT_CONFIG_COUNT=1 \
     GIT_CONFIG_KEY_0=safe.directory \
     GIT_CONFIG_VALUE_0=*
-USER tereditor
+USER 1654
 WORKDIR /workspace
 VOLUME /cache
-ENTRYPOINT ["tereditor-headless"]
+ENTRYPOINT ["/opt/tereditor/tereditor-headless"]
 CMD ["mcp"]
 
 FROM base AS local

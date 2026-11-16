@@ -85,12 +85,12 @@ stdio for exactly one workspace. An agent such as Claude Code uses tereditor's l
 
 Built from `docker/headless/Dockerfile` by `.github/workflows/container.yml`, published as `ghcr.io/commandertvis/tereditor`.
 
-- Contents: the NativeAOT publish of this project (`NativeAot.props`: one native binary beside the `plugins` and `shell-integration` trees and the process-group helpers) on `dotnet/runtime-deps` (Ubuntu noble), with `git`, `ca-certificates` and `tzdata`.
-- Why runtime-deps: the native binary still loads libicu and libssl at run time, and the .NET SDK it installs for language servers needs those, libstdc++ and zlib. That base carries exactly this set.
+- Contents: the NativeAOT publish of this project (`NativeAot.props`: one native binary beside the `plugins` and `shell-integration` trees and the process-group helpers) on `dotnet/runtime-deps:10.0-noble-chiseled` (Microsoft's chiseled Ubuntu noble base: no shell, no package manager). The base adds no git, libicu, zlib or tzdata, so an Ubuntu noble stage supplies those files, git included, at the same paths.
+- Why this base: the native binary still loads libicu and libssl at run time, and the .NET SDK it installs for language servers needs those, libstdc++ and zlib. The base carries libssl and libstdc++; the noble stage supplies libicu and zlib. Globalization stays on ICU (the base sets invariant mode; the image turns it off).
 - Publish: always under `scripts/mise`, since Linux links with the host's clang, so Linux publishes run on a Linux host of their architecture (CI: Ubuntu 22.04).
-- User and paths: uid 1000, `HOME=/cache/home`, `WORKDIR /workspace`, `VOLUME /cache`.
+- User and paths: uid 1654 (the base's `app` user), `HOME=/cache/home`, `WORKDIR /workspace`, `VOLUME /cache`.
 - Environment: `TEREDITOR_TOOLCHAINS=managed`, `TEREDITOR_MANAGED_CACHE=/cache/managed`, `TEREDITOR_STATE_DIR=/cache/state`, `TEREDITOR_ROOT=/workspace`, `DOTNET_NOLOGO=1`, `DOTNET_CLI_TELEMETRY_OPTOUT=1`, and git `safe.directory=*` through `GIT_CONFIG_*`.
-- Entry: `ENTRYPOINT ["tereditor-headless"]`, `CMD ["mcp"]`. No wrapper, so stdin and stdout are the process's own. Run with `-i --init`.
+- Entry: `ENTRYPOINT ["/opt/tereditor/tereditor-headless"]`, `CMD ["mcp"]`. No wrapper, so stdin and stdout are the process's own. Run with `-i --init`.
 - Exit codes are the ones above: 0 on end of input or SIGTERM, 2 on a configuration error.
 - Labels: OCI source, description, licenses (`PolyForm-Shield-1.0.0`), revision and created.
 - Tags: `nightly` (overwritten each run) and `sha-<short>`, as multi-arch lists over `-amd64` and `-arm64` tags. arm64 may be missing.

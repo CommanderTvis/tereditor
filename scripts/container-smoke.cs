@@ -14,7 +14,7 @@ finally { Tasks.DeleteAll(tmp); }
 
 static int Smoke(string image, string tmp)
 {
-    // The container user is uid 1000, so the fixture must be readable by anyone.
+    // The container user is uid 1654, so the fixture must be readable by anyone.
     var workspace = Path.Combine(tmp, "workspace");
     Directory.CreateDirectory(workspace);
     File.WriteAllText(Path.Combine(workspace, "README.md"), "hello\n");
