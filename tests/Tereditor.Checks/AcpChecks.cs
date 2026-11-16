@@ -65,7 +65,7 @@ internal static class AcpChecks
         if (Avalonia.Application.Current is null)
         {
             var context = SynchronizationContext.Current;
-            Avalonia.AppBuilder.Configure<Tereditor.UI.App>().UseHeadless(new AvaloniaHeadlessPlatformOptions()).SetupWithoutStarting();
+            UiChecks.EnsureHeadlessApp();
             SynchronizationContext.SetSynchronizationContext(context);
         }
         var master = new Tereditor.Plugins.UI.Kit.MasterDetail("Check");

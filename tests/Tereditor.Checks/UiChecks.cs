@@ -123,9 +123,16 @@ internal static class UiChecks
         Gate.Case("StatusProjectChecks", () => E2E.StatusProjectChecks.Run(root));
     }
 
+    // Avalonia allows one setup per process. Any check that needs the platform calls this, so the order of modes in one run does not matter.
+    public static void EnsureHeadlessApp()
+    {
+        if (Avalonia.Application.Current is null)
+            AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
+    }
+
     public static void Run(string root, bool translations = true)
     {
-        AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
+        EnsureHeadlessApp();
         SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
         Gate.Case("CreateProjectChecks", () => CreateProjectChecks.Run(root));
         Gate.Case("ProcessesPaneChecks", ProcessesChecks.RunUi);
