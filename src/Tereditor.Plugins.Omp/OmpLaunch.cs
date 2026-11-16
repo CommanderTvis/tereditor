@@ -61,7 +61,8 @@ public static partial class OmpLaunch
     {
         var executable = Executable(command);
         var parts = new List<string> { options.Contributions.Count > 0 ? AgentLaunchComposition.Apply(executable, "omp", options.Contributions, options.Windows) : executable };
-        if (options.Mcp) parts.AddRange(["--profile", Profile]);
+        // A model source (Model providers) starts omp in the same profile, so the flag is not repeated.
+        if (options.Mcp && !options.Contributions.Any(contribution => contribution.Arguments.Contains("--profile"))) parts.AddRange(["--profile", Profile]);
         // The per-launch session directory is expanded by the POSIX shell; Windows launches keep omp's default store.
         if (options.SessionDirectory is { Length: > 0 } directory) parts.AddRange(["--session-dir", ShellQuote(directory)]);
         else if (options.SessionId is { Length: > 0 } id && !options.Windows) parts.AddRange(["--session-dir", $"\"${SessionsVariable}/{id}\""]);

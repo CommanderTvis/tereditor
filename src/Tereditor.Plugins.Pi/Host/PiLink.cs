@@ -50,6 +50,7 @@ internal sealed class ProcessPiLink : IPiLink
             StandardOutputEncoding = new UTF8Encoding(false),
             StandardInputEncoding = new UTF8Encoding(false)
         };
+        foreach (var (name, value) in spawn.Environment) start.Environment[name] = value;
         var process = await Task.Run(() => Process.Start(start)) ?? throw new InvalidOperationException("Pi could not be started.");
         process.ErrorDataReceived += (_, data) => { if (data.Data is { Length: > 0 } text) error(text); };
         process.BeginErrorReadLine();

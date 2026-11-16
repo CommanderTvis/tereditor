@@ -38,9 +38,9 @@ Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`
   directory's files newest first, titled by the session's name or first prompt; opening one resumes it with `--session`. The host remembers each
   chat's session file so reopening its tab continues it.
 - Launcher: "Pi" in the agent launchers always opens a chat tab (there is no terminal mode yet); Settings › Pi has the command, a default model and
-  a thinking level, and the version read from `pi --version`. Model providers and keys are managed in Settings › Model providers.
+  a thinking level, and the version read from `pi --version`. Model providers and keys are managed only in Settings › Model providers; Pi has no provider or key page of its own.
 
-Settings › Pi also shows the Model source control from Model providers (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks an API Pi takes. The choice is recorded by Model providers and does not change the launch yet. With that plugin off the page shows one hint line and nothing else changes. Pi does not depend on Model providers; its manifest declares `agentRouting` (Anthropic, OpenAI Responses and OpenAI Chat through its models file).
+Settings › Pi also shows the Model source control from Model providers (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks an API Pi takes. With a provider chosen, Model providers writes Pi's `models.json` in tereditor's own agent directory (`<state>/providers/pi/agent`) with the key as a `!command` for the `provider-key` helper, and the chat's `pi --mode rpc` child runs with `PI_CODING_AGENT_DIR` set to that directory (an agent launch contribution; sessions are listed from it). The key is never in an argument or the environment, and `auth.json` is never written. With none chosen or the plugin off, the child starts as before. With that plugin off the page shows one hint line and nothing else changes. Pi does not depend on Model providers; its manifest declares `agentRouting` (Anthropic, OpenAI Responses and OpenAI Chat through its models file).
 
 ## Not yet
 
