@@ -171,6 +171,7 @@ internal static class ProvidersUiChecks
                 case "OnLaunchersChanged":
                 case "WatchHost": return new Stop();
                 case "SettingsSection": registry.AddSettingsSection(ProvidersManifest.Id, (SettingsSectionRegistration)args![0]!); return null;
+                case "AgentLaunch": registry.AddLaunchContributor(ProvidersManifest.Id, (Func<string, AgentLaunchContribution?>)args![0]!); return null;
                 case "SlotSection": registry.AddSlotSection(ProvidersManifest.Id, (SlotSectionRegistration)args![0]!); return null;
                 case "SlotView": return new PluginSlot(registry, (string)args![0]!, (string?)args[1], bare: true, (string?)args[2]);
                 case "Notify": throw new InvalidOperationException("providers-ui: the page reported an error: " + string.Join(" / ", args!.OfType<string>()));

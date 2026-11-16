@@ -16,15 +16,17 @@ namespace Tereditor.Plugins.Providers.UI;
 internal sealed class ProvidersPage : StackPanel
 {
     private readonly IPluginUIContext context;
+    private readonly ModelSourceLaunch launch;
     private readonly StackPanel groups = new() { Spacing = 20, Name = "ModelProviderGroups" };
     private ModelProvidersReport? report;
     private string? adding;
     private bool custom;
     private int generation;
 
-    public ProvidersPage(IPluginUIContext context)
+    public ProvidersPage(IPluginUIContext context, ModelSourceLaunch launch)
     {
         this.context = context;
+        this.launch = launch;
         Name = "SettingsModelProviders";
         Spacing = 24;
         var intro = Ui.Text("Add the providers you use. Each agent's own settings page chooses which one it takes. An agent only sees a provider that speaks an API it accepts.", Ui.Muted, 12);
@@ -58,6 +60,7 @@ internal sealed class ProvidersPage : StackPanel
                 var next = await request();
                 if (mine != generation) return;
                 report = next;
+                launch.Update(next);
                 Render();
             }
             catch (Exception error) when (error is not OperationCanceledException)

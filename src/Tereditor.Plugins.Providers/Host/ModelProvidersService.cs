@@ -177,7 +177,8 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
 
     /// <summary>
     /// Writes the models file of every agent with a chosen source, at startup, so a moved state directory or a changed helper path
-    /// is followed. An agent whose file cannot be written gets no contribution and keeps its own provider.
+    /// is followed. A source whose file cannot be written, or whose key is gone, is dropped, so the agent keeps its own provider and the
+    /// recorded sources always match what launches use.
     /// </summary>
     public void Sync()
     {
@@ -186,16 +187,26 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
         {
             var rows = Rows();
             var next = new HashSet<string>();
-            foreach (var choice in state.LoadSources().Where(choice => AgentModelFiles.Handles(choice.AgentId)))
+            var all = state.LoadSources();
+            var kept = new List<ModelSourceChoice>();
+            foreach (var choice in all)
             {
-                if (rows.FirstOrDefault(row => row.Provider.Id == choice.ProviderId) is not { Ready: true } row) continue;
-                try
+                if (!AgentModelFiles.Handles(choice.AgentId)) { kept.Add(choice); continue; }
+                if (rows.FirstOrDefault(row => row.Provider.Id == choice.ProviderId) is { Ready: true } row)
                 {
-                    files.Write(choice.AgentId, row.Provider);
-                    next.Add(choice.AgentId);
+                    try
+                    {
+                        files.Write(choice.AgentId, row.Provider);
+                        next.Add(choice.AgentId);
+                        kept.Add(choice);
+                        continue;
+                    }
+                    catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException) { }
                 }
-                catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException) { }
+                try { files.Remove(choice.AgentId); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
             }
+            if (kept.Count != all.Count) state.SaveSources(kept);
             active = next;
         }
     }
@@ -210,7 +221,7 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
         return agentId switch
         {
             AgentModelFiles.Pi => new() { Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = files.PiAgentDirectory } },
-            AgentModelFiles.Omp => new() { Arguments = ["--profile", "tereditor"] },
+            AgentModelFiles.Omp => ProviderCatalog.OmpLaunch,
             _ => null
         };
     }

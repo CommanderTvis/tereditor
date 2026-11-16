@@ -57,17 +57,19 @@ off. This plugin is the optional side that matches providers to those declaratio
   endpoint and gives the key as a `!command` that runs the `provider-key` helper with the provider id, quoted for the host's shell. No key is
   ever in a models file, an argument, an environment variable, a launch line, host state or a log. The files are rewritten at startup, and
   removed when the source is cleared or its provider or key goes. Reads and writes run off the UI thread on the host.
-- The API used is the one both sides declare. A provider the agents know by id (Anthropic, OpenAI, OpenRouter, Mistral, Groq, xAI, Cerebras)
-  keeps its own API and only gets the endpoint and the key. Any other provider is written with its API (`anthropic-messages`,
-  `openai-responses` or `openai-completions`). A provider that needs no key is written without a helper (Pi `apiKey: "none"`, omp `auth: none`).
-  Pi and omp need a model list for a provider they do not know; none is written yet, so such a provider works only where the agent can list
-  its models itself.
+- The API used is the one both sides declare. A provider an agent knows by id keeps its own API and only gets the endpoint and the key (Pi: Anthropic,
+  OpenAI, OpenRouter, DeepSeek, Mistral, Groq, xAI, Cerebras, Fireworks; omp: those and Together). Pi has no way to list the models of any other
+  provider and tereditor cannot write a model list yet, so choosing one for Pi is refused with a plain message. omp is given another provider
+  through an OpenAI API with `api` and `discovery: openai-models-list`; one with only an Anthropic API is refused. A provider that needs no key is
+  written without a helper (Pi `apiKey: "none"`, omp `auth: none`). At startup a source whose file cannot be written, or whose key is gone, is
+  dropped, so the recorded sources always match what launches use.
 - Pi: `<state>/providers/pi/agent/models.json`. Pi runs with `PI_CODING_AGENT_DIR` set to that directory, so its sessions live there too
   and its own sign-in is not read. tereditor never creates or changes `auth.json`. Pi's own files stay as they are.
 - omp: `<omp home>/.omp/profiles/tereditor/agent/models.yml` (`TEREDITOR_OMP_HOME` moves the home, as for the omp plugin). omp starts with
   `--profile tereditor`, with or without MCP. omp's own credential database is never written.
 - Both are delivered as an agent launch contribution (Plugin API `AgentLaunch`): Pi gets only the `PI_CODING_AGENT_DIR` variable, omp only
-  the `--profile tereditor` argument. The contributor reads an in-memory snapshot. With this plugin off, or no source chosen, no contribution
+  the `--profile tereditor` argument, which the omp plugin reads as a signal and writes once itself, so a custom command keeps the profile. The UI half contributes
+  the same omp profile from the sources its pages last showed, because the launcher builds its line there. The contributor reads an in-memory snapshot. With this plugin off, or no source chosen, no contribution
   exists and each launch is byte-identical to what the agent builds itself.
 
 ## Checks

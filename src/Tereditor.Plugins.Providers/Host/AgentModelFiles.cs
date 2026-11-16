@@ -14,8 +14,12 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
     public const string Pi = "pi";
     public const string Omp = "omp";
 
-    // Providers both agents already know by id: the file only redirects the endpoint and gives the key.
-    private static readonly string[] KnownIds = ["anthropic", "openai", "openrouter", "mistral", "groq", "xai", "cerebras"];
+    // Providers an agent already knows by id, from the provider tables of Pi (docs/providers.md) and omp (https://omp.sh/docs/providers): the file only
+    // redirects the endpoint and gives the key. Any other provider needs a list of models, which tereditor cannot write yet.
+    private static readonly string[] PiKnown = ["anthropic", "openai", "openrouter", "deepseek", "mistral", "groq", "xai", "cerebras", "fireworks"];
+    private static readonly string[] OmpKnown = [.. PiKnown, "together"];
+
+    private static bool Known(string agentId, string id) => (agentId == Pi ? PiKnown : OmpKnown).Contains(id);
 
     public static bool Handles(string agentId) => agentId is Pi or Omp;
 
@@ -31,9 +35,12 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
     /// <summary>Writes the file for <paramref name="provider"/>. Throws <see cref="ArgumentException"/> when the agent has no API of the provider to use.</summary>
     public void Write(string agentId, ProviderDefinition provider)
     {
-        var api = Pick(provider) ?? throw new ArgumentException("This agent cannot use that provider.");
+        var known = Known(agentId, provider.Id);
+        // Pi has no way to list the models of a provider it does not know. omp discovers them from an OpenAI-style endpoint.
+        if (!known && agentId == Pi) throw new ArgumentException("Pi needs a list of models for a provider it does not know, and tereditor cannot write one yet. Choose a listed provider.");
+        var api = Pick(provider, known) ?? throw new ArgumentException(known ? "This agent cannot use that provider." : "omp can use a provider it does not know only through an OpenAI API.");
         ProviderKeyHelper.Ensure(keys.KeysDirectory, keys.BinDirectory);
-        var text = agentId == Pi ? PiJson(provider, api, KeyCommand(provider.Id)) : OmpYaml(provider, api, KeyCommand(provider.Id));
+        var text = agentId == Pi ? PiJson(provider, api, KeyCommand(provider.Id), known) : OmpYaml(provider, api, KeyCommand(provider.Id), known);
         PrivateFile.Write(PathOf(agentId), text);
     }
 
@@ -50,12 +57,12 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
         word.Any(char.IsControl) ? throw new ArgumentException("A path cannot hold control characters.")
         : OperatingSystem.IsWindows() ? "\"" + word + "\"" : "'" + word.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
 
-    private static IReadOnlyList<string> PreferredKinds(string id) => id == "anthropic"
-        ? [ModelApiKinds.AnthropicMessages]
-        : KnownIds.Contains(id) ? [ModelApiKinds.OpenAiChat, ModelApiKinds.OpenAiResponses] : [ModelApiKinds.AnthropicMessages, ModelApiKinds.OpenAiResponses, ModelApiKinds.OpenAiChat];
+    private static IReadOnlyList<string> PreferredKinds(string id, bool known) =>
+        known ? id == "anthropic" ? [ModelApiKinds.AnthropicMessages] : [ModelApiKinds.OpenAiChat, ModelApiKinds.OpenAiResponses, ModelApiKinds.AnthropicMessages]
+        : [ModelApiKinds.OpenAiChat, ModelApiKinds.OpenAiResponses];
 
-    private static ProviderApi? Pick(ProviderDefinition provider) =>
-        PreferredKinds(provider.Id).Select(kind => provider.Apis.FirstOrDefault(api => api.Kind == kind)).FirstOrDefault(api => api is not null);
+    private static ProviderApi? Pick(ProviderDefinition provider, bool known) =>
+        PreferredKinds(provider.Id, known).Select(kind => provider.Apis.FirstOrDefault(api => api.Kind == kind)).FirstOrDefault(api => api is not null);
 
     private static string ApiName(string kind) => kind switch
     {
@@ -64,20 +71,18 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
         _ => "openai-completions"
     };
 
-    internal static string PiJson(ProviderDefinition provider, ProviderApi api, string keyCommand)
+    internal static string PiJson(ProviderDefinition provider, ProviderApi api, string keyCommand, bool known)
     {
-        var known = KnownIds.Contains(provider.Id);
         var text = new StringBuilder("{\n  \"providers\": {\n    ").Append(Json(provider.Id)).Append(": {\n      \"baseUrl\": ").Append(Json(api.BaseUrl));
         if (!known) text.Append(",\n      \"api\": ").Append(Json(ApiName(api.Kind)));
         text.Append(",\n      \"apiKey\": ").Append(Json(provider.NeedsKey ? "!" + keyCommand : "none"));
         return text.Append("\n    }\n  }\n}\n").ToString();
     }
 
-    internal static string OmpYaml(ProviderDefinition provider, ProviderApi api, string keyCommand)
+    internal static string OmpYaml(ProviderDefinition provider, ProviderApi api, string keyCommand, bool known)
     {
-        var known = KnownIds.Contains(provider.Id);
         var text = new StringBuilder("providers:\n  ").Append(Json(provider.Id)).Append(":\n    baseUrl: ").Append(Json(api.BaseUrl)).Append('\n');
-        if (!known) text.Append("    api: ").Append(ApiName(api.Kind)).Append('\n');
+        if (!known) text.Append("    api: ").Append(ApiName(api.Kind)).Append("\n    discovery:\n      type: openai-models-list\n");
         text.Append(provider.NeedsKey ? "    apiKey: " + Json("!" + keyCommand) : "    auth: none").Append('\n');
         return text.ToString();
     }

@@ -17,14 +17,16 @@ internal sealed class ModelSourceView : StackPanel
 {
     private readonly IPluginUIContext context;
     private readonly string agentId;
+    private readonly ModelSourceLaunch launch;
     private readonly ComboBox choice = new() { Name = "ModelSourceChoice", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
     private readonly TextBlock hint = Ui.Text("", Ui.Muted, 12);
     private bool applying;
     private int generation;
 
-    public ModelSourceView(IPluginUIContext context, string agentId)
+    public ModelSourceView(IPluginUIContext context, string agentId, ModelSourceLaunch launch)
     {
         this.context = context;
+        this.launch = launch;
         this.agentId = agentId;
         Name = "ModelSource-" + agentId;
         Spacing = 4;
@@ -57,6 +59,7 @@ internal sealed class ModelSourceView : StackPanel
             try
             {
                 var report = await request();
+                launch.Update(report);
                 if (mine == generation) Show(report);
             }
             catch (Exception error) when (error is not OperationCanceledException)
