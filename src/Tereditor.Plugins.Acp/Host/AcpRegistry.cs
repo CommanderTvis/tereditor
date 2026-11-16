@@ -77,7 +77,7 @@ internal static class AcpRegistry
                 {
                     var args = Arguments(package);
                     var spec = AcpFolder.Str(package, "package");
-                    var line = chosen == "npx" ? new[] { "bun", "x", spec }.Concat(args) : new[] { "uvx", spec }.Concat(args);
+                    var line = chosen == "npx" ? new[] { "bunx", spec }.Concat(args) : new[] { "uvx", spec }.Concat(args);
                     return plan with { Source = spec, CommandLine = string.Join(' ', line), Verification = IsPinned(chosen, spec) ? Pinned : NotPinned, Note = $"Runs the package {spec} from the {(chosen == "npx" ? "npm" : "PyPI")} registry on this machine, in the workspace directory." + (chosen == "npx" ? " tereditor runs it with its pinned Bun, which it downloads and checks on first use, so Node and npx are not needed; npx runs it only when Bun cannot be provided." : "") };
                 }
             case "binary" when (distribution["binary"]?[platform]) is JsonObject target:
