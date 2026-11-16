@@ -1128,7 +1128,7 @@ internal static class ClaudeCodeChecks
         Require(offeredModels.SequenceEqual(["opus", "sonnet", "haiku", "opusplan"]) && defaultModel.ItemTemplate is not null
             && offeredModels.All(id => ClaudeLaunch.ModelSuggestions.Any(suggestion => suggestion.Id == id && suggestion.Description.Length > 0)),
             "The default model field offers four basic options, each with a short description.");
-        defaultModel.RaiseEvent(new Avalonia.Input.GotFocusEventArgs { RoutedEvent = InputElement.GotFocusEvent });
+        defaultModel.RaiseEvent(new Avalonia.Input.FocusChangedEventArgs(InputElement.GotFocusEvent));
         Require(defaultModel.IsDropDownOpen, "Focusing the default model field opens the drop-down.");
         defaultModel.SelectedItem = "haiku";
         defaultModel.IsDropDownOpen = false;
