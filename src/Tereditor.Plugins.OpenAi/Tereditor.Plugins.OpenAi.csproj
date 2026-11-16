@@ -4,6 +4,8 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);UI/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Builtin plugin assets are staged at plugins/<id>/<assets> beside the host, which serves them to the UI half. -->
+    <None Include="openai.svg" Link="plugins/openai/assets/openai.svg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="../Tereditor.Plugins.Api/Tereditor.Plugins.Api.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Providers/Tereditor.Plugins.Providers.csproj" />
   </ItemGroup>

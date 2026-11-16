@@ -32,7 +32,7 @@ public sealed record ProviderApi(string Kind, string BaseUrl, IReadOnlyList<Mode
 /// <param name="Vendor">The vendor the policy is about.</param>
 /// <param name="Note">A plain sentence the page shows next to an allowed sign-in.</param>
 /// <param name="ReasonIfNot">A plain sentence saying why the sign-in is not offered; null when it is.</param>
-public sealed record ProviderOAuth(bool Allowed, string? Flow, string? Vendor, string? Note, string? ReasonIfNot)
+public sealed record ProviderOAuth(bool Allowed, string? Flow = null, string? Vendor = null, string? Note = null, string? ReasonIfNot = null)
 {
     /// <summary>Whether the user may mark the sign-in as allowed. False when the vendor forbids it.</summary>
     public bool Overridable { get; init; }
@@ -69,7 +69,7 @@ public static class ProviderOAuthPolicy
 public sealed record ProviderDefinition(string Id, string Name, ProviderGroup Group, IReadOnlyList<ProviderApi> Apis)
 {
     /// <summary>Whether a key must be stored before an agent can use the provider. False for a keyless local endpoint or a provider that signs in itself.</summary>
-    public bool NeedsKey { get; init; } = true;
+    public bool NeedsKey { get; set; } = true;
 
     /// <summary>A plain sentence the page shows with the provider.</summary>
     public string? Note { get; init; }
@@ -78,7 +78,7 @@ public sealed record ProviderDefinition(string Id, string Name, ProviderGroup Gr
     public ProviderOAuth? OAuth { get; init; }
 
     /// <summary>Model ids the provider serves, written into an agent's models file when the agent does not know the provider by id. Empty when unknown.</summary>
-    public IReadOnlyList<string> Models { get; init; } = [];
+    public IReadOnlyList<string> Models { get; set; } = [];
 
     /// <summary>Added by the user.</summary>
     public bool Custom { get; init; }

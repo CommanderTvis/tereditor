@@ -597,7 +597,7 @@ Tereditor.Plugins.Api.AgentRouting.AgentRouting(System.Collections.Generic.IRead
 Tereditor.Plugins.Api.AgentRouting.Deconstruct(out System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentModelApi!>! Accepts) -> void
 Tereditor.Plugins.Api.AgentRouting.Equals(Tereditor.Plugins.Api.AgentRouting? other) -> bool
 Tereditor.Plugins.Api.AgentRouting.OwnLogin.get -> bool
-Tereditor.Plugins.Api.AgentRouting.OwnLogin.init -> void
+Tereditor.Plugins.Api.AgentRouting.OwnLogin.set -> void
 Tereditor.Plugins.Api.ModelApiKinds
 Tereditor.Plugins.Api.ModelAuthKind
 Tereditor.Plugins.Api.ModelAuthKind.ApiKey = 0 -> Tereditor.Plugins.Api.ModelAuthKind

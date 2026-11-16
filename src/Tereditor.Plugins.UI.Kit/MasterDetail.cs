@@ -99,7 +99,7 @@ public sealed class MasterDetail : Grid
     /// </summary>
     public static Control Row(string id, Control? icon, string name, string? note, string? description, string? problem, Control? action)
     {
-        var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
         title.Children.Add(new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.TextBrush });
         if (!string.IsNullOrEmpty(note)) title.Children.Add(new TextBlock { Text = note, FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center });
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };

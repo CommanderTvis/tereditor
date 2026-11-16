@@ -32,7 +32,9 @@ public static class OpenAiManifest
 {
     public const string Id = "openai";
 
-    public static readonly PluginManifest Manifest = new(Id, "OpenAI", "", "0.1.0", PluginApi.Generation, 1)
+    public const string Icon = "asset:openai.svg";
+
+    public static readonly PluginManifest Manifest = new(Id, "OpenAI", Icon, "0.1.0", PluginApi.Generation, 1)
     {
         Category = PluginCategories.ModelProviders,
         DependsOn = [new(ProvidersManifest.Id, ProvidersContract.WireVersion)],
@@ -40,6 +42,7 @@ public static class OpenAiManifest
         Support = PluginSupportLevels.Early,
         EnabledByDefault = true,
         Headless = HeadlessSupport.No,
+        Assets = "assets",
         Ui = "Tereditor.Plugins.OpenAi.UI.dll"
     };
 

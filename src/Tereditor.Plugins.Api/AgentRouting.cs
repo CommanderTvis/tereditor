@@ -73,5 +73,5 @@ public sealed record AgentModelApi(string Kind, AgentInjection Injection, IReadO
 public sealed record AgentRouting(IReadOnlyList<AgentModelApi> Accepts)
 {
     /// <summary>Whether the agent has its own sign-in or key handling, so using its own provider needs nothing from tereditor.</summary>
-    public bool OwnLogin { get; init; } = true;
+    public bool OwnLogin { get; set; } = true;
 }

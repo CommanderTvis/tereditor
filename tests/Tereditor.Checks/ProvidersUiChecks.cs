@@ -195,12 +195,15 @@ internal static class ProvidersUiChecks
                 case "Host":
                     return new PluginHostProjection([], new Dictionary<string, IReadOnlyList<HostWorkspace>>(), null, null, null, new PluginAppSettings("t", false, 80, false, 80, false, []),
                         new Dictionary<string, IReadOnlyList<TerminalTabInfo>>(), new Dictionary<string, IReadOnlyList<string>>(), new Dictionary<string, int>(), roster, null);
-                case "AgentLaunch": Launch = (Func<string, AgentLaunchContribution?>)args![0]!; return null;
                 case "Subscribe": Push = (Action<ModelProvidersReport>)args![1]!; return new Stop();
                 case "OnLaunchersChanged":
                 case "WatchHost": return new Stop();
                 case "SettingsSection": registry.AddSettingsSection(ProvidersManifest.Id, (SettingsSectionRegistration)args![0]!); return null;
-                case "AgentLaunch": registry.AddLaunchContributor(ProvidersManifest.Id, (Func<string, AgentLaunchContribution?>)args![0]!); return null;
+                case "AgentLaunch":
+                    // The page registers Pi's and omp's contribution and Codex's in turn; the Codex one is read back by the check below.
+                    Launch = (Func<string, AgentLaunchContribution?>)args![0]!;
+                    registry.AddLaunchContributor(ProvidersManifest.Id, Launch);
+                    return null;
                 case "SlotSection": registry.AddSlotSection(ProvidersManifest.Id, (SlotSectionRegistration)args![0]!); return null;
                 case "SlotView": return new PluginSlot(registry, (string)args![0]!, (string?)args[1], bare: true, (string?)args[2]);
                 case "Notify": throw new InvalidOperationException("providers-ui: the page reported an error: " + string.Join(" / ", args!.OfType<string>()));
