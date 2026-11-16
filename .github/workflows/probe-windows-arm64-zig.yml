@@ -108,7 +108,7 @@ jobs:
           exit 0
 
   # The pinned libghostty-vt source needs Zig 0.16.0 (minimum_zig_version), whose linking crashes on this runner. This
-  # builds it the way build-windows.ps1 does and in variants, then tries to link the DLL with each Zig that works.
+  # builds it the way build-ghostty-windows.cs does and in variants, then tries to link the DLL with each Zig that works.
   ghostty:
     runs-on: windows-11-arm
     timeout-minutes: 30
@@ -167,13 +167,13 @@ jobs:
           foreach ($version in '0.16.0', '0.15.2', '0.14.1') {
               Run-Case "zig $version build --help (compiles the build runner)" $zigs[$version] $source @('build', '--help', '--cache-dir', (Join-Path $root "cache-help-$version"))
           }
-          Run-Case 'zig 0.16.0 build, as build-windows.ps1' $zigs['0.16.0'] $source (@('build', '--cache-dir', (Join-Path $root 'cache-a'), '--prefix', (Join-Path $root 'vt-a')) + $common)
+          Run-Case 'zig 0.16.0 build, as build-ghostty-windows.cs' $zigs['0.16.0'] $source (@('build', '--cache-dir', (Join-Path $root 'cache-a'), '--prefix', (Join-Path $root 'vt-a')) + $common)
           Run-Case 'zig 0.16.0 build, Debug' $zigs['0.16.0'] $source @('build', '--cache-dir', (Join-Path $root 'cache-b'), '--prefix', (Join-Path $root 'vt-b'), '-Demit-lib-vt', '-Doptimize=Debug', "-Dtarget=$target", '-Dcpu=baseline')
           Run-Case 'zig 0.16.0 build, -fno-llvm' $zigs['0.16.0'] $source (@('build', '-fno-llvm', '--cache-dir', (Join-Path $root 'cache-c'), '--prefix', (Join-Path $root 'vt-c')) + $common)
           Run-Case 'zig 0.16.0 build, native target' $zigs['0.16.0'] $source @('build', '--cache-dir', (Join-Path $root 'cache-d'), '--prefix', (Join-Path $root 'vt-d'), '-Demit-lib-vt', '-Doptimize=ReleaseFast')
           Run-Case 'zig 0.16.0 build, -Dtarget=aarch64-windows-msvc' $zigs['0.16.0'] $source @('build', '--cache-dir', (Join-Path $root 'cache-e'), '--prefix', (Join-Path $root 'vt-e'), '-Demit-lib-vt', '-Doptimize=ReleaseFast', '-Dtarget=aarch64-windows-msvc', '-Dcpu=baseline')
           foreach ($version in '0.15.2', '0.14.1') {
-              Run-Case "zig $version build, as build-windows.ps1 (source needs 0.16.0)" $zigs[$version] $source (@('build', '--cache-dir', (Join-Path $root "cache-f-$version"), '--prefix', (Join-Path $root "vt-f-$version")) + $common)
+              Run-Case "zig $version build, as build-ghostty-windows.cs (source needs 0.16.0)" $zigs[$version] $source (@('build', '--cache-dir', (Join-Path $root "cache-f-$version"), '--prefix', (Join-Path $root "vt-f-$version")) + $common)
           }
           # Link the DLL from whichever prefix was produced, with each working Zig.
           foreach ($prefix in Get-ChildItem $root -Directory -Filter 'vt-*' | Where-Object { Test-Path (Join-Path $_.FullName 'lib/ghostty-vt-static.lib') }) {

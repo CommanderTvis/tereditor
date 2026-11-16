@@ -16,7 +16,7 @@
     <!--
       Where this checkout's copies of the Ghostty.Avalonia native libraries go (the Android project reads them too). The
       pinned sources, Zig caches and content-keyed builds they are copied from live in the machine-wide cache
-      ($TEREDITOR_CACHE_DIR/ghostty-avalonia, see src/Ghostty.Avalonia/build-native.sh).
+      ($TEREDITOR_CACHE_DIR/ghostty-avalonia, see scripts/build-ghostty-macos.cs).
     -->
     <GhosttyNativeCache>$(MSBuildThisFileDirectory)src/Ghostty.Avalonia/obj/native</GhosttyNativeCache>
     <!--

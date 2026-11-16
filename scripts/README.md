@@ -112,17 +112,17 @@ checkout (there is no `.tools`): `TEREDITOR_CACHE_DIR` from `mise.toml`, `${XDG_
 | Entry | Contents | Key and concurrency |
 | --- | --- | --- |
 | `zig` (`ZIG_GLOBAL_CACHE_DIR`) | Zig's global package cache | content-addressed; Zig locks per entry |
-| `ghostty-avalonia` | pinned Ghostty sources, Zig caches, the patched macOS SDK copy; `results/<platform>-<library>-<key>` | key: hash of the build's fingerprint (pinned commits, Zig, sources, script); one `build.lock` |
+| `ghostty-avalonia` | pinned Ghostty sources, Zig caches, the patched macOS SDK copy; `results/<platform>-<library>-<key>` | key: hash of the build's fingerprint (pinned commits, Zig, sources, recipe); one `build.lock` |
 | `wasm-native` | patched libghostty-vt source, Zig cache; `results/<key>` | key: commit, patch, Zig, Emscripten SDK, sources; `build.lock` |
 | `tailscale-go` | `go<version>-<platform>`, Go's build and module caches | per pinned version, installed by rename under `install.lock`; Go locks its caches |
-| `tailscale-wasm` | the browser's Tailscale node, its sidecar, `wasm_exec.js`, licences and manifest; `<key>` | key: hash of go.mod, go.sum, the bridge and both scripts; `<key>.lock` |
+| `tailscale-wasm` | the browser's Tailscale node, its sidecar, `wasm_exec.js`, licences and manifest; `<key>` | key: hash of go.mod, go.sum, the bridge, the recipe and `lib/Tailscale.cs`; `<key>.lock` |
 | `headscale-test` | what `--headscale` runs | version-stamped download, files renamed into place under `headscale-test.lock` |
 | `browser-compression` | Brotli/gzip of browser assets | content hash; files written beside and renamed |
 | `playwright` (`PLAYWRIGHT_BROWSERS_PATH`) | Chromium for the browser checks | Playwright's own install lock |
 | `file-icons` | the pinned Material Icon Theme archive | version and checksum; renamed into place |
 | `lsp-validation`, `lsp-shared-cache`, `language-check` | opt-in language integration runs | repositories and managed servers |
 
-A native result is built in `<result>.partial` and published by rename (`scripts/native-cache.sh`); the recipe then
+A native result is built in `<result>.partial` and published by rename (`scripts/lib/Native.cs`); the recipe then
 copies it into the checkout's `obj` (Ghostty: `src/Ghostty.Avalonia/obj/native`, WASM: `src/Tereditor.Browser/obj/wasm-native`,
 Tailscale: `src/Tereditor.Android/obj/tailscale`, icons: `src/Tereditor.Plugins.UI.Kit/obj/file-icons`), where MSBuild's
 incremental targets see it. Results are keyed, so branches never overwrite each other's and a new worktree reuses one
@@ -130,19 +130,15 @@ instead of rebuilding; old results are not pruned (delete the directory to recla
 
 Native libraries are MSBuild targets in the project that owns them, with their sources, recipe and
 lockfile as inputs: `scripts/mise run build` (or any `dotnet build`) rebuilds a library only when one
-changed. The recipes (`build-merman.cs`, `build-notifications.cs`, `wasm-native.sh`, and the
-`build-native`, `build-android`, `build-linux` and `build-windows` scripts beside Ghostty) are run by those targets under
-`scripts/mise x --`, which supplies the pins in `[env]`; they are not entry points. They serialise on a directory lock taken through `scripts/lock.sh`, which records the owner's PID: a lock whose owner is gone (a killed build, a machine that slept) is removed instead of waited for, and a wait names the holder. macOS native builds
+changed. The recipes (`build-merman.cs`, `build-notifications.cs`, `wasm-native.cs` and the
+`build-ghostty-macos`, `build-ghostty-android`, `build-ghostty-linux` and `build-ghostty-windows` scripts) are run by those targets under
+`scripts/mise x --`, which supplies the pins in `[env]`; they are not entry points. They serialise on a directory lock taken through `Tasks.AcquireLock` (`scripts/lib/Tasks.cs`), which records the owner's PID: a lock whose owner is gone (a killed build, a machine that slept) is removed instead of waited for, and a wait names the holder. macOS native builds
 need clang, the Xcode command-line tools and, for libghostty, the Metal toolchain. The Linux libraries need only the pinned Zig, which
 cross-compiles them for `x86_64-linux-gnu` or `aarch64-linux-gnu` against glibc 2.31 from macOS or Linux alike.
 
-Still shell or PowerShell, each because a heavier toolchain driver or a sourced library depends on it:
-`lock.sh` and `native-cache.sh` are sourced function libraries of the shell recipes, and `fetch-git.sh`, `zig-deps.sh`
-and `windows-native.ps1` are called from them in the middle of a Zig build; `build-native.sh`, `build-linux.sh`,
-`build-android.sh`, `build-windows.ps1` and `wasm-native.sh` drive Zig, emscripten or the Android NDK and share those
-libraries; `tailscale-go.sh`, `build-tailscale-android.sh`, `build-tailscale-wasm.sh` and `build-headscale-test.sh`
-drive Go and share the same libraries; `headless-cloud-setup.sh` is pasted into a cloud environment before .NET exists (it downloads the nightly release's headless archive, or a dated `nightly-YYYY-MM-DD` one through `TEREDITOR_HEADLESS_URL_BASE`; `headless-cloud-setup.test.sh` tests it against a local `file://` release). They move together
-when the native toolchain drivers are ported.
+Still shell: `headless-cloud-setup.sh` is pasted into a cloud environment before .NET exists (it downloads the nightly release's headless archive, or a dated `nightly-YYYY-MM-DD` one through `TEREDITOR_HEADLESS_URL_BASE`; `headless-cloud-setup.test.sh` tests it against a local `file://` release).
+
+`lib/Native.cs` is the library the native recipes share: the cache root, result keys and atomic publishing, `FetchGit` (a source pinned by commit; archives are pinned by checksum in `mise.toml`) and `RestoreZigDeps`. `lib/Tailscale.cs` installs the pinned Go toolchain; `tailscale-go.cs` prints its GOROOT. Each recipe is a file-based app run with `dotnet run --file` under `scripts/mise x --`; a result's fingerprint hashes the recipe file, so editing one rebuilds its result.
 
 ### NuGet packages
 
@@ -166,7 +162,7 @@ NU1904) are warnings in builds, so a new advisory cannot break an unrelated buil
 job runs `scripts/mise run audit`, which restores with them as errors. To resolve one, bump the package and run
 `restore:update`.
 
-`zig-deps.sh` (and `Restore-ZigDeps` in `windows-native.ps1`) restores the Zig packages that Ghostty fetches from hosts other than
+`RestoreZigDeps` (`lib/Native.cs`) restores the Zig packages that Ghostty fetches from hosts other than
 github.com and deps.files.ghostty.org (the three Codeberg ones: zg, zig-wayland, translate-c) into Zig's global cache before every native Ghostty build, from a mirror archive
 pinned by SHA-256 in `zig-deps.lock`. The archive is a release asset of this repository (tag `zig-deps-<hash of the package list>`).
 Only absent packages are restored, so a warm cache needs no network; a missing or corrupt mirror falls back to the upstream URLs
@@ -174,7 +170,6 @@ and fails with the package and URL named if one is unreachable. After changing a
 on macOS (measures the packages from a real build into `.bench/zig-deps`), then publish the asset it prints a command for
 and commit the lock. the `--zig-deps` check mode fails when the lock is stale.
 
-`fetch-git.sh` checks out a source pinned by commit; archives are pinned by checksum in `mise.toml`.
 `browser-assets.cs` (the browser project's `StageBrowserAssets` target, rerun when `pnpm-lock.yaml`, the PDFium pin or a licence changes) stages the browser renderer assets, fonts and licenses into
 `src/Tereditor.Browser/wwwroot/vendor`.
 
@@ -304,7 +299,7 @@ A real authenticated Context smoke test remains a separate, user-authorized acti
 
 ### Android embedded Tailscale
 
-`sh scripts/build-tailscale-android.sh [arm64-v8a|x86_64]` builds the app-private
+`dotnet run --file scripts/build-tailscale-android.cs -- [arm64-v8a|x86_64]` builds the app-private
 userspace node using checksum-pinned Go and the checkout's Android NDK. It stages
 `libTereditorTailscale.so` and dependency licenses under `src/Tereditor.Android/obj/tailscale/<abi>`.
 The Android build invokes it for both packaged ABIs. The NDK is the one `scripts/tool android-ndk` prints. See the [bridge README](../src/Tereditor.Android/Tailscale.Native/README.md)
@@ -312,15 +307,14 @@ for its ABI and native tests; no system Go installation or separate Android VPN 
 
 ### Browser Tailscale node
 
-`sh scripts/build-tailscale-wasm.sh` (`scripts/mise run tailscale:wasm`) builds `src/Tereditor.Browser/Tailscale.Wasm` for
+`dotnet run --file scripts/build-tailscale-wasm.cs` (`scripts/mise run tailscale:wasm`) builds `src/Tereditor.Browser/Tailscale.Wasm` for
 js/wasm with the shared pinned Go and stages it under `src/Tereditor.Browser/obj/tailscale-wasm`; the browser build
-runs it and deploys the result under `tailscale/` in the AppBundle. It needs `node` (the browser toolchain) for the
-Brotli sidecar. See the [bridge README](../src/Tereditor.Browser/Tailscale.Wasm/README.md).
+runs it and deploys the result under `tailscale/` in the AppBundle. It writes the Brotli sidecar itself. See the [bridge README](../src/Tereditor.Browser/Tailscale.Wasm/README.md).
 
 ### Headscale connectivity check
 
-`sh scripts/build-headscale-test.sh` provisions what `--headscale` needs under `$TEREDITOR_CACHE_DIR/headscale-test`:
+`dotnet run --file scripts/build-headscale-test.cs` provisions what `--headscale` needs under `$TEREDITOR_CACHE_DIR/headscale-test`:
 the checksum-pinned Headscale v0.29.5 release for this platform (macOS or Linux, arm64 or x64), the
 `tsforward` userspace node and a desktop build of the embedded Tailscale library. The Go toolchain comes
-from `scripts/tailscale-go.sh`, which the Android build shares. Then
+from `scripts/tailscale-go.cs`, which the Android build shares. Then
 `dotnet run --project tests/Tereditor.Checks -c Release -- --headscale` runs the slow check.

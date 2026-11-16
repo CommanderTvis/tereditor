@@ -1500,7 +1500,7 @@ internal static class Program
         }
         if (args.SequenceEqual(["--headscale"]))
         {
-            // Opt-in and slow: never a gate case. Needs `sh scripts/build-headscale-test.sh`.
+            // Opt-in and slow: never a gate case. Needs `dotnet run --file scripts/build-headscale-test.cs`.
             try { HeadscaleChecks.Run(root).GetAwaiter().GetResult(); }
             finally { Directory.Delete(root, true); }
             return;

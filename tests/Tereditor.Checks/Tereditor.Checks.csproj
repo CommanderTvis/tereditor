@@ -20,6 +20,8 @@
     <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Avalonia.Headless" />
     <!-- The Android client builds only with the Android workload; its platform-free endpoint is checked here. -->
+    <!-- The directory lock of the native build recipes (scripts/lib/Tasks.cs), which the lock check runs. -->
+    <Compile Include="../../scripts/lib/Tasks.cs" Link="Scripts/Tasks.cs" />
     <Compile Include="../../src/Tereditor.Android/AndroidJson.cs" Link="Android/AndroidJson.cs" />
     <Compile Include="../../src/Tereditor.Android/EmbeddedTailscaleNetwork.cs" Link="Android/EmbeddedTailscaleNetwork.cs" />
     <Compile Include="../../src/Tereditor.Android/HostEndpoint.cs" Link="Android/HostEndpoint.cs" />

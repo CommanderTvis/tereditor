@@ -111,7 +111,7 @@ GHOSTTY_VT_COMMIT = "0fa3d577a5614150ff8e2c152de5fb9d5c6d2dec" # vt-1.0.0
 GHOSTTY_ZIG = "0.17.1"
 # The one root of tereditor's machine-wide build caches, shared by every checkout and worktree (never a repo-local
 # `.tools`): pinned sources, intermediate builds and content-keyed results of the native recipes, Playwright's
-# browsers, downloaded archives. Writers lock (scripts/lock.sh) or publish atomically by rename; scripts/README.md
+# browsers, downloaded archives. Writers lock (Tasks.AcquireLock in scripts/lib/Tasks.cs) or publish atomically by rename; scripts/README.md
 # lists the entries. MSBuild and the scripts fall back to the same path when run outside mise.
 TEREDITOR_CACHE_DIR = "{% if os() == 'windows' %}{{ get_env(name='LOCALAPPDATA') }}\\tereditor\\cache{% else %}{{ get_env(name='XDG_CACHE_HOME', default=env.HOME ~ '/.cache') }}/tereditor{% endif %}"
 # Zig's global cache (fetched package sources, compiled helpers) is content-addressed and locks per entry, so
@@ -199,7 +199,7 @@ run = "dotnet run --file scripts/tasks/zig-deps-mirror.cs --"
 [tasks."tailscale:wasm"]
 description = "Build the browser client's lazily downloaded Tailscale node (Go to WASM, cached in TEREDITOR_CACHE_DIR); the browser build runs it when its inputs change"
 env = { MISE_ENV = "browser" }
-run = "sh scripts/build-tailscale-wasm.sh"
+run = "dotnet run --file scripts/build-tailscale-wasm.cs"
 
 [tasks.dmg]
 description = "Pack artifacts/tereditor.app into a disk image (path argument optional)"

@@ -109,7 +109,7 @@
   <!-- The terminal state and Tailscale libraries, built with the checkout's NDK for each packaged ABI, and Merman's prebuilt one. -->
   <ItemGroup>
     <NativeAbi Include="arm64-v8a;x86_64" />
-    <AndroidNativeSource Include="../Ghostty.Avalonia/Native/GhosttyVt.c;../Ghostty.Avalonia/build-android.sh;../../scripts/build-tailscale-android.sh;Tailscale.Native/*.go;Tailscale.Native/go.mod;Tailscale.Native/go.sum;../../mise.lock;../../mise.android.lock" />
+    <AndroidNativeSource Include="../Ghostty.Avalonia/Native/GhosttyVt.c;../../scripts/build-ghostty-android.cs;../../scripts/build-tailscale-android.cs;../../scripts/lib/Tailscale.cs;../../scripts/lib/Native.cs;Tailscale.Native/*.go;Tailscale.Native/go.mod;Tailscale.Native/go.sum;../../mise.lock;../../mise.android.lock" />
     <!-- Outside a target, %(NativeAbi.Identity) is not batched: it stays literal text and the ABI cannot be read from the path (XA4301). -->
     <AndroidNativeLibrary Include="@(NativeAbi->'$(MSBuildProjectDirectory)/obj/tailscale/%(Identity)/libTereditorTailscale.so')" />
     <AndroidNativeLibrary Include="@(NativeAbi->'$(GhosttyNativeCache)/android/%(Identity)/libGhosttyAvaloniaVt.so')" />
@@ -124,8 +124,8 @@
   </ItemGroup>
   <Target Name="BuildNativeLibraries" BeforeTargets="BeforeBuild"
           Inputs="@(AndroidNativeSource)" Outputs="@(AndroidNativeLibrary)">
-    <Exec Command="$(MiseRun) sh &quot;$(MSBuildProjectDirectory)/../../scripts/build-tailscale-android.sh&quot; %(NativeAbi.Identity)" />
-    <Exec Command="$(MiseRun) sh &quot;$(MSBuildProjectDirectory)/../Ghostty.Avalonia/build-android.sh&quot; %(NativeAbi.Identity) &quot;$(GhosttyNativeCache)&quot;" />
+    <Exec Command="$(MiseRun) dotnet run --file &quot;$(MSBuildProjectDirectory)/../../scripts/build-tailscale-android.cs&quot; -- %(NativeAbi.Identity)" />
+    <Exec Command="$(MiseRun) dotnet run --file &quot;$(MSBuildProjectDirectory)/../../scripts/build-ghostty-android.cs&quot; -- %(NativeAbi.Identity) &quot;$(GhosttyNativeCache)&quot;" />
     <!-- stderr is dropped: a first run installs the tool and mise's progress lines would join the captured directory as extra items. -->
     <Exec Command="sh &quot;$(MSBuildProjectDirectory)/../../scripts/tool&quot; merman-android 2&gt;/dev/null" ConsoleToMSBuild="true" StandardOutputImportance="low">
       <Output TaskParameter="ConsoleOutput" PropertyName="MermanAndroidDirectory" />

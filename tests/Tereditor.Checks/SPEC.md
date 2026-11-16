@@ -663,7 +663,7 @@ write-through, reload, sign-out wipe) and the Cache Storage download with fake f
 versioning).
 
 `--headscale` is an opt-in slow mode (budget 170 seconds) and is never a gate case. It needs
-`sh scripts/build-headscale-test.sh`, which provisions under `.tools/headscale-test` the checksum-pinned
+`dotnet run --file scripts/build-headscale-test.cs`, which provisions under `$TEREDITOR_CACHE_DIR/headscale-test` the checksum-pinned
 Headscale release binary (a native macOS/Linux release, so no container or VM is involved), the
 `tsforward` userspace node (`src/Tereditor.Android/Tailscale.Native/cmd/tsforward`) and the desktop build of the
 embedded Tailscale library. Without them it prints a SKIP line and succeeds; `TEREDITOR_REQUIRE_HEADSCALE=1`

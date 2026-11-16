@@ -37,9 +37,9 @@ internal static class ZigDepsChecks
         Require(One("tag") == "zig-deps-" + ident, "The mirror tag does not match the package list; regenerate with scripts/mise run zig-deps:mirror.");
         foreach (var (file, marker) in new[]
         {
-            ("src/Ghostty.Avalonia/build-native.sh", "zig-deps.sh"),
-            ("src/Ghostty.Avalonia/build-linux.sh", "zig-deps.sh"), ("src/Ghostty.Avalonia/build-android.sh", "zig-deps.sh"),
-            ("scripts/wasm-native.sh", "zig-deps.sh"), ("src/Ghostty.Avalonia/build-windows.ps1", "Restore-ZigDeps")
+            ("scripts/build-ghostty-macos.cs", "RestoreZigDeps"),
+            ("scripts/build-ghostty-linux.cs", "RestoreZigDeps"), ("scripts/build-ghostty-android.cs", "RestoreZigDeps"),
+            ("scripts/wasm-native.cs", "RestoreZigDeps"), ("scripts/build-ghostty-windows.cs", "RestoreZigDeps")
         })
             Require(File.ReadAllText(Path.Combine(root, file)).Contains(marker), $"{file} does not restore the Zig dependency mirror.");
     }

@@ -70,7 +70,7 @@ static async Task WriteAtomic(string file, byte[] bytes)
 }
 
 // The machine-wide build cache every checkout shares: TEREDITOR_CACHE_DIR from mise.toml, else the same default, for
-// scripts that run outside mise. A root created here is excluded from Time Machine on macOS, as scripts/native-cache.sh does.
+// scripts that run outside mise. A root created here is excluded from Time Machine on macOS, as scripts/lib/Native.cs does.
 static string CacheDir(params string[] parts)
 {
     var root = Environment.GetEnvironmentVariable("TEREDITOR_CACHE_DIR") is { Length: > 0 } configured ? configured

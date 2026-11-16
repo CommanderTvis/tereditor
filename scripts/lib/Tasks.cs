@@ -12,7 +12,10 @@ sealed class TaskFailure(string message, int code = 1) : Exception(message)
 
 static class Tasks
 {
-    public static readonly string Root = FindRoot();
+    static string? root;
+
+    /// <summary>The repository root: the directory with global.json above the script (or the working directory), found on first use.</summary>
+    public static string Root => root ??= FindRoot();
 
     /// <summary>
     /// What the packages call the app and host binaries. The publish names them after their projects (Tereditor.UI,
@@ -260,7 +263,7 @@ static class Tasks
     }
 
     /// <summary>
-    /// Takes a directory lock the way scripts/lock.sh does (mkdir, the owner's PID in a pid file): a lock whose owner is gone
+    /// Takes a directory lock as the native build recipes need it (a directory, the owner's PID in a pid file): a lock whose owner is gone
     /// is removed instead of waited for, and a wait names the holder. Dispose releases it.
     /// </summary>
     public static IDisposable AcquireLock(string directory)
