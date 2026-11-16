@@ -183,7 +183,7 @@ with `TEREDITOR_TOOLS_ENABLE=spec,blueprint`, which sets it for those two in mem
 | `claude-code`, `codex`, `omp`, `pi`, `acp` | no | They launch an agent in a terminal or chat pane. Headless is the tool server an agent calls. |
 | `air-gateway` | no | It starts Claude Code and Codex through Air Gateway per launch. |
 | `air-context` | no | Sign-in and consent are user-only and the indexing is cloud processing. |
-| `providers` | no | It is a settings page for the API keys of Pi and omp. |
+| `providers` | no | It keeps API keys and custom providers on the host and offers them to agents. |
 | `github` | no | Pull request panels and a `gh` sign-in. |
 | `discord` | no | Rich Presence of a desktop session. |
 | `tailscale` | no | Pairs clients of a desktop host on a tailnet. |
