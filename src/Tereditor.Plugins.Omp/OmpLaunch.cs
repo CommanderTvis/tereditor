@@ -53,6 +53,15 @@ public static partial class OmpLaunch
         "openai-codex/gpt-5.3-codex:high", "openai/gpt-5.4", "google/gemini-3-pro"
     ];
 
+    private static IEnumerable<string> WithoutProfile(IReadOnlyList<string> arguments)
+    {
+        for (var index = 0; index < arguments.Count; index++)
+        {
+            if (arguments[index] == "--profile" && index + 1 < arguments.Count) { index++; continue; }
+            yield return arguments[index];
+        }
+    }
+
     public static string ShellQuote(string word) => SafeWord().IsMatch(word) ? word : "'" + word.Replace("'", "'\\''") + "'";
 
     public static string Executable(string command) => command.Trim() is { Length: > 0 } trimmed ? trimmed : "omp";
@@ -60,8 +69,13 @@ public static partial class OmpLaunch
     public static string Line(string command, OmpLaunchOptions options)
     {
         var executable = Executable(command);
-        var parts = new List<string> { options.Contributions.Count > 0 ? AgentLaunchComposition.Apply(executable, "omp", options.Contributions, options.Windows) : executable };
-        if (options.Mcp) parts.AddRange(["--profile", Profile]);
+        // A model source (Model providers) asks for the tereditor profile with --profile. That is a signal, not a word to place: the flag is written
+        // once below, so it stays when a custom command keeps the contributions from being applied.
+        var contributions = options.Contributions.Select(contribution => contribution.Arguments.Contains("--profile")
+            ? contribution with { Arguments = [.. WithoutProfile(contribution.Arguments)] } : contribution).ToArray();
+        var profile = options.Mcp || options.Contributions.Any(contribution => contribution.Arguments.Contains("--profile"));
+        var parts = new List<string> { contributions.Length > 0 ? AgentLaunchComposition.Apply(executable, "omp", contributions, options.Windows) : executable };
+        if (profile) parts.AddRange(["--profile", Profile]);
         // The per-launch session directory is expanded by the POSIX shell; Windows launches keep omp's default store.
         if (options.SessionDirectory is { Length: > 0 } directory) parts.AddRange(["--session-dir", ShellQuote(directory)]);
         else if (options.SessionId is { Length: > 0 } id && !options.Windows) parts.AddRange(["--session-dir", $"\"${SessionsVariable}/{id}\""]);

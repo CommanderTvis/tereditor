@@ -206,13 +206,20 @@ public sealed partial class OmpHost : PluginHostModule
         async ValueTask<string> RootOf(string workspaceId, CancellationToken cancellationToken) =>
             (await context.WorkspaceAsync(workspaceId, cancellationToken))?.Path ?? throw new InvalidOperationException($"Unknown workspace: {workspaceId}");
 
+        // omp starts in the tereditor profile when MCP is on, or when a model source contributes the profile to its launch.
+        bool UsesSource() => context.AgentLaunchContributions(OmpManifest.Id).Any(contribution => contribution.Arguments.Contains("--profile"));
+        bool UsesProfile() => settings().Mcp || UsesSource();
+
         string? wizardPrepared = null;
         void EnsureProfile()
         {
             var current = settings();
-            if (!current.Mcp) return;
-            try { WriteProfileMcp(HomeDirectory); }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { context.Log.Warn("omp profile MCP file was not written: " + error.Message); }
+            if (!current.Mcp && !UsesSource()) return;
+            if (current.Mcp)
+            {
+                try { WriteProfileMcp(HomeDirectory); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { context.Log.Warn("omp profile MCP file was not written: " + error.Message); }
+            }
             // Once per command per host run, in the background so a launch never waits on it.
             if (Interlocked.Exchange(ref wizardPrepared, current.Command) == current.Command) return;
             var home = Environment.GetEnvironmentVariable(HomeVariable) is { Length: > 0 } overridden ? overridden : null;
@@ -227,15 +234,17 @@ public sealed partial class OmpHost : PluginHostModule
         context.Method(OmpContract.Context, async (p, _, ct) =>
         {
             var root = await RootOf(p.WorkspaceId, ct);
-            return await Task.Run(() => OmpContext.Resolve(root, HomeDirectory, settings().Mcp), ct);
+            var profile = UsesProfile();
+            return await Task.Run(() => OmpContext.Resolve(root, HomeDirectory, profile), ct);
         });
         context.Method(OmpContract.CreateContextFile, async (p, _, ct) =>
         {
             var root = await RootOf(p.WorkspaceId, ct);
+            var profile = UsesProfile();
             return await Task.Run(() =>
             {
                 OmpContext.Create(root, p.Target);
-                return OmpContext.Resolve(root, HomeDirectory, settings().Mcp);
+                return OmpContext.Resolve(root, HomeDirectory, profile);
             }, ct);
         });
 

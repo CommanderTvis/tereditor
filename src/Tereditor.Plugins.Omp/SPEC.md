@@ -88,7 +88,7 @@ No real omp run backs them; the checks use a fixture `omp`.
   terminal glyph stands in until the asset is read, and a failed read is never remembered: it is retried (six
   attempts, a growing delay) and on the next glyph built, so no launcher icon keeps the stand-in permanently.
 
-Settings › omp also shows the Model source control from Model providers (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks an API omp takes. The choice is recorded by Model providers and does not change the launch yet. With that plugin off the page shows one hint line and nothing else changes. omp does not depend on Model providers; its manifest declares `agentRouting` (Anthropic, OpenAI Responses and OpenAI Chat through its models file).
+Settings › omp also shows the Model source control from Model providers (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks an API omp takes. With a provider chosen, Model providers writes `models.yml` in the `tereditor` profile with the key as a `!command` for the `provider-key` helper, and the launch line gets `--profile tereditor` (once, with or without MCP, also with a custom command; an agent launch contribution read as a signal). The profile's setup wizard switch is prepared as for MCP. The key is never in the line, and omp's credential database is never written. With none chosen or the plugin off, the line is the one omp builds itself. With that plugin off the page shows one hint line and nothing else changes. omp does not depend on Model providers; its manifest declares `agentRouting` (Anthropic, OpenAI Responses and OpenAI Chat through its models file).
 
 ## Not yet
 
@@ -98,7 +98,7 @@ context, and a settings editor for omp's `config.yml` are out of this basic inte
 
 ## Checks
 
-`--omp` (gate cases `omp-host`, `omp-ui`): launch argv for profile, session folder, model, approval mode, advisor and
+`--omp` (gate cases `omp-host`, `omp-ui`): launch argv for profile (also with a model source's contribution), session folder, model, approval mode, advisor and
 `--no-lsp` (and its omission), resume lines and Windows; context resolution with nested, cycle-safe, depth-limited
 imports, shadowing, ignored code/e-mail tokens and offers; the profile MCP file; the setup wizard switch (set once, not again, skipped when setupVersion > 0, failures and hangs tolerated); the version probe against a fixture
 `omp` and a missing one; zombie-safe detection; newest-session lookup; a governed launch run by a real shell against fake `omp` and `central` (proxy started, wire

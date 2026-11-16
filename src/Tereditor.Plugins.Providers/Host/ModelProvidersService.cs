@@ -10,9 +10,11 @@ internal sealed record ModelProviderState(Func<IReadOnlyList<ProviderDefinition>
 /// The merged list of model providers (bundled, contributed by plugins that depend on Model providers, and the user's own),
 /// their keys in the <see cref="ProviderKeyStore"/>, and the model source chosen for each agent. A report never carries a key.
 /// </summary>
-internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProviderState state)
+internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProviderState state, AgentModelFiles? files = null)
 {
     private readonly Lock gate = new();
+    // The agents whose models file is written now. Read by launches, so it is a snapshot swapped whole and never needs a lock or any I/O.
+    private volatile IReadOnlySet<string> active = new HashSet<string>();
     private readonly Dictionary<string, IReadOnlyList<ProviderDefinition>> contributed = new(StringComparer.Ordinal);
 
     // Agent kinds a custom provider may declare; Vertex and Bedrock need more than a URL and a key, so they come from their own plugins.
@@ -92,13 +94,25 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
         {
             if (p.AgentId.Length is 0 or > 64 || !ProviderCatalog.IsProviderId(p.AgentId)) throw new ArgumentException("An agent id uses lower case letters, digits, dots, dashes and underscores.");
             var rest = state.LoadSources().Where(choice => choice.AgentId != p.AgentId).ToList();
+            var written = false;
             if (p.ProviderId is { } id)
             {
                 var row = Rows().FirstOrDefault(candidate => candidate.Provider.Id == id) ?? throw new ArgumentException("No provider has that id.");
                 if (!row.Ready) throw new ArgumentException("Add a key for this provider first.");
-                rest.Add(new(p.AgentId, id));
+                // The file comes first: a source that could not be written is never recorded, so the agent keeps its own provider.
+                if (files is not null && AgentModelFiles.Handles(p.AgentId))
+                {
+                    files.Write(p.AgentId, row.Provider, p.Model);
+                    written = true;
+                }
+                rest.Add(new(p.AgentId, id) { Model = p.Model });
             }
             state.SaveSources(rest);
+            if (files is not null && AgentModelFiles.Handles(p.AgentId))
+            {
+                if (!written) files.Remove(p.AgentId);
+                SetActive(p.AgentId, written);
+            }
             return Build();
         }
     }
@@ -144,7 +158,72 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
         var ready = Rows().Where(row => row.Ready).Select(row => row.Provider.Id).ToHashSet(StringComparer.Ordinal);
         var sources = state.LoadSources();
         var kept = sources.Where(choice => ready.Contains(choice.ProviderId)).ToList();
-        if (kept.Count != sources.Count) state.SaveSources(kept);
+        if (kept.Count == sources.Count) return;
+        state.SaveSources(kept);
+        if (files is null) return;
+        foreach (var gone in sources.Where(choice => !kept.Contains(choice) && AgentModelFiles.Handles(choice.AgentId)))
+        {
+            files.Remove(gone.AgentId);
+            SetActive(gone.AgentId, false);
+        }
+    }
+
+    private void SetActive(string agentId, bool on)
+    {
+        var next = new HashSet<string>(active);
+        if (on) next.Add(agentId); else next.Remove(agentId);
+        active = next;
+    }
+
+    /// <summary>
+    /// Writes the models file of every agent with a chosen source, at startup, so a moved state directory or a changed helper path
+    /// is followed. A source whose file cannot be written, or whose key is gone, is dropped, so the agent keeps its own provider and the
+    /// recorded sources always match what launches use.
+    /// </summary>
+    public void Sync()
+    {
+        if (files is null) return;
+        lock (gate)
+        {
+            var rows = Rows();
+            var next = new HashSet<string>();
+            var all = state.LoadSources();
+            var kept = new List<ModelSourceChoice>();
+            foreach (var choice in all)
+            {
+                if (!AgentModelFiles.Handles(choice.AgentId)) { kept.Add(choice); continue; }
+                if (rows.FirstOrDefault(row => row.Provider.Id == choice.ProviderId) is { Ready: true } row)
+                {
+                    try
+                    {
+                        files.Write(choice.AgentId, row.Provider, choice.Model);
+                        next.Add(choice.AgentId);
+                        kept.Add(choice);
+                        continue;
+                    }
+                    catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException) { }
+                }
+                try { files.Remove(choice.AgentId); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+            }
+            if (kept.Count != all.Count) state.SaveSources(kept);
+            active = next;
+        }
+    }
+
+    /// <summary>
+    /// What an agent's launch takes from its chosen provider, or null when it has none or its file is not in place: Pi runs in the agent
+    /// directory that holds the models file, omp in its <c>tereditor</c> profile. Neither carries a key; the file asks the helper for it.
+    /// </summary>
+    public AgentLaunchContribution? Launch(string agentId)
+    {
+        if (files is null || !active.Contains(agentId)) return null;
+        return agentId switch
+        {
+            AgentModelFiles.Pi => new() { Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = files.PiAgentDirectory } },
+            AgentModelFiles.Omp => ProviderCatalog.OmpLaunch,
+            _ => null
+        };
     }
 
     private ModelProvidersReport Build() => new(Rows(), state.LoadSources());

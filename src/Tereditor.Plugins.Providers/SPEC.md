@@ -8,8 +8,8 @@ parent: group-plugins-agents
 
 # Model providers builtin
 
-Settings › Model providers lists the model providers the user can give to an agent, keeps their keys, and records which provider each
-agent uses. Enabled by default; not headless because the keys go into files of the host's operating system. Agents never depend on
+Settings › Model providers lists the model providers the user can give to an agent, keeps their keys, records which provider each
+agent uses, and starts Pi and omp with it. Enabled by default; not headless because the keys and the agents' models files are files of the host's operating system. Agents never depend on
 this plugin: each agent plugin declares what it accepts (`agentRouting` in its manifest, Plugin API) and works the same with this plugin
 off. This plugin is the optional side that matches providers to those declarations.
 
@@ -33,11 +33,11 @@ off. This plugin is the optional side that matches providers to those declaratio
 - The page has the groups JetBrains AI and Cloud platforms (each hidden, heading included, until a plugin fills it), Other routers and
   providers (the bundled rows and the user's own), and an Add a custom provider form: a name, a base URL, the API kinds it speaks and an
   optional key (none for a local endpoint). A custom provider is stored in this plugin's state without its key. A plain `http://` address is
-  accepted only on this computer. Below stays the page for the keys Pi and omp read from their own files.
+  accepted only on this computer. This is the only provider page: there is no per-agent key page.
 - The model source of an agent is recorded in this plugin's own state (`modelSources`), per agent plugin id: none (the default, tereditor
   does not step in) or a ready provider, that is one with a key stored or none needed. Removing a key, a custom provider or a contributor
   drops the choices that used it. Each agent settings page embeds the slot (`core:model-source:<id>`): a list of the agent's own provider
-  and the ready providers the agent is offered. For now the choice is only recorded; it does not change how an agent starts.
+  and the ready providers the agent is offered. For Pi and omp the choice is live (see Launch seams); for the other agents it is only recorded for now.
 
 ## Key store
 
@@ -51,31 +51,35 @@ off. This plugin is the optional side that matches providers to those declaratio
   Pi and omp `!command`. A real key is never put into an argument, an environment variable, a wrapper, a revive line, host state, a log,
   a settings file or a report.
 
-## Acceptance contract (keys for Pi and omp)
+## Launch seams (Pi and omp)
 
-- Keys only. No subscription or OAuth sign-in is offered or started. In particular Anthropic is offered by API key (Claude Console) with the
-  note that a Claude subscription sign-in is not supported here (JetBrains/thinkrail#437). A Claude sign-in Pi already stored is shown as signed in
-  with a warning; adding an API key replaces it only when the user does so.
-- Pi: `auth.json` in the agent directory (`PI_CODING_AGENT_DIR`, else `~/.pi/agent`): `{"<provider id>": {"type": "api_key", "key": "..."}}`.
-  Other entries, including sign-ins, are kept as they are. The catalog is the table in Pi's `docs/providers.md`.
-- omp: `<omp home>/.omp/profiles/tereditor/agent/.env` (`TEREDITOR_OMP_HOME` moves the home, as for the omp plugin), one `NAME=value` line per
-  provider variable (https://omp.sh/docs/env); omp reads it for launches with tereditor's profile. Only the named variable's line is replaced or
-  removed; other lines and comments stay. omp's own credential database is never written. The catalog is the variable table on that page.
-- A provider the catalog does not list is added by hand with an id, an optional name and, for omp (and optionally Pi), the variable that holds its
-  key. Custom providers are remembered in the plugin's state without their keys; removing the key forgets the provider.
-- A key is validated (one line, not empty), written once and never read back: a report carries ids, names, variables and where each credential
-  comes from (stored key, sign-in, the host's environment), never a key. Files are rewritten whole through a temporary file readable by the owner
-  only, then moved over the original. Keys are not logged.
-- The page is open whatever plugins are on: Pi is always offered, and omp is offered unless its plugin is refused (a host without omp, such as a browser tab). A missing program does not hide an agent. The page follows the agent roster's change notification (Plugin API, `AgentRoster`). The Pi / omp switch shows whenever omp is offered; where omp is refused, Pi is the only agent and there is no switch. The page has a Pi / omp switch, the file the keys live in, Connected rows (Replace key, Remove), Available rows (Add key) and the custom form;
-  keys are typed into masked fields and cleared as soon as they are sent. Reads and writes run off the UI thread on the host.
+- A chosen source writes the agent's models file first; a source whose file cannot be written is not recorded. The file names the provider's
+  endpoint and gives the key as a `!command` that runs the `provider-key` helper with the provider id, quoted for the host's shell. No key is
+  ever in a models file, an argument, an environment variable, a launch line, host state or a log. The files are rewritten at startup, and
+  removed when the source is cleared or its provider or key goes. Reads and writes run off the UI thread on the host.
+- The API used is the one both sides declare. A provider an agent knows by id keeps its own API and only gets the endpoint and the key (Pi: Anthropic,
+  OpenAI, OpenRouter, DeepSeek, Mistral, Groq, xAI, Cerebras, Fireworks; omp: those and Together). Any other provider, custom ones included, is written
+  as a generic entry of the agent's own adapter (OpenAI Chat, else OpenAI Responses, else Anthropic Messages) with a model list: the provider's
+  `models`, else the model given with the source, else `default`. Clearing an omp source removes `models.yml` only when it starts with the
+  tereditor marker line. A provider that needs no key is written without a helper (Pi `apiKey: "none"`, omp `auth: none`). At startup a source whose provider or key is gone, or whose file cannot be written, is
+  dropped, so the recorded sources always match what launches use.
+- Pi: `<state>/providers/pi/agent/models.json`. Pi runs with `PI_CODING_AGENT_DIR` set to that directory, so its sessions live there too
+  and its own sign-in is not read. tereditor never creates or changes `auth.json`. Pi's own files stay as they are.
+- omp: `<omp home>/.omp/profiles/tereditor/agent/models.yml` (`TEREDITOR_OMP_HOME` moves the home, as for the omp plugin). omp starts with
+  `--profile tereditor`, with or without MCP. omp's own credential database is never written.
+- Both are delivered as an agent launch contribution (Plugin API `AgentLaunch`): Pi gets only the `PI_CODING_AGENT_DIR` variable, omp only
+  the `--profile tereditor` argument, which the omp plugin reads as a signal and writes once itself, so a custom command keeps the profile. The UI half contributes
+  the same omp profile from the sources its pages last showed, because the launcher builds its line there. The contributor reads an in-memory snapshot. With this plugin off, or no source chosen, no contribution
+  exists and each launch is byte-identical to what the agent builds itself.
 
 ## Checks
 
-`--providers` (gate case `providers`): the manifest; Pi: sign-in preserved and flagged for Anthropic, keys added, replaced and removed without
-leaking into a report, owner-only permissions, custom providers; omp: the `.env` line replaced or removed with other lines kept, quoting, catalog
-variables, custom variables and their validation. Also what each agent declares and that none depends on this plugin, matching including the
+`--providers` (gate case `providers`): the manifest; what each agent declares and that none depends on this plugin, matching including the
 sign-in policy, the key store (0600 and 0700, atomic, a sentinel key found only in its own file), the helper's output and refusals, custom providers
-(validation, add, remove), contributions, the recorded model source and the wire contract. `--providers-ui` (gate case `providers-ui`) mounts the
-page and the slot headless: the three groups, a group shown only once a component fills it, adding a key and a custom provider without showing the
-key, the slot's choice filtered by each agent's declaration and recorded, and the slot with this plugin off being only the hint. `--case
-agent-launch-contributions` checks that with no contribution each agent's launch line is unchanged.
+(validation, add, remove), contributions, the recorded model source and the wire contract (version 3, no per-agent key-file methods). The
+launch seams: the models files of Pi and omp with a helper command and no key (the command run by a shell prints the key), Pi's directory holding
+no `auth.json`, the contributions carrying no key, the omp line unchanged without a source and with one profile flag with it, custom and keyless
+providers, and startup, clearing and removal. `--providers-ui` (gate case `providers-ui`) mounts the page and the slot headless: the three
+groups (shown only once a component fills one), a contributed component, adding a key and a custom provider without showing the key, the slot's choice filtered by each
+agent's declaration and recorded, and the slot with this plugin off being only the hint. `--pi` checks that a contributed variable reaches the Pi
+child's environment. `--case agent-launch-contributions` checks that with no contribution each agent's launch line is unchanged.

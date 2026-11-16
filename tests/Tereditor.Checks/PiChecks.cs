@@ -90,6 +90,7 @@ internal static class PiChecks
             #!/bin/sh
             if [ "$1" = "--version" ]; then echo "0.99.1"; exit 0; fi
             printf '%s\n' "$@" > "$(dirname "$0")/argv.txt"
+            printf '%s' "$PI_CODING_AGENT_DIR" > "$(dirname "$0")/agentdir.txt"
             while IFS= read -r line; do
               id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
               case "$line" in
@@ -123,7 +124,7 @@ internal static class PiChecks
         var pushes = new List<ChatPush>();
         var remembered = new List<string?>();
         await using var session = new PiChatSession("ws", "chat1", push => { lock (pushes) pushes.Add(push); }, _ => { }, (_, file) => remembered.Add(file));
-        var spawn = new PiSpawn(fake, directory) { Model = "fake/m1", Thinking = "high" };
+        var spawn = new PiSpawn(fake, directory) { Model = "fake/m1", Thinking = "high", Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = Path.Combine(directory, "profile") } };
         Require(session.Begin(spawn) is { Status: ChatStatus.Starting, Cwd: { } cwd } && cwd == directory, "Begin reports a starting chat in its directory.");
         await session.StartAsync(spawn);
         await Until(() => session.Header.Status == ChatStatus.Idle, "The session starts, reads Pi's state and goes idle.");
@@ -131,6 +132,7 @@ internal static class PiChecks
         Require(header.Model == "fake/m1" && header.Effort == "high" && header.SessionId == "s1", "The header carries the model, thinking level and session id Pi reported.");
         Require(header.Models.Select(model => model.Id).SequenceEqual(["fake/m1", "fake/m2"]) && header.Models[0].Efforts.Count > 0 && header.Models[1].Efforts.Count == 0, "Models come from Pi, with thinking levels only for reasoning ones.");
         Require(header.Commands.Any(command => command.Name == "skill:x"), "Pi's commands feed the slash menu.");
+        Require(File.ReadAllText(Path.Combine(directory, "agentdir.txt")) == Path.Combine(directory, "profile"), "A model source's agent directory reaches the Pi child through its environment, never its arguments.");
         Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(4).SequenceEqual(["--mode", "rpc", "--model", "fake/m1"]), "Pi starts in RPC mode with the chosen model.");
 
         await session.SendAsync("hello pi", null);

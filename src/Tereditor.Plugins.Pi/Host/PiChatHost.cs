@@ -21,7 +21,21 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
 
     private readonly ConcurrentDictionary<(string, string), PiChatSession> sessions = new();
     private readonly Lock recordsGate = new();
-    private readonly Func<string> sessionsRoot = sessionsRoot ?? DefaultSessionsRoot;
+    private readonly Func<string> sessionsRoot = sessionsRoot ?? (() => ContributedEnvironment(context).GetValueOrDefault("PI_CODING_AGENT_DIR") is { } agent ? Path.Combine(agent, "sessions") : DefaultSessionsRoot());
+
+    /// <summary>
+    /// The variables other plugins' launch contributions set for Pi, such as the agent directory of a chosen model source. Only plain
+    /// variable names are taken, and never one under the <c>TEREDITOR_</c> prefix, the same rule a launch line follows.
+    /// </summary>
+    private static IReadOnlyDictionary<string, string> ContributedEnvironment(IPluginHostContext context)
+    {
+        var taken = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (name, value) in context.AgentLaunchContributions(PiManifest.Id).SelectMany(contribution => contribution.Environment))
+            if (name.Length > 0 && (char.IsAsciiLetter(name[0]) || name[0] == '_') && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')
+                && !name.StartsWith("TEREDITOR_", StringComparison.Ordinal) && !name.StartsWith("THINKRAIL_", StringComparison.Ordinal))
+                taken.TryAdd(name, value);
+        return taken;
+    }
 
     /// <summary>Pi's session store: <c>~/.pi/agent/sessions</c>, or <c>PI_CODING_AGENT_DIR/sessions</c> when that is set.</summary>
     public static string DefaultSessionsRoot() =>
@@ -113,7 +127,8 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         {
             Model = p.Model ?? (settings.Model.Length > 0 ? settings.Model : null),
             Thinking = p.Effort ?? (settings.Thinking.Length > 0 ? settings.Thinking : null),
-            Session = resume is not null && File.Exists(resume) ? resume : null
+            Session = resume is not null && File.Exists(resume) ? resume : null,
+            Environment = ContributedEnvironment(context)
         };
         var session = existing ?? sessions.AddOrUpdate((p.WorkspaceId, p.ChatId),
             _ => new PiChatSession(p.WorkspaceId, p.ChatId, Publish, message => context.Log.Warn(message), (chat, file) => SaveSessionFile(p.WorkspaceId, chat, file)),

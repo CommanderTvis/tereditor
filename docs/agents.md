@@ -147,8 +147,9 @@ Any agent that speaks the [Agent Client Protocol](https://agentclientprotocol.co
 
 ## Model providers
 
-Settings › Model providers adds the API keys of Pi's and omp's providers, in the file each of them reads (Pi's `auth.json`,
-omp's `tereditor` profile `.env`). You can add a provider that is not listed. Keys are never shown again after they are saved,
+Settings › Model providers is the one place for provider keys. Add a key for a listed provider, or add one that is not listed.
+Then choose it as the model source on an agent's settings page. Pi and omp start with that provider: tereditor writes their models
+file and they ask a small helper for the key, so a key is never on a command line. Keys are never shown again after they are saved,
 and a Claude subscription sign-in is not offered: Anthropic takes an API key from the Claude Console.
 
 ## Air Gateway
