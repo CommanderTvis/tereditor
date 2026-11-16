@@ -343,6 +343,7 @@
           "Tereditor.Plugins.Lsp.Swift": "[1.0.0, )",
           "Tereditor.Plugins.Lsp.TypeScript": "[1.0.0, )",
           "Tereditor.Plugins.Omp.Host": "[1.0.0, )",
+          "Tereditor.Plugins.OpenAi": "[1.0.0, )",
           "Tereditor.Plugins.Pi.Host": "[1.0.0, )",
           "Tereditor.Plugins.Processes.Host": "[1.0.0, )",
           "Tereditor.Plugins.Providers.Host": "[1.0.0, )",
@@ -870,6 +871,23 @@
           "Avalonia": "[12.1.6, )",
           "Tereditor.Plugins.Api.UI": "[1.0.0, )",
           "Tereditor.Plugins.Omp": "[1.0.0, )",
+          "Tereditor.Plugins.UI.Kit": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.openai": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.openai.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.6, )",
+          "Tereditor.Plugins.Api.UI": "[1.0.0, )",
+          "Tereditor.Plugins.OpenAi": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )",
           "Tereditor.Plugins.UI.Kit": "[1.0.0, )"
         }
       },

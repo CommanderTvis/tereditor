@@ -147,10 +147,13 @@ Any agent that speaks the [Agent Client Protocol](https://agentclientprotocol.co
 
 ## Model providers
 
-Settings › Model providers is the one place for provider keys. Add a key for a listed provider, or add one that is not listed.
-Then choose it as the model source on an agent's settings page. Pi and omp start with that provider: tereditor writes their models
-file and they ask a small helper for the key, so a key is never on a command line. Keys are never shown again after they are saved,
+Settings › Plugins › Model providers is the one place for provider keys. Add a key for a listed provider, or add one that is not listed.
+Then choose it as the model source on an agent's settings page. Pi, omp and Codex start with that provider: tereditor writes Pi's and omp's models
+files and they ask a small helper for the key, and Codex runs the same helper itself, so a key is never on a command line. Keys are never shown again after they are saved,
 and a Claude subscription sign-in is not offered: Anthropic takes an API key from the Claude Console.
+
+The OpenAI plugin adds an OpenAI row there: paste an API key, or press Sign in to run `codex login` in a terminal. Choose a
+Model source on the Codex page to start Codex through a provider; Codex reads the key itself and it never appears in the launch line.
 
 ## Air Gateway
 

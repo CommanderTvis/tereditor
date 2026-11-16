@@ -19,7 +19,11 @@ public sealed record ModelSourceChoice(string AgentId, string ProviderId)
 }
 
 /// <summary>The merged provider list and the model source each agent has. It never carries a key.</summary>
-public sealed record ModelProvidersReport(IReadOnlyList<ModelProviderRow> Providers, IReadOnlyList<ModelSourceChoice> Sources);
+public sealed record ModelProvidersReport(IReadOnlyList<ModelProviderRow> Providers, IReadOnlyList<ModelSourceChoice> Sources)
+{
+    /// <summary>Where the <c>provider-key</c> helper lives on the host: the program an agent runs to read a key. A path, never a key.</summary>
+    public string? Helper { get; init; }
+}
 
 public sealed record ModelProvidersParams;
 
@@ -62,8 +66,11 @@ public static class ProvidersContract
     public static readonly PluginMethod<ProviderContribution, ProvidersAck> Contribute = new("contribute");
     public static readonly PluginMethod<WithdrawParams, ProvidersAck> Withdraw = new("withdraw");
 
+    /// <summary>The merged list and the model sources, pushed after every change. The launch contribution and dependent plugins read it.</summary>
+    public static readonly PluginChannel<ModelProvidersReport> ModelsChanged = PluginChannel<ModelProvidersReport>.State("models", Models);
+
     public static readonly PluginContract Contract = PluginContract.Create<ProvidersSettings>(ProvidersManifest.Id, WireVersion,
-        [Models, SaveModelKey, RemoveModelKey, AddCustomProvider, RemoveCustomProvider, SetModelSource, Contribute, Withdraw], [], ProvidersJson.Default);
+        [Models, SaveModelKey, RemoveModelKey, AddCustomProvider, RemoveCustomProvider, SetModelSource, Contribute, Withdraw], [ModelsChanged], ProvidersJson.Default);
 }
 
 public sealed record ProvidersSettings;

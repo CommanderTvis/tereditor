@@ -390,6 +390,13 @@
           "Tereditor.Plugins.Omp": "[1.0.0, )"
         }
       },
+      "tereditor.plugins.openai": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.pi": {
         "type": "Project",
         "dependencies": {

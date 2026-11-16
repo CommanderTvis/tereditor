@@ -8,8 +8,8 @@ parent: group-plugins-agents
 
 # Model providers builtin
 
-Settings › Model providers lists the model providers the user can give to an agent, keeps their keys, records which provider each
-agent uses, and starts Pi and omp with it. Enabled by default; not headless because the keys and the agents' models files are files of the host's operating system. Agents never depend on
+Settings › Plugins › Model providers lists the model providers the user can give to an agent, keeps their keys, records which provider each
+agent uses, and starts Pi, omp and Codex with it. Its page is a plugin page, nested under Settings › Plugins like every other plugin's. Enabled by default; not headless because the keys and the agents' models files are files of the host's operating system. Agents never depend on
 this plugin: each agent plugin declares what it accepts (`agentRouting` in its manifest, Plugin API) and works the same with this plugin
 off. This plugin is the optional side that matches providers to those declarations.
 
@@ -37,7 +37,14 @@ off. This plugin is the optional side that matches providers to those declaratio
 - The model source of an agent is recorded in this plugin's own state (`modelSources`), per agent plugin id: none (the default, tereditor
   does not step in) or a ready provider, that is one with a key stored or none needed. Removing a key, a custom provider or a contributor
   drops the choices that used it. Each agent settings page embeds the slot (`core:model-source:<id>`): a list of the agent's own provider
-  and the ready providers the agent is offered. For Pi and omp the choice is live (see Launch seams); for the other agents it is only recorded for now.
+  and the ready providers the agent is offered. For Pi and omp the choice is live (see Launch seams), and for Codex too (Codex launch seam below); for the other agents it is only recorded for now.
+
+## Codex launch seam
+
+- Providers contributes to Codex launches in both halves (`AgentLaunch`), for launcher `codex` only; every other launcher gets nothing. Each half reads the latest merged report from memory. The host pushes it on the `models` channel after every change (wire version 3), so a launch never reads a file. The report carries the path of the `provider-key` helper, never a key.
+- With no source chosen for Codex, with no report yet, or with Model providers off, the contribution is absent and the Codex line is byte-identical to today (`--agent-launch-contributions` pins it).
+- With a source chosen the contribution adds arguments (a TOML literal string each, so Windows quoting keeps them): `-c model_provider='tereditor-<id>'`, and under `model_providers.tereditor-<id>` the `name`, `base_url` (the provider's OpenAI Responses API), `wire_api='responses'` and, for a provider that needs a key, `auth.command` (the helper) and `auth.args=['<id>']`. The `tereditor-` prefix keeps clear of Codex's built-in provider ids. The key stays in the key store; Codex runs the helper itself. A name or address Codex cannot take, a source that is not ready, or a missing helper blocks the Codex launch with a reason, so it never starts on another account.
+- A launch that starts before the first report reaches a half is the agent's own.
 
 ## Key store
 
@@ -76,7 +83,7 @@ off. This plugin is the optional side that matches providers to those declaratio
 
 `--providers` (gate case `providers`): the manifest; what each agent declares and that none depends on this plugin, matching including the
 sign-in policy, the key store (0600 and 0700, atomic, a sentinel key found only in its own file), the helper's output and refusals, custom providers
-(validation, add, remove), contributions, the recorded model source and the wire contract (version 3, no per-agent key-file methods). The
+(validation, add, remove), contributions, the recorded model source and the wire contract (version 3, the models channel, no per-agent key-file methods). `--providers-ui` also reads the four agent pages and requires Model source before every other setting. The
 launch seams: the models files of Pi and omp with a helper command and no key (the command run by a shell prints the key), Pi's directory holding
 no `auth.json`, the contributions carrying no key, the omp line unchanged without a source and with one profile flag with it, custom and keyless
 providers, and startup, clearing and removal. `--providers-ui` (gate case `providers-ui`) mounts the page and the slot headless: the three

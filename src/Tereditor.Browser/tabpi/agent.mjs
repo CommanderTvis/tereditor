@@ -299,7 +299,7 @@ export function createPi({ FS, gitRun, authPath, model: override, ...git }) {
             agent.abort();
             return respond(id, type, {});
           case 'prompt': {
-            if (!await choose()) throw new Error('No model is available. Add an API key in Settings › Model providers.');
+            if (!await choose()) throw new Error('No model is available. Add an API key in Settings › Plugins › Model providers.');
             if (agent.state.isStreaming) {
               agent.steer({ role: 'user', content: [{ type: 'text', text: command.message }], timestamp: Date.now() });
               return respond(id, type, {});

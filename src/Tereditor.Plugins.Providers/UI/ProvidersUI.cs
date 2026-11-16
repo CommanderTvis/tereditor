@@ -22,6 +22,10 @@ public sealed class ProvidersUI : PluginUIModule
         var agents = BuiltinAgents.Concat(context.Host().Roster.Where(entry => entry.AgentRouting is not null).Select(entry => entry.Id)).Distinct();
         foreach (var agent in agents)
             context.SlotSection(new(UiSlots.ModelSource(agent), _ => new ModelSourceView(context, agent, launch)));
-        return null;
+        // The Codex launch contribution reads the latest report from memory; the host pushes it after every change.
+        ModelProvidersReport? latest = null;
+        context.AgentLaunch(launcherId => ProviderLaunch.For(launcherId, Volatile.Read(ref latest)));
+        var subscription = context.Subscribe(ProvidersContract.ModelsChanged, report => Volatile.Write(ref latest, report), new ModelProvidersParams());
+        return subscription.Dispose;
     }
 }

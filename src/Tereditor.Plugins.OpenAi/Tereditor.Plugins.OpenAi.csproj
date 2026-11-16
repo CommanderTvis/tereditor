@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What the OpenAI plugin's UI half and the checks share: the manifest, the contract and the sign-in policy text. -->
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);UI/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Tereditor.Plugins.Api/Tereditor.Plugins.Api.csproj" />
+    <ProjectReference Include="../Tereditor.Plugins.Providers/Tereditor.Plugins.Providers.csproj" />
+  </ItemGroup>
+</Project>

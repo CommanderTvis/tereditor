@@ -698,7 +698,7 @@ public sealed partial class WorkbenchWindow : Window, IDialogOwner
             var open = Ui.Button("Open file", () => RevealFiles(), "fileText"); open.HorizontalAlignment = HorizontalAlignment.Center;
             empty.Children.Add(open);
             if (isDefault && workbench.PlaygroundGuide)
-                empty.Children.Add(Panels.PlaygroundGuide.Create(CloneProject, () => ShowSettings("Model providers"), url => OpenLink(url)));
+                empty.Children.Add(Panels.PlaygroundGuide.Create(CloneProject, () => ShowSettings(Tereditor.Plugins.Api.UI.UiPages.PluginSection("providers")), url => OpenLink(url)));
             return empty;
         }
         if (tab.IsTool)

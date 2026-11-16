@@ -27,6 +27,7 @@
     <ProjectReference Include="../Tereditor.Plugins.Omp/Host/Tereditor.Plugins.Omp.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Pi/Host/Tereditor.Plugins.Pi.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Acp/Host/Tereditor.Plugins.Acp.Host.csproj" />
+    <ProjectReference Include="../Tereditor.Plugins.OpenAi/Tereditor.Plugins.OpenAi.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Providers/Host/Tereditor.Plugins.Providers.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.AirGateway/Host/Tereditor.Plugins.AirGateway.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.AirContext/Host/Tereditor.Plugins.AirContext.Host.csproj" />

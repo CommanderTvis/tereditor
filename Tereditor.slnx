@@ -67,6 +67,8 @@
     <Project Path="src/Tereditor.Plugins.Pi/Tereditor.Plugins.Pi.csproj" />
     <Project Path="src/Tereditor.Plugins.Pi/Host/Tereditor.Plugins.Pi.Host.csproj" />
     <Project Path="src/Tereditor.Plugins.Pi/UI/Tereditor.Plugins.Pi.UI.csproj" />
+    <Project Path="src/Tereditor.Plugins.OpenAi/Tereditor.Plugins.OpenAi.csproj" />
+    <Project Path="src/Tereditor.Plugins.OpenAi/UI/Tereditor.Plugins.OpenAi.UI.csproj" />
     <Project Path="src/Tereditor.Plugins.Providers/Tereditor.Plugins.Providers.csproj" />
     <Project Path="src/Tereditor.Plugins.Providers/Host/Tereditor.Plugins.Providers.Host.csproj" />
     <Project Path="src/Tereditor.Plugins.Providers/UI/Tereditor.Plugins.Providers.UI.csproj" />

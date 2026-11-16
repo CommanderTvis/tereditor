@@ -226,5 +226,5 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
         };
     }
 
-    private ModelProvidersReport Build() => new(Rows(), state.LoadSources());
+    private ModelProvidersReport Build() => new(Rows(), state.LoadSources()) { Helper = keys.HelperPath };
 }

@@ -800,7 +800,7 @@ shows the sections plugins contribute to a slot, follows the registry, and shows
 settings page embeds `UiSlots.ModelSourceView(context, agentId)`, the slot `core:model-source:<agent id>` with a hint for when no
 plugin supplies model providers. The plugin that does (Model providers) contributes one section per agent. The agent never
 knows which plugin that is, and with none on, its page gains only the hint line; its settings, launch line and files are
-unchanged.
+unchanged. Model source is the first setting of every agent page, right below its heading; a new agent page puts it there.
 
 W23 has no counterpart in the fork. A slot section exists only while its plugin is enabled: core's `PluginSlot` follows the
 registry, so a disabled plugin leaves no section and no placeholder, and enabling adds it without reopening the page. Core

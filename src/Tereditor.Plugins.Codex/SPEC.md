@@ -283,7 +283,7 @@ Generated MCP flags use shell continuation lines below the canonical PTY input l
 The prompt file is composed from the template and the enabled plugins' tool guidance (H20) on activation and for every terminal the plugin
 starts, so a plugin turned off leaves nothing in it. The Air Context paragraph is the plugin's own.
 
-Settings › Codex also shows the Model source control from Model providers (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks the OpenAI Responses API. The choice is recorded by Model providers and does not change the launch yet. With that plugin off the page shows one hint line and nothing else changes. Codex does not depend on Model providers; its manifest declares `agentRouting` (OpenAI Responses through configuration overrides).
+Settings › Codex shows the Model source control from Model providers as its first setting, above everything else (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks the OpenAI Responses API. The choice is recorded by Model providers, which adds `-c model_provider` and `model_providers.tereditor-<id>.*` overrides to new Codex launches (its SPEC, Codex launch seam); the key is read by Codex through the `provider-key` helper, never put in a launch word. With that plugin off the page shows one hint line and nothing else changes. Codex does not depend on Model providers; its manifest declares `agentRouting` (OpenAI Responses through configuration overrides).
 
 ## Launch contributions
 

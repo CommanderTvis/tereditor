@@ -10,7 +10,7 @@ public static class ProvidersManifest
     public static readonly PluginManifest Manifest = new(Id, "Model providers", Icon, "0.1.0", PluginApi.Generation, ProvidersContract.WireVersion)
     {
         Category = PluginCategories.ModelProviders,
-        Description = "Keeps the API keys of model providers and lets Pi and omp use them without a key in any launch line.",
+        Description = "Keeps the API keys of model providers and lets agents use them without a key in any launch line.",
         Support = PluginSupportLevels.Early,
         EnabledByDefault = true,
         Headless = HeadlessSupport.No,

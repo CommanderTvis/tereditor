@@ -1443,6 +1443,14 @@ internal static class Program
             ProvidersUiChecks.Run(Path.Combine(root, "providers-ui-run"));
             return;
         }
+        if (args.SequenceEqual(["--openai"]))
+        {
+            AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
+            OpenAiChecks.Run(Path.Combine(root, "openai-run"));
+            Console.WriteLine("PASS openai checks");
+            return;
+        }
         if (args.SequenceEqual(["--providers"]))
         {
             ProvidersChecks.Run(root);
@@ -1616,6 +1624,7 @@ internal static class Program
         Gate.Case("number-box-centering", NumberBoxCenteringChecks.RunUi);
         Gate.Case("section-headers", () => SectionHeaderAlignmentChecks.RunUi(root));
         Gate.Case("air-gateway-ui", () => AirGatewayChecks.RunUi(root));
+        Gate.Case("openai", () => OpenAiChecks.Run(Path.Combine(root, "openai-run")));
         Gate.Case("providers-ui", () => ProvidersUiChecks.Run(Path.Combine(root, "providers-ui-run")));
         Gate.Case("language-limits-ui", () => LanguageLimitChecks.Ui(root));
         Gate.Case("intellij-license-ui", () => IntelliJLicenseChecks.Ui(root));

@@ -24,17 +24,27 @@ public sealed class ProvidersHost : PluginHostModule
             custom => context.WriteState("customProviders", custom.ToList()),
             () => context.ReadState<List<ModelSourceChoice>>("modelSources", []),
             sources => context.WriteState("modelSources", sources.ToList())), new AgentModelFiles(keys, root));
-        context.Method(ProvidersContract.Models, (_, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(models.Report, ct)));
-        context.Method(ProvidersContract.SaveModelKey, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.SaveKey(p), ct)));
-        context.Method(ProvidersContract.RemoveModelKey, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.RemoveKey(p), ct)));
-        context.Method(ProvidersContract.AddCustomProvider, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.AddCustom(p), ct)));
-        context.Method(ProvidersContract.RemoveCustomProvider, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.RemoveCustom(p), ct)));
-        context.Method(ProvidersContract.SetModelSource, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.SetSource(p), ct)));
-        context.Method(ProvidersContract.Contribute, (p, _, _) => ValueTask.FromResult(models.Contribute(p)));
-        context.Method(ProvidersContract.Withdraw, (p, _, ct) => new ValueTask<ProvidersAck>(Task.Run(() => models.Withdraw(p), ct)));
-        // The contributor reads a snapshot only; the files are written when a source is chosen and here, off the caller's thread.
+        // Every change is pushed, and the Codex launch contribution reads the latest report from memory: a launch never touches a file.
+        ModelProvidersReport? latest = null;
+        ModelProvidersReport Publish(ModelProvidersReport report)
+        {
+            Volatile.Write(ref latest, report);
+            context.Publish(ProvidersContract.ModelsChanged, report);
+            return report;
+        }
+        ValueTask<ModelProvidersReport> Report(Func<ModelProvidersReport> change, CancellationToken ct) => new(Task.Run(() => Publish(change()), ct));
+        context.Method(ProvidersContract.Models, (_, _, ct) => Report(models.Report, ct));
+        context.Method(ProvidersContract.SaveModelKey, (p, _, ct) => Report(() => models.SaveKey(p), ct));
+        context.Method(ProvidersContract.RemoveModelKey, (p, _, ct) => Report(() => models.RemoveKey(p), ct));
+        context.Method(ProvidersContract.AddCustomProvider, (p, _, ct) => Report(() => models.AddCustom(p), ct));
+        context.Method(ProvidersContract.RemoveCustomProvider, (p, _, ct) => Report(() => models.RemoveCustom(p), ct));
+        context.Method(ProvidersContract.SetModelSource, (p, _, ct) => Report(() => models.SetSource(p), ct));
+        context.Method(ProvidersContract.Contribute, (p, _, ct) => new ValueTask<ProvidersAck>(Task.Run(() => { var ack = models.Contribute(p); Publish(models.Report()); return ack; }, ct)));
+        context.Method(ProvidersContract.Withdraw, (p, _, ct) => new ValueTask<ProvidersAck>(Task.Run(() => { var ack = models.Withdraw(p); Publish(models.Report()); return ack; }, ct)));
+        // The contributors read a snapshot only: Pi and omp from the files written when a source is chosen and here, Codex from the latest report.
         context.AgentLaunch(models.Launch);
-        await Task.Run(models.Sync);
+        context.AgentLaunch(launcherId => ProviderLaunch.For(launcherId, Volatile.Read(ref latest)));
+        await Task.Run(() => { models.Sync(); Publish(models.Report()); });
         return null;
     }
 }
