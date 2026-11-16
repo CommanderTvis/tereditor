@@ -60,7 +60,7 @@ public sealed class IntelliJPlugin() : LanguageServerPlugin(Id)
         ConfigureInitialization = JvmInitialization.Configure,
         ExperimentalClientCapabilities = IntelliJLicensing.ClientCapabilities,
         AcceptsShowDocument = true,
-        OnMessage = IntelliJLicensing.OnMessage,
+        OnMessage = IntelliJMaven.OnMessage,
         ActionAsync = IntelliJLicensing.ActionAsync,
         PrimeWorkspaceAsync = (prime, cancellationToken) => Task.Run(() => IntelliJIndexPrimer.Prime(prime.SourceState, prime.TargetState, cancellationToken), cancellationToken),
         InitializeTimeout = TimeSpan.FromMinutes(15),

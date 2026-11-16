@@ -31,6 +31,10 @@ The build importer is the server's own: given `pom.xml` it runs the project's Ma
 `Using Maven: <checkout>/mvnw`), and given a Gradle build it uses the Gradle wrapper's pinned distribution through the
 Tooling API, so a project with a wrapper needs no `mvn` or `gradle` on PATH; one without a wrapper needs them there.
 
+Before a Maven import the plugin looks for Maven itself: `mvn` on PATH, `MAVEN_HOME`, `M2_HOME`, then the project's `mvnw`, and logs what it found (`Maven: Using <path> (<source>)`). When none exists the start fails with the error "Maven was not found, so this project cannot be imported. Install Maven and put mvn on PATH, set MAVEN_HOME, or add mvnw to the project.", raised from the initialization hook like its other configuration errors. No Maven is downloaded: a managed pinned Maven is not shipped.
+
+The server's own files (system path, index) already live in the session directory. Its `mavenPluginInstall-pom*.xml` files may still land in the workspace or a manifest's directory, where the true writer is not confirmed. The plugin therefore records those names when a Maven session starts and, on server messages (at most every 10 s), deletes only matching regular files that appeared afterwards; a file that existed before, a link or any other name stays. Check mode `--intellij-maven` covers discovery, the missing-Maven error and this guard.
+
 ## License and consent
 
 The server licenses itself over `jetbrains/licensing/*` requests and the `jetbrains/licensing/state` push (the client
