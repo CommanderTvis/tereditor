@@ -40,6 +40,12 @@ internal static class JvmInitialization
             foreach (var project in projects.OfType<JsonObject>())
                 if (project["type"]?.ToString() is "gradle" or "maven" && !project.ContainsKey("java-home")) project["java-home"] = jdk;
         }
+        if (IntelliJ.IntelliJMaven.Wanted(result, options.BuildTool, workspace))
+        {
+            IntelliJ.IntelliJMaven.Remember(workspace, start.Manifests);
+            if (IntelliJ.IntelliJMaven.Locate(workspace, Environment.GetEnvironmentVariable("PATH"), Environment.GetEnvironmentVariable("MAVEN_HOME"), Environment.GetEnvironmentVariable("M2_HOME")) is { } maven) start.Log("Maven", "Using " + maven.Path + " (" + maven.Source + ").");
+            else { IntelliJ.IntelliJMaven.Skip(result); start.Log("Maven", IntelliJ.IntelliJMaven.NotFound); }
+        }
         var used = options.ProjectJdk.Length == 0 && options.InitializationSupplied.Contains("defaultSdk")
             ? (Path: result["defaultSdk"]?.ToString() ?? "", Source: "workspace initialization defaultSdk")
             : start.ResolveProjectJdk(options.ProjectJdk);
