@@ -44,6 +44,15 @@ public sealed record AgentLaunchContribution
     /// reason and exits 1, so a governed launch never runs ungoverned. The other members are ignored while it is set.
     /// </summary>
     public string? BlockedReason { get; init; }
+
+    /// <summary>
+    /// Option words (<c>--settings</c>) that the agent's own command line must not contain for this contribution to apply; a word also matches as <c>--word=value</c>.
+    /// When one is there the launch is blocked with <see cref="ConflictReason"/>, as for <see cref="BlockedReason"/>.
+    /// </summary>
+    public IReadOnlyList<string> ConflictingArguments { get; init; } = [];
+
+    /// <summary>The short plain sentence for a launch blocked by <see cref="ConflictingArguments"/>.</summary>
+    public string? ConflictReason { get; init; }
 }
 
 /// <summary>
@@ -81,6 +90,19 @@ public static partial class AgentLaunchComposition
     public static string? Blocked(IReadOnlyList<AgentLaunchContribution> contributions) =>
         contributions.Select(contribution => contribution.BlockedReason).FirstOrDefault(reason => !string.IsNullOrWhiteSpace(reason));
 
+    /// <summary>
+    /// The reason of the first contribution whose <see cref="AgentLaunchContribution.ConflictingArguments"/> appear among
+    /// <paramref name="words"/> (the agent's own command line words), or <see langword="null"/> when none does.
+    /// </summary>
+    /// <param name="contributions">The contributions for one agent.</param>
+    /// <param name="words">The words of the agent's own command, after its executable.</param>
+    public static string? Conflict(IReadOnlyList<AgentLaunchContribution> contributions, IEnumerable<string> words)
+    {
+        var seen = words.Select(word => word.Trim('\'', '"')).ToArray();
+        return contributions.FirstOrDefault(contribution => contribution.ConflictingArguments.Any(option =>
+            seen.Any(word => word == option || word.StartsWith(option + "=", StringComparison.Ordinal))))?.ConflictReason is { Length: > 0 } reason ? reason : null;
+    }
+
     /// <summary>The line a blocked launch runs on a POSIX shell: it prints the reason to standard error and exits 1.</summary>
     /// <param name="reason">The blocked contribution's reason.</param>
     public static string BlockedCommand(string reason) =>
@@ -110,7 +132,7 @@ public static partial class AgentLaunchComposition
         if (contributions.Count == 0 || line.Length == 0) return commandLine;
         var end = WordEnd(line);
         if (end < 0 || Name(line[..end]) != executable) return commandLine;
-        if (Blocked(contributions) is { } reason) return windows ? BlockedWindowsCommand : BlockedCommand(reason);
+        if ((Blocked(contributions) ?? Conflict(contributions, line[end..].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))) is { } reason) return windows ? BlockedWindowsCommand : BlockedCommand(reason);
         var usable = contributions.Where(contribution => Quotable(contribution, windows)).ToArray();
         if (usable.Length == 0) return commandLine;
         var words = new List<string>();

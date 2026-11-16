@@ -15,6 +15,7 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
 
     public const string Pi = "pi";
     public const string Omp = "omp";
+    public const string ClaudeCode = ProviderLaunch.ClaudeAgent;
 
     // Providers an agent already knows by id, from the provider tables of Pi (docs/providers.md) and omp (https://omp.sh/docs/providers): the file only
     // redirects the endpoint and gives the key. Any other provider needs a list of models, which tereditor cannot write yet.
@@ -23,7 +24,7 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
 
     private static bool Known(string agentId, string id) => (agentId == Pi ? PiKnown : OmpKnown).Contains(id);
 
-    public static bool Handles(string agentId) => agentId is Pi or Omp;
+    public static bool Handles(string agentId) => agentId is Pi or Omp or ClaudeCode;
 
     /// <summary>The agent directory Pi runs with once a model source is chosen; it holds no other file than <c>models.json</c>.</summary>
     public string PiAgentDirectory => Path.Combine(stateRoot, "providers", "pi", "agent");
@@ -32,7 +33,10 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
         ompHome ?? (Environment.GetEnvironmentVariable("TEREDITOR_OMP_HOME") is { Length: > 0 } home ? home : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)),
         ".omp", "profiles", "tereditor", "agent");
 
-    public string PathOf(string agentId) => agentId == Pi ? Path.Combine(PiAgentDirectory, "models.json") : Path.Combine(OmpAgentDirectory, "models.yml");
+    /// <summary>The settings file Claude Code starts with (<c>--settings</c>); the same path <see cref="ProviderLaunch.ClaudeSettings"/> derives from the helper.</summary>
+    public string ClaudeSettingsPath => Path.Combine(stateRoot, "providers", ClaudeCode, "settings.json");
+
+    public string PathOf(string agentId) => agentId == ClaudeCode ? ClaudeSettingsPath : agentId == Pi ? Path.Combine(PiAgentDirectory, "models.json") : Path.Combine(OmpAgentDirectory, "models.yml");
 
     /// <summary>
     /// Writes the file for <paramref name="provider"/>. A provider the agent knows by id only gets its endpoint and key. Any other becomes a generic
@@ -40,6 +44,13 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
     /// </summary>
     public void Write(string agentId, ProviderDefinition provider, string? model = null)
     {
+        if (agentId == ClaudeCode)
+        {
+            var anthropic = ProviderLaunch.ClaudeApi(provider) ?? throw new ArgumentException("This agent cannot use that provider.");
+            ProviderKeyHelper.Ensure(keys.KeysDirectory, keys.BinDirectory);
+            PrivateFile.Write(ClaudeSettingsPath, ClaudeJson(provider, anthropic, KeyCommand(provider.Id)));
+            return;
+        }
         var known = Known(agentId, provider.Id);
         var api = Pick(provider, known) ?? throw new ArgumentException("This agent cannot use that provider.");
         ProviderKeyHelper.Ensure(keys.KeysDirectory, keys.BinDirectory);
@@ -52,7 +63,7 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
     {
         var path = PathOf(agentId);
         // omp's file lives in a profile the user may also edit: only a file this plugin wrote is removed.
-        if (File.Exists(path) && (agentId == Pi || File.ReadLines(path).FirstOrDefault() == Marker)) File.Delete(path);
+        if (File.Exists(path) && (agentId != Omp || File.ReadLines(path).FirstOrDefault() == Marker)) File.Delete(path);
     }
 
     /// <summary>The words a shell runs to print the key of <paramref name="id"/>: the helper and the id, quoted for the host's shell.</summary>
@@ -84,6 +95,14 @@ internal sealed class AgentModelFiles(ProviderKeyStore keys, string stateRoot, s
         if (models.Count > 0) text.Append(",\n      \"models\": [").Append(string.Join(", ", models.Select(id => "{ \"id\": " + Json(id) + " }"))).Append(']');
         return text.Append("\n    }\n  }\n}\n").ToString();
     }
+
+    /// <summary>
+    /// Claude Code's settings: <c>apiKeyHelper</c> is the helper command, never a key, and <c>env</c> gives the endpoint. A provider that needs
+    /// no key gets a placeholder bearer token, because Claude Code refuses to start without a credential.
+    /// </summary>
+    internal static string ClaudeJson(ProviderDefinition provider, ProviderApi api, string keyCommand) =>
+        "{\n" + (provider.NeedsKey ? "  \"apiKeyHelper\": " + Json(keyCommand) + ",\n" : "") +
+        "  \"env\": {\n    \"ANTHROPIC_BASE_URL\": " + Json(api.BaseUrl) + (provider.NeedsKey ? "" : ",\n    \"ANTHROPIC_AUTH_TOKEN\": \"none\"") + "\n  }\n}\n";
 
     internal static string OmpYaml(ProviderDefinition provider, ProviderApi api, string keyCommand, bool known, IReadOnlyList<string> models)
     {

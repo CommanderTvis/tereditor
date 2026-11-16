@@ -551,6 +551,11 @@ Tereditor.Plugins.Api.PluginPermissionAttribute.Condition.get -> string?
 Tereditor.Plugins.Api.PluginPermissionAttribute.Condition.init -> void
 Tereditor.Plugins.Api.AgentLaunchContribution.BlockedReason.get -> string?
 Tereditor.Plugins.Api.AgentLaunchContribution.BlockedReason.init -> void
+Tereditor.Plugins.Api.AgentLaunchContribution.ConflictingArguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Tereditor.Plugins.Api.AgentLaunchContribution.ConflictingArguments.init -> void
+Tereditor.Plugins.Api.AgentLaunchContribution.ConflictReason.get -> string?
+Tereditor.Plugins.Api.AgentLaunchContribution.ConflictReason.init -> void
+static Tereditor.Plugins.Api.AgentLaunchComposition.Conflict(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution!>! contributions, System.Collections.Generic.IEnumerable<string!>! words) -> string?
 const Tereditor.Plugins.Api.AgentLaunchComposition.BlockedWindowsCommand = "launcher-unavailable" -> string!
 static Tereditor.Plugins.Api.AgentLaunchComposition.Blocked(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution!>! contributions) -> string?
 static Tereditor.Plugins.Api.AgentLaunchComposition.BlockedCommand(string! reason) -> string!

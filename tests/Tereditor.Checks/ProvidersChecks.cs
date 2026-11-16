@@ -4,6 +4,7 @@ using System.Text.Json;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.ClaudeCode;
+using Tereditor.Plugins.ClaudeCode.UI;
 using Tereditor.Plugins.Codex;
 using Tereditor.Plugins.Omp;
 using Tereditor.Plugins.Pi;
@@ -90,6 +91,69 @@ internal static class ProvidersChecks
         Require(sources().All(choice => choice.AgentId != "codex"), "Removing the provider returns Codex to its own.");
     }
 
+    // The Claude Code seam: a chosen source writes a settings file with the helper command and the endpoint, and the launch gets only --settings.
+    private static void ClaudeSeam(ModelProvidersService service, ProviderKeyStore keys, AgentModelFiles files, string sentinel, Func<List<ModelSourceChoice>> sources)
+    {
+        var file = files.ClaudeSettingsPath;
+        Require(!File.Exists(file) && ProviderLaunch.For("claude", service.Report()) is null && ProviderLaunch.For("claude", null) is null, "With no source chosen Claude Code is untouched.");
+        var report = service.SetSource(new("claude-code", "openrouter"));
+        var text = File.ReadAllText(file);
+        var settings = JsonDocument.Parse(text).RootElement;
+        var helper = settings.GetProperty("apiKeyHelper").GetString()!;
+        Require(helper.Contains(keys.HelperPath, StringComparison.Ordinal) && helper.EndsWith("openrouter'", StringComparison.Ordinal) || OperatingSystem.IsWindows() && helper.EndsWith("openrouter\"", StringComparison.Ordinal), "The settings file runs the key helper for the provider.");
+        Require(settings.GetProperty("env").GetProperty("ANTHROPIC_BASE_URL").GetString() == "https://openrouter.ai/api" && !text.Contains(sentinel, StringComparison.Ordinal), "The settings file names the Anthropic endpoint and holds no key.");
+        if (!OperatingSystem.IsWindows())
+        {
+            Require((File.GetUnixFileMode(file) & (UnixFileMode.GroupRead | UnixFileMode.OtherRead)) == 0, "The settings file is owner-only.");
+            using var shell = Process.Start(new ProcessStartInfo("/bin/sh", ["-c", helper]) { RedirectStandardOutput = true, UseShellExecute = false })!;
+            var printed = shell.StandardOutput.ReadToEnd().Trim();
+            shell.WaitForExit();
+            Require(printed == sentinel, "The apiKeyHelper command prints the key when a shell runs it.");
+        }
+        var contribution = ProviderLaunch.For("claude", report) ?? throw new InvalidOperationException("providers: a chosen source contributes to the Claude Code launch.");
+        Require(contribution.BlockedReason is null && contribution.Arguments.SequenceEqual(["--settings", file]) && contribution.Wrapper.Count == 0 && contribution.Environment.Count == 0 && ProviderLaunch.ClaudeSettings(report.Helper) == file,
+            "The launch gets only --settings with the generated file, which both halves derive from the helper path.");
+        Require(!Flat(contribution).Contains(sentinel, StringComparison.Ordinal) && !JsonSerializer.Serialize(report).Contains(sentinel, StringComparison.Ordinal), "The key is in no launch word and no report.");
+        Require(new[] { "codex", "pi", "omp", "other" }.All(launcher => ProviderLaunch.For(launcher, report) is null), "Only Claude Code launches change.");
+        // The user's own variables and arguments stay; their own --settings blocks the launch, because two may not merge.
+        var line = ClaudeLaunch.SessionCommand("A=1 claude --model sonnet", "--model opus", false, false, contributions: [contribution]);
+        Require(line.Contains("A=1 claude --settings " + file + " --model sonnet", StringComparison.Ordinal) && line.Contains("--model opus", StringComparison.Ordinal), "The terminal line keeps the user's variable and arguments after the generated file: " + line);
+        foreach (var own in new[] { "A=1 claude --settings /mine.json", "claude --settings=/mine.json", "claude --settings '/my file.json'" })
+        {
+            var conflict = ClaudeLaunch.SessionCommand(own, "", false, false, contributions: [contribution]);
+            Require(conflict.Contains("launcher unavailable: The Claude command has its own --settings, so the model source cannot apply. Remove it or clear the source.", StringComparison.Ordinal) && !conflict.Contains("--settings " + file, StringComparison.Ordinal), "A --settings of the user's own blocks the launch: " + conflict);
+        }
+        Require(AgentLaunchComposition.Conflict([contribution], ["--model", "x"]) is null && AgentLaunchComposition.Conflict([contribution], ["--settings", "x"]) is { Length: > 0 }, "The chat's words are checked the same way.");
+        var seen = new ModelSourceLaunch();
+        seen.Update(report);
+        Require(seen.For("claude") is null, "The UI half's omp contribution does not answer for Claude Code.");
+
+        // A provider with no Anthropic API is not offered and cannot be chosen; a keyless one gets a placeholder and no helper; an unusable source blocks.
+        Throws(() => service.SetSource(new("claude-code", "mistral")), "A provider without an Anthropic API cannot be Claude Code's source.");
+        Require(sources().Single(choice => choice.AgentId == "claude-code").ProviderId == "openrouter", "A refused choice leaves the recorded source as it was.");
+        var local = service.AddCustom(new("Claude local", "http://localhost:4000", [ModelApiKinds.AnthropicMessages])).Providers.Single(row => row.Provider.Name == "Claude local");
+        report = service.SetSource(new("claude-code", local.Provider.Id));
+        var keyless = JsonDocument.Parse(File.ReadAllText(file)).RootElement;
+        Require(!keyless.TryGetProperty("apiKeyHelper", out _) && keyless.GetProperty("env").GetProperty("ANTHROPIC_AUTH_TOKEN").GetString() == "none" && keyless.GetProperty("env").GetProperty("ANTHROPIC_BASE_URL").GetString() == "http://localhost:4000",
+            "A provider that needs no key is written without a helper.");
+        var notReady = new ModelProvidersReport([local with { Ready = false }], [new("claude-code", local.Provider.Id)]) { Helper = keys.HelperPath };
+        var noApi = new ModelProvidersReport([new(BundledProviders.All.Single(provider => provider.Id == "mistral"), true)], [new("claude-code", "mistral")]) { Helper = keys.HelperPath };
+        var noHelper = new ModelProvidersReport(report.Providers, [new("claude-code", local.Provider.Id)]);
+        Require(new[] { notReady, noApi, noHelper }.All(blocked => ProviderLaunch.For("claude", blocked)?.BlockedReason is { Length: > 0 }), "A source Claude Code cannot use blocks the launch.");
+        Require(ClaudeLaunch.SessionCommand("claude", "", false, false, contributions: [ProviderLaunch.For("claude", notReady)!]).Contains("launcher unavailable", StringComparison.Ordinal), "A blocked Claude Code line prints the reason and exits.");
+
+        // Clearing the source, removing the provider and startup all keep the file in step.
+        service.SetSource(new("claude-code", null));
+        Require(!File.Exists(file) && ProviderLaunch.For("claude", service.Report()) is null, "Clearing the source removes the file and the launch change.");
+        service.SetSource(new("claude-code", "openrouter"));
+        File.Delete(file);
+        service.Sync();
+        Require(File.Exists(file), "Startup writes the file again.");
+        service.SetSource(new("claude-code", local.Provider.Id));
+        service.RemoveCustom(new(local.Provider.Id));
+        Require(!File.Exists(file) && sources().All(choice => choice.AgentId != "claude-code"), "Removing the provider drops the source and the file.");
+    }
+
     // The model source work: what each agent declares, which providers it is offered, the key store and its helper, custom providers and the recorded source.
     private static void Model(string root)
     {
@@ -109,6 +173,8 @@ internal static class ProvidersChecks
         Require(ProviderMatching.Offered(Routing("claude-code"), Bundled("anthropic")) && !ProviderMatching.Offered(Routing("claude-code"), Bundled("mistral")), "Claude Code is offered Anthropic, not a provider that only speaks OpenAI Chat.");
         Require(ProviderMatching.Offered(Routing("claude-code"), Bundled("openrouter")) && ProviderMatching.Offered(Routing("claude-code"), Bundled("deepseek")), "Claude Code is offered a router that also speaks the Anthropic API.");
         Require(ProviderMatching.Offered(Routing("codex"), Bundled("openai")) && !ProviderMatching.Offered(Routing("codex"), Bundled("anthropic")) && !ProviderMatching.Offered(Routing("codex"), Bundled("mistral")), "Codex is offered only Responses providers.");
+        Require(new[] { "anthropic", "openrouter", "deepseek", "xai" }.All(id => ProviderMatching.Offered(Routing("claude-code"), Bundled(id))) && !ProviderMatching.Offered(Routing("claude-code"), Bundled("mistral")) && !ProviderMatching.Offered(Routing("claude-code"), Bundled("openai")),
+            "Claude Code is offered only providers with an Anthropic-compatible API.");
         Require(ProviderMatching.Offered(Routing("pi"), Bundled("mistral")) && ProviderMatching.Offered(Routing("omp"), Bundled("mistral")), "Pi and omp take OpenAI Chat providers.");
         ProviderDefinition WithOAuth(string vendor, bool declared = true) => new("vendor-" + vendor, vendor, ProviderGroup.Other, [new(ModelApiKinds.OpenAiResponses, "https://example.test", [ModelAuthKind.OAuth])]) { OAuth = declared ? ProviderOAuthPolicy.For(vendor) : null };
         Require(ProviderMatching.Offers(Routing("pi"), WithOAuth(ProviderOAuthPolicy.OpenAi)) is [{ Auth: ModelAuthKind.OAuth }], "A sign-in is offered where the vendor allows it and the agent takes it.");
@@ -274,6 +340,8 @@ internal static class ProvidersChecks
         Require(seen.For("omp")!.Arguments.SequenceEqual(["--profile", "tereditor"]) && seen.For("pi") is null && seen.For("claude-code") is null, "The UI contributes omp's profile only while a source is chosen for omp.");
         seen.Update(new([], []));
         Require(seen.For("omp") is null, "The UI contribution goes with the source.");
+
+        ClaudeSeam(service, keys, files, Sentinel, () => sources);
 
         // A provider an agent knows by id keeps its own API; Pi refuses one it does not know (it needs a list of models), omp discovers the models.
         var knownPi = JsonDocument.Parse(AgentModelFiles.PiJson(BundledProviders.All.Single(provider => provider.Id == "openrouter") with { NeedsKey = false }, BundledProviders.All.Single(provider => provider.Id == "openrouter").Apis[0], "unused", known: true, []))
