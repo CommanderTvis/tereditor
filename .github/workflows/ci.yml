@@ -25,7 +25,16 @@ jobs:
           path: |
             ~/.local/share/mise
             ~/.cache/tereditor
+            !~/.cache/tereditor/ghostty-avalonia
+            !~/.cache/tereditor/zig
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/tereditor/ghostty-avalonia
+            ~/.cache/tereditor/zig
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
@@ -59,7 +68,16 @@ jobs:
           path: |
             ~/.local/share/mise
             ~/.cache/tereditor
+            !~/.cache/tereditor/ghostty-avalonia
+            !~/.cache/tereditor/zig
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/tereditor/ghostty-avalonia
+            ~/.cache/tereditor/zig
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
@@ -90,7 +108,16 @@ jobs:
           path: |
             ~\AppData\Local\mise
             ~\AppData\Local\tereditor\cache
+            !~\AppData\Local\tereditor\cache\ghostty-avalonia
+            !~\AppData\Local\tereditor\cache\zig
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~\AppData\Local\tereditor\cache\ghostty-avalonia
+            ~\AppData\Local\tereditor\cache\zig
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
           path: ~\.nuget\packages
@@ -124,7 +151,16 @@ jobs:
           path: |
             ~/.local/share/mise
             ~/.cache/tereditor
+            !~/.cache/tereditor/ghostty-avalonia
+            !~/.cache/tereditor/zig
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/tereditor/ghostty-avalonia
+            ~/.cache/tereditor/zig
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
@@ -157,7 +193,16 @@ jobs:
           path: |
             ~/.local/share/mise
             ~/.cache/tereditor
+            !~/.cache/tereditor/ghostty-avalonia
+            !~/.cache/tereditor/zig
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/tereditor/ghostty-avalonia
+            ~/.cache/tereditor/zig
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
@@ -189,7 +234,16 @@ jobs:
           path: |
             ~/.local/share/mise
             ~/.cache/tereditor
+            !~/.cache/tereditor/ghostty-avalonia
+            !~/.cache/tereditor/zig
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/tereditor/ghostty-avalonia
+            ~/.cache/tereditor/zig
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
