@@ -141,8 +141,7 @@ Still shell or PowerShell, each because a heavier toolchain driver or a sourced 
 and `windows-native.ps1` are called from them in the middle of a Zig build; `build-native.sh`, `build-linux.sh`,
 `build-android.sh`, `build-windows.ps1` and `wasm-native.sh` drive Zig, emscripten or the Android NDK and share those
 libraries; `tailscale-go.sh`, `build-tailscale-android.sh`, `build-tailscale-wasm.sh` and `build-headscale-test.sh`
-drive Go and share the same libraries; `aot-linux-cc.sh` is the C compiler wrapper ILCompiler runs, which must start
-without a .NET host; `headless-cloud-setup.sh` is pasted into a cloud environment before .NET exists (it downloads the nightly release's headless archive, or a dated `nightly-YYYY-MM-DD` one through `TEREDITOR_HEADLESS_URL_BASE`; `headless-cloud-setup.test.sh` tests it against a local `file://` release). They move together
+drive Go and share the same libraries; `headless-cloud-setup.sh` is pasted into a cloud environment before .NET exists (it downloads the nightly release's headless archive, or a dated `nightly-YYYY-MM-DD` one through `TEREDITOR_HEADLESS_URL_BASE`; `headless-cloud-setup.test.sh` tests it against a local `file://` release). They move together
 when the native toolchain drivers are ported.
 
 ### NuGet packages
@@ -231,11 +230,11 @@ Visual Studio's C++ build tools for the target architecture.
 `scripts\mise.cmd run check:packaged -- -RuntimeIdentifier <rid> --windows` runs the packaged Windows gate.
 
 `scripts/mise run package:linux [linux-arm64]` (on Linux of the same architecture; x64 by default) builds, publishes the
-NativeAOT client (linked by the pinned Zig against glibc 2.31, `scripts/aot-linux-cc.sh`) and the checks to `artifacts/linux` and packs the client into
+NativeAOT client (linked by the host's clang, so it needs a Linux host of the target architecture; CI uses Ubuntu 22.04, glibc 2.35) and the checks to `artifacts/linux` and packs the client into
 `artifacts/tereditor-linux-x64.AppImage` (`tereditor-linux-arm64.AppImage` for `linux-arm64`, with the aarch64 appimagetool and runtime): an `AppDir` (`AppRun`, a desktop file, the
 icon, the client under `usr/lib/tereditor`) written as a squashfs image behind the pinned type 2 runtime by the pinned appimagetool
 (`scripts/tool` installs both from checksummed releases). Neither FUSE nor a display is needed to build it. On another host
-`TEREDITOR_APPDIR_ONLY=1 scripts/mise run package:linux [linux-arm64]` publishes the Linux client (the natives cross-compile and the client cross-links with Zig) and stops at
+`TEREDITOR_APPDIR_ONLY=1 scripts/mise run package:linux [linux-arm64]` publishes the Linux client only on a Linux host of the same architecture, and stops at
 `artifacts/linux/AppDir`. `scripts/mise run check:packaged -- --linux` unpacks the image with the runtime's own
 `--appimage-extract` (the image for the host's architecture), stages the checks beside a copy of that payload and runs the Linux gate. See [docs/linux.md](../docs/linux.md).
 

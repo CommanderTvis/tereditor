@@ -38,7 +38,7 @@ WinGet adds no command alias, so launch `client\tereditor.exe` from the install 
 
 ## Linux
 
-Download the AppImage for x64 or ARM64. It needs glibc 2.31 or newer, an X11 or XWayland session and Git 2.36 or newer.
+Download the AppImage for x64 or ARM64. It needs glibc 2.35 or newer (Ubuntu 22.04 or newer), an X11 or XWayland session and Git 2.36 or newer.
 
 ```sh
 chmod +x tereditor-nightly-linux-x64.AppImage

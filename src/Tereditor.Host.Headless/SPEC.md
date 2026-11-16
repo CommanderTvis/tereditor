@@ -87,7 +87,7 @@ Built from `docker/headless/Dockerfile` by `.github/workflows/container.yml`, pu
 
 - Contents: the NativeAOT publish of this project (`NativeAot.props`: one native binary beside the `plugins` and `shell-integration` trees and the process-group helpers) on `dotnet/runtime-deps` (Ubuntu noble), with `git`, `ca-certificates` and `tzdata`.
 - Why runtime-deps: the native binary still loads libicu and libssl at run time, and the .NET SDK it installs for language servers needs those, libstdc++ and zlib. That base carries exactly this set.
-- Publish: always under `scripts/mise`, since Linux links with the pinned Zig against glibc 2.31, from a Linux or a macOS host.
+- Publish: always under `scripts/mise`, since Linux links with the host's clang, so Linux publishes run on a Linux host of their architecture (CI: Ubuntu 22.04).
 - User and paths: uid 1000, `HOME=/cache/home`, `WORKDIR /workspace`, `VOLUME /cache`.
 - Environment: `TEREDITOR_TOOLCHAINS=managed`, `TEREDITOR_MANAGED_CACHE=/cache/managed`, `TEREDITOR_STATE_DIR=/cache/state`, `TEREDITOR_ROOT=/workspace`, `DOTNET_NOLOGO=1`, `DOTNET_CLI_TELEMETRY_OPTOUT=1`, and git `safe.directory=*` through `GIT_CONFIG_*`.
 - Entry: `ENTRYPOINT ["tereditor-headless"]`, `CMD ["mcp"]`. No wrapper, so stdin and stdout are the process's own. Run with `-i --init`.

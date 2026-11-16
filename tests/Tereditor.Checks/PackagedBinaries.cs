@@ -62,7 +62,7 @@ internal static class PackagedBinaries
         await Relay(root, client is null ? Environment.ProcessPath! : Path.Combine(client, AppExecutable));
     }
 
-    /// <summary>The AppImages promise glibc 2.31: no ELF file in a Linux payload may need a glibc symbol version newer than that.</summary>
+    /// <summary>The Linux packages promise glibc 2.35: no ELF file in a Linux payload may need a glibc symbol version newer than that.</summary>
     private static void RequireGlibcFloor(string directory, string executable)
     {
         foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
@@ -72,7 +72,7 @@ internal static class PackagedBinaries
             var versions = System.Text.RegularExpressions.Regex.Matches(Encoding.Latin1.GetString(bytes), @"GLIBC_2\.(\d+)")
                 .Select(match => int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)).ToList();
             Require(versions.Count > 0 || Path.GetFileName(file) != executable, file + " names no glibc version.");
-            Require(versions.Count == 0 || versions.Max() <= 31, $"{file} needs GLIBC_2.{versions.Max()}, newer than the 2.31 the packages promise.");
+            Require(versions.Count == 0 || versions.Max() <= 35, $"{file} needs GLIBC_2.{versions.Max()}, newer than the 2.35 the packages promise.");
         }
     }
 

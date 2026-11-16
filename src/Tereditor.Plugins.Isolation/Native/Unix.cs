@@ -103,7 +103,7 @@ internal static unsafe class Unix
     [DllImport(Libc, EntryPoint = "posix_spawn_file_actions_adddup2")] internal static extern int FileActionsDup(nint actions, int fd, int target);
     [DllImport(Libc, EntryPoint = "posix_spawn_file_actions_addchdir_np")]
     internal static extern int FileActionsChdir(nint actions, [MarshalAs(UnmanagedType.LPUTF8Str)] string path);
-    // glibc 2.34 and later; the packages' glibc 2.31 baseline may lack it.
+    // glibc 2.34 and later; the packages' glibc 2.35 baseline has it.
     [DllImport(Libc, EntryPoint = "posix_spawn_file_actions_addclosefrom_np")] private static extern int FileActionsCloseFrom(nint actions, int from);
     [DllImport(Libc, EntryPoint = "posix_spawn")]
     internal static extern int Spawn(out int pid, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, nint actions, nint attributes,

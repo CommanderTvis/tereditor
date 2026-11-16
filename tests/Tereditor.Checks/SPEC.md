@@ -255,7 +255,7 @@ libraries. A changed or missing file, a managed assembly, a runtimeconfig or dep
 `TEREDITOR_PACKAGED_CLIENT` and `TEREDITOR_PACKAGED_HOST` name the shipped payloads and `TEREDITOR_PACKAGED_CHECKS`
 the checks' own publish. `PackagedBinaries` (in `--linux`, `--windows`, `--packaged` and the `packaged-binaries`
 case) requires each payload to be NativeAOT, on macOS and Linux with `System.GC.ConserveMemory` compiled in, and on
-Linux with no ELF file needing a glibc newer than 2.31. It requires each payload to carry what the checks' publish
+Linux with no ELF file needing a glibc newer than 2.35. It requires each payload to carry what the checks' publish
 has for it: the `plugins` (but the fixture plugin) and `shell-integration` trees and the process-group helpers, and
 for the app every native library but the JIT runtime's (the `runtimepack` entries of the checks' deps.json) and
 the `terminfo` tree, which a macOS bundle keeps in `Contents/Resources`. It starts the shipped remote host where

@@ -102,7 +102,7 @@ Every night also gets a dated release, such as [nightly-2026-11-15](https://gith
   winget install --id CommanderTvis.Tereditor --exact --source commandertvis --scope user
   ```
 
-- On Linux, download the AppImage for x64 or ARM64 (glibc 2.31+).
+- On Linux, download the AppImage for x64 or ARM64 (Ubuntu 22.04 or newer, glibc 2.35+).
 - On Android, install the APK, a client for a tereditor host on another machine ([Remote hosts and clients](docs/android.md)). It even works in Android's desktop mode, with the same layout as the macOS app.
 
 To build from source and run it, use one of these (or `mise run …` if you have mise):

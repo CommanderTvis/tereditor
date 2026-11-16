@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # The headless tereditor image: `tereditor-headless mcp` over stdio. The contract is in src/Tereditor.Host.Headless/SPEC.md.
 #
-# tereditor-headless is a NativeAOT binary (NativeAot.props). Linux links with the pinned Zig against glibc 2.31, so every
+# tereditor-headless is a NativeAOT binary (NativeAot.props). Linux links with the host's clang, so every
 # publish runs under scripts/mise, from a Linux or a macOS host. CI publishes outside Docker, once per architecture, and
 # builds the default target (prebuilt):
 #   sh scripts/mise x -- dotnet publish src/Tereditor.Host.Headless -c Release -r linux-<arch> -o artifacts/headless/linux-<arch>

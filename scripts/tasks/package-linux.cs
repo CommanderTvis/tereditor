@@ -1,8 +1,8 @@
 #!/usr/bin/env dotnet
 // `scripts/mise run package:linux`: publishes the Linux client (NativeAOT) and checks (self-contained, ReadyToRun) and packs the client into
 // artifacts/tereditor-linux-x64.AppImage (or, given `linux-arm64`, artifacts/tereditor-linux-arm64.AppImage) with the pinned appimagetool and type 2 runtime. The native libraries
-// cross-compile with Zig during the build and the client links with Zig against glibc 2.31 (scripts/aot-linux-cc.sh), so the publish also
-// works on macOS; appimagetool runs on Linux only. Set TEREDITOR_APPDIR_ONLY=1
+// cross-compile with Zig during the build; the client links with the host's clang, so it publishes on a Linux host of the same
+// architecture (CI uses Ubuntu 22.04, glibc 2.35). appimagetool runs on Linux only. Set TEREDITOR_APPDIR_ONLY=1
 // elsewhere to stop after assembling artifacts/linux/AppDir. With TEREDITOR_GPG_KEY_ID set (a key in the GPG keyring), the image
 // carries an embedded signature that AppImageLauncher and appimaged verify.
 #:include ../lib/Tasks.cs

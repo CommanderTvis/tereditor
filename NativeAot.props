@@ -12,12 +12,10 @@
     <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>
   <!--
-    Linux links with Zig against glibc 2.31 (scripts/aot-linux-cc.sh), from any host. Zig's lld needs the linker script that keeps
-    the runtime's module section (LinkerFlavor lld); the binary is stripped at link, so no objcopy step runs.
+    Linux strips the binary at link, so no objcopy step runs. The C compiler and linker are the platform's clang; CI builds
+    the Linux packages on Ubuntu 22.04, so the binary needs no glibc newer than 2.35.
   -->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64' or '$(RuntimeIdentifier)' == 'linux-arm64'">
-    <CppCompilerAndLinker>$(MSBuildThisFileDirectory)scripts/aot-linux-cc.sh</CppCompilerAndLinker>
-    <LinkerFlavor>lld</LinkerFlavor>
     <StripSymbols>false</StripSymbols>
     <CompressSymbols>false</CompressSymbols>
   </PropertyGroup>

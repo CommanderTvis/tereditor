@@ -6,7 +6,7 @@ embedded GPG signature.
 
 ## What you need
 
-- x86-64 or arm64 Linux with glibc 2.31 or newer (Ubuntu 20.04, Debian 11, Fedora 32 and later).
+- x86-64 or arm64 Linux with glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36 and later).
 - An X11 or XWayland session.
 - Git 2.36 or newer on `PATH`. With older Git, such as Ubuntu 22.04's 2.34, Changes shows a Git error.
 - The X11 client libraries (`libX11`, `libXcursor`, `libXrandr`, `libXi`), `fontconfig` and OpenGL, which any desktop

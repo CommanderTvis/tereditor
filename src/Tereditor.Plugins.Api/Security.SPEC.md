@@ -171,11 +171,10 @@ else.
 - Windows links with Visual Studio's C++ linker (`link.exe` and the Windows SDK). Both runner images carry it:
   `windows-2025`, and `windows-11-arm`, whose Visual Studio has the ARM64 C++ tools. The zip still holds a `client`
   and a `host` payload.
-- Linux links with the pinned Zig (`scripts/aot-linux-cc.sh`) against glibc 2.31, the floor the AppImages promise,
-  whatever glibc the build host has; a runner's own clang would link against its newer glibc. The same command
-  cross-links from macOS, and the agent plugins' process-group helpers compile through it too; a runner's `cc` would
-  give them `GLIBC_2.34`. The packaged gate fails any ELF file in a Linux payload that needs a glibc symbol newer than
-  2.31. Measured on linux-x64: the app binary needs `GLIBC_2.29`, SkiaSharp `GLIBC_2.27`, the rest less.
+- Linux links with the system clang on the Ubuntu 22.04 runners, so the build host's glibc is the floor the packages promise:
+  2.35, the oldest glibc of the Ubuntu releases .NET 10 supports. The packaged gate fails any ELF file in a Linux payload
+  that needs a glibc symbol newer than 2.35. Measured once on linux-x64 with the pinned Zig against glibc 2.31: the app
+  binary needed `GLIBC_2.29`, SkiaSharp `GLIBC_2.27`, the rest less.
 
 Native libraries sit beside the binary, which finds them through its base directory as before: Ghostty, SkiaSharp,
 HarfBuzzSharp and Oniguruma everywhere, PDFium on macOS and Linux, and on macOS Avalonia's library, Merman and the
@@ -187,7 +186,7 @@ The packaged gate checks the binaries themselves, since the in-process checks ca
 
 - each payload is NativeAOT: the executable is there, and no managed assembly, runtimeconfig, deps file or runtime
   library ships; on macOS and Linux the binary carries `System.GC.ConserveMemory`, and on Linux no ELF file needs a
-  glibc newer than 2.31;
+  glibc newer than 2.35;
 - each payload carries what the checks' own publish of the same sources has for it: the `plugins` and
   `shell-integration` trees and the helpers, and for the app every native library but the JIT runtime's and the
   `terminfo` tree. The checks' staging would otherwise fill a gap with their own copy, so a dropped library or
@@ -322,7 +321,7 @@ applied yet.
   replaces the planned `pidfd`/kqueue watch. The runner exits when its channel ends.
 - What the runner inherits: on macOS only the descriptors the spawn places (`POSIX_SPAWN_CLOEXEC_DEFAULT`); on Linux
   everything above descriptor 3 is closed where glibc has `posix_spawn_file_actions_addclosefrom_np` (2.34 and later,
-  so not on the packages' 2.31 baseline; `tereditor-confine` will close them there); on Windows only the handle list.
+  so the packages' 2.35 baseline has it); on Windows only the handle list.
   On macOS a socket pair cannot be created close-on-exec, and on Windows the three listed handles are inheritable
   while the process is created, so a `Process.Start` on another thread in that instant could inherit them. The
   runner's end arrives inheritable, so the runner marks it close-on-exec as it starts (ioctl `FIOCLEX`, because

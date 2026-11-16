@@ -51,10 +51,10 @@ managed language servers at runtime, not the build.
 ### Linux (`build`, `package:linux`, running the AppImage)
 
 - `bash`, `curl`, `tar`, POSIX `sh`, `patch` and `shasum`: the mise download and the native recipes.
-- To run the app: glibc 2.31 or newer, an X11 or XWayland session, `libX11`, `libXcursor`, `libXrandr`, `libXi`,
+- To run the app: glibc 2.35 or newer (Ubuntu 22.04 or newer), an X11 or XWayland session, `libX11`, `libXcursor`, `libXrandr`, `libXi`,
   `fontconfig` and a GL or software Skia stack ([docs/linux.md](../linux.md)).
 - Pack the AppImage on a host of the target architecture (`TEREDITOR_APPDIR_ONLY=1` assembles the AppDir anywhere).
-  The NativeAOT client links with the pinned Zig against glibc 2.31, so no system C toolchain is needed.
+  The NativeAOT client links with the system clang (`clang` and `zlib1g-dev` on Ubuntu), so a Linux packaging host needs them.
 
 ### Windows (`build`, `package:windows`)
 
