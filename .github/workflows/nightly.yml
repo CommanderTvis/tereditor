@@ -550,7 +550,7 @@ jobs:
           | tereditor-nightly.apk | Android client for a tereditor host. |
           | tereditor-nightly-linux-x64.AppImage, tereditor-nightly-linux-arm64.AppImage | Linux desktop for glibc 2.35 or newer (Ubuntu 22.04 and newer). Run with --appimage-extract-and-run when FUSE is unavailable. |
           | tereditor-headless-nightly-linux-x64.tar.gz, tereditor-headless-nightly-linux-arm64.tar.gz | Headless host for Linux x64 and ARM64. scripts/headless-cloud-setup.sh installs it. |
-          | tereditor-headless-nightly-macos-arm64.tar.gz | Headless host for macOS arm64, dockerless, as a single executable. |
+          | tereditor-headless-nightly-macos-arm64.tar.gz | Headless host for macOS ARM64, dockerless. |
           | SHA256SUMS | Checksums of every other file. |
           | tereditor-nightly-win-x64.zip, tereditor-nightly-win-arm64.zip | Unsigned Windows x64 and ARM64 builds, each with the desktop client and standalone host. |"
           if [ -n "$missing" ]; then
