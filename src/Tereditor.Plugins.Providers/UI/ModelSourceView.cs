@@ -11,7 +11,7 @@ namespace Tereditor.Plugins.Providers.UI;
 /// <summary>
 /// The model source control an agent's settings page embeds: the agent's own provider (the default, tereditor does not step in) or
 /// one of the providers the user added that speaks an API the agent accepts. The choice is recorded in this plugin's own state.
-/// For Pi, omp and Codex the choice is live: the agent starts with that provider. The other agents do not take it yet.
+/// For Pi, omp, Codex and Claude Code the choice is live: the agent starts with that provider. The other agents do not take it yet.
 /// </summary>
 internal sealed class ModelSourceView : StackPanel
 {
@@ -90,6 +90,7 @@ internal sealed class ModelSourceView : StackPanel
             : offered.Count == 0 && chosen is null ? "No provider you added fits this agent yet. Add one in Settings › Plugins › Model providers."
             : agentId is "pi" or "omp" ? (chosen is null ? "This agent starts with its own provider." : "A new start of this agent uses this provider. Its key stays in tereditor and is never put on the command line.")
             : agentId == ProviderLaunch.Codex ? "The choice is saved. New Codex launches use it."
+            : agentId == ProviderLaunch.ClaudeAgent ? "The choice is saved. New Claude Code launches use it. Its key stays in tereditor and is never put on the command line."
             : "The choice is saved. It does not change how the agent starts yet.";
     }
 }

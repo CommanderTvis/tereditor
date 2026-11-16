@@ -9,7 +9,7 @@ parent: group-plugins-agents
 # Model providers builtin
 
 Settings › Plugins › Model providers lists the model providers the user can give to an agent, keeps their keys, records which provider each
-agent uses, and starts Pi, omp and Codex with it. Its page is a plugin page, nested under Settings › Plugins like every other plugin's. Enabled by default; not headless because the keys and the agents' models files are files of the host's operating system. Agents never depend on
+agent uses, and starts Pi, omp, Codex and Claude Code with it. Its page is a plugin page, nested under Settings › Plugins like every other plugin's. Enabled by default; not headless because the keys and the agents' models files are files of the host's operating system. Agents never depend on
 this plugin: each agent plugin declares what it accepts (`agentRouting` in its manifest, Plugin API) and works the same with this plugin
 off. This plugin is the optional side that matches providers to those declarations.
 
@@ -37,7 +37,7 @@ off. This plugin is the optional side that matches providers to those declaratio
 - The model source of an agent is recorded in this plugin's own state (`modelSources`), per agent plugin id: none (the default, tereditor
   does not step in) or a ready provider, that is one with a key stored or none needed. Removing a key, a custom provider or a contributor
   drops the choices that used it. Each agent settings page embeds the slot (`core:model-source:<id>`): a list of the agent's own provider
-  and the ready providers the agent is offered. For Pi and omp the choice is live (see Launch seams), and for Codex too (Codex launch seam below); for the other agents it is only recorded for now.
+  and the ready providers the agent is offered. For Pi and omp the choice is live (see Launch seams), and for Codex (Codex launch seam below) and Claude Code (Claude Code launch seam below) too; for the other agents it is only recorded for now.
 
 ## Codex launch seam
 
@@ -45,6 +45,13 @@ off. This plugin is the optional side that matches providers to those declaratio
 - With no source chosen for Codex, with no report yet, or with Model providers off, the contribution is absent and the Codex line is byte-identical to today (`--agent-launch-contributions` pins it).
 - With a source chosen the contribution adds arguments (a TOML literal string each, so Windows quoting keeps them): `-c model_provider='tereditor-<id>'`, and under `model_providers.tereditor-<id>` the `name`, `base_url` (the provider's OpenAI Responses API), `wire_api='responses'` and, for a provider that needs a key, `auth.command` (the helper) and `auth.args=['<id>']`. The `tereditor-` prefix keeps clear of Codex's built-in provider ids. The key stays in the key store; Codex runs the helper itself. A name or address Codex cannot take, a source that is not ready, or a missing helper blocks the Codex launch with a reason, so it never starts on another account.
 - A launch that starts before the first report reaches a half is the agent's own.
+
+## Claude Code launch seam
+
+- A chosen source for Claude Code writes a generated settings file first, `<state>/providers/claude-code/settings.json` (0600, a source whose file cannot be written is not recorded). It holds `apiKeyHelper`, the `provider-key` helper and the provider id quoted for the host's shell, and `env.ANTHROPIC_BASE_URL`, the provider's Anthropic Messages endpoint. A provider that needs no key gets no helper and a placeholder `ANTHROPIC_AUTH_TOKEN` of `none`, because Claude Code will not start without a credential. A key is never in the file, an argument or a variable.
+- Only providers with an Anthropic Messages API and an API key are offered (the plugin's `agentRouting`); the others cannot be chosen. OpenRouter, DeepSeek, xAI and the Anthropic API qualify among the bundled rows. Claude Code takes no sign-in, so no OAuth source applies.
+- Providers contributes to launcher `claude` in both halves (`AgentLaunch`, like Codex), from the latest report in memory: the only change is the arguments `--settings <file>`, with the file path derived from the helper path in the report (`providers/bin/provider-key` gives `providers/claude-code/settings.json`), so a launch never reads a file. The Claude Code plugin composes it with its own `AgentLaunchComposition` rule and does not depend on this plugin. The generated `--settings` comes first and the user's other arguments and leading `NAME=value` variables stay as written. Two `--settings` may not merge, so a `--settings` (or `--settings=`) in the user's own command blocks the launch with "The Claude command has its own --settings, so the model source cannot apply. Remove it or clear the source." (the contribution's `ConflictingArguments` and `ConflictReason`, checked by `AgentLaunchComposition.Apply` for the terminal line and by the chat launch). The source's endpoint is set in the settings file's `env`, which Claude Code applies over an `ANTHROPIC_BASE_URL` of the same command.
+- With no source chosen, no report or this plugin off, the line is byte-identical to today. A source that is not ready, has no Anthropic API, a missing helper or an unquotable path blocks the launch with a reason (the line prints it and exits), so it never starts on another account.
 
 ## Key store
 
@@ -83,7 +90,7 @@ off. This plugin is the optional side that matches providers to those declaratio
 
 `--providers` (gate case `providers`): the manifest; what each agent declares and that none depends on this plugin, matching including the
 sign-in policy, the key store (0600 and 0700, atomic, a sentinel key found only in its own file), the helper's output and refusals, custom providers
-(validation, add, remove), contributions, the recorded model source and the wire contract (version 3, the models channel, no per-agent key-file methods). `--providers-ui` also reads the four agent pages and requires Model source before every other setting. The
+(validation, add, remove), contributions, the recorded model source and the wire contract (version 3, the models channel, no per-agent key-file methods). The Claude Code seam: the generated settings file (helper command, endpoint, no key, 0600, the command printing the key when a shell runs it), the contribution being only `--settings` with the derived path and never a key, the user's own variable and arguments surviving in the terminal line, and their own `--settings` blocking it, keyless and blocked sources, providers without an Anthropic API refused, and clearing, removal and startup. `--providers-ui` also reads the four agent pages and requires Model source before every other setting. The
 launch seams: the models files of Pi and omp with a helper command and no key (the command run by a shell prints the key), Pi's directory holding
 no `auth.json`, the contributions carrying no key, the omp line unchanged without a source and with one profile flag with it, custom and keyless
 providers, and startup, clearing and removal. `--providers-ui` (gate case `providers-ui`) mounts the page and the slot headless: the three

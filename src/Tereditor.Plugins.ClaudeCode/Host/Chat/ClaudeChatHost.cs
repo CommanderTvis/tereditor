@@ -372,6 +372,7 @@ internal sealed class ClaudeChatHost
         if (contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0) is { } replacer)
             prefix.AddRange(replacer.Wrapper);
         else prefix.Add(executable);
+        if ((AgentLaunchComposition.Blocked(contributions) ?? AgentLaunchComposition.Conflict(contributions, line.Arguments)) is { } blocked) throw new InvalidOperationException(blocked);
         var arguments = new List<string>();
         foreach (var contribution in contributions) arguments.AddRange(contribution.Arguments);
         var environment = new Dictionary<string, string>(line.Environment);

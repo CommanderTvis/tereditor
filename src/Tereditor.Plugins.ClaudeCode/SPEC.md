@@ -501,7 +501,7 @@ start keeps the "which tereditor did not start" refusal with Start fresh only. A
 just reattaches and is never offered anything. Blueprint's independent revive
 hook contributes submit without consuming this plugin's text.
 
-Settings › Claude Code shows the Model source control from Model providers as its first setting, above everything else (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks the Anthropic Messages API. The choice is recorded by Model providers and does not change the launch yet. With that plugin off the page shows one hint line and nothing else changes. Claude Code does not depend on Model providers; its manifest declares `agentRouting` (Anthropic Messages through a settings file).
+Settings › Claude Code shows the Model source control from Model providers as its first setting, above everything else (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks the Anthropic Messages API. The choice is live: Model providers writes a generated settings file (`apiKeyHelper` running its key helper, and the provider's Anthropic endpoint) and contributes `--settings <file>` to the `claude` launch, ahead of the user's own arguments, so the command's arguments and variables keep working (a `--settings` of its own blocks the launch with a plain reason, since two may not merge); only providers with an Anthropic Messages API are offered. With that plugin off the page shows one hint line and nothing else changes. Claude Code does not depend on Model providers; its manifest declares `agentRouting` (Anthropic Messages through a settings file).
 
 ## IDE and UI
 
