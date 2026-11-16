@@ -71,7 +71,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         var entry = await new AcpInstaller(Path.Combine(DataDirectory, "agents"), Download).InstallAsync(root, request, AcpRegistry.Platform(), cancellationToken);
         // An update or reinstall keeps what the user set on the agent.
         if (ListAgents().Agents.FirstOrDefault(existing => existing.Id == entry.Id) is { } before)
-            entry = entry with { Enabled = before.Enabled, CommandOverride = before.CommandOverride, UseDefaultArgs = before.UseDefaultArgs, ArgsOverride = before.ArgsOverride, Cwd = before.Cwd, Env = new Dictionary<string, string>(entry.Env).Concat(before.Env).GroupBy(pair => pair.Key).ToDictionary(group => group.Key, group => group.Last().Value) };
+            entry = entry with { Enabled = before.Enabled, CommandOverride = before.CommandOverride, UseDefaultArgs = before.UseDefaultArgs, ArgsOverride = before.ArgsOverride, Cwd = before.Cwd, DefaultMode = before.DefaultMode, KnownModes = before.KnownModes, Env = new Dictionary<string, string>(entry.Env).Concat(before.Env).GroupBy(pair => pair.Key).ToDictionary(group => group.Key, group => group.Last().Value) };
         failures.TryRemove(entry.Id, out _);
         return AddAgent(entry);
     }
@@ -134,10 +134,25 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         lock (recordsGate)
         {
             var all = context.ReadState<List<AcpAgentEntry>>(AgentsState, []);
+            // The modes are the host's own record, so an edit made from an older copy of the entry cannot wipe them.
+            if (all.FirstOrDefault(existing => existing.Id == entry.Id) is { } before) entry.KnownModes = before.KnownModes;
             all.RemoveAll(existing => existing.Id == entry.Id);
             all.Add(entry);
             context.WriteState(AgentsState, all);
             return new(all);
+        }
+    }
+
+    /// <summary>Keeps the modes the agent listed so the settings page can offer them as its default.</summary>
+    private void RememberModes(string id, IReadOnlyList<ChatMode> modes)
+    {
+        var known = modes.Select(mode => new AcpKnownMode(mode.Key, mode.Label)).ToList();
+        lock (recordsGate)
+        {
+            var all = context.ReadState<List<AcpAgentEntry>>(AgentsState, []);
+            if (all.FirstOrDefault(existing => existing.Id == id) is not { } entry || entry.KnownModes.SequenceEqual(known)) return;
+            entry.KnownModes = known;
+            context.WriteState(AgentsState, all);
         }
     }
 
@@ -251,7 +266,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         var record = await Task.Run(() => LoadRecord(p.WorkspaceId, p.ChatId));
         var entry = ListAgents().Agents.FirstOrDefault(agent => agent.Id == record?.AgentId) ?? throw new InvalidOperationException("Choose an ACP agent for this chat first.");
         var session = new AcpChatSession(p.WorkspaceId, p.ChatId, cwd, () => connect is null ? LaunchAsync(entry, cwd) : connect(entry, cwd), Publish, message => context.Log.Warn(message), new AcpClientMethods(cwd),
-            answer => answers[entry.Id] = answer, () => SignInAsync(entry.Id, CancellationToken.None));
+            answer => answers[entry.Id] = answer, () => SignInAsync(entry.Id, CancellationToken.None), entry.DefaultMode, modes => RememberModes(entry.Id, modes));
         sessions[(p.WorkspaceId, p.ChatId)] = session;
         if (existing is not null) await existing.DisposeAsync();
         var header = session.Begin();

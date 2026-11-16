@@ -37,6 +37,10 @@ public sealed record AcpAgentEntry(string Id, string Name, string Command)
     public string? Source { get; init; }
     /// <summary>What was checked when it was installed (see <see cref="AcpInstallPlan.Verification"/>); null for an install made before this was recorded.</summary>
     public string? Verification { get; init; }
+    /// <summary>The mode a new chat with this agent switches to once the agent lists its modes; blank keeps the agent's own.</summary>
+    public string DefaultMode { get; set; } = "";
+    /// <summary>The modes the agent listed the last time a chat started. The host fills it; the settings page offers these for <see cref="DefaultMode"/>.</summary>
+    public IReadOnlyList<AcpKnownMode> KnownModes { get; set; } = [];
 
     /// <summary>The program that starts: the override when there is one.</summary>
     public string LaunchCommand() => CommandOverride.Length > 0 ? CommandOverride : Command;
@@ -44,6 +48,8 @@ public sealed record AcpAgentEntry(string Id, string Name, string Command)
     /// <summary>The arguments that start it: a registry agent's override unless it uses the defaults.</summary>
     public IReadOnlyList<string> LaunchArgs() => Origin == "registry" && !UseDefaultArgs ? ArgsOverride : Args;
 }
+
+public sealed record AcpKnownMode(string Id, string Name);
 
 public sealed record AcpNoParams;
 

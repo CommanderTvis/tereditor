@@ -65,7 +65,7 @@ internal sealed class AcpSignInSection : StackPanel
         var index = 0;
         foreach (var line in info.Lines)
         {
-            var row = Line("• " + line.Display());
+            var row = Line((info.Lines.Count > 1 ? "• " : "") + line.Display());
             row.Name = "AcpSignInLine_" + index++;
             ToolTip.SetTip(row, info.Why);
             Children.Add(row);

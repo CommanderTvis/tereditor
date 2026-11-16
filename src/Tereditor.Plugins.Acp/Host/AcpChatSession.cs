@@ -30,11 +30,17 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
 
     private readonly Action<AcpAnswer>? answered;
     private readonly Func<Task<AcpSignInInfo>>? signIn;
+    private readonly string? defaultMode;
+    private readonly Action<IReadOnlyList<ChatMode>>? modesSeen;
 
     /// <param name="answered">Told what the agent said at its start (its sign-in methods and, when it offers them, its accounts).</param>
+    /// <param name="defaultMode">The mode to switch to after the session opens, when the agent lists it and is not already in it.</param>
+    /// <param name="modesSeen">Told which modes the agent listed.</param>
     /// <param name="signIn">Asked, off the lock, for where the agent's sign-in can come from when the agent says it needs one.</param>
-    public AcpChatSession(string workspaceId, string chatId, string cwd, Func<Task<IAcpTransport>> connect, Action<ChatPush> publish, Action<string> log, IAcpClientMethods? methods = null, Action<AcpAnswer>? answered = null, Func<Task<AcpSignInInfo>>? signIn = null)
+    public AcpChatSession(string workspaceId, string chatId, string cwd, Func<Task<IAcpTransport>> connect, Action<ChatPush> publish, Action<string> log, IAcpClientMethods? methods = null, Action<AcpAnswer>? answered = null, Func<Task<AcpSignInInfo>>? signIn = null, string? defaultMode = null, Action<IReadOnlyList<ChatMode>>? modesSeen = null)
     {
+        this.defaultMode = defaultMode;
+        this.modesSeen = modesSeen;
         this.answered = answered;
         this.signIn = signIn;
         this.workspaceId = workspaceId;
@@ -111,6 +117,7 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
                 if (folder.Header.Status == ChatStatus.Starting) folder.SetStatus(ChatStatus.Idle);
                 FlushNow();
             }
+            await ApplyDefaultModeAsync();
         }
         catch (Exception error) when (error is AcpException or AcpVersionException or IOException or InvalidOperationException or System.ComponentModel.Win32Exception or TimeoutException)
         {
@@ -309,6 +316,19 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
         if (client is null || sessionId is null) return;
         SettlePermissions(null);
         try { await client.CancelAsync(sessionId); } catch (Exception error) when (error is IOException or ObjectDisposedException) { }
+    }
+
+    /// <summary>Remembers the modes the agent listed and, for a default the agent offers, switches to it. A refusal is logged and the agent's own mode stays.</summary>
+    private async Task ApplyDefaultModeAsync()
+    {
+        IReadOnlyList<ChatMode> modes;
+        string? current;
+        lock (gate) { modes = folder.Header.PermissionModes; current = folder.Header.PermissionMode; }
+        if (modes.Count == 0) return;
+        modesSeen?.Invoke(modes);
+        if (defaultMode is not { Length: > 0 } wanted || wanted == current || modes.All(mode => mode.Key != wanted)) return;
+        try { await SetModeAsync(wanted); }
+        catch (Exception error) when (error is InvalidOperationException or IOException or AcpException) { log("could not switch to the default mode: " + error.Message); }
     }
 
     /// <summary>The mode goes through the config option that sets it when the agent offers one, else through <c>session/set_mode</c>.</summary>

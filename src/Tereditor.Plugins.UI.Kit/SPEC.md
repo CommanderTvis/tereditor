@@ -16,6 +16,10 @@ of `Tereditor.UI/Rendering` so a plugin can render UI without reaching into the 
 catalogue, workbench or panels. The app uses the same controls from here; there is one copy. In this commit
 the project is created empty with this spec, and the controls move into it as listed below.
 
+## List and pane
+
+`MasterDetail` is a list on the left and the selected item's pane on the right. The list is 280 px wide by default (`RailWidth`) and the user drags the divider to resize it. Rows come from `Row`: icon, name, a small note after the name (a version), one trimmed line of description, an optional trailing action (an Install button, a check mark) and an optional red problem dot. `Group` adds a heading between groups of rows; a heading is never selected and never reported. `SetRows` keeps the selection and does not raise `Selected`. Settings › ACP uses it.
+
 ## Core file icons
 
 [File-type icons](FileIcons/SPEC.md) are bundled here for every app client; the host holds only their shared enabled setting. They require no builtin plugin or asset RPC.
