@@ -243,8 +243,8 @@ profile) and the endpoint.
 
 | Library | Source | Built by |
 | --- | --- | --- |
-| `libGhosttyAvaloniaVt.so` | libghostty-vt at the commit pinned in `src/Ghostty.Avalonia/build-native.sh`, behind the Skia control's C shim | `src/Ghostty.Avalonia/build-android.sh` |
-| `libTereditorTailscale.so` | pinned Tailscale `tsnet` behind the app-private C ABI | `scripts/build-tailscale-android.sh` |
+| `libGhosttyAvaloniaVt.so` | libghostty-vt at the commit pinned in `mise.toml`, behind the Skia control's C shim | `scripts/build-ghostty-android.cs` |
+| `libTereditorTailscale.so` | pinned Tailscale `tsnet` behind the app-private C ABI | `scripts/build-tailscale-android.cs` |
 | `libpdfium.so` | `bblanchon.PDFium.Android`, pinned with the desktop PDFium packages | NuGet |
 | `libTereditorMermaid.so` | Merman 0.7.0's prebuilt `libmerman_ffi.so` (the desktop's C ABI) from `merman-android-v0.7.0.aar`, pinned in `mise.android.lock` | `scripts/tool merman-android` |
 

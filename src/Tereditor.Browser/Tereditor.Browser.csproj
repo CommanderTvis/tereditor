@@ -103,19 +103,19 @@
     <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; run --file &quot;$(MSBuildProjectDirectory)/../../scripts/browser-compress.cs&quot; -- &quot;$(WasmAppDir)&quot;" />
   </Target>
   <ItemGroup>
-    <WasmNativeSource Include="../Ghostty.Avalonia/Native/GhosttyVt.c;../Ghostty.Avalonia/Native/Wasm.patch;../../scripts/wasm-native.sh;../../mise.lock;../../mise.browser.lock" />
+    <WasmNativeSource Include="../Ghostty.Avalonia/Native/GhosttyVt.c;../Ghostty.Avalonia/Native/Wasm.patch;../../scripts/wasm-native.cs;../../scripts/lib/Native.cs;../../scripts/lib/Tasks.cs;../../mise.lock;../../mise.browser.lock" />
   </ItemGroup>
   <Target Name="BuildBrowserNative" BeforeTargets="PrepareForBuild"
           Inputs="@(WasmNativeSource)" Outputs="obj/wasm-native/GhosttyAvaloniaVt.a">
-    <Exec EnvironmentVariables="MISE_ENV=browser" Command="$(MiseRun) sh &quot;$(MSBuildProjectDirectory)/../../scripts/wasm-native.sh&quot;" />
+    <Exec EnvironmentVariables="MISE_ENV=browser" Command="$(MiseRun) dotnet run --file &quot;$(MSBuildProjectDirectory)/../../scripts/wasm-native.cs&quot;" />
   </Target>
   <!-- The browser's own Tailscale node: deployed under tailscale/ but never loaded until the user downloads it. -->
   <ItemGroup>
-    <TailscaleWasmSource Include="Tailscale.Wasm/go.mod;Tailscale.Wasm/go.sum;Tailscale.Wasm/main.go;../../scripts/build-tailscale-wasm.sh;../../scripts/tailscale-go.sh" />
+    <TailscaleWasmSource Include="Tailscale.Wasm/go.mod;Tailscale.Wasm/go.sum;Tailscale.Wasm/main.go;../../scripts/build-tailscale-wasm.cs;../../scripts/lib/Tailscale.cs;../../scripts/lib/Native.cs" />
   </ItemGroup>
   <Target Name="BuildTailscaleWasm" BeforeTargets="PrepareForBuild"
           Inputs="@(TailscaleWasmSource)" Outputs="obj/tailscale-wasm/manifest.json">
-    <Exec EnvironmentVariables="MISE_ENV=browser" Command="$(MiseRun) sh &quot;$(MSBuildProjectDirectory)/../../scripts/build-tailscale-wasm.sh&quot;" />
+    <Exec EnvironmentVariables="MISE_ENV=browser" Command="$(MiseRun) dotnet run --file &quot;$(MSBuildProjectDirectory)/../../scripts/build-tailscale-wasm.cs&quot;" />
   </Target>
   <Target Name="IncludeTailscaleWasm" BeforeTargets="PrepareForBuild" DependsOnTargets="BuildTailscaleWasm">
     <ItemGroup>

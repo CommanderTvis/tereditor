@@ -18,14 +18,14 @@ content. Skia rendering uses Avalonia's chosen Skia backend.
 
 ## Build and reuse
 
-Windows invokes `build-windows.ps1` and produces `GhosttyAvaloniaVt.dll` from the
+Windows invokes `scripts/build-ghostty-windows.cs` and produces `GhosttyAvaloniaVt.dll` from the
 same pinned VT source using Zig 0.17.1. Only `GhosttySkiaView` is supported there;
-clipboard writes use the Avalonia callback. The build needs Git, PowerShell and
+clipboard writes use the Avalonia callback. The build needs Git and
 Windows' tar, and downloads its compiler and source into the machine-wide cache described below. When reusing the
-directory outside tereditor on Windows, also copy `scripts/windows-native.ps1`
-to the matching relative location for its download and locking helpers.
+directory outside tereditor, also copy `scripts/lib/Native.cs` and `scripts/lib/Tasks.cs`
+to the matching relative location for the recipes' download and locking helpers.
 
-Linux invokes `build-linux.sh linux-x64` or `linux-arm64`, which builds the same pinned VT source with Zig 0.17.1 for `x86_64-linux-gnu.2.31` or `aarch64-linux-gnu.2.31` from
+Linux invokes `scripts/build-ghostty-linux.cs linux-x64` or `linux-arm64`, which builds the same pinned VT source with Zig 0.17.1 for `x86_64-linux-gnu.2.31` or `aarch64-linux-gnu.2.31` from
 any macOS or Linux host and links `libGhosttyAvaloniaVt.so` (stripped, exporting only `gav_*`; it needs libc only). Only
 `GhosttySkiaView` is supported there, with the Avalonia clipboard callback as on Windows.
 
@@ -47,13 +47,13 @@ as derived from kitty) are not shipped: `ExternalIo.patch` starts Ghostty's chil
 and tereditor's host injects its own scripts.
 
 Every native build (macOS, Linux, Windows, Android, WASM) first restores the Zig packages hosted outside
-github.com into Zig's global cache with `scripts/zig-deps.sh` (`Restore-ZigDeps` on Windows) from a mirror archive
+github.com into Zig's global cache with `RestoreZigDeps` in `scripts/lib/Native.cs` from a mirror archive
 pinned by SHA-256 in `scripts/zig-deps.lock`, so CI does not depend on codeberg.org.
 It restores only absent packages and falls back to the upstream URLs; see `scripts/README.md`.
 The native view and the VT library are built from the one Ghostty commit
 `0fa3d577a5614150ff8e2c152de5fb9d5c6d2dec` (`vt-1.0.0`, the first libghostty-vt release) with the one Zig of `mise.toml`. See `licenses/Ghostty-MIT.txt`.
 
-`build-android.sh <arm64-v8a|x86_64> [output-directory]` cross-builds the same pinned
+`scripts/build-ghostty-android.cs <arm64-v8a|x86_64> [output-directory]` cross-builds the same pinned
 VT source for Android API 24 with the NDK from `ANDROID_NDK_HOME` (in tereditor,
 `scripts/tool android-ndk`), from macOS or Linux. It writes
 `android/<abi>/libGhosttyAvaloniaVt.so` into the output directory, 16 KB page aligned and

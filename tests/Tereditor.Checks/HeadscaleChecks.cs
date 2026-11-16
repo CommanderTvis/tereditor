@@ -24,7 +24,7 @@ namespace Tereditor.Checks;
 
 /// <summary>
 /// The opt-in `--headscale` mode: a real tereditor host and a real client on two distinct tailnet nodes of a
-/// throwaway Headscale control server. Provisioned by `scripts/build-headscale-test.sh`; see tests/Tereditor.Checks/SPEC.md.
+/// throwaway Headscale control server. Provisioned by `scripts/build-headscale-test.cs`; see tests/Tereditor.Checks/SPEC.md.
 /// </summary>
 internal static class HeadscaleChecks
 {
@@ -37,7 +37,7 @@ internal static class HeadscaleChecks
         var library = Path.Combine(tools, OperatingSystem.IsMacOS() ? "libTereditorTailscale.dylib" : "libTereditorTailscale.so");
         var missing = new[] { "headscale", "tsforward" }.Select(name => Path.Combine(tools, name)).Append(library).Where(path => !File.Exists(path)).ToArray();
         var reason = !(OperatingSystem.IsMacOS() || OperatingSystem.IsLinux()) ? "Headscale checks run on macOS and Linux only."
-            : missing.Length > 0 ? "Run `sh scripts/build-headscale-test.sh` first; missing " + string.Join(", ", missing) + "."
+            : missing.Length > 0 ? "Run `dotnet run --file scripts/build-headscale-test.cs` first; missing " + string.Join(", ", missing) + "."
             : null;
         if (reason is not null)
         {

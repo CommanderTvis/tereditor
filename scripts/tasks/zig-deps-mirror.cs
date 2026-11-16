@@ -14,10 +14,10 @@ return Guard(() =>
     DeleteAll(work);
     Directory.CreateDirectory(Path.Combine(work, "gc"));
     Directory.CreateDirectory(Path.Combine(work, "out"));
-    // build-native.sh builds the view and libghostty-vt into one fresh cache; every other target (Linux, Windows, WASM)
+    // build-ghostty-macos.cs builds the view and libghostty-vt into one fresh cache; every other target (Linux, Windows, WASM)
     // fetches a subset of the VT packages.
     var architecture = RuntimeInformation.OSArchitecture == Architecture.Arm64 ? "arm64" : "x64";
-    Check("sh", [At("src", "Ghostty.Avalonia", "build-native.sh"), $"osx-{architecture}", Path.Combine(work, "native")], env: new Dictionary<string, string>
+    Check(Dotnet, ["run", "--file", At("scripts", "build-ghostty-macos.cs"), "--", $"osx-{architecture}", Path.Combine(work, "native")], env: new Dictionary<string, string>
     {
         ["TEREDITOR_CACHE_DIR"] = Path.Combine(work, "cache"),
         ["ZIG_GLOBAL_CACHE_DIR"] = Path.Combine(work, "gc"),
@@ -30,7 +30,7 @@ return Guard(() =>
         .Select(line => line.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries))
         .FirstOrDefault(fields => fields.Length > 1 && fields[0] == key)?[1] ?? "";
     var (tag, asset) = (Field("tag"), Field("asset"));
-    Console.WriteLine($"Publish with: gh release create {tag} --repo {Field("repo")} --prerelease --latest=false --title {tag} --notes 'Zig dependency mirror (scripts/zig-deps.sh)' {work}/out/{asset}");
+    Console.WriteLine($"Publish with: gh release create {tag} --repo {Field("repo")} --prerelease --latest=false --title {tag} --notes 'Zig dependency mirror (scripts/lib/Native.cs)' {work}/out/{asset}");
     Console.WriteLine($"Then commit scripts/zig-deps.lock and remove {work}.");
     return 0;
 });

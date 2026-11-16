@@ -6,7 +6,7 @@ using static Tasks;
 return Guard(() =>
 {
     var cache = At("src", "Ghostty.Avalonia", "obj", "native");
-    Check("sh", ["src/Ghostty.Avalonia/build-native.sh", "", cache]);
+    Check(Dotnet, ["run", "--file", "scripts/build-ghostty-macos.cs", "--", "", cache]);
     Directory.CreateDirectory(".bench");
     Check("clang", ["-fobjc-arc", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter",
         "src/Ghostty.Avalonia/Native/terminal-check.m", "-L", cache, "-lGhosttyAvaloniaView",

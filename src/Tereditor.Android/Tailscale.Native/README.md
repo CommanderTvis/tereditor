@@ -1,6 +1,6 @@
 # Android userspace Tailscale bridge
 
-Run `sh scripts/build-tailscale-android.sh` from the repository. It downloads
+Run `dotnet run --file scripts/build-tailscale-android.cs` from the repository. It downloads
 checksum-pinned Go 1.27.2 and builds Tailscale v1.104.1 using `go.sum` and the pinned
 Android NDK. Output: `src/Tereditor.Android/obj/tailscale/arm64-v8a/libTereditorTailscale.so`.
 Pass `x86_64` as the optional first argument for the emulator ABI. The default is
@@ -14,7 +14,7 @@ requests have a five-second deadline.
 
 `start` also accepts optional `controlUrl` and `authKey` for a self-hosted control server and unattended
 enrolment; the app leaves both empty. `cmd/tsforward` is a test-only tailnet node used by the
-`--headscale` check (`sh scripts/build-headscale-test.sh`).
+`--headscale` check (`dotnet run --file scripts/build-headscale-test.cs`).
 
 Operations: `start`, `status`, `login`, `logout`, `stop`. Start accepts
 `{"stateDirectory":"/app/private/tailscale","hostname":"tereditor-android"}`.
@@ -56,7 +56,7 @@ After either native build has provisioned the pinned toolchain, run the isolated
 native checks from the repository root (macOS/Linux, no Tailscale account needed):
 
 ```sh
-goroot="$(sh scripts/tailscale-go.sh)"
+goroot="$(dotnet run --file scripts/tailscale-go.cs)"
 cd src/Tereditor.Android/Tailscale.Native
 GOCACHE="$(dirname "$goroot")/build-cache" \
 GOMODCACHE="$(dirname "$goroot")/modules" GOTOOLCHAIN=local \

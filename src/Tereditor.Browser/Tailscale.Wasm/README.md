@@ -1,7 +1,7 @@
 # Browser userspace Tailscale node
 
-`sh scripts/build-tailscale-wasm.sh` (or `scripts/mise run tailscale:wasm`) builds this module for
-`GOOS=js GOARCH=wasm` with the checksum-pinned Go from `scripts/tailscale-go.sh`, Tailscale v1.104.1 from
+`dotnet run --file scripts/build-tailscale-wasm.cs` (or `scripts/mise run tailscale:wasm`) builds this module for
+`GOOS=js GOARCH=wasm` with the checksum-pinned Go from `scripts/tailscale-go.cs`, Tailscale v1.104.1 from
 `go.sum`, and `ts_omit_*` tags for features a browser node does not use. The browser build runs it when its
 inputs change. Output: `src/Tereditor.Browser/obj/tailscale-wasm`, deployed under `tailscale/` in the AppBundle:
 

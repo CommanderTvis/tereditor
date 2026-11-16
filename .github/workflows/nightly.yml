@@ -37,7 +37,7 @@ jobs:
           path: |
             ~/.cache/tereditor/ghostty-avalonia
             ~/.cache/tereditor/zig
-          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
           restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
@@ -77,7 +77,7 @@ jobs:
           path: |
             ~/.cache/tereditor/ghostty-avalonia
             ~/.cache/tereditor/zig
-          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
           restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
@@ -133,7 +133,7 @@ jobs:
           path: |
             ~/.cache/tereditor/ghostty-avalonia
             ~/.cache/tereditor/zig
-          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
           restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
@@ -184,7 +184,7 @@ jobs:
           path: |
             ~/.cache/tereditor/ghostty-avalonia
             ~/.cache/tereditor/zig
-          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
           restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
@@ -245,7 +245,7 @@ jobs:
           path: |
             ~/.cache/tereditor/ghostty-avalonia
             ~/.cache/tereditor/zig
-          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
           restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
@@ -360,7 +360,7 @@ jobs:
           path: |
             ~\AppData\Local\tereditor\cache\ghostty-avalonia
             ~\AppData\Local\tereditor\cache\zig
-          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
           restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
@@ -373,7 +373,7 @@ jobs:
           path: |
             src/Ghostty.Avalonia/obj/native/win-x64/GhosttyAvaloniaVt.dll
             src/Ghostty.Avalonia/obj/native/win-x64/fingerprint
-          key: windows-native-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.gitattributes', 'global.json', 'Directory.Build.props', 'Directory.Packages.props', 'mise.lock', 'scripts/windows-native.ps1', 'src/Ghostty.Avalonia/build-windows.ps1', 'src/Ghostty.Avalonia/Native/GhosttyVt.c', 'src/Ghostty.Avalonia/Native/GhosttyClipboardStub.c') }}
+          key: windows-native-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.gitattributes', 'global.json', 'Directory.Build.props', 'Directory.Packages.props', 'mise.lock', 'scripts/build-ghostty-windows.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'src/Ghostty.Avalonia/Native/GhosttyVt.c', 'src/Ghostty.Avalonia/Native/GhosttyClipboardStub.c') }}
       - run: ./scripts/mise.cmd x -- dotnet run --file scripts/ci-run.cs -- "Package Windows x64" ./scripts/mise.cmd run package:windows -- -RuntimeIdentifier win-x64
       # Save validated native outputs even when the subsequent packaged runtime gate fails.
       - uses: actions/cache/save@v6
@@ -399,7 +399,7 @@ jobs:
 
   # Zig 0.16.0 cannot link its own build runner on the windows-11-arm runner (every `zig build` crashes with 0xC0000005,
   # see probe-windows-arm64-zig.yml), so libghostty-vt for win-arm64 is cross-compiled on an x64 host. The packaging job
-  # restores the DLL and its fingerprint into src/Ghostty.Avalonia/obj/native, where build-windows.ps1 verifies the fingerprint (target, CPU,
+  # restores the DLL and its fingerprint into src/Ghostty.Avalonia/obj/native, where build-ghostty-windows.cs verifies the fingerprint (target, CPU,
   # Ghostty commit, scripts and sources) and skips Zig when it matches, so a stale DLL is rebuilt, never shipped.
   ghostty-windows-arm64:
     runs-on: windows-2025
@@ -422,13 +422,13 @@ jobs:
           path: |
             ~\AppData\Local\tereditor\cache\ghostty-avalonia
             ~\AppData\Local\tereditor\cache\zig
-          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'src/Ghostty.Avalonia/build-*.sh', 'src/Ghostty.Avalonia/build-windows.ps1', 'scripts/native-cache.sh', 'mise.toml') }}
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
           restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v6
         with:
           path: ~\.nuget\packages
           key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
-      - run: ./scripts/mise.cmd x -- dotnet run --file scripts/ci-run.cs -- "Cross-build Ghostty for Windows ARM64" ./scripts/mise.cmd x -- powershell -NoProfile -ExecutionPolicy Bypass -File src/Ghostty.Avalonia/build-windows.ps1 -RuntimeIdentifier win-arm64 -Cache src/Ghostty.Avalonia/obj/native
+      - run: ./scripts/mise.cmd x -- dotnet run --file scripts/ci-run.cs -- "Cross-build Ghostty for Windows ARM64" ./scripts/mise.cmd x -- dotnet run --file scripts/build-ghostty-windows.cs -- win-arm64 src/Ghostty.Avalonia/obj/native
       - uses: actions/upload-artifact@v7
         with:
           name: ghostty-vt-windows-arm64
@@ -468,8 +468,8 @@ jobs:
           path: |
             src/Ghostty.Avalonia/obj/native/win-arm64/GhosttyAvaloniaVt.dll
             src/Ghostty.Avalonia/obj/native/win-arm64/fingerprint
-          key: windows-native-arm64-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.gitattributes', 'global.json', 'Directory.Build.props', 'Directory.Packages.props', 'mise.lock', 'scripts/windows-native.ps1', 'src/Ghostty.Avalonia/build-windows.ps1', 'src/Ghostty.Avalonia/Native/GhosttyVt.c', 'src/Ghostty.Avalonia/Native/GhosttyClipboardStub.c') }}
-      # The cross-built libghostty-vt replaces any cached one; build-windows.ps1 still checks its fingerprint.
+          key: windows-native-arm64-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.gitattributes', 'global.json', 'Directory.Build.props', 'Directory.Packages.props', 'mise.lock', 'scripts/build-ghostty-windows.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'src/Ghostty.Avalonia/Native/GhosttyVt.c', 'src/Ghostty.Avalonia/Native/GhosttyClipboardStub.c') }}
+      # The cross-built libghostty-vt replaces any cached one; build-ghostty-windows.cs still checks its fingerprint.
       - uses: actions/download-artifact@v8
         with:
           name: ghostty-vt-windows-arm64
