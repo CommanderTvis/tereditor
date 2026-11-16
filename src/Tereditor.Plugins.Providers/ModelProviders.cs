@@ -4,7 +4,7 @@ using Tereditor.Plugins.Api;
 
 namespace Tereditor.Plugins.Providers;
 
-/// <summary>The block of Settings › Model providers a provider is listed in.</summary>
+/// <summary>The block of Settings › Plugins › Model providers a provider is listed in.</summary>
 public enum ProviderGroup
 {
     /// <summary>JetBrains AI. Filled in by the Air Gateway plugin.</summary>
@@ -118,7 +118,7 @@ public static class ProviderMatching
     public static bool Offered(AgentRouting routing, ProviderDefinition provider) => Offers(routing, provider).Count > 0;
 }
 
-/// <summary>The named places of Settings › Model providers that another plugin fills with a control, through <c>SlotSection</c>.</summary>
+/// <summary>The named places of Settings › Plugins › Model providers that another plugin fills with a control, through <c>SlotSection</c>.</summary>
 public static class ProvidersSlots
 {
     /// <summary>The JetBrains AI block. Empty until the Air Gateway plugin contributes its component.</summary>

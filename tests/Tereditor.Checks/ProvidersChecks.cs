@@ -114,6 +114,49 @@ internal static class ProvidersChecks
         _ => OmpManifest.Manifest.AgentRouting!
     };
 
+    // The Codex launch seam: nothing chosen is byte-identical, a chosen source names the helper and the id and never the key, and other agents are untouched.
+    private static void CodexSeam(ModelProvidersService service, ProviderKeyStore keys, string sentinel, Func<List<ModelSourceChoice>> sources)
+    {
+        const string Baseline = "codex";
+        static string Line(params AgentLaunchContribution?[] contributions) => CodexLaunch.Line("codex", new(false, false) { Contributions = [.. contributions.OfType<AgentLaunchContribution>()] });
+        Require(Line() == Baseline && Line(ProviderLaunch.For("codex", null)) == Baseline, "With no report the Codex line is the agent's own.");
+        var report = service.Report();
+        Require(report.Sources.All(choice => choice.AgentId != "codex") && ProviderLaunch.For("codex", report) is null && Line(ProviderLaunch.For("codex", report)) == Baseline, "With no source chosen the Codex line is byte-identical.");
+
+        report = service.SetSource(new("codex", "openrouter"));
+        var contribution = ProviderLaunch.For("codex", report) ?? throw new InvalidOperationException("providers: a chosen source contributes to the Codex launch.");
+        var words = string.Join('\n', contribution.Arguments);
+        Require(contribution.BlockedReason is null && contribution.Wrapper.Count == 0 && !contribution.ReplacesExecutable && contribution.Environment.Count == 0, "The contribution only adds arguments.");
+        Require(words.Contains("model_provider='tereditor-openrouter'", StringComparison.Ordinal) && words.Contains("model_providers.tereditor-openrouter.wire_api='responses'", StringComparison.Ordinal) &&
+            words.Contains("model_providers.tereditor-openrouter.base_url='https://openrouter.ai/api/v1'", StringComparison.Ordinal) &&
+            words.Contains("model_providers.tereditor-openrouter.auth.command='" + keys.HelperPath + "'", StringComparison.Ordinal) && words.Contains("auth.args=['openrouter']", StringComparison.Ordinal), "The launch names the provider, its Responses endpoint and the key helper.");
+        var line = Line(contribution);
+        Require(!line.Contains(sentinel, StringComparison.Ordinal) && !words.Contains(sentinel, StringComparison.Ordinal) && !PluginJson.Serialize(report).Contains(sentinel, StringComparison.Ordinal), "The key is in no launch word and no report.");
+        Require(line.StartsWith("codex -c ", StringComparison.Ordinal), "The words follow the executable.");
+        if (!OperatingSystem.IsWindows())
+        {
+            using var shell = Process.Start(new ProcessStartInfo("/bin/sh", ["-c", "codex() { printf '%s\\n' \"$@\"; }; " + line]) { RedirectStandardOutput = true, UseShellExecute = false })!;
+            var output = shell.StandardOutput.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            shell.WaitForExit();
+            Require(output.SequenceEqual(contribution.Arguments), "The shell hands Codex each word literally.");
+        }
+        Require(new[] { "claude", "pi", "omp", "other" }.All(launcher => ProviderLaunch.For(launcher, report) is null), "Only Codex launches change.");
+
+        // A provider with no key needs no helper; a name with a quote loses the quote; an unusable source blocks the launch.
+        report = service.AddCustom(new("It's local", "http://localhost:1234/v1", [ModelApiKinds.OpenAiResponses]));
+        var local = report.Providers.Single(row => row.Provider.Custom);
+        report = service.SetSource(new("codex", local.Provider.Id));
+        var keyless = ProviderLaunch.For("codex", report)!;
+        Require(keyless.BlockedReason is null && keyless.Arguments.Contains("model_providers.tereditor-" + local.Provider.Id + ".name='Its local'") && !string.Join(' ', keyless.Arguments).Contains("auth", StringComparison.Ordinal), "A keyless provider has no auth command.");
+        var notReady = new ModelProvidersReport([local with { Ready = false }], [new("codex", local.Provider.Id)]) { Helper = keys.HelperPath };
+        var noApi = new ModelProvidersReport([new(BundledProviders.All.Single(provider => provider.Id == "anthropic"), true)], [new("codex", "anthropic")]) { Helper = keys.HelperPath };
+        var noHelper = new ModelProvidersReport(service.Report().Providers.Where(row => row.Provider.Id == "openrouter").ToArray(), [new("codex", "openrouter")]);
+        Require(new[] { notReady, noApi, noHelper }.All(blocked => ProviderLaunch.For("codex", blocked)?.BlockedReason is { Length: > 0 }), "A source Codex cannot use blocks the launch.");
+        Require(Line(ProviderLaunch.For("codex", notReady)).StartsWith("sh -c", StringComparison.Ordinal), "A blocked Codex line prints the reason and exits.");
+        service.RemoveCustom(new(local.Provider.Id));
+        Require(sources().All(choice => choice.AgentId != "codex"), "Removing the provider returns Codex to its own.");
+    }
+
     // The model source work: what each agent declares, which providers it is offered, the key store and its helper, custom providers and the recorded source.
     private static void Model(string root)
     {
@@ -222,6 +265,8 @@ internal static class ProvidersChecks
         report = service.Report();
         Require(report.Providers.All(row => row.Provider.Id != "jetbrains-ai") && report.Sources.All(choice => choice.AgentId != "claude-code"), "A withdrawn provider leaves the list and the choices that used it.");
 
+        CodexSeam(service, keys, Sentinel, () => sources);
+
         // The key is nowhere but its own file: not in a report, saved state, the helper, a launch word, or any other file under the state directory.
         var everything = JsonSerializer.Serialize(service.Report()) + JsonSerializer.Serialize(custom) +
             JsonSerializer.Serialize(sources) + string.Join(' ', ProviderKeyHelper.Words(keys.BinDirectory, "openrouter")) +
@@ -231,7 +276,7 @@ internal static class ProvidersChecks
         Require(holders.Length == 1 && holders[0] == Path.Combine("providers", "keys", "openrouter"), "Only the key's own file holds it: " + string.Join(", ", holders));
         Require(new AgentLaunchContribution().Environment.Count == 0 && Routing("claude-code").Accepts.All(api => !PluginJson.Serialize(api).Contains("sentinel", StringComparison.Ordinal)), "A declaration or a launch contribution carries no key.");
 
-        // The contract is wire version 2 and lists the new methods.
-        Require(ProvidersContract.WireVersion == 2 && new[] { "models", "saveModelKey", "removeModelKey", "addCustomProvider", "removeCustomProvider", "setModelSource", "contribute", "withdraw" }.All(name => ProvidersContract.Contract.Methods.Any(method => method.Name == name)), "The contract lists the model provider methods.");
+        // The contract is wire version 3, lists the new methods and pushes the models channel.
+        Require(ProvidersContract.WireVersion == 3 && ProvidersContract.Contract.Channels.Any(channel => channel.Name == "models") && new[] { "models", "saveModelKey", "removeModelKey", "addCustomProvider", "removeCustomProvider", "setModelSource", "contribute", "withdraw" }.All(name => ProvidersContract.Contract.Methods.Any(method => method.Name == name)), "The contract lists the model provider methods.");
     }
 }

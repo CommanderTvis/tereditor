@@ -23,18 +23,30 @@ public sealed class ProvidersHost : PluginHostModule
             custom => context.WriteState("customProviders", custom.ToList()),
             () => context.ReadState<List<ModelSourceChoice>>("modelSources", []),
             sources => context.WriteState("modelSources", sources.ToList())));
-        context.Method(ProvidersContract.Models, (_, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(models.Report, ct)));
-        context.Method(ProvidersContract.SaveModelKey, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.SaveKey(p), ct)));
-        context.Method(ProvidersContract.RemoveModelKey, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.RemoveKey(p), ct)));
-        context.Method(ProvidersContract.AddCustomProvider, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.AddCustom(p), ct)));
-        context.Method(ProvidersContract.RemoveCustomProvider, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.RemoveCustom(p), ct)));
-        context.Method(ProvidersContract.SetModelSource, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(() => models.SetSource(p), ct)));
-        context.Method(ProvidersContract.Contribute, (p, _, _) => ValueTask.FromResult(models.Contribute(p)));
-        context.Method(ProvidersContract.Withdraw, (p, _, ct) => new ValueTask<ProvidersAck>(Task.Run(() => models.Withdraw(p), ct)));
+        // Every change is pushed, and the Codex launch contribution reads the latest report from memory: a launch never touches a file.
+        ModelProvidersReport? latest = null;
+        ModelProvidersReport Publish(ModelProvidersReport report)
+        {
+            Volatile.Write(ref latest, report);
+            context.Publish(ProvidersContract.ModelsChanged, report);
+            return report;
+        }
+        ValueTask<ModelProvidersReport> Report(Func<ModelProvidersReport> change, CancellationToken ct) => new(Task.Run(() => Publish(change()), ct));
+        context.Method(ProvidersContract.Models, (_, _, ct) => Report(models.Report, ct));
+        context.Method(ProvidersContract.SaveModelKey, (p, _, ct) => Report(() => models.SaveKey(p), ct));
+        context.Method(ProvidersContract.RemoveModelKey, (p, _, ct) => Report(() => models.RemoveKey(p), ct));
+        context.Method(ProvidersContract.AddCustomProvider, (p, _, ct) => Report(() => models.AddCustom(p), ct));
+        context.Method(ProvidersContract.RemoveCustomProvider, (p, _, ct) => Report(() => models.RemoveCustom(p), ct));
+        context.Method(ProvidersContract.SetModelSource, (p, _, ct) => Report(() => models.SetSource(p), ct));
+        context.Method(ProvidersContract.Contribute, (p, _, ct) => new ValueTask<ProvidersAck>(Task.Run(() => { var ack = models.Contribute(p); Publish(models.Report()); return ack; }, ct)));
+        context.Method(ProvidersContract.Withdraw, (p, _, ct) => new ValueTask<ProvidersAck>(Task.Run(() => { var ack = models.Withdraw(p); Publish(models.Report()); return ack; }, ct)));
+        // Revived terminals are rebuilt on the host, so the host half contributes to the Codex launch too.
+        context.AgentLaunch(launcherId => ProviderLaunch.For(launcherId, Volatile.Read(ref latest)));
         // Reads and writes touch files, so none of them runs on the caller's thread.
         context.Method(ProvidersContract.List, (p, _, ct) => new ValueTask<ProvidersReport>(Task.Run(() => service.List(p.Agent), ct)));
         context.Method(ProvidersContract.SetKey, (p, _, ct) => new ValueTask<ProvidersReport>(Task.Run(() => service.SetKey(p), ct)));
         context.Method(ProvidersContract.RemoveKey, (p, _, ct) => new ValueTask<ProvidersReport>(Task.Run(() => service.RemoveKey(p), ct)));
+        _ = Task.Run(() => Publish(models.Report()));
         return ValueTask.FromResult<PluginDisposer?>(null);
     }
 }

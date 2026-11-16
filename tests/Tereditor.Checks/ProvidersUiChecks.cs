@@ -20,7 +20,7 @@ using Tereditor.UI.Plugins;
 
 namespace Tereditor.Checks;
 
-// Settings › Model providers and the model source slot, headless over a fake plugin context backed by the real service: the three groups,
+// Settings › Plugins › Model providers and the model source slot, headless over a fake plugin context backed by the real service: the three groups,
 // a contributed component replacing a group's hint, adding a key and a custom provider, the slot's choice per agent filtered by the agent's
 // declaration and recorded, and the slot with Model providers off, which is only a hint.
 internal static class ProvidersUiChecks
@@ -62,6 +62,16 @@ internal static class ProvidersUiChecks
             new ProvidersUI().Activate(context);
             Settle();
             Require(registry.SettingsSections.Count == 1 && registry.SlotSections.Count == 4, "Model providers registers its page and one model source section per agent");
+            // The Codex seam on the UI half: nothing before the first report, nothing with no source, the contribution once Codex has one.
+            Require(Fake.Launch?.Invoke("codex") is null, "before a report the UI half adds nothing to the Codex launch");
+            Fake.Push!(service.Report());
+            Require(Fake.Launch("codex") is null, "with no source chosen the UI half adds nothing to the Codex launch");
+            service.SaveKey(new("openrouter", Sentinel));
+            Fake.Push(service.SetSource(new("codex", "openrouter")));
+            Require(Fake.Launch("codex") is { Arguments.Count: > 0 } && Fake.Launch("claude") is null, "a chosen source reaches the Codex launch from the UI half only");
+            Fake.Push(service.SetSource(new("codex", null)));
+            service.RemoveKey(new("openrouter"));
+            Require(Fake.Launch("codex") is null, "clearing the source clears the contribution");
             Require(Find<ComboBox>(off, "ModelSourceChoice").Count == 1 && Find<TextBlock>(off, "PluginSlotHint").Count == 0, "turning it on fills the slot already on screen, no hint left");
 
             var page = registry.SettingsSections.Single().Value.Create();
@@ -167,6 +177,8 @@ internal static class ProvidersUiChecks
         private static ModelProvidersService service = null!;
         private static PluginRegistry registry = null!;
         private static IReadOnlyList<PluginRosterEntry> roster = [];
+        internal static Func<string, AgentLaunchContribution?>? Launch { get; private set; }
+        internal static Action<ModelProvidersReport>? Push { get; private set; }
 
         internal static IPluginUIContext Create(ModelProvidersService backing, PluginRegistry plugins, IReadOnlyList<PluginRosterEntry> entries)
         {
@@ -183,6 +195,8 @@ internal static class ProvidersUiChecks
                 case "Host":
                     return new PluginHostProjection([], new Dictionary<string, IReadOnlyList<HostWorkspace>>(), null, null, null, new PluginAppSettings("t", false, 80, false, 80, false, []),
                         new Dictionary<string, IReadOnlyList<TerminalTabInfo>>(), new Dictionary<string, IReadOnlyList<string>>(), new Dictionary<string, int>(), roster, null);
+                case "AgentLaunch": Launch = (Func<string, AgentLaunchContribution?>)args![0]!; return null;
+                case "Subscribe": Push = (Action<ModelProvidersReport>)args![1]!; return new Stop();
                 case "OnLaunchersChanged":
                 case "WatchHost": return new Stop();
                 case "SettingsSection": registry.AddSettingsSection(ProvidersManifest.Id, (SettingsSectionRegistration)args![0]!); return null;

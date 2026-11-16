@@ -10,7 +10,7 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.Providers.UI;
 
 /// <summary>
-/// Settings › Model providers: the blocks JetBrains AI, Cloud platforms and Other routers and providers, each a place another plugin can
+/// Settings › Plugins › Model providers: the blocks JetBrains AI, Cloud platforms and Other routers and providers, each a place another plugin can
 /// fill, and an action to add a custom provider. Keys are typed into masked fields, sent once and never shown again. Below them
 /// stays the older page for the keys Pi and omp read from their own files.
 /// </summary>

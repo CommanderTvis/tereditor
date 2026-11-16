@@ -11,7 +11,7 @@ namespace Tereditor.Plugins.Providers.UI;
 /// <summary>
 /// The model source control an agent's settings page embeds: the agent's own provider (the default, tereditor does not step in) or
 /// one of the providers the user added that speaks an API the agent accepts. The choice is recorded in this plugin's own state.
-/// It does not change how the agent starts yet.
+/// Codex starts with the choice; the other agents do not yet.
 /// </summary>
 internal sealed class ModelSourceView : StackPanel
 {
@@ -84,7 +84,8 @@ internal sealed class ModelSourceView : StackPanel
         choice.SelectedIndex = Math.Max(0, entries.FindIndex(entry => entry.Id == chosen));
         applying = false;
         hint.Text = routing is null ? "This agent has no provider choice."
-            : offered.Count == 0 && chosen is null ? "No provider you added fits this agent yet. Add one in Settings › Model providers."
+            : offered.Count == 0 && chosen is null ? "No provider you added fits this agent yet. Add one in Settings › Plugins › Model providers."
+            : agentId == ProviderLaunch.Codex ? "The choice is saved. New Codex launches use it."
             : "The choice is saved. It does not change how the agent starts yet.";
     }
 }

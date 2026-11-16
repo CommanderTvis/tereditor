@@ -147,5 +147,5 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
         if (kept.Count != sources.Count) state.SaveSources(kept);
     }
 
-    private ModelProvidersReport Build() => new(Rows(), state.LoadSources());
+    private ModelProvidersReport Build() => new(Rows(), state.LoadSources()) { Helper = keys.HelperPath };
 }

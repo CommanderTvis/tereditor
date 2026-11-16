@@ -11,7 +11,7 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.Providers.UI;
 
 /// <summary>
-/// Settings › Model providers: Pi's or omp's providers (a switch at the top), the connected ones with Remove, the rest with
+/// Settings › Plugins › Model providers: Pi's or omp's providers (a switch at the top), the connected ones with Remove, the rest with
 /// Add key, and a form for a provider the lists do not name. Keys are typed into masked fields, sent once and never shown again.
 /// Subscription sign-ins are not offered: every row takes an API key.
 /// </summary>
