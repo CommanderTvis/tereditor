@@ -65,13 +65,13 @@ internal static class ProvidersUiChecks
             // The Codex seam on the UI half: nothing before the first report, nothing with no source, the contribution once Codex has one.
             Require(Fake.Launch?.Invoke("codex") is null, "before a report the UI half adds nothing to the Codex launch");
             Fake.Push!(service.Report());
-            Require(Fake.Launch("codex") is null, "with no source chosen the UI half adds nothing to the Codex launch");
+            Require(Fake.Launch!("codex") is null, "with no source chosen the UI half adds nothing to the Codex launch");
             service.SaveKey(new("openrouter", Sentinel));
-            Fake.Push(service.SetSource(new("codex", "openrouter")));
-            Require(Fake.Launch("codex") is { Arguments.Count: > 0 } && Fake.Launch("claude") is null, "a chosen source reaches the Codex launch from the UI half only");
-            Fake.Push(service.SetSource(new("codex", null)));
+            Fake.Push!(service.SetSource(new("codex", "openrouter")));
+            Require(Fake.Launch!("codex") is { Arguments.Count: > 0 } && Fake.Launch!("claude") is null, "a chosen source reaches the Codex launch from the UI half only");
+            Fake.Push!(service.SetSource(new("codex", null)));
             service.RemoveKey(new("openrouter"));
-            Require(Fake.Launch("codex") is null, "clearing the source clears the contribution");
+            Require(Fake.Launch!("codex") is null, "clearing the source clears the contribution");
             Require(Find<ComboBox>(off, "ModelSourceChoice").Count == 1 && Find<TextBlock>(off, "PluginSlotHint").Count == 0, "turning it on fills the slot already on screen, no hint left");
 
             var page = registry.SettingsSections.Single().Value.Create();

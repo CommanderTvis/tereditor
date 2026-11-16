@@ -152,6 +152,9 @@ adds the keys of Pi's and omp's providers, in the file each of them reads (Pi's 
 You can add a provider that is not listed. Keys are never shown again after they are saved,
 and a Claude subscription sign-in is not offered: Anthropic takes an API key from the Claude Console.
 
+The OpenAI plugin adds an OpenAI row there: paste an API key, or press Sign in to run `codex login` in a terminal. Choose a
+Model source on the Codex page to start Codex through a provider; Codex reads the key itself and it never appears in the launch line.
+
 ## Air Gateway
 
 [JetBrains Air Gateway](https://www.jetbrains.com/air/gateway/) can serve Claude Code and Codex instead of

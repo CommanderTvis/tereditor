@@ -183,6 +183,7 @@ with `TEREDITOR_TOOLS_ENABLE=spec,blueprint`, which sets it for those two in mem
 | `claude-code`, `codex`, `omp`, `pi`, `acp` | no | They launch an agent in a terminal or chat pane. Headless is the tool server an agent calls. |
 | `air-gateway` | no | It starts Claude Code and Codex through Air Gateway per launch. |
 | `air-context` | no | Sign-in and consent are user-only and the indexing is cloud processing. |
+| `openai` | no | It adds the OpenAI key and Codex sign-in to Model providers, which is a settings page on the host. |
 | `providers` | no | It keeps API keys and custom providers on the host and offers them to agents. |
 | `github` | no | Pull request panels and a `gh` sign-in. |
 | `discord` | no | Rich Presence of a desktop session. |
@@ -640,7 +641,7 @@ records I read:
 | `acp` | `enabled`, `default_agent`, plus `[[agents]]` for `AcpAgentEntry` (`id`, `name`, `command`, `args`, `env`, `cwd`, `origin`) |
 | `air-gateway` | `enabled`, `source`, `claude_code`, `codex` |
 | `discord` | `enabled`, `application_id`, `blocked_project_ids`, `share_file_name` |
-| `providers`, `github`, `tailscale`, `epub`, `branch-graph`, `env*`, | `enabled` only (their settings records are empty) |
+| `openai`, `providers`, `github`, `tailscale`, `epub`, `branch-graph`, `env*`, | `enabled` only (their settings records are empty) |
 
 Exact plugin ids come from each plugin's `*Plugin.Id` constant. The ids above are from file names and the
 `BuiltinPlugins` list, and the generator in slice 6 reads the real ones.

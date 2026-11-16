@@ -58,6 +58,7 @@ using Tereditor.Plugins.Pi;
 using Tereditor.Plugins.Pi.Host;
 using Tereditor.Plugins.Processes;
 using Tereditor.Plugins.Processes.Host;
+using Tereditor.Plugins.OpenAi;
 using Tereditor.Plugins.Providers;
 using Tereditor.Plugins.Providers.Host;
 using Tereditor.Plugins.Review;
@@ -145,6 +146,7 @@ public static class BuiltinPlugins
         (PiManifest.Manifest, new PiHost()),
         (AcpManifest.Manifest, new AcpHost()),
         (ProvidersManifest.Manifest, new ProvidersHost()),
+        (OpenAiManifest.Manifest, null),
         (AirGatewayContract.Manifest, new AirGatewayHost()),
         (AirContextContract.Manifest, new AirContextHost()),
         (TailscaleContract.Manifest, new TailscaleHost(tailscale)),

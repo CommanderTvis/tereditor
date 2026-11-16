@@ -131,7 +131,7 @@ internal static class ProvidersChecks
             words.Contains("model_providers.tereditor-openrouter.base_url='https://openrouter.ai/api/v1'", StringComparison.Ordinal) &&
             words.Contains("model_providers.tereditor-openrouter.auth.command='" + keys.HelperPath + "'", StringComparison.Ordinal) && words.Contains("auth.args=['openrouter']", StringComparison.Ordinal), "The launch names the provider, its Responses endpoint and the key helper.");
         var line = Line(contribution);
-        Require(!line.Contains(sentinel, StringComparison.Ordinal) && !words.Contains(sentinel, StringComparison.Ordinal) && !PluginJson.Serialize(report).Contains(sentinel, StringComparison.Ordinal), "The key is in no launch word and no report.");
+        Require(!line.Contains(sentinel, StringComparison.Ordinal) && !words.Contains(sentinel, StringComparison.Ordinal) && !JsonSerializer.Serialize(report).Contains(sentinel, StringComparison.Ordinal), "The key is in no launch word and no report.");
         Require(line.StartsWith("codex -c ", StringComparison.Ordinal), "The words follow the executable.");
         if (!OperatingSystem.IsWindows())
         {
@@ -144,7 +144,7 @@ internal static class ProvidersChecks
 
         // A provider with no key needs no helper; a name with a quote loses the quote; an unusable source blocks the launch.
         report = service.AddCustom(new("It's local", "http://localhost:1234/v1", [ModelApiKinds.OpenAiResponses]));
-        var local = report.Providers.Single(row => row.Provider.Custom);
+        var local = report.Providers.Single(row => row.Provider.Name == "It's local");
         report = service.SetSource(new("codex", local.Provider.Id));
         var keyless = ProviderLaunch.For("codex", report)!;
         Require(keyless.BlockedReason is null && keyless.Arguments.Contains("model_providers.tereditor-" + local.Provider.Id + ".name='Its local'") && !string.Join(' ', keyless.Arguments).Contains("auth", StringComparison.Ordinal), "A keyless provider has no auth command.");
