@@ -238,7 +238,7 @@ and roster registration still precede reconciliation, preserving dormant tools a
 with icon, label, version (external plugins only; a builtin's version is the app's), origin, status, a reason
 line for failed and refused rows, a contribution summary, a switch, Retry on failed rows
 (`IPluginService.RetryAsync`), a Rescan button (`RescanAsync`), and an editor for the extra plugin roots (add
-and remove, each change a `plugin-paths` host change). The chip row above the list has one chip per heading, each with its category's icon (`PluginCategories.Icons`, monochrome, following the chip's text colour; languages share the generic code glyph, shell languages the terminal glyph). Rows sit under one heading per manifest
+and remove, each change a `plugin-paths` host change). The chip row above the list has one chip per heading, each with its category's icon (`PluginCategories.Icons`, monochrome, following the chip's text colour; the letter languages C & C++, C#, CSS, Go, JavaScript & TypeScript, PHP and R have none). Rows sit under one heading per manifest
 category (`PluginCategories.Order` first: the languages alphabetically, then the tool groups; other names alphabetically;
 `Other` for plugins without one, last), by label inside a group, so a language's server and its environment plugin are
 neighbours. Each row is its

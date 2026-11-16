@@ -147,7 +147,8 @@ public sealed class PluginsSettings : StackPanel
         foreach (var model in cards.Where(model => model.Heading is not null))
         {
             var heading = model.Heading!;
-            var link = Ui.Button(heading, () => ScrollToCategory(heading), heading == Unavailable ? "alertWarning" : PluginCategories.IconOf(heading));
+            var icon = heading == Unavailable ? "alertWarning" : PluginCategories.IconOf(heading);
+            var link = Ui.Button(heading, () => ScrollToCategory(heading), icon.Length > 0 ? icon : null);
             link.Name = "PluginOutline_" + heading;
             link.Margin = new Thickness(0, 0, 8, 8);
             outline.Children.Add(link);

@@ -76,20 +76,13 @@ public static class PluginCategories
     public static IReadOnlyList<string> Order { get; } =
         [Cpp, CSharp, Css, Dart, Go, JavaScript, Jvm, Php, PowerShell, Python, R, Ruby, Rust, Shell, Swift, Environment, Agents, ModelProviders, VersionControl, Documents, Integrations];
 
-    /// <summary>The icon name (a core icon of the plugin UI kit, or <c>file-type:&lt;name&gt;</c>, a language's single-colour Material Icon Theme logo) shown before a category's chip; a category without one gets the generic puzzle glyph.</summary>
+    /// <summary>The icon name (a core icon of the plugin UI kit, or <c>file-type:&lt;name&gt;</c>, a language's single-colour Material Icon Theme logo) shown before a category's chip. The letter languages (C &amp; C++, C#, CSS, Go, JavaScript &amp; TypeScript, PHP, R) have none: their chips already spell the letters. See <see cref="IconOf"/>.</summary>
     public static IReadOnlyDictionary<string, string> Icons { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        [Cpp] = "file-type:cpp",
-        [CSharp] = "file-type:csharp",
-        [Css] = "file-type:css",
         [Dart] = "file-type:dart",
-        [Go] = "file-type:go",
-        [JavaScript] = "file-type:javascript",
         [Jvm] = "file-type:java",
-        [Php] = "file-type:php",
         [PowerShell] = "file-type:powershell",
         [Python] = "file-type:python",
-        [R] = "file-type:r",
         [Ruby] = "file-type:ruby",
         [Rust] = "file-type:rust",
         [Shell] = "file-type:console",
@@ -103,8 +96,8 @@ public static class PluginCategories
         [Other] = "puzzle"
     };
 
-    /// <summary>The icon name for <paramref name="category"/>, from <see cref="Icons"/>.</summary>
-    public static string IconOf(string category) => Icons.TryGetValue(category, out var icon) ? icon : "puzzle";
+    /// <summary>The icon name for <paramref name="category"/>, from <see cref="Icons"/>. A builtin category without one gets an empty name (no icon); any other name gets the puzzle glyph.</summary>
+    public static string IconOf(string category) => Icons.TryGetValue(category, out var icon) ? icon : Order.Contains(category) ? "" : "puzzle";
 }
 
 /// <summary>The support levels a manifest's <see cref="PluginManifest.Support"/> names; Settings › Plugins badges them.</summary>
