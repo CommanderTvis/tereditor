@@ -655,13 +655,17 @@ const Tereditor.Plugins.UI.Kit.RegistryRow.IconWidth = 28 -> double
 const Tereditor.Plugins.UI.Kit.RegistryRow.SettingsWidth = 28 -> double
 static Tereditor.Plugins.UI.Kit.RegistryRow.Create(string! name, Avalonia.Controls.Control? status, Avalonia.Controls.Control? icon, Avalonia.Controls.Control! title, Avalonia.Controls.Control? settings, Avalonia.Controls.Control? action, Avalonia.Controls.Control? details) -> Avalonia.Controls.Border!
 Tereditor.Plugins.UI.Kit.MasterDetail
-Tereditor.Plugins.UI.Kit.MasterDetail.MasterDetail(string! name, double railWidth = 200) -> void
+Tereditor.Plugins.UI.Kit.MasterDetail.MasterDetail(string! name, double railWidth = 280) -> void
 Tereditor.Plugins.UI.Kit.MasterDetail.Rail.get -> Avalonia.Controls.ListBox!
 Tereditor.Plugins.UI.Kit.MasterDetail.Detail.get -> Avalonia.Controls.ContentControl!
 Tereditor.Plugins.UI.Kit.MasterDetail.Selected -> System.Action<string?>?
 Tereditor.Plugins.UI.Kit.MasterDetail.SelectedId.get -> string?
 Tereditor.Plugins.UI.Kit.MasterDetail.SetRows(System.Collections.Generic.IReadOnlyList<Avalonia.Controls.Control!>! rows, string? select, bool none = false) -> void
 static Tereditor.Plugins.UI.Kit.MasterDetail.Row(string! id, Avalonia.Controls.Control? icon, string! name, string? subtitle, string? problem) -> Avalonia.Controls.Control!
+static Tereditor.Plugins.UI.Kit.MasterDetail.Row(string! id, Avalonia.Controls.Control? icon, string! name, string? note, string? description, string? problem, Avalonia.Controls.Control? action) -> Avalonia.Controls.Control!
+static Tereditor.Plugins.UI.Kit.MasterDetail.Group(string! id, string! text) -> Avalonia.Controls.Control!
+Tereditor.Plugins.UI.Kit.MasterDetail.RailWidth.get -> double
+Tereditor.Plugins.UI.Kit.MasterDetail.RailWidth.set -> void
 Tereditor.Plugins.UI.Kit.MasterDetail.Footer.get -> Avalonia.Controls.StackPanel!
 Tereditor.Plugins.UI.Kit.MasterDetail.Header.get -> Avalonia.Controls.StackPanel!
 const Tereditor.Plugins.UI.Kit.Units.NoBreak = ' ' -> char

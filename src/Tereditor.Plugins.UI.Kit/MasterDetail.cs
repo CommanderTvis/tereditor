@@ -6,33 +6,57 @@ using Avalonia.Media;
 namespace Tereditor.Plugins.UI.Kit;
 
 /// <summary>
-/// A narrow list on the left and the selected item's settings on the right, as on Settings › Code Intelligence: the list has a divider at its
-/// right edge, a highlighted selected row and a small red dot on a row with a problem. Plugins fill the list with <see cref="Row"/> items and put
-/// the selected item's pane in <see cref="Detail"/>.
+/// A list on the left and the selected item's settings on the right, as on Settings › Code Intelligence: the list has a divider at its
+/// right edge that the user can drag, a highlighted selected row and a small red dot on a row with a problem. Plugins fill the list with
+/// <see cref="Row"/> items, optionally under <see cref="Group"/> headings (which cannot be selected), and put the selected item's pane in
+/// <see cref="Detail"/>.
 /// </summary>
 public sealed class MasterDetail : Grid
 {
     private bool setting;
+    private object? previous;
 
-    public MasterDetail(string name, double railWidth = 200)
+    private sealed class GroupHeading : TextBlock;
+
+    public MasterDetail(string name, double railWidth = 280)
     {
         Name = name;
-        ColumnDefinitions = new ColumnDefinitions { new(new GridLength(railWidth)), new(new GridLength(1, GridUnitType.Star)) };
+        ColumnDefinitions = new ColumnDefinitions { new(new GridLength(railWidth)) { MinWidth = 160 }, new(GridLength.Auto), new(new GridLength(1, GridUnitType.Star)) };
         Rail = new ListBox { Name = name + "Rail", Background = Brushes.Transparent, BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Top, AutoScrollToSelectedItem = false };
         ScrollViewer.SetVerticalScrollBarVisibility(Rail, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         ScrollViewer.SetHorizontalScrollBarVisibility(Rail, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         Rail.SelectionChanged += (_, _) =>
         {
-            if (!setting) Selected?.Invoke(SelectedId);
+            if (setting) return;
+            if (Rail.SelectedItem is GroupHeading)
+            {
+                // A heading is not an item: put the selection back.
+                setting = true;
+                try { Rail.SelectedItem = previous; }
+                finally { setting = false; }
+                return;
+            }
+            previous = Rail.SelectedItem;
+            Selected?.Invoke(SelectedId);
         };
         var divider = new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 1, 0), Padding = new Thickness(0, 0, 8, 0), Child = new StackPanel { Spacing = 8, Children = { Header, Rail, Footer } } };
-        Detail = new ContentControl { Name = name + "Detail", Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
-        SetColumn(Detail, 1);
+        Detail = new ContentControl { Name = name + "Detail", Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
+        var splitter = new GridSplitter { Name = name + "Splitter", Width = 5, Background = Brushes.Transparent, ResizeDirection = GridResizeDirection.Columns };
+        SetColumn(splitter, 1);
+        SetColumn(Detail, 2);
         Children.Add(divider);
+        Children.Add(splitter);
         Children.Add(Detail);
     }
 
     public ListBox Rail { get; }
+
+    /// <summary>The width of the list in pixels. The user can drag it; at least 160.</summary>
+    public double RailWidth
+    {
+        get => ColumnDefinitions[0].Width.Value;
+        set => ColumnDefinitions[0].Width = new GridLength(Math.Max(value, 160));
+    }
 
     /// <summary>Above the list: actions that are not items of it, and a heading for it.</summary>
     public StackPanel Header { get; } = new() { Spacing = 4 };
@@ -55,26 +79,48 @@ public sealed class MasterDetail : Grid
         try
         {
             Rail.ItemsSource = rows;
-            Rail.SelectedItem = none ? null : rows.FirstOrDefault(row => row.Tag as string == select) ?? rows.FirstOrDefault();
+            var items = rows.Where(row => row is not GroupHeading).ToList();
+            previous = none ? null : items.FirstOrDefault(row => row.Tag as string == select) ?? items.FirstOrDefault();
+            Rail.SelectedItem = previous;
         }
         finally { setting = false; }
     }
 
+    /// <summary>A heading between groups of rows, such as Installed and Registry. It is not selectable.</summary>
+    public static Control Group(string id, string text) =>
+        new GroupHeading { Name = "MasterGroup_" + id, Text = text, FontSize = 12, Foreground = Ui.Muted, Margin = new Thickness(2, 8, 0, 0) };
+
     /// <summary>One row of the list: an icon, the name with a small line under it, and a red dot (with the problem as its tooltip) when something is wrong.</summary>
-    public static Control Row(string id, Control? icon, string name, string? subtitle, string? problem)
+    public static Control Row(string id, Control? icon, string name, string? subtitle, string? problem) => Row(id, icon, name, null, subtitle, problem, null);
+
+    /// <summary>
+    /// A row with more: <paramref name="note"/> sits after the name in small muted text (a version), <paramref name="description"/> is one trimmed line under
+    /// it, and <paramref name="action"/> (an Install button, a check mark) sits at the right edge before the problem dot.
+    /// </summary>
+    public static Control Row(string id, Control? icon, string name, string? note, string? description, string? problem, Control? action)
     {
+        var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        title.Children.Add(new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.TextBrush });
+        if (!string.IsNullOrEmpty(note)) title.Children.Add(new TextBlock { Text = note, FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center });
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.TextBrush });
-        if (!string.IsNullOrEmpty(subtitle)) text.Children.Add(new TextBlock { Text = subtitle, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.Muted });
-        var row = new Grid { Tag = id, Name = "MasterRow_" + id, ColumnDefinitions = new ColumnDefinitions { new(new GridLength(24)), new(new GridLength(1, GridUnitType.Star)), new(GridLength.Auto) } };
+        text.Children.Add(title);
+        if (!string.IsNullOrEmpty(description)) text.Children.Add(new TextBlock { Text = description, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.Muted });
+        var row = new Grid { Tag = id, Name = "MasterRow_" + id, ColumnDefinitions = new ColumnDefinitions { new(new GridLength(24)), new(new GridLength(1, GridUnitType.Star)), new(GridLength.Auto), new(GridLength.Auto) } };
         if (icon is not null) { icon.VerticalAlignment = VerticalAlignment.Center; icon.HorizontalAlignment = HorizontalAlignment.Left; row.Children.Add(icon); }
         SetColumn(text, 1);
         row.Children.Add(text);
+        if (action is not null)
+        {
+            action.VerticalAlignment = VerticalAlignment.Center;
+            action.Margin = new Thickness(4, 0, 0, 0);
+            SetColumn(action, 2);
+            row.Children.Add(action);
+        }
         if (problem is not null)
         {
             var dot = new Avalonia.Controls.Shapes.Ellipse { Name = "MasterProblem_" + id, Width = 6, Height = 6, Fill = Ui.Danger, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
             ToolTip.SetTip(dot, problem);
-            SetColumn(dot, 2);
+            SetColumn(dot, 3);
             row.Children.Add(dot);
         }
         return row;
