@@ -10,7 +10,7 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.Providers.UI;
 
 /// <summary>
-/// Settings › Model providers: the blocks JetBrains AI, Hyperscalers and Other routers and providers, each a place another plugin can
+/// Settings › Model providers: the blocks JetBrains AI, Cloud platforms and Other routers and providers, each a place another plugin can
 /// fill, and an action to add a custom provider. Keys are typed into masked fields, sent once and never shown again. Below them
 /// stays the older page for the keys Pi and omp read from their own files.
 /// </summary>
@@ -72,18 +72,31 @@ internal sealed class ProvidersPage : StackPanel
     private void Render()
     {
         groups.Children.Clear();
-        AddGroup("JetBrains AI", ProviderGroup.JetBrainsAi, ProvidersSlots.JetBrainsAi, "JetBrains AI appears here when its plugin is on.");
-        AddGroup("Hyperscalers", ProviderGroup.Hyperscalers, ProvidersSlots.Hyperscalers, "Vertex AI, Bedrock, Azure and Foundry appear here when their plugins are on.");
-        AddGroup("Other routers and providers", ProviderGroup.Other, ProvidersSlots.Other, null);
+        AddGroup("JetBrains AI", ProviderGroup.JetBrainsAi, ProvidersSlots.JetBrainsAi);
+        AddGroup("Cloud platforms", ProviderGroup.Hyperscalers, ProvidersSlots.Hyperscalers);
+        AddGroup("Other routers and providers", ProviderGroup.Other, ProvidersSlots.Other);
         groups.Children.Add(CustomForm());
     }
 
-    private void AddGroup(string heading, ProviderGroup group, string slot, string? emptyHint)
+    private void AddGroup(string heading, ProviderGroup group, string slot)
     {
         var box = new StackPanel { Spacing = 8, Name = "ProviderGroup-" + group };
         box.Children.Add(Ui.Text(heading, Ui.TextBrush, 13));
-        box.Children.Add(context.SlotView(slot, null, emptyHint));
-        foreach (var row in report?.Providers.Where(row => row.Provider.Group == group) ?? []) box.Children.Add(Row(row));
+        var contributed = context.SlotView(slot);
+        box.Children.Add(contributed);
+        var rows = 0;
+        foreach (var row in report?.Providers.Where(row => row.Provider.Group == group) ?? [])
+        {
+            box.Children.Add(Row(row));
+            rows++;
+        }
+        // A group nothing fills shows nothing, not even its heading. The slot fills and empties while the page is open.
+        if (contributed is Panel panel)
+        {
+            void Follow() => box.IsVisible = rows > 0 || panel.Children.Count > 0;
+            panel.Children.CollectionChanged += (_, _) => Follow();
+            Follow();
+        }
         groups.Children.Add(box);
     }
 

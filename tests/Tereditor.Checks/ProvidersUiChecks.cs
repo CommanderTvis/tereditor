@@ -68,8 +68,7 @@ internal static class ProvidersUiChecks
             host.Children.Add(page);
             Settle();
             var groups = new[] { ProviderGroup.JetBrainsAi, ProviderGroup.Hyperscalers, ProviderGroup.Other }.Select(group => Find<StackPanel>(page, "ProviderGroup-" + group).Single()).ToArray();
-            Require(Texts(groups[0]).Any(text => text.Contains("JetBrains AI appears here", StringComparison.Ordinal)) && Texts(groups[1]).Any(text => text.Contains("Hyperscalers", StringComparison.Ordinal) || text.Contains("Vertex AI", StringComparison.Ordinal)),
-                "the JetBrains AI and Hyperscalers groups are empty places with a hint");
+            Require(!groups[0].IsVisible && !groups[1].IsVisible && groups[2].IsVisible, "the JetBrains AI and Cloud platforms groups are not shown while nothing fills them");
             Require(Find<StackPanel>(groups[2], "ModelProvider-openrouter").Count == 1 && Find<StackPanel>(groups[2], "ModelProvider-anthropic").Count == 1, "bundled providers are listed under Other routers and providers");
             Require(Texts(page).Any(text => text.Contains("Claude subscription", StringComparison.Ordinal) || text.Contains("does not allow a Claude subscription", StringComparison.Ordinal)), "Anthropic shows why a subscription sign-in is not offered");
 
@@ -77,7 +76,7 @@ internal static class ProvidersUiChecks
             registry.SetActive("air-gateway", true);
             registry.AddSlotSection("air-gateway", new(ProvidersSlots.JetBrainsAi, _ => new TextBlock { Name = "AirComponent", Text = "Central sign-in" }));
             Settle();
-            Require(Find<TextBlock>(page, "AirComponent").Count == 1 && !Texts(groups[0]).Any(text => text.Contains("appears here", StringComparison.Ordinal)), "a contributed component replaces the group's hint");
+            Require(Find<TextBlock>(page, "AirComponent").Count == 1 && groups[0].IsVisible && !groups[1].IsVisible, "a contributed component shows its group, with no hint");
 
             // Add a key: the form takes it masked, clears it, and nothing on the page shows it.
             Click(page, "Add key", Find<StackPanel>(page, "ModelProvider-openrouter").Single());

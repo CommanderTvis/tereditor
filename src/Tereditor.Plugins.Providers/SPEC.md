@@ -30,7 +30,7 @@ off. This plugin is the optional side that matches providers to those declaratio
 - The contribution contract. A dependent plugin calls `contribute` with its id and provider definitions, and `withdraw` when it stops;
   contributed ids cannot take over a bundled or earlier id. Its UI fills a place of the page with `SlotSection`: `providers:jetbrains-ai`,
   `providers:hyperscalers` or `providers:other`.
-- The page has the groups JetBrains AI and Hyperscalers (each an empty place with a hint until a plugin fills it), Other routers and
+- The page has the groups JetBrains AI and Cloud platforms (each hidden, heading included, until a plugin fills it), Other routers and
   providers (the bundled rows and the user's own), and an Add a custom provider form: a name, a base URL, the API kinds it speaks and an
   optional key (none for a local endpoint). A custom provider is stored in this plugin's state without its key. A plain `http://` address is
   accepted only on this computer. Below stays the page for the keys Pi and omp read from their own files.
@@ -76,6 +76,6 @@ leaking into a report, owner-only permissions, custom providers; omp: the `.env`
 variables, custom variables and their validation. Also what each agent declares and that none depends on this plugin, matching including the
 sign-in policy, the key store (0600 and 0700, atomic, a sentinel key found only in its own file), the helper's output and refusals, custom providers
 (validation, add, remove), contributions, the recorded model source and the wire contract. `--providers-ui` (gate case `providers-ui`) mounts the
-page and the slot headless: the three groups, a contributed component replacing a hint, adding a key and a custom provider without showing the
+page and the slot headless: the three groups, a group shown only once a component fills it, adding a key and a custom provider without showing the
 key, the slot's choice filtered by each agent's declaration and recorded, and the slot with this plugin off being only the hint. `--case
 agent-launch-contributions` checks that with no contribution each agent's launch line is unchanged.
