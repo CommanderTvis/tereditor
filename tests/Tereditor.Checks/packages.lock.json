@@ -263,6 +263,8 @@
           "Tereditor.Plugins.AirContext.Host": "[1.0.0, )",
           "Tereditor.Plugins.AirGateway.Host": "[1.0.0, )",
           "Tereditor.Plugins.Api.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Bedrock": "[1.0.0, )",
+          "Tereditor.Plugins.Bedrock.Host": "[1.0.0, )",
           "Tereditor.Plugins.Blueprint.Host": "[1.0.0, )",
           "Tereditor.Plugins.BranchGraph.Host": "[1.0.0, )",
           "Tereditor.Plugins.ClaudeCode.Host": "[1.0.0, )",
@@ -304,6 +306,8 @@
           "Tereditor.Plugins.Review.Host": "[1.0.0, )",
           "Tereditor.Plugins.SpecDialect.Host": "[1.0.0, )",
           "Tereditor.Plugins.Tailscale.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Vertex": "[1.0.0, )",
+          "Tereditor.Plugins.Vertex.Host": "[1.0.0, )",
           "Tereditor.Plugins.Visualize.Host": "[1.0.0, )",
           "Tomlyn": "[2.10.1, )"
         }
@@ -426,6 +430,30 @@
         "dependencies": {
           "Avalonia": "[12.1.6, )",
           "Tereditor.Plugins.Api": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.bedrock": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.bedrock.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Bedrock": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.bedrock.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.6, )",
+          "Tereditor.Plugins.Api.UI": "[1.0.0, )",
+          "Tereditor.Plugins.Bedrock": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )",
+          "Tereditor.Plugins.UI.Kit": "[1.0.0, )"
         }
       },
       "tereditor.plugins.blueprint": {
@@ -1018,6 +1046,30 @@
           "TextMateSharp.Grammars": "[2.0.4, )"
         }
       },
+      "tereditor.plugins.vertex": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.vertex.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Vertex": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.vertex.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.6, )",
+          "Tereditor.Plugins.Api.UI": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )",
+          "Tereditor.Plugins.UI.Kit": "[1.0.0, )",
+          "Tereditor.Plugins.Vertex": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.visualize": {
         "type": "Project",
         "dependencies": {
@@ -1067,6 +1119,7 @@
           "Tereditor.Plugins.AirContext.UI": "[1.0.0, )",
           "Tereditor.Plugins.AirGateway.UI": "[1.0.0, )",
           "Tereditor.Plugins.Api.UI": "[1.0.0, )",
+          "Tereditor.Plugins.Bedrock.UI": "[1.0.0, )",
           "Tereditor.Plugins.Blueprint.UI": "[1.0.0, )",
           "Tereditor.Plugins.BranchGraph.UI": "[1.0.0, )",
           "Tereditor.Plugins.ClaudeCode.UI": "[1.0.0, )",
@@ -1084,6 +1137,7 @@
           "Tereditor.Plugins.SpecDialect.UI": "[1.0.0, )",
           "Tereditor.Plugins.Tailscale.UI": "[1.0.0, )",
           "Tereditor.Plugins.UI.Kit": "[1.0.0, )",
+          "Tereditor.Plugins.Vertex.UI": "[1.0.0, )",
           "Tereditor.Plugins.Visualize.UI": "[1.0.0, )",
           "Tereditor.Scintilla": "[1.0.0, )",
           "bblanchon.PDFium.Linux": "[156.0.8076, 156.0.8076]",

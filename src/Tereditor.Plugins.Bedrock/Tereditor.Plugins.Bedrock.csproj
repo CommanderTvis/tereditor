@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What both halves of the Amazon Bedrock plugin and the checks share: the manifest, the settings and the provider it contributes. -->
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Host/**;UI/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Builtin plugin assets are staged at plugins/<id>/<assets> beside the host, which serves them to the UI half. -->
+    <None Include="bedrock.svg" Link="plugins/bedrock/assets/bedrock.svg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <ProjectReference Include="../Tereditor.Plugins.Api/Tereditor.Plugins.Api.csproj" />
+    <ProjectReference Include="../Tereditor.Plugins.Providers/Tereditor.Plugins.Providers.csproj" />
+  </ItemGroup>
+</Project>

@@ -6,6 +6,8 @@ using Tereditor.Plugins.AirGateway;
 using Tereditor.Plugins.AirGateway.Host;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
+using Tereditor.Plugins.Bedrock;
+using Tereditor.Plugins.Bedrock.Host;
 using Tereditor.Plugins.Blueprint;
 using Tereditor.Plugins.Blueprint.Host;
 using Tereditor.Plugins.BranchGraph;
@@ -66,6 +68,8 @@ using Tereditor.Plugins.Review.Host;
 using Tereditor.Plugins.SpecDialect;
 using Tereditor.Plugins.Tailscale;
 using Tereditor.Plugins.Tailscale.Host;
+using Tereditor.Plugins.Vertex;
+using Tereditor.Plugins.Vertex.Host;
 using Tereditor.Plugins.Visualize;
 using Tereditor.Plugins.Visualize.Host;
 
@@ -147,6 +151,8 @@ public static class BuiltinPlugins
         (AcpManifest.Manifest, new AcpHost()),
         (ProvidersManifest.Manifest, new ProvidersHost()),
         (OpenAiManifest.Manifest, null),
+        (BedrockManifest.Manifest, new BedrockHost()),
+        (VertexManifest.Manifest, new VertexHost()),
         (AirGatewayContract.Manifest, new AirGatewayHost()),
         (AirContextContract.Manifest, new AirContextHost()),
         (TailscaleContract.Manifest, new TailscaleHost(tailscale)),

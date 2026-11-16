@@ -80,6 +80,12 @@ public sealed record ProviderDefinition(string Id, string Name, ProviderGroup Gr
     /// <summary>Model ids the provider serves, written into an agent's models file when the agent does not know the provider by id. Empty when unknown.</summary>
     public IReadOnlyList<string> Models { get; set; } = [];
 
+    /// <summary>
+    /// Non-secret variables a launch of an agent that runs on this platform sets (region, profile, project). Only a provider whose API takes the
+    /// platform's own credentials has any; the credentials themselves stay with the platform's tools and never pass through tereditor.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Environment { get; set; } = new Dictionary<string, string>();
+
     /// <summary>Added by the user.</summary>
     public bool Custom { get; init; }
 
@@ -109,7 +115,7 @@ public static class ProviderMatching
         foreach (var accepted in routing.Accepts)
             foreach (var api in provider.Apis.Where(candidate => candidate.Kind == accepted.Kind))
             {
-                var auth = accepted.Auth.Where(kind => api.Auth.Contains(kind) && (kind == ModelAuthKind.ApiKey || provider.OAuth is { Allowed: true })).ToArray();
+                var auth = accepted.Auth.Where(kind => api.Auth.Contains(kind) && (kind is ModelAuthKind.ApiKey or ModelAuthKind.Platform || provider.OAuth is { Allowed: true })).ToArray();
                 if (auth.Length > 0) offers.Add(new(accepted, api, auth.Contains(ModelAuthKind.ApiKey) ? ModelAuthKind.ApiKey : auth[0]));
             }
         return offers;
@@ -127,7 +133,7 @@ public static class ProvidersSlots
     /// <summary>The JetBrains AI block. Empty until the Air Gateway plugin contributes its component.</summary>
     public const string JetBrainsAi = "providers:jetbrains-ai";
 
-    /// <summary>The block for Vertex, Bedrock, Azure and Foundry. Empty until a plugin contributes a component.</summary>
+    /// <summary>The Cloud platforms block (Vertex AI, Bedrock, Azure, Foundry). Empty until a plugin contributes a component.</summary>
     public const string Hyperscalers = "providers:hyperscalers";
 
     /// <summary>The block after the bundled routers and providers, for a component that belongs with them.</summary>

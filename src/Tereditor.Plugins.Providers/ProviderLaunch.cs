@@ -11,6 +11,11 @@ public static class ProviderLaunch
     /// <summary>The launcher id and agent id of Codex.</summary>
     public const string Codex = "codex";
 
+    /// <summary>The launcher id Claude Code asks with, and the agent id its model source is recorded under.</summary>
+    public const string Claude = "claude";
+
+    public const string ClaudeAgent = "claude-code";
+
     /// <summary>The prefix of the provider id Codex sees. Codex keeps its built-in ids (<c>openai</c>) for itself, so this one is always ours.</summary>
     public const string CodexIdPrefix = "tereditor-";
 
@@ -21,8 +26,10 @@ public static class ProviderLaunch
     /// </summary>
     /// <param name="launcherId">The launcher asking.</param>
     /// <param name="report">The latest merged list and sources.</param>
-    public static AgentLaunchContribution? For(string launcherId, ModelProvidersReport? report)
+    /// <param name="windows">Whether the launch line is read by a Windows shell, which gets no variables; null reads this host's system.</param>
+    public static AgentLaunchContribution? For(string launcherId, ModelProvidersReport? report, bool? windows = null)
     {
+        if (launcherId == Claude) return ForClaude(report, windows ?? OperatingSystem.IsWindows());
         if (launcherId != Codex || report?.Sources.FirstOrDefault(choice => choice.AgentId == Codex) is not { } source) return null;
         if (report.Providers.FirstOrDefault(row => row.Provider.Id == source.ProviderId) is not { Ready: true } row) return Blocked("The chosen model source is not ready. Choose another in Settings › Plugins › Model providers.");
         var provider = row.Provider;
@@ -46,6 +53,21 @@ public static class ProviderLaunch
         return words.Any(word => word.Any(char.IsControl)) || responses.BaseUrl.Contains('\'') || report.Helper?.Contains('\'') == true
             ? Blocked("The chosen model source has a name or address Codex cannot take.")
             : new() { Arguments = words };
+    }
+
+    /// <summary>
+    /// Claude Code runs on a cloud platform through variables of its own (<c>CLAUDE_CODE_USE_BEDROCK</c>, <c>CLAUDE_CODE_USE_VERTEX</c>). Only a source whose provider takes
+    /// the platform's credentials has this seam; any other source stays recorded only, and the launch stays the agent's own. A launch line a Windows
+    /// shell reads gets no variables, so it is blocked rather than started on another account.
+    /// </summary>
+    private static AgentLaunchContribution? ForClaude(ModelProvidersReport? report, bool windows)
+    {
+        if (report?.Sources.FirstOrDefault(choice => choice.AgentId == ClaudeAgent) is not { } source
+            || report.Providers.FirstOrDefault(row => row.Provider.Id == source.ProviderId) is not { Ready: true } row
+            || !row.Provider.Apis.Any(api => api.Kind is ModelApiKinds.Bedrock or ModelApiKinds.Vertex && api.Auth.Contains(ModelAuthKind.Platform))) return null;
+        if (windows) return Blocked("Claude Code runs on a cloud platform only in a POSIX shell for now. Choose its own provider.");
+        return row.Provider.Environment.Count == 0 ? Blocked("The chosen cloud platform has no settings yet. Fill them in Settings › Plugins › Model providers.")
+            : new() { Environment = row.Provider.Environment };
     }
 
     private static AgentLaunchContribution Blocked(string reason) => new() { BlockedReason = reason };

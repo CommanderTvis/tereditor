@@ -94,7 +94,8 @@ internal static class ProvidersChecks
     private static void Model(string root)
     {
         // Declarations: each agent says what it accepts and none depends on Model providers.
-        Require(Routing("claude-code").Accepts is [{ Kind: ModelApiKinds.AnthropicMessages, Injection: AgentInjection.SettingsFile }], "Claude Code accepts only the Anthropic Messages API, through a settings file.");
+        Require(Routing("claude-code").Accepts is [{ Kind: ModelApiKinds.AnthropicMessages, Injection: AgentInjection.SettingsFile }, { Kind: ModelApiKinds.Bedrock, Injection: AgentInjection.Environment, Auth: [ModelAuthKind.Platform] }, { Kind: ModelApiKinds.Vertex, Injection: AgentInjection.Environment, Auth: [ModelAuthKind.Platform] }],
+            "Claude Code accepts the Anthropic Messages API through a settings file, and Bedrock and Vertex with the platform's credentials through the environment.");
         Require(Routing("codex").Accepts is [{ Kind: ModelApiKinds.OpenAiResponses, Injection: AgentInjection.ConfigOverride }], "Codex accepts only the OpenAI Responses API, through configuration overrides.");
         Require(Routing("pi").Accepts.All(api => api.Injection == AgentInjection.ModelsFile) && Routing("omp").Accepts.All(api => api.Injection == AgentInjection.ModelsFile), "Pi and omp take models files.");
         Require(new[] { ClaudeCodeManifest.Manifest, CodexManifest.Manifest, PiManifest.Manifest, OmpManifest.Manifest }.All(manifest => manifest.DependsOn.All(dependency => dependency.Id != ProvidersManifest.Id)),

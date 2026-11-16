@@ -576,6 +576,7 @@ static Tereditor.Plugins.Api.PluginCategories.Icons.get -> System.Collections.Ge
 static Tereditor.Plugins.Api.PluginCategories.IconOf(string! category) -> string!
 Tereditor.Plugins.Api.AgentInjection
 Tereditor.Plugins.Api.AgentInjection.ConfigOverride = 1 -> Tereditor.Plugins.Api.AgentInjection
+Tereditor.Plugins.Api.AgentInjection.Environment = 3 -> Tereditor.Plugins.Api.AgentInjection
 Tereditor.Plugins.Api.AgentInjection.ModelsFile = 2 -> Tereditor.Plugins.Api.AgentInjection
 Tereditor.Plugins.Api.AgentInjection.SettingsFile = 0 -> Tereditor.Plugins.Api.AgentInjection
 Tereditor.Plugins.Api.AgentModelApi
@@ -602,6 +603,7 @@ Tereditor.Plugins.Api.ModelApiKinds
 Tereditor.Plugins.Api.ModelAuthKind
 Tereditor.Plugins.Api.ModelAuthKind.ApiKey = 0 -> Tereditor.Plugins.Api.ModelAuthKind
 Tereditor.Plugins.Api.ModelAuthKind.OAuth = 1 -> Tereditor.Plugins.Api.ModelAuthKind
+Tereditor.Plugins.Api.ModelAuthKind.Platform = 2 -> Tereditor.Plugins.Api.ModelAuthKind
 Tereditor.Plugins.Api.PluginManifest.AgentRouting.get -> Tereditor.Plugins.Api.AgentRouting?
 Tereditor.Plugins.Api.PluginManifest.AgentRouting.init -> void
 Tereditor.Plugins.Api.PluginRosterEntry.AgentRouting.get -> Tereditor.Plugins.Api.AgentRouting?

@@ -42,7 +42,10 @@ public enum ModelAuthKind
     [JsonStringEnumMemberName("api-key")] ApiKey,
 
     /// <summary>A sign-in that yields a token.</summary>
-    [JsonStringEnumMemberName("oauth")] OAuth
+    [JsonStringEnumMemberName("oauth")] OAuth,
+
+    /// <summary>The platform's own credential chain (an AWS profile, Google application default credentials). tereditor stores no secret.</summary>
+    [JsonStringEnumMemberName("platform")] Platform
 }
 
 /// <summary>How tereditor hands a provider to an agent: the mechanism the agent itself reads.</summary>
@@ -55,7 +58,10 @@ public enum AgentInjection
     [JsonStringEnumMemberName("config-override")] ConfigOverride,
 
     /// <summary>A models file the agent reads (Pi <c>models.json</c>, omp <c>models.yml</c>).</summary>
-    [JsonStringEnumMemberName("models-file")] ModelsFile
+    [JsonStringEnumMemberName("models-file")] ModelsFile,
+
+    /// <summary>Environment variables set for the launch (Claude Code <c>CLAUDE_CODE_USE_BEDROCK</c>).</summary>
+    [JsonStringEnumMemberName("environment")] Environment
 }
 
 /// <summary>One API kind an agent accepts.</summary>

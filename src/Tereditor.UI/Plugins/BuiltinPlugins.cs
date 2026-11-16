@@ -6,6 +6,8 @@ using Tereditor.Plugins.AirGateway;
 using Tereditor.Plugins.AirGateway.UI;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
+using Tereditor.Plugins.Bedrock;
+using Tereditor.Plugins.Bedrock.UI;
 using Tereditor.Plugins.Blueprint;
 using Tereditor.Plugins.Blueprint.UI;
 using Tereditor.Plugins.BranchGraph;
@@ -37,6 +39,8 @@ using Tereditor.Plugins.Review.UI;
 using Tereditor.Plugins.SpecDialect;
 using Tereditor.Plugins.Tailscale;
 using Tereditor.Plugins.Tailscale.UI;
+using Tereditor.Plugins.Vertex;
+using Tereditor.Plugins.Vertex.UI;
 using Tereditor.Plugins.Visualize;
 using Tereditor.Plugins.Visualize.UI;
 
@@ -61,6 +65,8 @@ public static class BuiltinPlugins
         (AcpManifest.Manifest, () => new AcpUI()),
         (ProvidersManifest.Manifest, () => new ProvidersUI()),
         (OpenAiManifest.Manifest, () => new OpenAiUI()),
+        (BedrockManifest.Manifest, () => new BedrockUI()),
+        (VertexManifest.Manifest, () => new VertexUI()),
         (AirGatewayContract.Manifest, () => new AirGatewayUI()),
         (AirContextContract.Manifest, () => new AirContextUI()),
         (TailscaleContract.Manifest, () => new TailscaleUI()),
@@ -78,7 +84,7 @@ public static class BuiltinPlugins
     [
         SpecDialectContract.Contract, BlueprintContract.Contract, ClaudeCodeContract.Contract, DiscordContract.Contract, BranchGraphContract.Contract, ReviewContract.Contract,
         ProcessesContract.Contract, VisualizeContract.Contract, CodexContract.Contract, OmpContract.Contract, PiContract.Contract, AcpContract.Contract,
-        ProvidersContract.Contract, OpenAiManifest.Contract, AirGatewayContract.Contract, AirContextContract.Contract, TailscaleContract.Contract, EpubContract.Contract,
+        ProvidersContract.Contract, OpenAiManifest.Contract, BedrockManifest.Contract, VertexManifest.Contract, AirGatewayContract.Contract, AirContextContract.Contract, TailscaleContract.Contract, EpubContract.Contract,
         GitHubContract.Contract, EnvContract.Contract
     ];
 }

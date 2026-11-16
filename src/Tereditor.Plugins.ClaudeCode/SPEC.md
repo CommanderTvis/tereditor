@@ -501,7 +501,7 @@ start keeps the "which tereditor did not start" refusal with Start fresh only. A
 just reattaches and is never offered anything. Blueprint's independent revive
 hook contributes submit without consuming this plugin's text.
 
-Settings › Claude Code shows the Model source control from Model providers as its first setting, above everything else (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks the Anthropic Messages API. The choice is recorded by Model providers and does not change the launch yet. With that plugin off the page shows one hint line and nothing else changes. Claude Code does not depend on Model providers; its manifest declares `agentRouting` (Anthropic Messages through a settings file).
+Settings › Claude Code shows the Model source control from Model providers as its first setting, above everything else (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks the Anthropic Messages API, or Amazon Bedrock or Google Vertex AI once their plugins are set up. A Bedrock or Vertex choice changes the launch: Model providers contributes only that platform's non-secret variables (`CLAUDE_CODE_USE_BEDROCK` or `CLAUDE_CODE_USE_VERTEX`, region, profile, project) to the `claude` line; the credentials stay the platform's own. Any other choice is recorded and does not change the launch yet. With that plugin off the page shows one hint line and nothing else changes. Claude Code does not depend on Model providers; its manifest declares `agentRouting` (Anthropic Messages through a settings file; Bedrock and Vertex with the platform's credentials through the environment).
 
 ## IDE and UI
 
