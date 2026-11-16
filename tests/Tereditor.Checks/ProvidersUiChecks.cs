@@ -184,7 +184,6 @@ internal static class ProvidersUiChecks
                             "addCustomProvider" => service.AddCustom((AddCustomProviderParams)args[1]!),
                             "removeCustomProvider" => service.RemoveCustom((ModelProviderParams)args[1]!),
                             "setModelSource" => service.SetSource((SetModelSourceParams)args[1]!),
-                            "list" => new ProvidersReport(((ProvidersParams)args[1]!).Agent, "fixture", []),
                             var other => throw new NotSupportedException(other)
                         };
                         return Activator.CreateInstance(method.ReturnType, result);

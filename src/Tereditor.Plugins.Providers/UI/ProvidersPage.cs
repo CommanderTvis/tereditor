@@ -11,8 +11,7 @@ namespace Tereditor.Plugins.Providers.UI;
 
 /// <summary>
 /// Settings › Model providers: the blocks JetBrains AI, Cloud platforms and Other routers and providers, each a place another plugin can
-/// fill, and an action to add a custom provider. Keys are typed into masked fields, sent once and never shown again. Below them
-/// stays the older page for the keys Pi and omp read from their own files.
+/// fill, and an action to add a custom provider. Keys are typed into masked fields, sent once and never shown again.
 /// </summary>
 internal sealed class ProvidersPage : StackPanel
 {
@@ -32,7 +31,6 @@ internal sealed class ProvidersPage : StackPanel
         intro.TextWrapping = TextWrapping.Wrap;
         Children.Add(new StackPanel { Spacing = 4, Children = { Ui.Text("Model providers", Ui.TextBrush, 15), intro } });
         Children.Add(groups);
-        Children.Add(new ProvidersView(context));
         AttachedToVisualTree += (_, _) => Load(() => context.RequestAsync(ProvidersContract.Models, new ModelProvidersParams()).AsTask());
         Render();
     }

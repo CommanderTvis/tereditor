@@ -13,8 +13,8 @@ using Tereditor.Plugins.Providers.UI;
 
 namespace Tereditor.Checks;
 
-// The Model providers plugin: keys for Pi (auth.json) and omp (the tereditor profile's .env) are written without disturbing
-// what else the files hold, are never returned, and a Claude subscription sign-in is never offered.
+// The Model providers plugin: the one provider list, the key store and its helper, the chosen model source, and the launch seams of Pi
+// (models.json in its own agent directory) and omp (models.yml in its tereditor profile), which never carry a key.
 internal static class ProvidersChecks
 {
     private const string Secret = "sk-fixture-9f3a7c2b";
@@ -35,75 +35,8 @@ internal static class ProvidersChecks
     {
         var manifest = ProvidersManifest.Manifest;
         Require(manifest.UnavailableOn.Count == 0, "The keys are files of the host's disk, which a browser tab has too.");
-
-        var directory = Path.Combine(root, "providers");
-        Directory.CreateDirectory(directory);
-        var auth = Path.Combine(directory, "pi", "auth.json");
-        var env = Path.Combine(directory, "omp", ".env");
-        var remembered = new List<CustomProvider>();
-        var environment = new Dictionary<string, string?> { ["GROQ_API_KEY"] = "from-environment" };
-        var service = new ProvidersService(new ProviderFiles(() => auth, () => env, () => remembered, custom => { remembered = [.. custom]; }, name => environment.GetValueOrDefault(name)));
-
-        // Pi: a sign-in Pi stored stays untouched, a key lands beside it, a Claude subscription is called out.
-        Directory.CreateDirectory(Path.GetDirectoryName(auth)!);
-        File.WriteAllText(auth, """{"openai-codex":{"type":"oauth","access":"a","refresh":"r"},"anthropic":{"type":"oauth","access":"a","refresh":"r"}}""");
-        var report = service.List(ProviderAgent.Pi);
-        Require(report.Providers.Single(row => row.Id == "anthropic") is { Source: ProviderSource.SignIn, Note: { } warn } && warn.Contains("not supported", StringComparison.Ordinal), "A Claude subscription sign-in is flagged as unsupported.");
-        Require(report.Providers.Single(row => row.Id == "openai-codex") is { Source: ProviderSource.SignIn, Custom: true }, "A sign-in the catalog does not list is still shown.");
-        Require(report.Providers.Single(row => row.Id == "groq").Source == ProviderSource.Environment, "A key in the host's environment is shown as such.");
-
-        report = service.SetKey(new(ProviderAgent.Pi, "openai", Secret));
-        Require(report.Providers.Single(row => row.Id == "openai").Source == ProviderSource.Key, "A stored key makes the provider connected.");
-        Require(!JsonSerializer.Serialize(report).Contains(Secret, StringComparison.Ordinal), "A report never carries a key.");
-        var written = JsonDocument.Parse(File.ReadAllText(auth)).RootElement;
-        Require(written.GetProperty("openai").GetProperty("key").GetString() == Secret && written.GetProperty("openai").GetProperty("type").GetString() == "api_key", "Pi's file holds the key as Pi reads it.");
-        Require(written.GetProperty("openai-codex").GetProperty("type").GetString() == "oauth", "The sign-in beside the key is untouched.");
-        if (!OperatingSystem.IsWindows()) Require(File.GetUnixFileMode(auth) == (UnixFileMode.UserRead | UnixFileMode.UserWrite), "The file is readable by its owner only.");
-
-        report = service.SetKey(new(ProviderAgent.Pi, "anthropic", Secret));
-        Require(report.Providers.Single(row => row.Id == "anthropic") is { Source: ProviderSource.Key }, "An API key replaces a subscription sign-in when the user chooses so.");
-        report = service.RemoveKey(new(ProviderAgent.Pi, "openai"));
-        Require(report.Providers.Single(row => row.Id == "openai").Source == ProviderSource.None && !File.ReadAllText(auth).Contains("\"openai\"", StringComparison.Ordinal), "Removing a key takes its entry out.");
-
-        report = service.SetKey(new(ProviderAgent.Pi, "my-gateway", Secret) { Name = "My gateway" });
-        Require(report.Providers.Single(row => row.Id == "my-gateway") is { Custom: true, Name: "My gateway", Source: ProviderSource.Key }, "A provider the lists do not name can be added for Pi.");
-        service.RemoveKey(new(ProviderAgent.Pi, "my-gateway"));
-        Require(remembered.Count == 0 && service.List(ProviderAgent.Pi).Providers.All(row => row.Id != "my-gateway"), "Removing a custom provider forgets it.");
-
-        Throws(() => service.SetKey(new(ProviderAgent.Pi, "Bad Id", Secret)), "A provider id is validated.");
-        Throws(() => service.SetKey(new(ProviderAgent.Pi, "openai", "  ")), "An empty key is refused.");
-        Throws(() => service.SetKey(new(ProviderAgent.Pi, "openai", "a\nb")), "A key is one line.");
-
-        // omp: a variable in the profile's .env; every other line stays.
-        Directory.CreateDirectory(Path.GetDirectoryName(env)!);
-        File.WriteAllText(env, "# my settings\nOTHER=1\nexport OPENAI_API_KEY=old\n");
-        report = service.SetKey(new(ProviderAgent.Omp, "openai", "new value #1"));
-        var lines = File.ReadAllLines(env);
-        Require(lines.Contains("OTHER=1") && lines.Contains("# my settings") && lines.Count(line => line.Contains("OPENAI_API_KEY", StringComparison.Ordinal)) == 1 && lines.Contains("OPENAI_API_KEY=\"new value #1\""), "omp's key replaces the variable's line, quoted, and keeps the other lines.");
-        Require(report.Providers.Single(row => row.Id == "openai").Source == ProviderSource.Key && !JsonSerializer.Serialize(report).Contains("new value", StringComparison.Ordinal), "omp's report shows the key as stored and never returns it.");
-        Require(report.Note is { Length: > 0 }, "The report says which omp launches read the keys.");
-        service.SetKey(new(ProviderAgent.Omp, "mistral", Secret));
-        Require(File.ReadAllLines(env).Contains("MISTRAL_API_KEY=" + Secret), "A catalog provider uses its documented variable.");
-        service.RemoveKey(new(ProviderAgent.Omp, "mistral"));
-        Require(!File.ReadAllText(env).Contains("MISTRAL", StringComparison.Ordinal) && File.ReadAllText(env).Contains("OTHER=1", StringComparison.Ordinal), "Removing a key deletes only its line.");
-
-        Throws(() => service.SetKey(new(ProviderAgent.Omp, "my-gateway", Secret)), "omp needs the variable for a provider the catalog does not know.");
-        Throws(() => service.SetKey(new(ProviderAgent.Omp, "my-gateway", Secret) { EnvVar = "lower" }), "A variable name is validated.");
-        report = service.SetKey(new(ProviderAgent.Omp, "my-gateway", Secret) { Name = "Gateway", EnvVar = "MY_GATEWAY_API_KEY" });
-        Require(report.Providers.Single(row => row.Id == "my-gateway") is { Custom: true, EnvVar: "MY_GATEWAY_API_KEY", Source: ProviderSource.Key }, "A custom omp provider is remembered with its variable.");
-        Require(service.List(ProviderAgent.Omp).Providers.Single(row => row.Id == "anthropic").Note == ProviderCatalog.AnthropicNote && service.List(ProviderAgent.Omp).Providers.All(row => row.Source != ProviderSource.SignIn), "Anthropic is offered by API key only, with the reason, and omp rows never show a sign-in.");
-        Require(ProviderCatalog.Pi.Concat(ProviderCatalog.Omp).All(provider => ProviderCatalog.IsProviderId(provider.Id) && ProviderCatalog.IsEnvVar(provider.EnvVar)), "Every catalog entry has a valid id and variable.");
-
-        // The page offers Pi always, and omp unless its plugin is refused.
-        static AgentRosterEntry Entry(string id, AgentPluginState state, bool? installed = null) => new(id, id, id, id, state, installed, installed == false ? id + " was not found." : null);
-        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, true), Entry("omp", AgentPluginState.Active)]) == (true, true), "Both agents are offered when both plugins are on, installed or undecided.");
-        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Disabled)]) == (true, true) && ProvidersView.Offered([Entry("pi", AgentPluginState.Disabled), Entry("omp", AgentPluginState.Active)]) == (true, true),
-            "A disabled plugin's agent is still offered, so the page is open whatever plugins are on.");
-        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Refused)]) == (true, false) && ProvidersView.Offered([]) == (true, true), "A refused omp plugin hides omp; Pi and an absent roster still offer both agents.");
-        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, false), Entry("omp", AgentPluginState.Active, true)]) == (true, true), "An agent whose program was not found is still offered.");
-        Require(ProvidersView.Intro(true, false).Contains("Pi uses", StringComparison.Ordinal) && !ProvidersView.Intro(true, false).Contains("omp", StringComparison.Ordinal) &&
-            ProvidersView.Intro(false, true).Contains("omp uses", StringComparison.Ordinal), "The opening sentence names only the agents offered.");
         Model(root);
+        Launch(root);
     }
 
     private static AgentRouting Routing(string pluginId) => pluginId switch
@@ -231,7 +164,85 @@ internal static class ProvidersChecks
         Require(holders.Length == 1 && holders[0] == Path.Combine("providers", "keys", "openrouter"), "Only the key's own file holds it: " + string.Join(", ", holders));
         Require(new AgentLaunchContribution().Environment.Count == 0 && Routing("claude-code").Accepts.All(api => !PluginJson.Serialize(api).Contains("sentinel", StringComparison.Ordinal)), "A declaration or a launch contribution carries no key.");
 
-        // The contract is wire version 2 and lists the new methods.
-        Require(ProvidersContract.WireVersion == 2 && new[] { "models", "saveModelKey", "removeModelKey", "addCustomProvider", "removeCustomProvider", "setModelSource", "contribute", "withdraw" }.All(name => ProvidersContract.Contract.Methods.Any(method => method.Name == name)), "The contract lists the model provider methods.");
+        // The contract is wire version 3: the model provider methods only, no per-agent key-file methods.
+        Require(ProvidersContract.WireVersion == 3 && new[] { "list", "setKey", "removeKey" }.All(name => ProvidersContract.Contract.Methods.All(method => method.Name != name)) && new[] { "models", "saveModelKey", "removeModelKey", "addCustomProvider", "removeCustomProvider", "setModelSource", "contribute", "withdraw" }.All(name => ProvidersContract.Contract.Methods.Any(method => method.Name == name)), "The contract lists the model provider methods.");
+    }
+
+    // The launch seams: a chosen source writes the agent's models file with a helper command and no key, and the launch gets only the place to read it.
+    private static void Launch(string root)
+    {
+        const string Sentinel = "sk-sentinel-77d0e3b1c9";
+        var state = Path.Combine(root, "providers-launch");
+        var ompHome = Path.Combine(root, "providers-omp-home");
+        Directory.CreateDirectory(state);
+        var keys = new ProviderKeyStore(state);
+        var files = new AgentModelFiles(keys, state, ompHome);
+        List<ProviderDefinition> custom = [];
+        List<ModelSourceChoice> sources = [];
+        ModelProvidersService Make() => new(keys, new ModelProviderState(() => custom, next => custom = [.. next], () => sources, next => sources = [.. next]), files);
+        var service = Make();
+        Require(service.Launch("pi") is null && service.Launch("omp") is null, "With no source chosen no launch is touched.");
+        Require(new ModelProvidersService(keys, new ModelProviderState(() => custom, next => custom = [.. next], () => sources, next => sources = [.. next])).Launch("pi") is null, "Without a models file service nothing contributes.");
+
+        service.SaveKey(new("openrouter", Sentinel));
+        service.SetSource(new("pi", "openrouter"));
+        service.SetSource(new("omp", "openrouter"));
+        var piFile = files.PathOf("pi");
+        var ompFile = files.PathOf("omp");
+        var pi = JsonDocument.Parse(File.ReadAllText(piFile)).RootElement.GetProperty("providers").GetProperty("openrouter");
+        var command = pi.GetProperty("apiKey").GetString()!;
+        Require(command.StartsWith('!') && command.Contains(keys.HelperPath, StringComparison.Ordinal) && command.Contains("openrouter", StringComparison.Ordinal) && pi.GetProperty("baseUrl").GetString() == "https://openrouter.ai/api/v1" && !pi.TryGetProperty("api", out _),
+            "Pi's file names the endpoint and gets the key from the helper; a provider Pi knows keeps its own API.");
+        Require(Directory.GetFiles(files.PiAgentDirectory).Select(Path.GetFileName).SequenceEqual(["models.json"]), "Pi's own agent directory holds the models file and never an auth.json.");
+        var yaml = File.ReadAllText(ompFile);
+        Require(ompFile == Path.Combine(ompHome, ".omp", "profiles", "tereditor", "agent", "models.yml") && yaml.Contains("providers:\n  \"openrouter\":", StringComparison.Ordinal) && yaml.Contains("apiKey: \"!", StringComparison.Ordinal) && yaml.Contains(keys.HelperPath, StringComparison.Ordinal),
+            "omp's file is in its tereditor profile and gets the key from the helper.");
+        Require(!File.ReadAllText(piFile).Contains("sentinel", StringComparison.Ordinal) && !yaml.Contains("sentinel", StringComparison.Ordinal), "No models file holds the key.");
+        if (!OperatingSystem.IsWindows())
+        {
+            var start = new ProcessStartInfo("/bin/sh") { RedirectStandardOutput = true };
+            start.ArgumentList.Add("-c");
+            start.ArgumentList.Add(command[1..]);
+            using var run = Process.Start(start)!;
+            var printed = run.StandardOutput.ReadToEnd();
+            run.WaitForExit();
+            Require(printed == Sentinel, "The command in Pi's file prints the key when a shell runs it.");
+        }
+
+        var piLaunch = service.Launch("pi")!;
+        var ompLaunch = service.Launch("omp")!;
+        Require(piLaunch.Environment is { Count: 1 } environment && environment["PI_CODING_AGENT_DIR"] == files.PiAgentDirectory && piLaunch.Arguments.Count == 0 && piLaunch.Wrapper.Count == 0, "Pi's launch gets only its agent directory.");
+        Require(ompLaunch.Arguments.SequenceEqual(["--profile", "tereditor"]) && ompLaunch.Environment.Count == 0 && service.Launch("claude-code") is null && service.Launch("codex") is null, "omp's launch gets only its profile, and the other agents get nothing.");
+        Require(!PluginJson.Serialize(piLaunch).Contains("sentinel", StringComparison.Ordinal) && !PluginJson.Serialize(ompLaunch).Contains("sentinel", StringComparison.Ordinal), "A launch contribution carries no key.");
+
+        // The omp launch line: byte-identical without a source, one profile flag with it.
+        Require(OmpLaunch.Line("omp", new() { Mcp = true }) == "omp --profile tereditor --no-lsp" && OmpLaunch.Line("omp", new() { Mcp = false }) == "omp --no-lsp", "Without a source the omp line is the one omp builds itself.");
+        Require(OmpLaunch.Line("omp", new() { Mcp = false, Contributions = [ompLaunch] }) == "omp --profile tereditor --no-lsp" && OmpLaunch.Line("omp", new() { Mcp = true, Contributions = [ompLaunch] }) == "omp --profile tereditor --no-lsp",
+            "A model source starts omp in the tereditor profile once, with or without MCP.");
+
+        // A provider the agents do not know needs its API named; a keyless one needs no key.
+        var report = service.AddCustom(new("My gateway", "https://llm.example.com/v1", [ModelApiKinds.AnthropicMessages, ModelApiKinds.OpenAiChat]) { Key = Sentinel + "-custom" });
+        service.SetSource(new("pi", "custom-my-gateway"));
+        pi = JsonDocument.Parse(File.ReadAllText(piFile)).RootElement.GetProperty("providers").GetProperty("custom-my-gateway");
+        Require(pi.GetProperty("api").GetString() == "anthropic-messages" && pi.GetProperty("baseUrl").GetString() == "https://llm.example.com/v1", "A custom provider is written with its API.");
+        service.AddCustom(new("Local", "http://localhost:8080", [ModelApiKinds.OpenAiChat]));
+        service.SetSource(new("pi", "custom-local"));
+        service.SetSource(new("omp", "custom-local"));
+        Require(JsonDocument.Parse(File.ReadAllText(piFile)).RootElement.GetProperty("providers").GetProperty("custom-local").GetProperty("apiKey").GetString() == "none" && File.ReadAllText(ompFile).Contains("auth: none", StringComparison.Ordinal),
+            "A provider that needs no key is written without a helper.");
+        Throws(() => service.SetSource(new("pi", "jetbrains-ai")), "A provider that is not in the list cannot be chosen.");
+
+        // Startup rewrites the files for the sources already chosen; a lost source or key removes the file and the contribution.
+        File.Delete(piFile);
+        File.Delete(ompFile);
+        var restarted = Make();
+        Require(restarted.Launch("pi") is null, "Before startup syncs, nothing contributes.");
+        restarted.Sync();
+        Require(File.Exists(piFile) && File.Exists(ompFile) && restarted.Launch("pi") is not null && restarted.Launch("omp") is not null, "Startup writes the files again and contributes.");
+        report = restarted.SetSource(new("pi", null));
+        Require(!File.Exists(piFile) && restarted.Launch("pi") is null && restarted.Launch("omp") is not null && report.Sources.All(choice => choice.AgentId != "pi"), "Choosing the agent's own provider removes the file and the contribution.");
+        restarted.RemoveCustom(new("custom-local"));
+        Require(!File.Exists(ompFile) && restarted.Launch("omp") is null, "Removing the provider an agent used removes its file and its contribution.");
+        Require(!PluginJson.Serialize(restarted.Report()).Contains("sentinel", StringComparison.Ordinal), "A report carries no key.");
     }
 }
