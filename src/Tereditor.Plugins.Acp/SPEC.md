@@ -143,6 +143,8 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   - The failed-start card (`ChatNoticeItem.Action`, `ChatHitKind.NoticeAction`) lists the same lines, the reason and the button.
   - Checks: `--acp` (`AcpChecks.SignIn`): a fake `gh` that records its arguments, a sentinel token that must appear nowhere, credential files in a temp home, and the fake agent in its terminal, `auth/status` and not-signed-in modes.
 
+- Prompt content (`AcpPromptBuilder`): the text comes first, then one block per chip. Paths are host paths in `file://` URIs; a folder link ends with a slash. An editor or preview selection is an embedded `resource` (label `path:start-end` or `path (selected text)`, then the text; the range also rides in `_meta.tereditor`) when `promptCapabilities.embeddedContext` is on, else a `resource_link` plus the text in a fenced block. A selection over 100000 characters is linked with its range and the chat says so. A picked file or folder is a `resource_link` (a file with its size), never embedded. A finished `@path` or `@path#L1-5` in the text inside the workspace becomes a link or an excerpt; one outside stays text. Images go inline only with `promptCapabilities.image`; without it a picked image is linked and a pasted one is dropped, and the chat tells the user. The editor's own context (chip kinds `selection` and `file`, sent as chips because `ChatAgent.StructuredContext` is on) is left out, with a note, when the file is outside the workspace or Git ignores it; a file the user picks is sent anyway. The chat view shares the chips and `ChatMentions` with the Claude Code chat.
+
 ## Not yet supported
 
 - Unsaved editor buffers: `fs/read_text_file` and `fs/write_text_file` read and write the files on disk (confined to the workspace); the host
@@ -153,8 +155,7 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 - `authenticate` for a method of type `agent`: the method is implemented in the client but nothing calls it; it is only listed. Terminal logins have a button.
 - The keychain and any credential file of an agent other than Copilot: not looked up, because the facts are not verified.
 - The `preview` channel, the registry's `extensions` and per-agent `website` links are not used.
-- A plan record (plans are text), embedded
-  resource, audio and resource-link prompts from the composer (images and file attachments are sent when the agent allows them), images in
+- A plan record (plans are text), audio prompts from the composer, images in
   agent output, `session/list` and `session/fork`, the agent's `mcpServers` (none are passed), steering or queuing a message while a turn
   runs (the send is refused until the turn ends), and a headless UI check of the chat view with streamed ACP output (the chips and the
   approval card are covered by `--claude-chat-ui`; the ACP folding is covered by `--acp`). A thought level is an option chip, not the model menu's effort.

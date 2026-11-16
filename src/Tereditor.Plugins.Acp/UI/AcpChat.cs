@@ -8,6 +8,7 @@ internal static class AcpChat
     public static readonly ChatAgent Agent = new("ACP agent", "agent", AcpContract.DocumentScheme, AcpManifest.Manifest.Icon)
     {
         PickersWhenOffered = true,
+        StructuredContext = true,
         UnavailableHint = ". Turn on the ACP plugin and choose an agent in Settings."
     };
 }

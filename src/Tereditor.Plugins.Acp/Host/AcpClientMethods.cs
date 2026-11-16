@@ -19,7 +19,7 @@ internal sealed class AcpClientMethods(string root) : IAcpClientMethods, IDispos
     private int counter;
 
     /// <summary>Resolves symbolic links in the part of the path that exists, so a link inside the workspace cannot lead out of it.</summary>
-    private static string Resolve(string path)
+    internal static string Resolve(string path)
     {
         var full = Path.GetFullPath(path);
         var existing = full;

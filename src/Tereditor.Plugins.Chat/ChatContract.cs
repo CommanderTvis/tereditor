@@ -58,7 +58,30 @@ public sealed record ChatAttachment(string Name, string Path)
     public byte[]? Data { get; init; }
     /// <summary>The media type of <see cref="Data"/>, such as <c>image/png</c> or <c>application/pdf</c>.</summary>
     public string? MediaType { get; init; }
+    /// <summary>For a "selection" chip of text selected in a rendered preview, which maps to no source lines: the selected text. An agent that takes structured context gets it with the file.</summary>
+    public string? Quote { get; init; }
     public const int MaxDataBytes = 8 * 1024 * 1024;
+}
+
+/// <summary>The <c>@path</c> mentions of a prompt, shared by the composer's chips and by hosts that turn them into file references.</summary>
+public static class ChatMentions
+{
+    /// <summary>A finished <c>@path</c>, <c>@"path with spaces"</c> or either followed by <c>#L10-20</c>.</summary>
+    public static readonly System.Text.RegularExpressions.Regex Pattern = new(@"(?<=^|\s)@(?:""(?<q>[^""]*)""|(?<p>[^\s""]+))(?<r>#L\d+(?:-\d+)?)?(?=\s)", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>The mentions in a text as (path, range text such as <c>#L3-5</c> or empty, the span in the text), the range split off an unquoted path.</summary>
+    public static IReadOnlyList<(string Path, string Range, int Start, int Length)> Parse(string text)
+    {
+        var found = new List<(string, string, int, int)>();
+        foreach (System.Text.RegularExpressions.Match match in Pattern.Matches(text))
+        {
+            var path = match.Groups["q"].Success ? match.Groups["q"].Value : match.Groups["p"].Value;
+            var range = match.Groups["r"].Success ? match.Groups["r"].Value : "";
+            if (range.Length == 0 && System.Text.RegularExpressions.Regex.Match(path, @"#L\d+(?:-\d+)?$") is { Success: true } tail) { range = tail.Value; path = path[..^range.Length]; }
+            found.Add((path, range, match.Index, match.Length));
+        }
+        return found;
+    }
 }
 
 /// <summary>Who a user-role frame came from, as the CLI says it (<c>origin</c>). Absent means a human typed it.</summary>

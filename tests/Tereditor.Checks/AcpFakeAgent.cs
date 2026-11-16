@@ -37,6 +37,9 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
     public bool AuthStatus { get; init; }
     /// <summary>Offers a sign-in of <c>type: "terminal"</c> (arguments and a variable) and one of <c>type: "agent"</c>.</summary>
     public bool TerminalType { get; init; }
+    /// <summary>What <c>promptCapabilities</c> advertises for images and for embedded resources.</summary>
+    public bool Image { get; init; } = true;
+    public bool EmbeddedContext { get; init; } = true;
     public AcpOffer Offer { get; }
     /// <summary>The params of the last request of each method.</summary>
     public Dictionary<string, JsonNode?> Last { get; } = [];
@@ -194,7 +197,7 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
                 return new JsonObject
                 {
                     ["protocolVersion"] = ProtocolVersion,
-                    ["agentCapabilities"] = new JsonObject { ["loadSession"] = LoadSession, ["promptCapabilities"] = new JsonObject { ["image"] = true, ["embeddedContext"] = true }, ["auth"] = AuthStatus ? new JsonObject { ["status"] = new JsonObject() } : null },
+                    ["agentCapabilities"] = new JsonObject { ["loadSession"] = LoadSession, ["promptCapabilities"] = new JsonObject { ["image"] = Image, ["embeddedContext"] = EmbeddedContext }, ["auth"] = AuthStatus ? new JsonObject { ["status"] = new JsonObject() } : null },
                     ["authMethods"] = TerminalType
                         ? new JsonArray(
                             new JsonObject { ["id"] = "term", ["name"] = "Sign in in a terminal", ["type"] = "terminal", ["args"] = new JsonArray("login", "--web"), ["env"] = new JsonObject { ["FAKE_LOGIN_MODE"] = "it's web" } },
@@ -228,7 +231,9 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
                     foreach (var option in configOptions.OfType<JsonObject>().Where(option => option["id"]!.GetValue<string>() == id)) option["currentValue"] = parameters["value"]!.DeepClone();
                     return new JsonObject { ["configOptions"] = configOptions.DeepClone() };
                 }
-            case "session/prompt": return await PromptAsync(parameters!, ct);
+            case "session/prompt":
+                lock (Last) Last[method] = parameters;
+                return await PromptAsync(parameters!, ct);
             default: throw new AcpException(AcpException.MethodNotFound, "Unknown method " + method);
         }
     }

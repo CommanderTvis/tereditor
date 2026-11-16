@@ -50,6 +50,7 @@ internal static class ClaudeChatUiChecks
         public bool FailQueue { get; set; }
         public List<string> Calls { get; } = [];
         public List<string> Sends { get; } = [];
+        public List<ChatSendParams> SendParams { get; } = [];
         public List<string> DraftWrites { get; } = [];
         public List<(string Method, string Value)> Sets { get; } = [];
         public List<(string Option, string Value)> OptionSets { get; } = [];
@@ -79,7 +80,7 @@ internal static class ClaudeChatUiChecks
                 throw new PluginCallException(PluginCallError.Unknown, "The claude-code plugin registered no handler for chatSetDraft.");
             }
             Calls.Add(method.Name);
-            if (parameters is ChatSendParams sending) Sends.Add(sending.Text);
+            if (parameters is ChatSendParams sending) { Sends.Add(sending.Text); SendParams.Add(sending); }
             await Task.Yield();
             if (OpenFailure is not null && method.Name == ChatContract.Open.Name) throw OpenFailure;
             object? result = parameters switch
@@ -287,6 +288,7 @@ internal static class ClaudeChatUiChecks
         UserBubbleDrawsText();
         SelectedThoughtRow();
         AttachmentChipsContained();
+        StructuredContextChips();
         PasteImages();
         PasteCollapse();
         PasteAgain();
@@ -2967,6 +2969,52 @@ internal static class ClaudeChatUiChecks
         source.Observe(new Tereditor.Plugins.Api.UI.EditorSelectionEvent(drawing, new(1, 1, 1, 1, "quote") { Mapped = false }), Listed);
         Require(source.Document("w") is null, "Text that maps to no source lines is not offered as lines.");
         Console.WriteLine("PASS chat selection: a plugin document's selection is the chat's until a real editor takes over");
+    }
+
+    // An agent that takes structured context (ACP) gets the editor's selection as a chip in the send, not as an @path mention in the text; the chip can still be removed.
+    private static void StructuredContextChips()
+    {
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        ChatSelection? selected = new("src/Alpha.cs", 3, 5, true);
+        Action? changed = null;
+        var agent = TestAgent with { StructuredContext = true };
+        var view = new ChatView(new ChatEnvironment(chat, agent) { ActiveSelection = () => selected, WatchSelection = handler => { changed = handler; return new Subscription(() => changed = null); } }, Workspace, Chat);
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Frame(window); Frame(window);
+            Control Row() => view.GetVisualDescendants().OfType<Control>().First(control => control.Name == "ChatSelectionRow");
+            int Attached() => view.GetVisualDescendants().OfType<Button>().Count(button => button.Name?.StartsWith("ChatAttachment_", StringComparison.Ordinal) == true);
+            void Fire() { changed!(); Frame(window); Frame(window); }
+            Fire();
+            Require(Row().IsVisible, "The selection chip shows for an agent with structured context.");
+            view.AddAttachment("/tmp/notes.txt");
+            Frame(window);
+            Require(Attached() == 1, "A picked file is a chip in the composer.");
+            view.GetVisualDescendants().OfType<Button>().First(button => button.Name == "ChatAttachment_notes.txt").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Frame(window);
+            Require(Attached() == 0, "A file chip is removed before sending.");
+            view.AddAttachment("/tmp/notes.txt");
+            view.Input.Text = "explain";
+            Await(view.Submit()); Frame(window);
+            var sent = chat.SendParams.Last();
+            Require(sent.Text == "explain" && sent.Attachments is { Count: 2 } files && files[0].Path == "/tmp/notes.txt" && files[1] is { Kind: "selection", Path: "src/Alpha.cs", StartLine: 3, EndLine: 5, Name: "Alpha.cs:3-5" },
+                $"The prompt text stays as typed and the selection rides as a chip ({sent.Text}).");
+            Require(!Row().IsVisible && Attached() == 0, "Sending clears both chips.");
+
+            selected = new("src/Alpha.cs", 1, 1, false) { Quote = "from the preview" }; Fire();
+            Row().GetVisualDescendants().OfType<Button>().First().RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Frame(window);
+            view.Input.Text = "no context";
+            Await(view.Submit()); Frame(window);
+            Require(chat.SendParams.Last().Attachments is null, "A removed selection chip sends nothing.");
+            selected = new("src/Alpha.cs", 1, 1, false) { Quote = "from another preview" }; Fire();
+            view.Input.Text = "what is this";
+            Await(view.Submit()); Frame(window);
+            Require(chat.SendParams.Last() is { Text: "what is this", Attachments: [{ Kind: "selection", Quote: "from another preview", Name: "Alpha.cs (selected text)" }] }, "Text selected in a preview rides as the quote of a selection chip.");
+        }
+        catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
+        finally { window.Close(); }
     }
 
     private static void SelectionChip()
