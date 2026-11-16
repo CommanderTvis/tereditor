@@ -35,7 +35,9 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
         this.FindControl<StackPanel>("ModelSourceHost")!.Children.Add(UiSlots.ModelSourceView(context, ClaudeCodeContract.Id));
         command = this.FindControl<TextBox>("ClaudeCommandInput")!;
         model = this.FindControl<AutoCompleteBox>("ClaudeDefaultModel")!;
-        model.ItemsSource = ClaudeLaunch.ModelSuggestions.Select(suggestion => suggestion.Id).ToList();
+        model.ItemsSource = ClaudeLaunch.BasicModels;
+        model.GotFocus += (_, _) => model.IsDropDownOpen = true;
+        model.AddHandler(Avalonia.Input.InputElement.PointerPressedEvent, (_, _) => model.IsDropDownOpen = true, handledEventsToo: true);
         model.ItemTemplate = new FuncDataTemplate<string>((id, _) => id is null ? null : new StackPanel
         {
             Orientation = Orientation.Horizontal,

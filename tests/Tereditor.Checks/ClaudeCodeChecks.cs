@@ -1125,10 +1125,14 @@ internal static class ClaudeCodeChecks
         E2eWorkspace.Until(() => Command().Text == "claude");
         var defaultModel = window.GetLogicalDescendants().OfType<AutoCompleteBox>().Single(control => control.Name == "ClaudeDefaultModel");
         var offeredModels = defaultModel.ItemsSource!.Cast<string>().ToList();
-        Require(new[] { "default", "best", "sonnet", "opus", "haiku", "sonnet[1m]", "opus[1m]", "opusplan", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5" }.All(offeredModels.Contains)
-            && ClaudeLaunch.ModelSuggestions.All(suggestion => suggestion.Description.Length > 0) && defaultModel.ItemTemplate is not null,
-            "The default model field offers the documented aliases and current model ids, each with a short description.");
-        Require(ClaudeSettingSuggestions.For("model")!.SequenceEqual(offeredModels), "The settings.json model composer offers the same list as Settings.");
+        Require(offeredModels.SequenceEqual(["opus", "sonnet", "haiku", "opusplan"]) && defaultModel.ItemTemplate is not null
+            && offeredModels.All(id => ClaudeLaunch.ModelSuggestions.Any(suggestion => suggestion.Id == id && suggestion.Description.Length > 0)),
+            "The default model field offers four basic options, each with a short description.");
+        defaultModel.RaiseEvent(new Avalonia.Input.GotFocusEventArgs { RoutedEvent = InputElement.GotFocusEvent });
+        Require(defaultModel.IsDropDownOpen, "Focusing the default model field opens the drop-down.");
+        defaultModel.SelectedItem = "haiku";
+        defaultModel.IsDropDownOpen = false;
+        E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].TryGetProperty("model", out var value) && value.GetString() == "haiku");
         defaultModel.Text = "opus[1m]";
         defaultModel.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
         E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].TryGetProperty("model", out var value) && value.GetString() == "opus[1m]");
