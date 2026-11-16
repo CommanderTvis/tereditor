@@ -156,6 +156,10 @@ Claude Code is offered only providers that have an Anthropic-compatible endpoint
 The OpenAI plugin adds an OpenAI row there: paste an API key, or press Sign in to run `codex login` in a terminal. Choose a
 Model source on the Codex page to start Codex through a provider; Codex reads the key itself and it never appears in the launch line.
 
+The Amazon Bedrock and Google Vertex AI plugins add Cloud platforms rows there. Fill in the region (and the project for Vertex), then choose the platform as the
+Model source on the Claude Code page. Claude Code then runs on that platform with your own credentials (an AWS profile, or `gcloud auth application-default login`).
+tereditor stores no secret for them. Other agents are not offered these platforms yet, and Claude Code does not run on them in a Windows shell yet.
+
 ## Air Gateway
 
 [JetBrains Air Gateway](https://www.jetbrains.com/air/gateway/) can serve Claude Code and Codex instead of

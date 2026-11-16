@@ -97,7 +97,7 @@ internal static class BoundaryChecks
         var projects = new[] { "src", "tests" }.Select(area => Path.Combine(root, area)).Where(Directory.Exists)
             .SelectMany(Directory.EnumerateDirectories).SelectMany(directory => Directory.EnumerateFiles(directory, "*.csproj", SearchOption.AllDirectories).Where(project => !Path.GetRelativePath(directory, project).Split(Path.DirectorySeparatorChar).Any(part => Generated.Contains(part) || part.StartsWith('.')))).Order(StringComparer.Ordinal).ToArray();
         var rules = Allowed.ToDictionary();
-        foreach (var plugin in new[] { "Acp", "SpecDialect", "Blueprint", "ClaudeCode", "Discord", "BranchGraph", "Review", "Processes", "Visualize", "Codex", "Omp", "Pi", "Providers", "OpenAi", "AirGateway", "AirContext", "Tailscale", "Epub", "CodeIntelligence", "EnvMise", "EnvDirenv", "EnvPython", "EnvJavaScript", "EnvJvm", "Env", "GitHub" })
+        foreach (var plugin in new[] { "Acp", "SpecDialect", "Blueprint", "ClaudeCode", "Discord", "BranchGraph", "Review", "Processes", "Visualize", "Codex", "Omp", "Pi", "Providers", "OpenAi", "Bedrock", "Vertex", "AirGateway", "AirContext", "Tailscale", "Epub", "CodeIntelligence", "EnvMise", "EnvDirenv", "EnvPython", "EnvJavaScript", "EnvJvm", "Env", "GitHub" })
         {
             var contract = "Tereditor.Plugins." + plugin;
             rules[contract] = [Api];
@@ -125,6 +125,10 @@ internal static class BoundaryChecks
         // The OpenAI plugin depends on Model providers: it reads its contract and fills its page.
         rules["Tereditor.Plugins.OpenAi"] = [.. rules["Tereditor.Plugins.OpenAi"], "Tereditor.Plugins.Providers"];
         rules["Tereditor.Plugins.OpenAi.UI"] = [.. rules["Tereditor.Plugins.OpenAi.UI"], "Tereditor.Plugins.Providers"];
+        // The cloud platform plugins depend on Model providers in all three halves: they contribute a provider and fill its page.
+        foreach (var platform in new[] { "Bedrock", "Vertex" })
+            foreach (var part in new[] { "", ".Host", ".UI" })
+                rules["Tereditor.Plugins." + platform + part] = [.. rules["Tereditor.Plugins." + platform + part], "Tereditor.Plugins.Providers"];
         // Language server plugins (H21) are one host-only project each, referenced by the host core only.
         foreach (var plugin in projects.Select(project => Path.GetFileNameWithoutExtension(project)).Where(name => name.StartsWith("Tereditor.Plugins.Lsp.", StringComparison.Ordinal)))
         {

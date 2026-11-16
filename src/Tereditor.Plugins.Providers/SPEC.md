@@ -25,11 +25,11 @@ off. This plugin is the optional side that matches providers to those declaratio
   policy, is not offered; its policy says the user could mark it, but no mark or sign-in flow exists yet.
 - Bundled providers need only an endpoint and a key and are data rows: Anthropic API, OpenAI API, OpenRouter, DeepSeek, Mistral, Groq,
   Together, Fireworks, xAI, Cerebras. A provider that needs more (JetBrains AI through Air Gateway, OpenAI with sign-in, Vertex, Bedrock,
-  Azure) is its own plugin in the Model providers category that depends on this one. It contributes through the contribution contract.
+  Azure) is its own plugin in the Model providers category that depends on this one. Amazon Bedrock and Google Vertex AI exist (Cloud platforms below). It contributes through the contribution contract.
   Air Gateway is not moved yet.
 - The contribution contract. A dependent plugin calls `contribute` with its id and provider definitions, and `withdraw` when it stops;
   contributed ids cannot take over a bundled or earlier id. Its UI fills a place of the page with `SlotSection`: `providers:jetbrains-ai`,
-  `providers:hyperscalers` or `providers:other`.
+  `providers:hyperscalers` (shown to the user as Cloud platforms) or `providers:other`.
 - The page has the groups JetBrains AI and Cloud platforms (each hidden, heading included, until a plugin fills it), Other routers and
   providers (the bundled rows and the user's own), and an Add a custom provider form: a name, a base URL, the API kinds it speaks and an
   optional key (none for a local endpoint). A custom provider is stored in this plugin's state without its key. A plain `http://` address is
@@ -38,6 +38,12 @@ off. This plugin is the optional side that matches providers to those declaratio
   does not step in) or a ready provider, that is one with a key stored or none needed. Removing a key, a custom provider or a contributor
   drops the choices that used it. Each agent settings page embeds the slot (`core:model-source:<id>`): a list of the agent's own provider
   and the ready providers the agent is offered. For Pi and omp the choice is live (see Launch seams), and for Codex (Codex launch seam below) and Claude Code (Claude Code launch seam below) too; for the other agents it is only recorded for now.
+
+## Cloud platforms and the Claude Code seam
+
+- A Cloud platforms provider is keyless: its API takes the credential kind `platform` (`ModelAuthKind.Platform`), the platform's own credential chain (an AWS profile, Google application default credentials). tereditor stores no secret for it and never reads one. It is ready as soon as it is contributed. Matching treats `platform` like a key: an agent is offered it when it declares the same API kind with `platform`. Today only Claude Code declares `bedrock` and `vertex`, both injected through the environment (`AgentInjection.Environment`); Codex, Pi and omp declare neither, so they are offered neither.
+- A provider carries `Environment`: the non-secret variables a launch sets (region, profile, project). The Claude Code seam (`ProviderLaunch.For` for launcher `claude`, source recorded under `claude-code`) returns exactly those variables and nothing else. A source that is not a platform provider has no Claude Code seam and stays recorded only. With no source, no report or Model providers off, the Claude line is the agent's own. On a Windows shell the variables would be dropped, so the launch is blocked with a reason instead of running on another account.
+- The platform plugins (Amazon Bedrock, Google Vertex AI) contribute only while their settings are complete and safe, and withdraw otherwise, which drops a source that used them.
 
 ## Codex launch seam
 
@@ -93,7 +99,7 @@ sign-in policy, the key store (0600 and 0700, atomic, a sentinel key found only 
 (validation, add, remove), contributions, the recorded model source and the wire contract (version 3, the models channel, no per-agent key-file methods). The Claude Code seam: the generated settings file (helper command, endpoint, no key, 0600, the command printing the key when a shell runs it), the contribution being only `--settings` with the derived path and never a key, the user's own variable and arguments surviving in the terminal line, and their own `--settings` blocking it, keyless and blocked sources, providers without an Anthropic API refused, and clearing, removal and startup. `--providers-ui` also reads the four agent pages and requires Model source before every other setting. The
 launch seams: the models files of Pi and omp with a helper command and no key (the command run by a shell prints the key), Pi's directory holding
 no `auth.json`, the contributions carrying no key, the omp line unchanged without a source and with one profile flag with it, custom and keyless
-providers, and startup, clearing and removal. `--providers-ui` (gate case `providers-ui`) mounts the page and the slot headless: the three
+providers, and startup, clearing and removal. `--cloud-platforms` (gate case `cloud-platforms`) covers the platform plugins and the Claude Code seam (see their specs). `--providers-ui` (gate case `providers-ui`) mounts the page and the slot headless: the three
 groups (shown only once a component fills one), a contributed component, adding a key and a custom provider without showing the key, the slot's choice filtered by each
 agent's declaration and recorded, and the slot with this plugin off being only the hint. `--pi` checks that a contributed variable reaches the Pi
 child's environment. `--case agent-launch-contributions` checks that with no contribution each agent's launch line is unchanged.

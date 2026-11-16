@@ -69,6 +69,20 @@
           "Tereditor.Plugins.Api": "[1.0.0, )"
         }
       },
+      "tereditor.plugins.bedrock": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.bedrock.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Bedrock": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.blueprint": {
         "type": "Project",
         "dependencies": {
@@ -475,6 +489,20 @@
         "dependencies": {
           "Tereditor.Plugins.Api.Host": "[1.0.0, )",
           "Tereditor.Plugins.Tailscale": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.vertex": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.vertex.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Vertex": "[1.0.0, )"
         }
       },
       "tereditor.plugins.visualize": {

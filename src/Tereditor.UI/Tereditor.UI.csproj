@@ -34,6 +34,8 @@
     <ProjectReference Include="../Tereditor.Plugins.Pi/UI/Tereditor.Plugins.Pi.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Acp/UI/Tereditor.Plugins.Acp.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.OpenAi/UI/Tereditor.Plugins.OpenAi.UI.csproj" />
+    <ProjectReference Include="../Tereditor.Plugins.Bedrock/UI/Tereditor.Plugins.Bedrock.UI.csproj" />
+    <ProjectReference Include="../Tereditor.Plugins.Vertex/UI/Tereditor.Plugins.Vertex.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Providers/UI/Tereditor.Plugins.Providers.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.AirGateway/UI/Tereditor.Plugins.AirGateway.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.AirContext/UI/Tereditor.Plugins.AirContext.UI.csproj" />

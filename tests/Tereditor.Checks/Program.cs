@@ -1456,6 +1456,12 @@ internal static class Program
             Console.WriteLine("PASS openai checks");
             return;
         }
+        if (args.SequenceEqual(["--cloud-platforms"]))
+        {
+            CloudPlatformChecks.Run(root);
+            Console.WriteLine("PASS cloud platforms checks");
+            return;
+        }
         if (args.SequenceEqual(["--providers"]))
         {
             ProvidersChecks.Run(root);
@@ -1613,6 +1619,7 @@ internal static class Program
         Gate.Case("codex-host", () => CodexChecks.RunHost(root).GetAwaiter().GetResult());
         Gate.Case("omp-host", () => OmpChecks.RunHost(Path.Combine(root, "omp")).GetAwaiter().GetResult());
         Gate.Case("providers", () => ProvidersChecks.Run(root));
+        Gate.Case("cloud-platforms", () => CloudPlatformChecks.Run(Path.Combine(root, "cloud-platforms")));
         Gate.Case("acp", () => AcpChecks.Run(Path.Combine(root, "acp")).GetAwaiter().GetResult());
         Gate.Case("pi", () => PiChecks.Run(Path.Combine(root, "pi")).GetAwaiter().GetResult());
         Gate.Case("workspace-watch", () => WorkspaceWatchChecks.Run(root).GetAwaiter().GetResult());
