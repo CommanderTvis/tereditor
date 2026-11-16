@@ -3993,6 +3993,9 @@ internal static class ClaudeChatUiChecks
             void ClickAt(Point at) { window.MouseMove(at); window.MouseDown(at, MouseButton.Left); window.MouseUp(at, MouseButton.Left); Frame(window); }
             ClickAt(Middle(Selectable("Beta")));
             Require(transcript.DraftOf(ask4).Chosen[0].SequenceEqual(["Beta"]), "A click on an option's text still picks it.");
+            // Picking Beta moves on to the second question after 300 ms of real time; wait for that so a slow machine cannot switch tabs mid-check, then come back.
+            E2eWorkspace.Until(() => panel.GetVisualDescendants().OfType<SelectableTextBlock>().Any(block => block.Text == "Pick two?"));
+            ClickAt(Middle(Selectable("\u2713 One")));
             var alpha = Selectable("Alpha");
             var from = Middle(alpha);
             window.MouseMove(from); window.MouseDown(from, MouseButton.Left); window.MouseMove(new Point(from.X + 20, from.Y)); window.MouseUp(new Point(from.X + 20, from.Y), MouseButton.Left); Frame(window);
