@@ -61,7 +61,13 @@ internal static class AcpChecks
     private static void MasterList()
     {
         // The splitter needs a platform; the other modes have set one up by now.
-        if (Avalonia.Application.Current is null) Avalonia.AppBuilder.Configure<Tereditor.UI.App>().UseHeadless(new AvaloniaHeadlessPlatformOptions()).SetupWithoutStarting();
+        // Setting up the app makes the dispatcher's context current on this thread; the async cases that follow are waited on here, so they would never resume. Put the old context back.
+        if (Avalonia.Application.Current is null)
+        {
+            var context = SynchronizationContext.Current;
+            Avalonia.AppBuilder.Configure<Tereditor.UI.App>().UseHeadless(new AvaloniaHeadlessPlatformOptions()).SetupWithoutStarting();
+            SynchronizationContext.SetSynchronizationContext(context);
+        }
         var master = new Tereditor.Plugins.UI.Kit.MasterDetail("Check");
         Require(master.RailWidth == 280, "The list is 280 wide by default.");
         master.RailWidth = 320;
@@ -97,13 +103,13 @@ internal static class AcpChecks
         await using var session = new AcpChatSession("ws", "chat-default-mode", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(agent)), _ => { }, _ => { }, null, null, null, uri + "#plan", seen.AddRange);
         session.Begin();
         await session.StartAsync(null);
-        Require(session.Header.PermissionMode == uri + "#plan" && agent.Methods.Contains("session/set_mode"), "A new chat switches to the agent's default mode.");
+        Require(session.Header.PermissionMode == uri + "#plan" && agent.Methods.Contains("session/set_config_option"), "A new chat switches to the agent's default mode (Copilot lists its mode as a config option).");
         Require(seen.Select(mode => mode.Label).SequenceEqual(["Agent", "Plan", "Autopilot"]), "The host is told the modes the agent listed.");
         var plain = new AcpFakeAgent(offer: AcpOffer.Copilot);
         await using var untouched = new AcpChatSession("ws", "chat-no-default", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(plain)), _ => { }, _ => { }, null, null, null, "no-such-mode");
         untouched.Begin();
         await untouched.StartAsync(null);
-        Require(untouched.Header.PermissionMode == uri + "#agent" && !plain.Methods.Contains("session/set_mode"), "A default the agent does not list is left alone.");
+        Require(untouched.Header.PermissionMode == uri + "#agent" && !plain.Methods.Contains("session/set_config_option"), "A default the agent does not list is left alone.");
     }
 
     internal static void Logo()
