@@ -387,7 +387,9 @@ internal static class TerminalMemoryGuardChecks
                 guard.Tick([new("real", "Real", shell.Id)]);
                 await Task.Delay(100);
             }
-            Require(events[0].Text.StartsWith("tereditor memory guard: stopped perl (pid ", StringComparison.Ordinal) && events[0].Text.EndsWith("over its limit of 0.1 GB", StringComparison.Ordinal), "The notice names the child: " + events[0].Text);
+            // The child may be sampled between 80% and 100% of the limit first, which raises a warning before the stop.
+            var stopped = events.First(e => e.Kind is GuardEventKind.Stopped);
+            Require(stopped.Text.StartsWith("tereditor memory guard: stopped perl (pid ", StringComparison.Ordinal) && stopped.Text.EndsWith("over its limit of 0.1 GB", StringComparison.Ordinal), "The notice names the child: " + stopped.Text);
             while (sampler.Tree(shell.Id).Any(process => process.Name == "perl") && DateTime.UtcNow < deadline) { guard.Tick([new("real", "Real", shell.Id)]); sampler.Refresh(); await Task.Delay(100); }
             sampler.Refresh();
             Require(sampler.Tree(shell.Id).All(process => process.Name != "perl"), "The runaway child is still running.");
