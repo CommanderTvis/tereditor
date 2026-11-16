@@ -74,6 +74,9 @@ public sealed record AcpChatAgentsParams(string WorkspaceId);
 /// <summary>The agent entry id of each chat of the workspace that has chosen one, by chat id.</summary>
 public sealed record AcpChatAgents(IReadOnlyDictionary<string, string> Agents);
 
+/// <summary>Asks for the icon of one registry agent whose chat just started; the host fetches it when the disk has none.</summary>
+public sealed record AcpAgentIconParams(string AgentId);
+
 public static class AcpContract
 {
     public const int WireVersion = 1;
@@ -90,6 +93,8 @@ public static class AcpContract
     public static readonly PluginMethod<AcpChooseParams, AcpAgentList> RemoveAgent = new("removeAgent");
     /// <summary>The registry agents' icons, fetched by the host from the registry's own origin and checked there.</summary>
     public static readonly PluginMethod<AcpIconParams, AcpIconSet> Icons = new("icons");
+    /// <summary>The icon of one registry agent: from disk, or fetched once per run when a chat of it started. Empty for a custom agent or on failure.</summary>
+    public static readonly PluginMethod<AcpAgentIconParams, AcpIconSet> AgentIcon = new("agentIcon");
     /// <summary>Which agent each chat of a workspace talks to.</summary>
     public static readonly PluginMethod<AcpChatAgentsParams, AcpChatAgents> ChatAgents = new("chatAgents");
     /// <summary>Where an agent's sign-in comes from: names and accounts the host detected, never a secret.</summary>
@@ -97,7 +102,7 @@ public static class AcpContract
 
     /// <summary>The chat contract is shared with the other chat plugins: ACP serves its methods and its updates channel.</summary>
     public static readonly PluginContract Contract = PluginContract.Create<AcpSettings>(AcpManifest.Id, WireVersion,
-        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, ChatAgents, SignIn], [ChatContract.Updates],
+        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, AgentIcon, ChatAgents, SignIn], [ChatContract.Updates],
         AcpJson.Default, ChatContract.Json);
 }
 
@@ -114,6 +119,7 @@ public static class AcpContract
 [JsonSerializable(typeof(AcpInstallRequest))]
 [JsonSerializable(typeof(AcpIconParams))]
 [JsonSerializable(typeof(AcpIconSet))]
+[JsonSerializable(typeof(AcpAgentIconParams))]
 [JsonSerializable(typeof(AcpChatAgentsParams))]
 [JsonSerializable(typeof(AcpChatAgents))]
 [JsonSerializable(typeof(AcpSignInParams))]
