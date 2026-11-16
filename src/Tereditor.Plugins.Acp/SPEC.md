@@ -70,7 +70,7 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   is shown with a note; only with no copy at all a built-in two-agent seed stands in, and says so. Files are written beside and moved into place.
 - Install (`AcpInstaller`): the settings page asks for a plan first (source, exact command line, SHA-256, license, repository) and shows it;
   `Install` needs `Confirmed` and the agent, distribution kind and version of that plan, or it refuses (the registry may have moved on), so every
-  agent and every version needs its own confirmation. npx entries run with the host's pinned Bun (`bun x <package>`, downloaded and checked on first use, so no Node or npx is needed; `npx` only when Bun cannot be provided), uvx entries `uvx <package>`, both pinned by the
+  agent and every version needs its own confirmation. npx entries run with the host's pinned Bun (`bunx <package>`, started as `bun x`, downloaded and checked on first use, so no Node or npx is needed; `npx` only when Bun cannot be provided), uvx entries `uvx <package>`, both pinned by the
   registry. A binary is downloaded over https only, checked against the registry's SHA-256 (a mismatch discards it; a missing checksum is
   said so in the plan), unpacked with the platform's `tar` into `~/.tereditor/acp/agents/<id>/<version>/` and its command must stay inside
   that directory. The registry's `preview` channel is ignored.
@@ -85,15 +85,15 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   Ids that are not plain file names are skipped. The UI asks the host (`icons`, never with urls) after the list is shown and draws the SVG with
   the theme's text colour for `currentColor` (hard-coded colours stay); until then, with no icon, for a rejected one and for custom agents it
   draws the generic ACP glyph. The New ACP chat menus read icons from disk only. The chat header keeps the plugin's own icon. A chat tab wears the icon of the agent it talks to: the UI asks the host (`chatAgents`, a chat id to agent id map per workspace) and draws the cached SVG through a tab decoration (`TabDecoration.IconSvg`) in the tab's text colour. The tab strip, the tab list and the rail use the same decoration. A chat with no known agent, a custom agent, or an agent with no icon on disk keeps the generic ACP icon. Nothing is fetched for this.
-- Settings layout: Settings > ACP is one scrolling list (`AcpRows.Combined`) under the registry trust warning, a search, Refresh with the
-  `Fetched` time, and Add custom agent. Installed agents (registry installs and custom ones, by name; custom ones are marked Custom) are pinned
-  at the top under an Installed label, followed by the registry agents that are not installed under a Registry label. An installed registry agent
-  appears once, in the pinned group. The search filters both groups by name, description or id, and installed matches stay on top. Both groups use
-  the same `RegistryRow` columns so icons and text align. A registry row has Install (or Not on this machine). An installed row has a status mark
-  (a red alert when the host knows something is wrong: the program path does not exist, or the last start of a chat failed,
-  `AcpAgentList.Problems`; a refresh mark for Update available), its tags (Registry or Custom, Not recommended, Update available, Off, Default) and
-  the actions Update, Configure and Remove. If the registry cannot be read, installed agents still show under a plain message. Configure opens the
-  agent's settings under its row: name, tags, description, version, source, website and repository links (https only), license,
+- Settings layout: Settings > ACP is a dense list on the left and a large pane on the right (`MasterDetail`, the list is resizable), under the registry trust warning, a search, Refresh with the
+  `Fetched` time, and Add custom agent. The list (`AcpRows.Combined`) has Installed agents (registry installs and custom ones, by name) pinned
+  under an Installed heading, followed by the registry agents that are not installed under a Registry heading. An installed registry agent
+  appears once, in the pinned group. The search filters both groups by name, description or id, and installed matches stay on top. A row shows the
+  agent's icon, name, version (Custom for a custom agent), one line of description and, at the right, Install (or Not on this machine) for a registry row, or
+  a mark for an installed one (a red alert when the host knows something is wrong: the program path does not exist, or the last start of a chat failed,
+  `AcpAgentList.Problems`; a refresh mark for Update available; a check otherwise). Selecting a row shows its pane; nothing expands under the row. A registry row's pane shows the
+  description, version, kinds, links, license, the trust notice and Install; a finished install selects the installed row. If the registry cannot be read, installed agents still show with a plain message. An installed agent's pane holds:
+  name, tags (Registry or Custom, Not recommended, Update available, Off, Default), description, version, source, website and repository links (https only), license,
   install status and location, what was verified, the trust notice for registry agents, a switch to offer it in the launcher, a switch to make
   it the launcher's default, the executable override with a Use default arguments switch and the arguments one per line (a registry agent), or
   its command and arguments (a custom agent), environment, working directory, the command line that will run, Update to or Reinstall, and
@@ -116,11 +116,12 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   on a touch screen a tap opens that menu. This is the split of the Claude Code launcher.
 - Custom agents: command, arguments, environment and working directory typed in the settings page; adding one is the confirmation.
 - Credentials: tereditor never shows a field for them and never reads a secret.
+- Default mode: an agent's pane has a "Default mode for new chats" choice (`AcpAgentEntry.DefaultMode`; blank keeps the agent's own). The choices are the modes the agent listed in its last chat (`KnownModes`, kept by the host when a session opens, so an edit from an older copy cannot wipe them); before the first chat the pane says to start one. After `session/new` a chat switches to the default through the normal mode request when the agent lists that mode and is not already in it; a refusal is logged and the agent's own mode stays. Cause of issue #63: GitHub Copilot sends its modes (URL-valued ids) in `session/new`, so the chat's Mode chip worked, but no settings page had a place to choose one for new chats.
 - Signs in with: each agent's pane has a "Signs in with" list, and the failed-start card repeats it. The host (`signIn` method, `AcpSignIn`)
   lists, in the agent's own order and from names and file existence only: variables set in the launch environment (the host's merged with the
   entry's own; names, never values), a stored credential file that exists, the GitHub CLI account, and what the agent said. The first source
   known to be there is marked "checked first", and only for an agent whose order is documented. A tooltip gives the reason: what is not set, what was
-  skipped and why, and the order. The list says what is available and in which order the agent checks it. It never claims which source the agent used.
+  skipped and why, and the order. The list says what is available and in which order the agent checks it (one source shows as plain text, several as bullets). It never claims which source the agent used.
   - Table (`AcpSignIn.Known`, documented facts only). `github-copilot-cli`: `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, then the OAuth
     token that `copilot login` keeps in the OS keychain (service `copilot-cli`), then the GitHub CLI login as the last fallback. A variable
     silently overrides a stored login. With `COPILOT_PROVIDER_BASE_URL`, `COPILOT_PROVIDER_TYPE` or `COPILOT_PROVIDER_API_KEY` no GitHub login is

@@ -1,5 +1,8 @@
 using System.Text.Json.Nodes;
 
+using Avalonia.Headless;
+using Avalonia.LogicalTree;
+
 using Tereditor.Plugins.Acp;
 using Tereditor.Plugins.Acp.Host;
 using Tereditor.Plugins.Api;
@@ -54,6 +57,55 @@ internal static class AcpChecks
     }
 
     // The logomark: the glyph and the plugin's asset are one drawing, a square monochrome document that parses and draws something.
+    // The list and pane control behind Settings > ACP: group headings that cannot be selected, a trailing action and a description on a row, and a width.
+    private static void MasterList()
+    {
+        // The splitter needs a platform; the other modes have set one up by now.
+        if (Avalonia.Application.Current is null) Avalonia.AppBuilder.Configure<Tereditor.UI.App>().UseHeadless(new AvaloniaHeadlessPlatformOptions()).SetupWithoutStarting();
+        var master = new Tereditor.Plugins.UI.Kit.MasterDetail("Check");
+        Require(master.RailWidth == 280, "The list is 280 wide by default.");
+        master.RailWidth = 320;
+        Require(master.RailWidth == 320, "The list width can be set.");
+        var button = new Avalonia.Controls.Button { Name = "CheckInstall", Content = "Install" };
+        var rows = new List<Avalonia.Controls.Control>
+        {
+            Tereditor.Plugins.UI.Kit.MasterDetail.Group("Installed", "Installed"),
+            Tereditor.Plugins.UI.Kit.MasterDetail.Row("a", null, "Alpha", "v1", "One line", null, null),
+            Tereditor.Plugins.UI.Kit.MasterDetail.Group("Registry", "Registry"),
+            Tereditor.Plugins.UI.Kit.MasterDetail.Row("registry:b", null, "Beta", "v2", "Another line", null, button)
+        };
+        var picked = new List<string?>();
+        master.Selected += picked.Add;
+        master.SetRows(rows, null);
+        Require(master.SelectedId == "a" && rows[0].Tag is null && rows[0].Name == "MasterGroup_Installed", "Headings come first and are never the selected row.");
+        master.Rail.SelectedItem = rows[2];
+        Require(master.SelectedId == "a" && picked.Count == 0, "Choosing a heading keeps the selected row and says nothing.");
+        master.Rail.SelectedItem = rows[3];
+        Require(master.SelectedId == "registry:b" && picked.SequenceEqual(["registry:b"]), "Choosing a row reports its id.");
+        master.SetRows(rows, "registry:b");
+        Require(master.SelectedId == "registry:b" && picked.Count == 1, "Filling the list keeps the selection and says nothing.");
+        var texts = rows[3].GetLogicalDescendants().OfType<Avalonia.Controls.TextBlock>().Select(text => text.Text).ToList();
+        Require(texts.SequenceEqual(["Beta", "v2", "Another line"]) && rows[3].GetLogicalDescendants().Contains(button), "A row has name, note, description and its action.");
+    }
+
+    // The default mode: the host remembers the modes the agent lists, and a new chat switches to the chosen one (Copilot's mode ids are URLs).
+    private static async Task DefaultMode()
+    {
+        var uri = "https://agentclientprotocol.com/protocol/session-modes";
+        var seen = new List<ChatMode>();
+        var agent = new AcpFakeAgent(offer: AcpOffer.Copilot);
+        await using var session = new AcpChatSession("ws", "chat-default-mode", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(agent)), _ => { }, _ => { }, null, null, null, uri + "#plan", seen.AddRange);
+        session.Begin();
+        await session.StartAsync(null);
+        Require(session.Header.PermissionMode == uri + "#plan" && agent.Methods.Contains("session/set_mode"), "A new chat switches to the agent's default mode.");
+        Require(seen.Select(mode => mode.Label).SequenceEqual(["Agent", "Plan", "Autopilot"]), "The host is told the modes the agent listed.");
+        var plain = new AcpFakeAgent(offer: AcpOffer.Copilot);
+        await using var untouched = new AcpChatSession("ws", "chat-no-default", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(plain)), _ => { }, _ => { }, null, null, null, "no-such-mode");
+        untouched.Begin();
+        await untouched.StartAsync(null);
+        Require(untouched.Header.PermissionMode == uri + "#agent" && !plain.Methods.Contains("session/set_mode"), "A default the agent does not list is left alone.");
+    }
+
     internal static void Logo()
     {
         var svg = System.Text.Encoding.UTF8.GetString(Tereditor.Plugins.Acp.UI.AcpGlyph.Svg);
@@ -376,7 +428,7 @@ internal static class AcpChecks
         var custom = AcpRegistry.View(new JsonObject { ["agents"] = new JsonArray(new JsonObject { ["id"] = "my-claude", ["name"] = "Claude", ["version"] = "1", ["description"] = "mine", ["distribution"] = new JsonObject { ["npx"] = new JsonObject { ["package"] = "x" } } }) }, "x", null, null, mac);
         Require(custom.Agents.Single().NotRecommended is null, "Matching is by exact id, so another agent named Claude is not flagged.");
         var npx = AcpRegistry.Plan(fixture, "pi-acp", null, mac)!;
-        Require(npx is { Kind: "npx", CommandLine: "bun x pi-acp@0.0.34", Version: "0.0.34" }, "An npx plan shows the exact command that will run.");
+        Require(npx is { Kind: "npx", CommandLine: "bunx pi-acp@0.0.34", Version: "0.0.34" }, "An npx plan shows the exact command that will run.");
         var uvx = AcpRegistry.Plan(fixture, "fast-agent", null, mac)!;
         Require(uvx.CommandLine == "uvx fast-agent-acp==0.10.1 -x", "A uvx plan shows its package pin and arguments.");
         var binary = AcpRegistry.Plan(fixture, "goose", null, mac)!;
@@ -523,7 +575,7 @@ internal static class AcpChecks
         var detail = new Tereditor.Plugins.Acp.UI.AcpAgentDetail(entries[1], Tereditor.Plugins.Acp.UI.AcpRows.RegistryAgent(entries[1], view), problems["goose"]);
         Require(detail is { IsRegistry: true, License: "Apache-2.0", Website: "https://goose.example/", CanReinstall: true, CanUpdate: false, UpdateTo: null } && detail.Version == "Version 1.57.0" && detail.SourceLine.Contains("example.invalid", StringComparison.Ordinal) && detail.InstallStatus.Contains("missing", StringComparison.Ordinal) && detail.Location == "/x/goose", "The detail of a registry agent shows its version, source, links, license, status and where the program is.");
         var pi = new Tereditor.Plugins.Acp.UI.AcpAgentDetail(entries[0], Tereditor.Plugins.Acp.UI.AcpRows.RegistryAgent(entries[0], view), null);
-        Require(pi is { CanUpdate: true, CanReinstall: false, UpdateTo: "0.0.34" } && pi.InstallStatus.Contains("0.0.34", StringComparison.Ordinal) && pi.Location.StartsWith("bun x ", StringComparison.Ordinal), "An older install offers an update, and an npx agent says what runs it.");
+        Require(pi is { CanUpdate: true, CanReinstall: false, UpdateTo: "0.0.34" } && pi.InstallStatus.Contains("0.0.34", StringComparison.Ordinal) && pi.Location.StartsWith("bunx ", StringComparison.Ordinal), "An older install offers an update, and an npx agent says what runs it.");
         var custom = new Tereditor.Plugins.Acp.UI.AcpAgentDetail(entries[2], null, null);
         Require(custom is { IsRegistry: false, CanUpdate: false, CanReinstall: false, InstallStatus: "Custom" } && custom.SourceLine == "Added by you" && custom.CommandLine == "/bin/zed", "A custom agent has no update or reinstall.");
 
@@ -560,7 +612,7 @@ internal static class AcpChecks
         var fixture = AcpRegistry.Parse(FixtureText())!;
         Require(AcpRegistry.Plan(fixture, "goose", null, mac)!.Verification == AcpRegistry.Sha256Verified && AcpRegistry.Plan(fixture, "pi-acp", null, mac)!.Verification == AcpRegistry.Pinned && AcpRegistry.Plan(fixture, "fast-agent", null, mac)!.Verification == AcpRegistry.Pinned, "The plan says what will be verified: SHA-256, or a pinned version.");
         var runPlan = AcpRegistry.Plan(fixture, "pi-acp", null, mac)!;
-        Require(runPlan.CommandLine.StartsWith("bun x pi-acp@0.0.34", StringComparison.Ordinal) && runPlan.Verification == AcpRegistry.Pinned && !runPlan.CommandLine.Contains("npx", StringComparison.Ordinal), "An npx agent's plan runs with Bun and keeps its pin verification.");
+        Require(runPlan.CommandLine.StartsWith("bunx pi-acp@0.0.34", StringComparison.Ordinal) && runPlan.Verification == AcpRegistry.Pinned && !runPlan.CommandLine.Contains("npx", StringComparison.Ordinal), "An npx agent's plan runs with Bun and keeps its pin verification.");
         var (runner, runnerArgs) = Tereditor.Plugins.Acp.Host.AcpRunner.Bun("/opt/bun", ["-y", "@scope/pi-acp@0.0.34", "--acp"]);
         Require(runner == "/opt/bun" && runnerArgs.SequenceEqual(["x", "@scope/pi-acp@0.0.34", "--acp"]) && Tereditor.Plugins.Acp.Host.AcpRunner.Bun("b", ["pi@1", "-y"]).Args.SequenceEqual(["x", "pi@1", "-y"]), "The npx arguments did not become the same package run by bun x.");
         var guardHome = Path.Combine(root, "bun-guard");
@@ -859,6 +911,7 @@ internal static class AcpChecks
     {
         Manifest();
         Rows();
+        MasterList();
         CombinedList();
         AgentList();
         CustomForm();
@@ -866,6 +919,7 @@ internal static class AcpChecks
         Launcher();
         EntryText();
         Logo();
+        await DefaultMode();
         await Protocol();
         await Session();
         await Pickers();
