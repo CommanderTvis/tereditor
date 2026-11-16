@@ -129,7 +129,22 @@ internal static class ProvidersUiChecks
             Require(sources is [{ AgentId: "claude-code", ProviderId: "openrouter" }], "the recorded source stays with the plugin that owns it");
         }
         finally { window.Close(); }
-        Console.WriteLine("PASS providers-ui: groups, contributed component, key and custom provider forms, model source slot, Providers off");
+        ModelSourceFirst();
+        Console.WriteLine("PASS providers-ui: groups, contributed component, key and custom provider forms, model source slot, Providers off, Model source first on agent pages");
+    }
+
+    // Convention: Model source is the first setting of every agent page, right after the page's heading block.
+    private static void ModelSourceFirst()
+    {
+        if (BoundaryChecks.Checkout() is not { } checkout) { Console.WriteLine("SKIP model source order: no source checkout"); return; }
+        foreach (var page in new[] { "ClaudeCode/UI/ClaudeCodeSettingsSection.axaml", "Codex/UI/CodexSettingsView.axaml", "Pi/UI/PiSettingsView.axaml", "Omp/UI/OmpSettingsView.axaml" })
+        {
+            var text = File.ReadAllText(Path.Combine(checkout, "src", "Tereditor.Plugins." + page.Replace('/', Path.DirectorySeparatorChar)));
+            var host = text.IndexOf("x:Name=\"ModelSourceHost\"", StringComparison.Ordinal);
+            Require(host > 0, page + " embeds the model source");
+            var inputs = new[] { "<TextBox", "<ComboBox", "<CheckBox", "<AutoCompleteBox", "<Button" };
+            Require(inputs.All(input => text.IndexOf(input, StringComparison.Ordinal) is var at && (at < 0 || at > host)), page + ": Model source comes before every other setting");
+        }
     }
 
     private static List<T> Find<T>(Control root, string name) where T : Control => [.. root.GetLogicalDescendants().Prepend(root).OfType<T>().Where(control => control.Name == name)];

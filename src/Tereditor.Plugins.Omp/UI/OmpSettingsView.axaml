@@ -22,6 +22,7 @@
     </StackPanel>
     <TextBlock Classes="detail" Text="Launch flags for omp sessions tereditor starts. omp itself comes from your system installation (https://omp.sh)." />
   </StackPanel>
+  <StackPanel x:Name="ModelSourceHost" />
   <StackPanel Spacing="4">
     <TextBlock Text="Launch command" />
     <TextBox x:Name="OmpCommandInput" PlaceholderText="omp" FontFamily="{x:Static kit:Ui.CodeFont}" FontSize="12" AutomationProperties.Name="omp launch command" />
@@ -54,5 +55,4 @@
       <TextBlock Classes="detail" Text="Off: sessions start with --no-lsp and use tereditor's shared language servers through the lsp_* tools." />
     </StackPanel>
   </CheckBox>
-  <StackPanel x:Name="ModelSourceHost" />
 </StackPanel>

@@ -75,7 +75,7 @@ off. This plugin is the optional side that matches providers to those declaratio
 leaking into a report, owner-only permissions, custom providers; omp: the `.env` line replaced or removed with other lines kept, quoting, catalog
 variables, custom variables and their validation. Also what each agent declares and that none depends on this plugin, matching including the
 sign-in policy, the key store (0600 and 0700, atomic, a sentinel key found only in its own file), the helper's output and refusals, custom providers
-(validation, add, remove), contributions, the recorded model source and the wire contract. `--providers-ui` (gate case `providers-ui`) mounts the
+(validation, add, remove), contributions, the recorded model source and the wire contract. `--providers-ui` (gate case `providers-ui`) also reads the four agent pages and requires Model source before every other setting. It mounts the
 page and the slot headless: the three groups, a group shown only once a component fills it, adding a key and a custom provider without showing the
 key, the slot's choice filtered by each agent's declaration and recorded, and the slot with this plugin off being only the hint. `--case
 agent-launch-contributions` checks that with no contribution each agent's launch line is unchanged.
