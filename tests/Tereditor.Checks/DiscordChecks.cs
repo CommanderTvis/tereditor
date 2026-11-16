@@ -46,6 +46,7 @@ internal static class DiscordChecks
         Decisions();
         await LifecycleAsync();
         await StopDuringHandshakeAsync();
+        await PresenceReachesDiscordAsync();
         await IpcFramesAsync();
         await TransportAsync(Path.Combine(root, "discord-transport"));
         Console.WriteLine("PASS Discord presence decision, status mapping and connection lifecycle against a fake Discord");
@@ -163,6 +164,47 @@ internal static class DiscordChecks
             Environment.SetEnvironmentVariable("TEREDITOR_DISCORD_IPC_DIR", saved);
             Directory.Delete(directory, true);
         }
+    }
+
+    private static async Task PresenceReachesDiscordAsync()
+    {
+        var saved = Environment.GetEnvironmentVariable("TEREDITOR_DISCORD_IPC_DIR");
+        var directory = Directory.CreateTempSubdirectory("srd-").FullName;
+        Environment.SetEnvironmentVariable("TEREDITOR_DISCORD_IPC_DIR", directory);
+        using var discord = new FakeDiscord(Path.Combine(directory, "discord-ipc-0"));
+        var runtime = new DiscordRuntime(() => Ready, _ => { });
+        try
+        {
+            // Two reports racing a connection: the newer one must be what Discord ends up showing.
+            var clearing = runtime.PublishPresenceAsync(null);
+            var showing = runtime.PublishPresenceAsync(AtWork);
+            await Task.WhenAll(clearing, showing).WaitAsync(TimeSpan.FromSeconds(10));
+            Require(discord.Activities.Count > 0 && (string?)discord.Activities[^1]?["state"] == "thinkrail",
+                "The project reported while connecting is sent, not dropped behind an older report.");
+            Require((await runtime.GetStatusAsync()).Published == new DiscordPublished("thinkrail", "Editing server.ts"), "Discord's reply makes the status say published.");
+
+            discord.ActivityError = "Invalid activity";
+            var rejected = await runtime.PublishPresenceAsync(AtWork with { FilePath = "other.ts" });
+            Require(rejected is { State: DiscordConnectionState.Unavailable, Published: null, Detail: "Invalid activity" },
+                "An error reply is shown instead of claiming the presence is on Discord: " + rejected);
+            discord.ActivityError = null;
+            Require((await runtime.PublishPresenceAsync(AtWork with { FilePath = "other.ts" })).Published == new DiscordPublished("thinkrail", "Editing other.ts"),
+                "The next accepted presence clears the error.");
+
+            discord.Mute = true;
+            var silent = runtime.PublishPresenceAsync(AtWork with { FilePath = "last.ts" });
+            var seen = discord.Activities.Count;
+            while (discord.Activities.Count == seen) await Task.Delay(10);
+            Require((await runtime.GetStatusAsync()).State == DiscordConnectionState.Connecting, "Before Discord answers, the status does not claim the presence is shown.");
+            Require((await silent.WaitAsync(TimeSpan.FromSeconds(10))).State == DiscordConnectionState.Unavailable, "A presence Discord never answers is reported as a failure.");
+        }
+        finally
+        {
+            runtime.Stop();
+            Environment.SetEnvironmentVariable("TEREDITOR_DISCORD_IPC_DIR", saved);
+            Directory.Delete(directory, true);
+        }
+        Console.WriteLine("PASS Discord presence: sent after connecting, status follows Discord's reply");
     }
 
     private static void Decisions()
@@ -397,6 +439,8 @@ internal static class DiscordChecks
         private readonly List<Socket> clients = [];
         private readonly TaskCompletionSource<Socket> readyClient = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource handshakeRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public string? ActivityError { get; set; }
+        public bool Mute { get; set; }
         public TaskCompletionSource HandshakeSeen { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public FakeDiscord(string path, bool holdHandshake = false)
@@ -470,7 +514,14 @@ internal static class DiscordChecks
                         else if (op == 4)
                             lock (pongs) pongs.Add(body?.DeepClone());
                         else if (body?["cmd"]?.GetValue<string>() == "SET_ACTIVITY")
+                        {
                             lock (activities) activities.Add(body["args"]?["activity"]?.DeepClone());
+                            if (Mute) continue;
+                            var reply = new JsonObject { ["cmd"] = "SET_ACTIVITY", ["nonce"] = body["nonce"]?.DeepClone() };
+                            if (ActivityError is { } error) { reply["evt"] = "ERROR"; reply["data"] = new JsonObject { ["code"] = 4000, ["message"] = error }; }
+                            else { reply["evt"] = null; reply["data"] = new JsonObject(); }
+                            await client.SendAsync(Frame(1, reply), SocketFlags.None);
+                        }
                     }
                 }
             }

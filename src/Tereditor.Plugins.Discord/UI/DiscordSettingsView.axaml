@@ -12,7 +12,7 @@
     <StackPanel Spacing="4">
       <TextBlock Text="Application id" Foreground="{x:Static kit:Ui.TextBrush}" />
       <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}"
-                 Text="Discord always shows the name of the application publishing the presence. ThinkRail's own is filled in; replace it with one you registered at discord.com/developers/applications to publish under your own name and artwork." />
+                 Text="Discord always shows the name of the application publishing the presence. tereditor's own is filled in; replace it with one you registered at discord.com/developers/applications to publish under your own name and artwork." />
       <TextBox x:Name="DiscordApplicationId" FontFamily="{x:Static kit:Ui.CodeFont}" PlaceholderText="1234567890123456789" />
     </StackPanel>
     <Grid ColumnDefinitions="*,Auto">

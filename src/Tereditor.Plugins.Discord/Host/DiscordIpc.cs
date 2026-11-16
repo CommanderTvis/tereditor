@@ -17,9 +17,11 @@ internal sealed class DiscordIpc : IDisposable
     private const int HeaderBytes = 8;
     private const int MaxFrameBytes = 64 * 1024;
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan ReplyTimeout = TimeSpan.FromSeconds(4);
     private static readonly Lazy<string?> DarwinUserTempDir = new(ResolveDarwinUserTempDir);
 
     private readonly Lock gate = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, TaskCompletionSource> replies = new();
     private Socket? socket;
     private Action? onClose;
 
@@ -112,14 +114,24 @@ internal sealed class DiscordIpc : IDisposable
                     }
                     if (payload is not JsonObject message) continue;
                     var evt = message["evt"] is JsonValue name && name.TryGetValue<string>(out var value) ? value : null;
-                    if (evt == "ERROR")
-                        LastError = message["data"]?["message"] is JsonValue text && text.TryGetValue<string>(out var reason) ? reason : "Discord rejected the request.";
+                    var reason = evt == "ERROR"
+                        ? message["data"]?["message"] is JsonValue text && text.TryGetValue<string>(out var detail) ? detail : "Discord rejected the request."
+                        : null;
+                    // A reply carries the nonce of the request it answers; only an unsolicited error is left for LastError.
+                    if (message["nonce"] is JsonValue nonce && nonce.TryGetValue<string>(out var key) && replies.TryRemove(key, out var reply))
+                    {
+                        if (reason is null) reply.TrySetResult();
+                        else reply.TrySetException(new InvalidOperationException(reason));
+                        continue;
+                    }
+                    if (reason is not null) LastError = reason;
                     if (evt == "READY") ready.TrySetResult();
                 }
             }
         }
         catch (Exception error) when (error is SocketException or ObjectDisposedException) { }
         ready.TrySetException(new InvalidOperationException("Discord closed the connection."));
+        FailReplies();
         Action? notify;
         lock (gate)
         {
@@ -172,9 +184,36 @@ internal sealed class DiscordIpc : IDisposable
         }
     }
 
+    private void FailReplies()
+    {
+        foreach (var key in replies.Keys)
+            if (replies.TryRemove(key, out var reply)) reply.TrySetException(new InvalidOperationException("Discord closed the connection."));
+    }
+
+    /// <summary>Sends the activity and completes when Discord answers it; an ERROR reply throws its message.</summary>
+    public async Task SetActivityAsync(DiscordActivity? activity)
+    {
+        if (!Connected) throw new InvalidOperationException("Discord closed the connection.");
+        var reply = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var nonce = Guid.NewGuid().ToString();
+        replies[nonce] = reply;
+        SendActivity(activity, nonce);
+        try { await reply.Task.WaitAsync(ReplyTimeout); }
+        catch (TimeoutException)
+        {
+            replies.TryRemove(nonce, out _);
+            throw new InvalidOperationException("Discord did not answer the presence.");
+        }
+    }
+
     public void SetActivity(DiscordActivity? activity)
     {
         if (!Connected) return;
+        SendActivity(activity, Guid.NewGuid().ToString());
+    }
+
+    private void SendActivity(DiscordActivity? activity, string nonce)
+    {
         JsonObject? shown = null;
         if (activity is not null)
         {
@@ -187,7 +226,7 @@ internal sealed class DiscordIpc : IDisposable
         Send(OpFrame, new JsonObject
         {
             ["cmd"] = "SET_ACTIVITY",
-            ["nonce"] = Guid.NewGuid().ToString(),
+            ["nonce"] = nonce,
             ["args"] = new JsonObject { ["pid"] = Environment.ProcessId, ["activity"] = shown }
         });
     }
@@ -197,6 +236,7 @@ internal sealed class DiscordIpc : IDisposable
         Socket? closing;
         lock (gate) { closing = socket; socket = null; onClose = null; }
         closing?.Dispose();
+        FailReplies();
     }
 
     public void Dispose() => Close();

@@ -39,7 +39,8 @@ The host half references only the contract and `Tereditor.Plugins.Api.Host`; the
 ## What the fork moved, and how it maps
 
 - `ipc.ts` becomes `DiscordIpc`: the handshake, length-prefixed frame read and write (ping answered with pong,
-  close ends the connection, an `ERROR` event's message kept as `LastError`), and the Unix-socket discovery
+  close ends the connection, an `ERROR` event's message kept as `LastError`, and a reply matched to its request
+  by nonce, so `SetActivityAsync` completes when Discord answers and throws an `ERROR` reply's message), and the Unix-socket discovery
   across the paths Discord's Electron client and its Flatpak and Snap packagings use (`discord-ipc-0` to `-9`
   under `XDG_RUNTIME_DIR`, `TMPDIR`, `TMP`, `TEMP`, the Darwin user temp directory and `/tmp`, each also under
   `app/com.discordapp.Discord` and `snap.discord`). `System.Net.Sockets` with a `UnixDomainSocketEndPoint`
@@ -80,6 +81,9 @@ The host half references only the contract and `Tereditor.Plugins.Api.Host`; the
 - A withheld file name publishes no line at all, rather than a false one: `Details` is null and
   `SET_ACTIVITY` omits the key.
 - The elapsed-time anchor resets on a project change, not a file change.
+- Presence is sent one at a time from the latest report, so a report made while connecting is never dropped
+  behind an older one. The status says published only after Discord has answered that exact activity; an error
+  reply or no reply within 4 s shows as unavailable with its reason.
 - Connection retry is floor-limited (5 s), not looped. `status` retries rather than reporting a cached
   failure, and a settings change clears the failure and the floor for an immediate retry.
 - The UI half never writes settings locally: a change is sent and the section updates when the snapshot

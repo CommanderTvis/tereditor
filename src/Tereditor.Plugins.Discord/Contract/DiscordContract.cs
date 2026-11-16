@@ -32,7 +32,7 @@ public sealed record DiscordSettings
 
 public static partial class DiscordValues
 {
-    /// <summary>ThinkRail's own registered Discord application, so the presence has a name to wear out of the box.</summary>
+    /// <summary>tereditor's own registered Discord application, so the presence has a name to wear out of the box.</summary>
     public const string ThinkRailApplicationId = "1558492410110156840";
 
     /// <summary>Discord application ids are snowflakes: a decimal integer, 15-25 digits today.</summary>
