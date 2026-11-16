@@ -12,7 +12,11 @@ public sealed record ProvidersAck(bool Ok = true);
 public sealed record ModelProviderRow(ProviderDefinition Provider, bool Ready);
 
 /// <summary>The agent whose model comes from <paramref name="ProviderId"/>. An agent with no row uses its own provider.</summary>
-public sealed record ModelSourceChoice(string AgentId, string ProviderId);
+public sealed record ModelSourceChoice(string AgentId, string ProviderId)
+{
+    /// <summary>The one model to list for a provider the agent does not know by id and that names no models; null uses the provider's first model, else <c>default</c>.</summary>
+    public string? Model { get; init; }
+}
 
 /// <summary>The merged provider list and the model source each agent has. It never carries a key.</summary>
 public sealed record ModelProvidersReport(IReadOnlyList<ModelProviderRow> Providers, IReadOnlyList<ModelSourceChoice> Sources);
@@ -33,7 +37,10 @@ public sealed record AddCustomProviderParams(string Name, string BaseUrl, IReadO
 /// <summary>Chooses where an agent's model comes from. A null <paramref name="ProviderId"/> means the agent's own provider.</summary>
 /// <param name="AgentId">The agent plugin's id, such as <c>claude-code</c>.</param>
 /// <param name="ProviderId">A ready provider, or null.</param>
-public sealed record SetModelSourceParams(string AgentId, string? ProviderId);
+public sealed record SetModelSourceParams(string AgentId, string? ProviderId)
+{
+    public string? Model { get; init; }
+}
 
 /// <summary>Providers a plugin that depends on Model providers adds. They stay until <see cref="WithdrawParams"/> or until Model providers stops.</summary>
 /// <param name="Contributor">The contributing plugin's id.</param>

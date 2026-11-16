@@ -77,6 +77,9 @@ public sealed record ProviderDefinition(string Id, string Name, ProviderGroup Gr
     /// <summary>The sign-in policy; null when the provider takes keys only.</summary>
     public ProviderOAuth? OAuth { get; init; }
 
+    /// <summary>Model ids the provider serves, written into an agent's models file when the agent does not know the provider by id. Empty when unknown.</summary>
+    public IReadOnlyList<string> Models { get; init; } = [];
+
     /// <summary>Added by the user.</summary>
     public bool Custom { get; init; }
 

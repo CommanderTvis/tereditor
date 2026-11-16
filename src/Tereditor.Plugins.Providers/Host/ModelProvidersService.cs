@@ -102,10 +102,10 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
                 // The file comes first: a source that could not be written is never recorded, so the agent keeps its own provider.
                 if (files is not null && AgentModelFiles.Handles(p.AgentId))
                 {
-                    files.Write(p.AgentId, row.Provider);
+                    files.Write(p.AgentId, row.Provider, p.Model);
                     written = true;
                 }
-                rest.Add(new(p.AgentId, id));
+                rest.Add(new(p.AgentId, id) { Model = p.Model });
             }
             state.SaveSources(rest);
             if (files is not null && AgentModelFiles.Handles(p.AgentId))
@@ -196,7 +196,7 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
                 {
                     try
                     {
-                        files.Write(choice.AgentId, row.Provider);
+                        files.Write(choice.AgentId, row.Provider, choice.Model);
                         next.Add(choice.AgentId);
                         kept.Add(choice);
                         continue;

@@ -231,25 +231,33 @@ internal static class ProvidersChecks
         Require(seen.For("omp") is null, "The UI contribution goes with the source.");
 
         // A provider an agent knows by id keeps its own API; Pi refuses one it does not know (it needs a list of models), omp discovers the models.
-        var knownPi = JsonDocument.Parse(AgentModelFiles.PiJson(BundledProviders.All.Single(provider => provider.Id == "openrouter") with { NeedsKey = false }, BundledProviders.All.Single(provider => provider.Id == "openrouter").Apis[0], "unused", known: true))
+        var knownPi = JsonDocument.Parse(AgentModelFiles.PiJson(BundledProviders.All.Single(provider => provider.Id == "openrouter") with { NeedsKey = false }, BundledProviders.All.Single(provider => provider.Id == "openrouter").Apis[0], "unused", known: true, []))
             .RootElement.GetProperty("providers").GetProperty("openrouter");
         Require(knownPi.GetProperty("apiKey").GetString() == "none", "A provider that needs no key is written without a helper.");
         service.SaveKey(new("deepseek", Sentinel));
         service.SaveKey(new("together", Sentinel));
         service.SetSource(new("pi", "deepseek"));
         Require(JsonDocument.Parse(File.ReadAllText(piFile)).RootElement.GetProperty("providers").GetProperty("deepseek").TryGetProperty("api", out _) == false, "Pi knows DeepSeek by id.");
-        Throws(() => service.SetSource(new("pi", "together")), "Pi is not given a provider it does not know.");
+        service.SetSource(new("pi", "together") { Model = "m-1" });
+        var generic = JsonDocument.Parse(File.ReadAllText(piFile)).RootElement.GetProperty("providers").GetProperty("together");
+        Require(generic.GetProperty("api").GetString() == "openai-completions" && generic.GetProperty("models")[0].GetProperty("id").GetString() == "m-1" && generic.GetProperty("apiKey").GetString()!.StartsWith('!'), "Pi gets a provider it does not know as a generic OpenAI entry with the selected model and the key helper.");
+        service.SetSource(new("pi", "deepseek"));
+        File.WriteAllText(ompFile, "providers: {}\n");
+        service.SetSource(new("omp", null));
+        Require(File.Exists(ompFile), "Clearing an omp source leaves a models.yml tereditor did not write.");
         service.SetSource(new("omp", "together"));
         Require(!File.ReadAllText(ompFile).Contains("discovery", StringComparison.Ordinal), "omp knows Together by id.");
         service.AddCustom(new("My gateway", "https://llm.example.com/v1", [ModelApiKinds.AnthropicMessages, ModelApiKinds.OpenAiChat]) { Key = Sentinel + "-custom" });
-        Throws(() => service.SetSource(new("pi", "custom-my-gateway")), "Pi is not given a custom provider.");
-        Require(sources.Single(choice => choice.AgentId == "pi").ProviderId == "deepseek", "A source that could not be written is not recorded.");
+        service.SetSource(new("pi", "custom-my-gateway"));
+        Require(JsonDocument.Parse(File.ReadAllText(piFile)).RootElement.GetProperty("providers").GetProperty("custom-my-gateway").GetProperty("models")[0].GetProperty("id").GetString() == "default", "A custom provider with no model named lists the one model default.");
+        service.SetSource(new("pi", "deepseek"));
         service.SetSource(new("omp", "custom-my-gateway"));
         yaml = File.ReadAllText(ompFile);
-        Require(yaml.Contains("api: openai-completions", StringComparison.Ordinal) && yaml.Contains("type: openai-models-list", StringComparison.Ordinal) && yaml.Contains("\"https://llm.example.com/v1\"", StringComparison.Ordinal),
-            "omp is given a custom provider through its OpenAI API, with its models discovered.");
+        Require(yaml.Contains("api: openai-completions", StringComparison.Ordinal) && yaml.Contains("- id: \"default\"", StringComparison.Ordinal) && yaml.Contains("\"https://llm.example.com/v1\"", StringComparison.Ordinal),
+            "omp is given a custom provider through its OpenAI API with a model list.");
         service.AddCustom(new("Claude only", "https://claude.example.com", [ModelApiKinds.AnthropicMessages]) { Key = Sentinel });
-        Throws(() => service.SetSource(new("omp", "custom-claude-only")), "omp is not given an unknown provider that has no OpenAI API.");
+        service.SetSource(new("omp", "custom-claude-only"));
+        Require(File.ReadAllText(ompFile).Contains("api: anthropic-messages", StringComparison.Ordinal), "A provider with only an Anthropic API is written with that adapter.");
         service.AddCustom(new("Local", "http://localhost:8080", [ModelApiKinds.OpenAiChat]));
         service.SetSource(new("omp", "custom-local"));
         Require(File.ReadAllText(ompFile).Contains("auth: none", StringComparison.Ordinal), "A provider that needs no key is written without a helper.");
@@ -264,10 +272,10 @@ internal static class ProvidersChecks
         Require(File.Exists(piFile) && File.Exists(ompFile) && restarted.Launch("pi") is not null && restarted.Launch("omp") is not null, "Startup writes the files again and contributes.");
         var report = restarted.SetSource(new("pi", null));
         Require(!File.Exists(piFile) && restarted.Launch("pi") is null && restarted.Launch("omp") is not null && report.Sources.All(choice => choice.AgentId != "pi"), "Choosing the agent's own provider removes the file and the contribution.");
-        sources = [.. sources.Where(choice => choice.AgentId != "pi"), new("pi", "custom-local")];
+        sources = [.. sources.Where(choice => choice.AgentId != "pi"), new("pi", "no-such-provider")];
         File.Delete(piFile);
         Make().Sync();
-        Require(sources.All(choice => choice.AgentId != "pi") && !File.Exists(piFile), "Startup drops a source whose file cannot be written, so recorded sources match what launches use.");
+        Require(sources.All(choice => choice.AgentId != "pi") && !File.Exists(piFile), "Startup drops a source that can no longer be written, so recorded sources match what launches use.");
         restarted = Make();
         restarted.Sync();
         restarted.RemoveCustom(new("custom-local"));

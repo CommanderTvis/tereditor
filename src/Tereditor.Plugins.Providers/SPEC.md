@@ -58,10 +58,10 @@ off. This plugin is the optional side that matches providers to those declaratio
   ever in a models file, an argument, an environment variable, a launch line, host state or a log. The files are rewritten at startup, and
   removed when the source is cleared or its provider or key goes. Reads and writes run off the UI thread on the host.
 - The API used is the one both sides declare. A provider an agent knows by id keeps its own API and only gets the endpoint and the key (Pi: Anthropic,
-  OpenAI, OpenRouter, DeepSeek, Mistral, Groq, xAI, Cerebras, Fireworks; omp: those and Together). Pi has no way to list the models of any other
-  provider and tereditor cannot write a model list yet, so choosing one for Pi is refused with a plain message. omp is given another provider
-  through an OpenAI API with `api` and `discovery: openai-models-list`; one with only an Anthropic API is refused. A provider that needs no key is
-  written without a helper (Pi `apiKey: "none"`, omp `auth: none`). At startup a source whose file cannot be written, or whose key is gone, is
+  OpenAI, OpenRouter, DeepSeek, Mistral, Groq, xAI, Cerebras, Fireworks; omp: those and Together). Any other provider, custom ones included, is written
+  as a generic entry of the agent's own adapter (OpenAI Chat, else OpenAI Responses, else Anthropic Messages) with a model list: the provider's
+  `models`, else the model given with the source, else `default`. Clearing an omp source removes `models.yml` only when it starts with the
+  tereditor marker line. A provider that needs no key is written without a helper (Pi `apiKey: "none"`, omp `auth: none`). At startup a source whose provider or key is gone, or whose file cannot be written, is
   dropped, so the recorded sources always match what launches use.
 - Pi: `<state>/providers/pi/agent/models.json`. Pi runs with `PI_CODING_AGENT_DIR` set to that directory, so its sessions live there too
   and its own sign-in is not read. tereditor never creates or changes `auth.json`. Pi's own files stay as they are.
