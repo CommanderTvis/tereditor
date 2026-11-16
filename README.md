@@ -117,4 +117,6 @@ scripts/mise run native  # a NativeAOT build tuned to this machine; long build
 The [documentation index](docs/README.md) lists every page. Start with [Install](docs/install.md), [Using tereditor](docs/using.md)
 and [Agents](docs/agents.md).
 
+Inspired by ThinkRail. Thank you.
+
 P.S.: The name joins TERminal and EDITOR.
