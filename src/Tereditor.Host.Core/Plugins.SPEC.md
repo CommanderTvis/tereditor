@@ -220,7 +220,7 @@ into a namespace writes it into every transitive dependent's namespace too (`Hos
 which the runtime registers), touching no unrelated namespace. The runtime notes in each dependent that was on
 which dependency it waits for (`suspendedBy` beside `enabled: false`, never declared by a settings type, kept by
 validation), and turning that dependency on again switches exactly those dependents on, dependency first. A dependent the
-user had off stays off; an explicit switch on a suspended dependent drops the note, and so does removing it. Marks
+user had off stays off; an explicit switch on a suspended dependent drops the note (in the same batch as the switch, and the runtime's own rewrites apply only while the note is still what they planned from, so a switch made meanwhile is never overwritten), and so does removing it. Marks
 inside a dependency cycle are ignored. The roster gives a suspended `Disabled` row the reason `requires <id>`.
 Independently, each pass keeps a plugin that is enabled while a dependency is absent,
 off, failed, refused or at another wire version out of the activation, and its row is `Refused` with a reason

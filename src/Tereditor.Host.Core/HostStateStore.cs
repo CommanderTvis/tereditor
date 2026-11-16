@@ -544,6 +544,22 @@ public sealed partial class HostStateStore : IHostStateService
         }
     }
 
+    /// <summary>
+    /// Changes one plugin settings namespace from what it holds now, in one step with every other change, so a switch made meanwhile is never overwritten.
+    /// </summary>
+    /// <param name="id">The plugin.</param>
+    /// <param name="update">Receives the stored namespace (undefined when there is none) and returns the new one, or null to leave it.</param>
+    internal void UpdatePluginSettings(string id, Func<JsonElement, JsonElement?> update)
+    {
+        lock (gate)
+        {
+            if (update(state.PluginSettings.GetValueOrDefault(id)) is not { } value) return;
+            var namespaces = state.PluginSettings.ToDictionary();
+            namespaces[id] = JsonSerializer.SerializeToElement(value, HostJson.Default.JsonElement);
+            Publish(state with { PluginSettings = namespaces }, persist: true);
+        }
+    }
+
     public IAsyncEnumerable<HostState> WatchAsync(CancellationToken cancellationToken = default) => WatchAsync(visible: true, cancellationToken);
 
     /// <summary>
@@ -1003,6 +1019,8 @@ public sealed partial class HostStateStore : IHostStateService
         }
         var namespaces = current.PluginSettings.ToDictionary();
         var merged = patch is null ? new JsonObject() : Merge(namespaces.GetValueOrDefault(id), patch);
+        // An explicit switch wins over the memory of a suspension, in the same batch, so no watcher can miss it.
+        if (patch is not null && patch.ContainsKey("enabled") && !patch.ContainsKey("suspendedBy")) merged.Remove("suspendedBy");
         var element = JsonSerializer.SerializeToElement(merged, HostJson.Default.JsonObject);
         if (patch is not null && PluginNamespaceValidator is { } validate) element = validate(id, element);
         namespaces[id] = element;

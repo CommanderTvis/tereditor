@@ -25,7 +25,8 @@ public sealed class VisualizeHost : PluginHostModule
             new Persistence(context),
             // A chat's child holds a token but runs no terminal: its drawings open as a tab of their own unless its chat tab hosts a pane.
             (workspaceId, tabKey) => context.Terminals().Any(item => item.Terminal.WorkspaceId == workspaceId && item.Terminal.TabKey == tabKey),
-            new VisualizationSourceFiles(VisualizationSourceFiles.DefaultDirectory(), context.ReadState<string[]>(VisualizationStore.FilesStateName, []),
+            // A host with no state directory has nowhere to remember the files, so drawings stay in memory only.
+            context.StateDirectory is null ? null : new VisualizationSourceFiles(VisualizationSourceFiles.DefaultDirectory(), context.ReadState<string[]>(VisualizationStore.FilesStateName, []),
                 paths => context.WriteState(VisualizationStore.FilesStateName, paths.ToArray())));
         Store.SweepSourceFiles();
 

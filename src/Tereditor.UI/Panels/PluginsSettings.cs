@@ -190,9 +190,15 @@ public sealed class PluginsSettings : StackPanel
     {
         var index = cards.ToList().FindIndex(model => model.Entry.Id == id);
         if (index < 0) return null;
-        rows.ScrollIntoView(index);
-        (TopLevel.GetTopLevel(this) as Layoutable ?? this).UpdateLayout();
-        return rows.GetRealizedContainers().OfType<PluginCard>().FirstOrDefault(card => card.Model?.Entry.Id == id);
+        // A virtualized list realizes a far target over several layout passes, each moving its estimated extent closer.
+        PluginCard? card = null;
+        for (var pass = 0; pass < 8 && card is null; pass++)
+        {
+            rows.ScrollIntoView(index);
+            (TopLevel.GetTopLevel(this) as Layoutable ?? this).UpdateLayout();
+            card = rows.GetRealizedContainers().OfType<PluginCard>().FirstOrDefault(candidate => candidate.Model?.Entry.Id == id);
+        }
+        return card;
     }
 
     private static string Label(string id, IReadOnlyList<PluginRosterEntry> roster) => roster.FirstOrDefault(entry => entry.Id == id)?.Label ?? id;

@@ -161,8 +161,8 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
 
     private void Rewrite(SuspensionChange change)
     {
-        var space = Seams.State.Current.PluginSettings.GetValueOrDefault(change.Id);
-        if (PluginSuspension.Apply(space, change) is { } next) Seams.State.ReplacePluginSettings(change.Id, next);
+        // Planned from a snapshot, so applied only while the stored mark is still what the plan saw: a switch made since wins.
+        Seams.State.UpdatePluginSettings(change.Id, space => (PluginSuspension.Mark(space) is not null) == (change.SuspendedBy is null) ? PluginSuspension.Apply(space, change) : null);
     }
 
     internal void Log(string scope, string level, string message, IReadOnlyDictionary<string, string>? fields)
