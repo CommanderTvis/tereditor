@@ -1,0 +1,95 @@
+name: Flaky checks
+
+# Runs the full gate several times in shuffled case order and names the cases whose outcome changes between runs
+# (scripts/flaky-compare.cs). Weekly, or by hand: gh workflow run flaky.yml -f runs=5
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Runs of the gate per shard
+        default: '5'
+
+env:
+  MISE_LOCKED: '1'
+
+concurrency:
+  group: flaky
+  cancel-in-progress: false
+
+jobs:
+  runs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/3, 2/3, 3/3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.local/share/mise
+            ~/.cache/tereditor
+            !~/.cache/tereditor/ghostty-avalonia
+            !~/.cache/tereditor/zig
+          key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/tereditor/ghostty-avalonia
+            ~/.cache/tereditor/zig
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
+          restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
+      - run: |
+          git config --global user.name CI
+          git config --global user.email ci@example.invalid
+          git config --global init.defaultBranch main
+      # Every run is kept even when it fails: the comparer is what judges them. Run n uses order seed n.
+      - env:
+          TEREDITOR_CHECKS_JOB_SHARD: ${{ matrix.shard }}
+          TEREDITOR_CHECKS_KEEP_GOING: "1"
+          RUNS: ${{ inputs.runs || '5' }}
+        run: |
+          for n in $(seq 1 "$RUNS"); do
+            echo "::group::run $n, order seed $n"
+            TEREDITOR_CHECKS_RESULTS="$RUNNER_TEMP/flaky/run-$n-seed-$n" TEREDITOR_CHECKS_ROOT="$RUNNER_TEMP/flaky-fixtures" \
+              sh scripts/mise run check -- --order-seed "$n" || echo "run $n failed"
+            echo "::endgroup::"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: flaky-shard-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/flaky
+          if-no-files-found: ignore
+          retention-days: 14
+
+  compare:
+    needs: runs
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.local/share/mise
+            ~/.cache/tereditor
+            !~/.cache/tereditor/ghostty-avalonia
+            !~/.cache/tereditor/zig
+          key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: flaky-shard-*
+          path: ${{ runner.temp }}/flaky
+          merge-multiple: true
+      - run: sh scripts/mise x -- dotnet run --file scripts/flaky-compare.cs -- "$RUNNER_TEMP/flaky"

@@ -76,6 +76,7 @@ internal static partial class HostListenerChecks
             using (var occupied = new TcpListener(IPAddress.Loopback, 0))
             {
                 occupied.Start();
+                Console.WriteLine("EXPECTED: this check takes a port on purpose; the bind error that follows is the point, not a crash.");
                 try
                 {
                     await listener.StartAsync(IPAddress.Loopback, ((IPEndPoint)occupied.LocalEndpoint).Port, "listener-token");

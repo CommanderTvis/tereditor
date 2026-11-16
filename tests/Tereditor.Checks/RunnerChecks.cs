@@ -8,7 +8,7 @@ namespace Tereditor.Checks;
 /// <summary>Checks of the runner itself: case selection, lanes, the repair loop, the idle-sleep assertion and interrupt cleanup.</summary>
 internal static class RunnerChecks
 {
-    private const string FixtureCases = "TEREDITOR_CHECKS_FIXTURE_CASES", FixtureFailure = "TEREDITOR_CHECKS_FIXTURE_FAIL";
+    internal const string FixtureCases = "TEREDITOR_CHECKS_FIXTURE_CASES", FixtureFailure = "TEREDITOR_CHECKS_FIXTURE_FAIL";
 
     private static void Require(bool value, string message)
     {
@@ -182,6 +182,7 @@ internal static class RunnerChecks
         if (job is null) start.Environment.Remove(Runner.JobShardVariable); else start.Environment[Runner.JobShardVariable] = job;
         start.Environment.Remove(Runner.OwnerVariable);
         start.Environment.Remove(Runner.ResultVariable);
+        start.Environment.Remove(TestResults.Variable);
         using var process = Process.Start(start)!;
         var error = process.StandardError.ReadToEndAsync();
         var output = process.StandardOutput.ReadToEnd();

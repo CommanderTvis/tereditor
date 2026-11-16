@@ -893,6 +893,11 @@ internal static class Program
             RunnerChecks.Run(root);
             return;
         }
+        if (args.SequenceEqual(["--results-selftest"]))
+        {
+            ResultsChecks.Run(root);
+            return;
+        }
         if (args.SequenceEqual(["--plugins"]))
         {
             PluginHostChecks.Run(root).GetAwaiter().GetResult();
@@ -1534,6 +1539,7 @@ internal static class Program
         Gate.Case("run-file", RunFileChecks.Run);
         Gate.Case("check-root", CheckRootChecks.Run);
         Gate.Case("runner", () => RunnerChecks.Run(root));
+        Gate.Case("results", () => ResultsChecks.Run(root));
         Gate.Case("layout", LayoutChecks.Run);
         Gate.Case("workspace-creator", () => WorkspaceCreatorChecks.Run(root));
         Gate.Case("scintilla-core", ScintillaCore.ScintillaCoreChecks.Run);

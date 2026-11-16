@@ -73,6 +73,9 @@ internal static class Gate
     private static (int Ordinal, string Name)? running;
     private static int skipped;
     private static bool keepGoing;
+    private static int? orderSeed;
+    private static readonly List<(int Ordinal, string Name, Action Body)> deferred = [];
+    private static readonly List<CaseResult> results = [];
     private static readonly List<CaseFailure> failures = [];
     private static readonly List<CaseTiming> timings = [];
 
@@ -90,9 +93,14 @@ internal static class Gate
     /// <summary>The cases keep-going saw fail, each owed alone: the cases behind them ran.</summary>
     internal static IReadOnlyList<Unfinished> Failed => [.. failures.Select(failure => new Unfinished(failure.Ordinal, selection.Shard, failure.Name, Exact: true))];
 
-    internal static void Configure(Selection cases, bool list, bool continueAfterFailure = false)
+    internal static IReadOnlyList<CaseResult> Results => results;
+
+    /// <summary>The seed that shuffles the order cases run in, or null for the order they are written in.</summary>
+    internal static int? OrderSeed => orderSeed;
+
+    internal static void Configure(Selection cases, bool list, bool continueAfterFailure = false, int? seed = null)
     {
-        selection = cases; listing = list; keepGoing = continueAfterFailure;
+        selection = cases; listing = list; keepGoing = continueAfterFailure; orderSeed = seed;
     }
 
     internal static void Case(string name, Action body)
@@ -103,14 +111,45 @@ internal static class Gate
             throw new InvalidOperationException($"The case list changed since the failed run ({expected} is now {name}); run the whole gate.");
         if (!selection.Selects(name, index)) { skipped++; return; }
         if (listing) { Console.WriteLine("CASE " + name); return; }
+        // With a seed the cases are only collected here (shared setup between them has run by then) and RunDeferred runs them shuffled.
+        if (orderSeed is not null) { deferred.Add((index, name, body)); return; }
+        Execute(index, name, body);
+    }
+
+    /// <summary>Runs the cases a seeded run collected, in the seed's order.</summary>
+    internal static void RunDeferred()
+    {
+        if (orderSeed is not { } seed) return;
+        var order = deferred.ToArray();
+        deferred.Clear();
+        new Random(seed).Shuffle(order);
+        Console.WriteLine($"ORDER seed {seed}: {string.Join(' ', order.Select(entry => entry.Name))}");
+        foreach (var (index, name, body) in order) Execute(index, name, body);
+    }
+
+    private static void Execute(int index, string name, Action body)
+    {
         running = (index, name);
         CiReport.BeginCase(name);
+        // Names every case in the log before it runs, so output below belongs to it.
+        Console.WriteLine("START " + name);
+        var moment = DateTimeOffset.UtcNow;
         var started = Stopwatch.GetTimestamp();
         if (!keepGoing)
         {
-            body();
+            try { body(); }
+            catch (Exception error)
+            {
+                // The runner reports this one; the result file still needs it.
+                var failure = CiReport.Describe(name, index, error, Stopwatch.GetElapsedTime(started));
+                results.Add(new(name, index, false, moment, failure.Duration, failure.Message, error.ToString(), failure.Tail));
+                throw;
+            }
             CiReport.EndCase();
-            timings.Add(new(name, Stopwatch.GetElapsedTime(started), false));
+            var duration = Stopwatch.GetElapsedTime(started);
+            timings.Add(new(name, duration, false));
+            results.Add(new(name, index, true, moment, duration));
+            Console.WriteLine($"END {name}: passed in {duration.TotalSeconds:F1}s");
             running = null;
             passed.Add(name);
             return;
@@ -122,14 +161,19 @@ internal static class Gate
         {
             body();
             CiReport.EndCase();
-            timings.Add(new(name, Stopwatch.GetElapsedTime(started), false));
+            var duration = Stopwatch.GetElapsedTime(started);
+            timings.Add(new(name, duration, false));
+            results.Add(new(name, index, true, moment, duration));
+            Console.WriteLine($"END {name}: passed in {duration.TotalSeconds:F1}s");
             passed.Add(name);
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
             var elapsed = Stopwatch.GetElapsedTime(started);
             Console.Error.WriteLine(error);
-            failures.Add(CiReport.Describe(name, index, error, elapsed));
+            var failure = CiReport.Describe(name, index, error, elapsed);
+            failures.Add(failure);
+            results.Add(new(name, index, false, moment, elapsed, failure.Message, error.ToString(), failure.Tail));
             timings.Add(new(name, elapsed, true));
             CiReport.EndCase();
             Console.WriteLine($"FAILED {name}; continuing with the next case (keep-going)");

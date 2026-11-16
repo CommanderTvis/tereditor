@@ -31,7 +31,7 @@ internal static partial class CiReport
     internal static void Enable()
     {
         var github = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
-        if (capturing || !github && Environment.GetEnvironmentVariable(Runner.KeepGoingVariable) != "1") return;
+        if (capturing || !github && Environment.GetEnvironmentVariable(Runner.KeepGoingVariable) != "1" && TestResults.Directory is null) return;
         capturing = true;
         Active = github;
         Console.SetOut(new Tee(Console.Out));

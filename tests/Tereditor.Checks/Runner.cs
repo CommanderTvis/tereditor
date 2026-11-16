@@ -5,7 +5,7 @@ using System.Reflection;
 namespace Tereditor.Checks;
 
 /// <summary>What the runner was asked to do before the gate or a focused mode sees its own arguments.</summary>
-internal sealed record RunnerOptions(string[] Rest, int Lanes, Shard? Shard, Shard? Job, bool LastFailed, IReadOnlySet<string>? Cases, bool List)
+internal sealed record RunnerOptions(string[] Rest, int Lanes, Shard? Shard, Shard? Job, bool LastFailed, IReadOnlySet<string>? Cases, bool List, int? Seed = null)
 {
     internal static int AutomaticLanes => Math.Clamp(Environment.ProcessorCount / 2, 1, 8);
 
@@ -15,6 +15,7 @@ internal sealed record RunnerOptions(string[] Rest, int Lanes, Shard? Shard, Sha
         int? lanes = null;
         Shard? shard = null;
         var lastFailed = false; var list = false;
+        int? seed = null;
         HashSet<string>? cases = null;
         for (var index = 0; index < args.Length; index++)
         {
@@ -29,6 +30,7 @@ internal sealed record RunnerOptions(string[] Rest, int Lanes, Shard? Shard, Sha
                     break;
                 case "--shard": shard = Checks.Shard.Parse(Value()); break;
                 case "--case": cases = [.. Value().Split(',', StringSplitOptions.RemoveEmptyEntries)]; break;
+                case "--order-seed": seed = int.TryParse(Value(), NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) ? parsed : throw new ArgumentException("--order-seed takes a non-negative integer."); break;
                 case "--last-failed": lastFailed = true; break;
                 case "--list-cases": list = true; break;
                 default: rest.Add(args[index]); break;
@@ -37,7 +39,7 @@ internal sealed record RunnerOptions(string[] Rest, int Lanes, Shard? Shard, Sha
         // The job's slice is inherited by every child of the run: the fixtures this executable plays for its own
         // checks (a fake agent, a relay) carry arguments and are no slice of the gate.
         Shard? job = string.IsNullOrEmpty(jobShard) || rest.Count > 0 ? null : Checks.Shard.Parse(jobShard);
-        var selecting = lanes is not null || shard is not null || job is not null || lastFailed || cases is not null || list;
+        var selecting = lanes is not null || shard is not null || job is not null || lastFailed || cases is not null || list || seed is not null;
         if (selecting && rest.Count > 0)
             throw new ArgumentException("Lanes, shards and case selection apply to the argument-free gate; a focused mode runs whole, in one lane.");
         if (shard is not null && job is not null)
@@ -46,7 +48,9 @@ internal sealed record RunnerOptions(string[] Rest, int Lanes, Shard? Shard, Sha
             throw new ArgumentException("--lanes subdivides the run itself; it cannot be combined with --shard.");
         if (lastFailed && (lanes > 1 || shard is not null || job is not null || cases is not null))
             throw new ArgumentException("--last-failed is a serial repair run of what the last run left unfinished.");
-        return new([.. rest], lanes ?? 1, shard, job, lastFailed, cases, list);
+        if (seed is not null && (lastFailed || lanes > 1))
+            throw new ArgumentException("--order-seed shuffles one process's cases; it cannot repair a last run or split across lanes.");
+        return new([.. rest], lanes ?? 1, shard, job, lastFailed, cases, list, seed);
     }
 }
 
@@ -94,30 +98,42 @@ internal static class Runner
             if (repair.Count == 0) { Console.WriteLine("The last run left nothing unfinished."); return 0; }
         }
         Gate.Configure(new(options.Shard ?? options.Job ?? Shard.Whole, repair, options.Cases), options.List,
-            Environment.GetEnvironmentVariable(KeepGoingVariable) == "1" && options.Rest.Length == 0);
+            Environment.GetEnvironmentVariable(KeepGoingVariable) == "1" && options.Rest.Length == 0, options.Seed);
         var gate = options.Rest.Length == 0 && !options.List;
+        var began = DateTimeOffset.UtcNow;
+        if (options.Seed is { } seed) Console.WriteLine("ORDER SEED " + seed.ToString(CultureInfo.InvariantCulture));
         try
         {
             if (RunnerChecks.FixtureGate is { } fixture) fixture(); else Program.Checks(options.Rest);
+            Gate.RunDeferred();
         }
         catch (Exception error)
         {
             Console.Error.WriteLine(error);
             Evidence();
+            if (gate) Results(began);
             if (Gate.KeepGoing) CiReport.Publish(Gate.Failures, Gate.Timings, Gate.Passed.Count, Gate.Skipped, ShardLabel(), true);
             CiReport.Failed(Gate.Running ?? (options.Rest.Length > 0 ? "checks " + string.Join(' ', options.Rest) : "(setup)"), error, Gate.Passed.Count, Gate.Skipped);
-            if (gate) Record(Gate.Remaining, options.Cases is null);
+            if (gate) Record(Gate.Remaining, options.Cases is null && options.Seed is null);
             Environment.Exit(1);
         }
         if (gate && Gate.KeepGoing && !options.List)
             CiReport.Publish(Gate.Failures, Gate.Timings, Gate.Passed.Count, Gate.Skipped, ShardLabel(), true);
-        if (gate) Record(Gate.Failed, options.Cases is null);
+        if (gate) Record(Gate.Failed, options.Cases is null && options.Seed is null);
+        if (gate) Results(began);
         if (Gate.Failures.Count > 0 || (gate && Gate.Failed.Count > 0)) Evidence();
         return Gate.Failures.Count > 0 ? 1 : 0;
     }
 
     // Fixture gates fail on purpose; only a real run keeps its fixtures as evidence.
     private static void Evidence() { if (RunnerChecks.FixtureGate is null) CheckRoot.MarkFailed(); }
+
+    // One result file per process, named after its shard so jobs and lanes never overwrite each other.
+    private static void Results(DateTimeOffset began)
+    {
+        try { TestResults.Write($"{Gate.Shard.Index}of{Gate.Shard.Total}", Gate.Results, began); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { Console.Error.WriteLine("Could not write the result file: " + error.Message); }
+    }
 
     private static string? ShardLabel() => Gate.Shard.Total > 1 ? Gate.Shard.ToString() : null;
 
