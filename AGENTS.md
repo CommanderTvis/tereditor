@@ -4,6 +4,7 @@
 
 ## Hard rules
 
+- Flaky checks are not tolerated. A check that fails once is a bug in the check or the code: investigate the first failure and fix the root cause. Never rerun CI to get green, add retries, sleeps or skip lists, or call a failure a known flake.
 - Never push unless the user asks. Preserve the commit-signing presence check; do not change Git configuration to work around a concurrent operation.
 - CI babysitting. Every agent that pushes, or causes pushes or workflow dispatches (`ci.yml`, nightly, any workflow), MUST watch every run they trigger until all jobs finish. A push is not done until CI is green.
   - Poll with `gh run list` / `gh run view --json`, sleeping at least 60s between polls (Monitor or ScheduleWakeup, never a busy loop).
