@@ -26,6 +26,10 @@ jobs:
             ~/.local/share/mise
             ~/.cache/tereditor
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
       - run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Restore" sh scripts/mise run restore
       - run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Audit" sh scripts/mise run audit
       - run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Format" sh scripts/mise run format
@@ -56,6 +60,10 @@ jobs:
             ~/.local/share/mise
             ~/.cache/tereditor
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
       - run: |
           git config --global user.name CI
           git config --global user.email ci@example.invalid
@@ -83,6 +91,10 @@ jobs:
             ~\AppData\Local\mise
             ~\AppData\Local\tereditor\cache
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~\.nuget\packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
       - run: ./scripts/mise.cmd x -- dotnet run --file scripts/ci-run.cs -- "Package Windows" ./scripts/mise.cmd run package:windows -- -RuntimeIdentifier win-x64
       - run: ./scripts/mise.cmd x -- dotnet run --file scripts/ci-run.cs -- "Format" ./scripts/mise.cmd run format
       - env:
@@ -113,6 +125,10 @@ jobs:
             ~/.local/share/mise
             ~/.cache/tereditor
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
       - run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Package Linux" sh scripts/mise run package:linux
       - env:
           TEREDITOR_CHECKS_KEEP_GOING: "1"
@@ -142,6 +158,10 @@ jobs:
             ~/.local/share/mise
             ~/.cache/tereditor
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
       - run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Package Linux ARM64" sh scripts/mise run package:linux linux-arm64
       - env:
           TEREDITOR_CHECKS_KEEP_GOING: "1"
@@ -170,6 +190,10 @@ jobs:
             ~/.local/share/mise
             ~/.cache/tereditor
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
       - run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Package macOS" sh scripts/mise run package:macos osx-arm64
       - env:
           TEREDITOR_CHECKS_KEEP_GOING: "1"

@@ -38,6 +38,10 @@ jobs:
             ~/.cache/tereditor
             ~/.cache/ms-playwright
           key: tools-browser-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock', 'mise.browser.toml', 'mise.browser.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
       - run: |
           git config --global user.name CI
           git config --global user.email ci@example.invalid
@@ -64,6 +68,10 @@ jobs:
             ~/.local/share/mise
             ~/.cache/tereditor
           key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
       - run: |
           git config --global user.name CI
           git config --global user.email ci@example.invalid
