@@ -94,15 +94,15 @@ internal static class ProvidersChecks
         Require(service.List(ProviderAgent.Omp).Providers.Single(row => row.Id == "anthropic").Note == ProviderCatalog.AnthropicNote && service.List(ProviderAgent.Omp).Providers.All(row => row.Source != ProviderSource.SignIn), "Anthropic is offered by API key only, with the reason, and omp rows never show a sign-in.");
         Require(ProviderCatalog.Pi.Concat(ProviderCatalog.Omp).All(provider => ProviderCatalog.IsProviderId(provider.Id) && ProviderCatalog.IsEnvVar(provider.EnvVar)), "Every catalog entry has a valid id and variable.");
 
-        // The page offers only agents whose plugin is on.
+        // The page offers Pi always, and omp unless its plugin is refused.
         static AgentRosterEntry Entry(string id, AgentPluginState state, bool? installed = null) => new(id, id, id, id, state, installed, installed == false ? id + " was not found." : null);
         Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, true), Entry("omp", AgentPluginState.Active)]) == (true, true), "Both agents are offered when both plugins are on, installed or undecided.");
-        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Disabled)]) == (true, false) && ProvidersView.Offered([Entry("pi", AgentPluginState.Disabled), Entry("omp", AgentPluginState.Active)]) == (false, true),
-            "A disabled plugin's agent is not offered.");
-        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Refused)]) == (true, false) && ProvidersView.Offered([]) == (false, false), "A refused or absent plugin's agent is not offered.");
-        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, false), Entry("omp", AgentPluginState.Active, true)]) == (false, true), "An agent whose program was not found is not offered.");
+        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Disabled)]) == (true, true) && ProvidersView.Offered([Entry("pi", AgentPluginState.Disabled), Entry("omp", AgentPluginState.Active)]) == (true, true),
+            "A disabled plugin's agent is still offered, so the page is open whatever plugins are on.");
+        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active), Entry("omp", AgentPluginState.Refused)]) == (true, false) && ProvidersView.Offered([]) == (true, true), "A refused omp plugin hides omp; Pi and an absent roster still offer both agents.");
+        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, false), Entry("omp", AgentPluginState.Active, true)]) == (true, true), "An agent whose program was not found is still offered.");
         Require(ProvidersView.Intro(true, false).Contains("Pi uses", StringComparison.Ordinal) && !ProvidersView.Intro(true, false).Contains("omp", StringComparison.Ordinal) &&
-            ProvidersView.Intro(false, true).Contains("omp uses", StringComparison.Ordinal) && ProvidersView.Intro(false, false).Contains("Turn on", StringComparison.Ordinal), "The opening sentence names only the agents offered.");
+            ProvidersView.Intro(false, true).Contains("omp uses", StringComparison.Ordinal), "The opening sentence names only the agents offered.");
         Model(root);
     }
 

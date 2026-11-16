@@ -47,19 +47,18 @@ internal sealed class ProvidersView : StackPanel
         intro.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
         Children.Add(intro);
         Children.Add(switcher);
-        // Only agents whose plugin is on and whose program was not found missing are offered. omp is a program of the host's operating system: a host that refuses its
-        // plugin (a browser tab's) has no omp to configure, and there Pi can sign in to JetBrains AI.
+        // Pi and omp are always offered, so the page is usable whatever plugins are on. omp is a program of the host's operating system: a host that refuses its
+        // plugin (a browser tab's) has no omp to configure, so only Pi shows there.
         void ShowAgents()
         {
             var roster = AgentRoster.Read(context);
             var offered = Offered(roster);
             pi.IsVisible = offered.Pi;
             omp.IsVisible = offered.Omp;
-            switcher.IsVisible = offered.Pi && offered.Omp;
+            switcher.IsVisible = offered.Omp;
             tab = roster.FirstOrDefault(entry => entry.Id == OmpId) is not { PluginState: not (AgentPluginState.Refused or AgentPluginState.Absent) };
             intro.Text = Intro(offered.Pi, offered.Omp);
-            var wanted = offered.Pi && offered.Omp ? agent : offered.Pi ? ProviderAgent.Pi : ProviderAgent.Omp;
-            if (!offered.Pi && !offered.Omp) { list.Children.Clear(); location.Text = ""; note.Text = ""; generation++; loaded = false; return; }
+            var wanted = offered.Omp ? agent : ProviderAgent.Pi;
             if (wanted != agent || !loaded) Choose(wanted);
         }
         ShowAgents();
@@ -74,17 +73,15 @@ internal sealed class ProvidersView : StackPanel
     private const string PiId = "pi";
     private const string OmpId = "omp";
 
-    /// <summary>Which agents the page offers: those whose plugin is on (active, or enabled but failed) and whose program was not found missing.</summary>
+    /// <summary>Which agents the page offers: Pi always, omp unless its plugin is refused (a host without omp).</summary>
     internal static (bool Pi, bool Omp) Offered(IReadOnlyList<AgentRosterEntry> roster) =>
-        (roster.FirstOrDefault(entry => entry.Id == PiId) is { Offered: true },
-         roster.FirstOrDefault(entry => entry.Id == OmpId) is { Offered: true });
+        (true, roster.FirstOrDefault(entry => entry.Id == OmpId) is not { PluginState: AgentPluginState.Refused });
 
     /// <summary>The page's opening sentence for the agents offered.</summary>
     internal static string Intro(bool pi, bool omp) =>
         pi && omp ? "API keys for the providers Pi and omp use. Each agent keeps its own keys, in the file it reads. Sign-ins with a subscription are not offered here."
         : pi ? "API keys for the providers Pi uses. Sign-ins with a subscription are not offered here."
-        : omp ? "API keys for the providers omp uses. Sign-ins with a subscription are not offered here."
-        : "Turn on the Pi or omp plugin in Settings › Plugins to add model provider keys.";
+        : "API keys for the providers omp uses. Sign-ins with a subscription are not offered here.";
 
     private void Choose(ProviderAgent next)
     {

@@ -171,8 +171,8 @@ internal static class AgentLaunchContributionChecks
         foreach (var (line, executable) in new[] { ("claude --model opus", "claude"), ("codex -c model=x", "codex"), ("pi --model y", "pi"), ("omp --model z", "omp") })
             Require(AgentLaunchComposition.Apply(line, executable, []) == line, "with no contribution the launch line of " + executable + " is unchanged");
         Require(new[] { "claude-code", "codex", "pi", "omp" }.All(id => AgentRoster.Build([], []).Any(entry => entry.Id == id)), "the four agents stay listed with Model providers off");
-        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, true), Entry("omp", AgentPluginState.Active, false)]) == (true, false) && ProvidersView.Offered([Entry("pi", AgentPluginState.Active, null), Entry("omp", AgentPluginState.Active, null)]) == (true, true),
-            "Model providers hide an agent that is not installed, and show an undecided one");
+        Require(ProvidersView.Offered([Entry("pi", AgentPluginState.Active, true), Entry("omp", AgentPluginState.Active, false)]) == (true, true) && ProvidersView.Offered([Entry("pi", AgentPluginState.Active, null), Entry("omp", AgentPluginState.Active, null)]) == (true, true),
+            "Model providers show an agent whatever its program state");
     }
 
     /// <summary>A fake plugin UI context: launchers, a plugin roster and the two observations the agent roster uses.</summary>

@@ -66,7 +66,7 @@ off. This plugin is the optional side that matches providers to those declaratio
 - A key is validated (one line, not empty), written once and never read back: a report carries ids, names, variables and where each credential
   comes from (stored key, sign-in, the host's environment), never a key. Files are rewritten whole through a temporary file readable by the owner
   only, then moved over the original. Keys are not logged.
-- The page offers only agents the agent roster (Plugin API, `AgentRoster`) lists as offered, that is whose plugin is on (active or failed) and whose program was not found missing (an undecided probe counts as offered), and it follows the roster's change notification: the Pi / omp switch shows when both are, a single agent has no switch, and none shows a line saying to turn a plugin on. The page has a Pi / omp switch, the file the keys live in, Connected rows (Replace key, Remove), Available rows (Add key) and the custom form;
+- The page is open whatever plugins are on: Pi is always offered, and omp is offered unless its plugin is refused (a host without omp, such as a browser tab). A missing program does not hide an agent. The page follows the agent roster's change notification (Plugin API, `AgentRoster`). The Pi / omp switch shows whenever omp is offered; where omp is refused, Pi is the only agent and there is no switch. The page has a Pi / omp switch, the file the keys live in, Connected rows (Replace key, Remove), Available rows (Add key) and the custom form;
   keys are typed into masked fields and cleared as soon as they are sent. Reads and writes run off the UI thread on the host.
 
 ## Checks
