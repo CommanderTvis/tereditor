@@ -52,13 +52,20 @@ internal static class OpenAiChecks
         {
             Settle();
             T One<T>(string name) where T : Control => view.GetLogicalDescendants().Prepend(view).OfType<T>().Single(control => control.Name == name);
+            IEnumerable<string> Buttons() => view.GetLogicalDescendants().OfType<Button>().Select(button => button.Content as string ?? (button.Content as TextBlock)?.Text ?? "");
+            void Click(string label)
+            {
+                view.GetLogicalDescendants().OfType<Button>().First(button => (button.Content as string ?? (button.Content as TextBlock)?.Text) == label).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Settle();
+            }
             string Text() => string.Join('\n', view.GetLogicalDescendants().OfType<TextBlock>().Select(block => block.Text ?? "").Concat(view.GetLogicalDescendants().OfType<TextBox>().Select(box => box.Text ?? "")));
-            Require(One<TextBlock>("OpenAiKeyState").Text!.StartsWith("No API key", StringComparison.Ordinal) && !One<Button>("OpenAiRemove").IsVisible, "with no key the component asks for one");
-            One<TextBox>("OpenAiKey").Text = Sentinel;
-            One<Button>("OpenAiSave").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Require(Text().Contains("No API key yet", StringComparison.Ordinal) && Buttons().Contains("Add key") && !Buttons().Contains("Remove key") && !view.GetLogicalDescendants().OfType<TextBox>().Any(), "with no key the component shows the shared row with Add key and no inline field");
+            Click("Add key");
+            One<TextBox>("ModelProviderKey").Text = Sentinel;
+            Click("Save");
             Settle();
-            Require(One<TextBlock>("OpenAiKeyState").Text!.StartsWith("API key stored", StringComparison.Ordinal) && One<Button>("OpenAiRemove").IsVisible, "saving shows the key as stored");
-            Require(One<TextBox>("OpenAiKey").Text is null or "" && !Text().Contains(Sentinel, StringComparison.Ordinal), "the key field is cleared and the key is never shown");
+            Require(Text().Contains("API key stored", StringComparison.Ordinal) && Buttons().Contains("Replace key") && Buttons().Contains("Remove key"), "saving shows the key as stored with Replace key and Remove key");
+            Require(!view.GetLogicalDescendants().OfType<TextBox>().Any() && !Text().Contains(Sentinel, StringComparison.Ordinal), "the form closes and the key is never shown");
             Require(File.ReadAllText(Path.Combine(keys.KeysDirectory, "openai")) == Sentinel && service.Report().Providers.Single(row => row.Provider.Id == "openai").Ready, "the key is in Model providers' key store");
             Require(Fake.Terminals.Count == 0, "saving a key opens no terminal");
 
@@ -71,9 +78,8 @@ internal static class OpenAiChecks
             Settle();
             Require(Fake.Terminals is [("w1", "codex login")], "Sign in runs codex login in the active workspace");
 
-            One<Button>("OpenAiRemove").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Settle();
-            Require(One<TextBlock>("OpenAiKeyState").Text!.StartsWith("No API key", StringComparison.Ordinal) && !File.Exists(Path.Combine(keys.KeysDirectory, "openai")), "removing the key forgets it");
+            Click("Remove key");
+            Require(Text().Contains("No API key yet", StringComparison.Ordinal) && !File.Exists(Path.Combine(keys.KeysDirectory, "openai")), "removing the key forgets it");
         }
         finally { window.Close(); }
         Console.WriteLine("PASS openai: manifest, key saved and removed without showing it, Sign in runs codex login");

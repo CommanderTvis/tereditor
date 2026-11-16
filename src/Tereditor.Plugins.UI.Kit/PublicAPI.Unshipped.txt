@@ -27,6 +27,15 @@ override Tereditor.Plugins.UI.Kit.ThemeManifest.ToString() -> string!
 override Tereditor.Plugins.UI.Kit.Visualization.MermaidRenderer.Result.Equals(object? obj) -> bool
 override Tereditor.Plugins.UI.Kit.Visualization.MermaidRenderer.Result.GetHashCode() -> int
 override Tereditor.Plugins.UI.Kit.Visualization.MermaidRenderer.Result.ToString() -> string!
+Tereditor.Plugins.UI.Kit.ApiKeyRow
+Tereditor.Plugins.UI.Kit.ApiKeyRow.ApiKeyRow(string! providerName, System.Action<string!>! save, System.Action! remove) -> void
+Tereditor.Plugins.UI.Kit.ApiKeyRow.ExtraActions.get -> System.Collections.Generic.IList<(string! Label, System.Action! Action)>!
+Tereditor.Plugins.UI.Kit.ApiKeyRow.Hints.get -> System.Collections.Generic.IList<string!>!
+Tereditor.Plugins.UI.Kit.ApiKeyRow.Open.get -> bool
+Tereditor.Plugins.UI.Kit.ApiKeyRow.Open.set -> void
+Tereditor.Plugins.UI.Kit.ApiKeyRow.OpenChanged.get -> System.Action<bool>?
+Tereditor.Plugins.UI.Kit.ApiKeyRow.OpenChanged.set -> void
+Tereditor.Plugins.UI.Kit.ApiKeyRow.Show(string! title, bool stored) -> void
 Tereditor.Plugins.UI.Kit.DialogWindow
 Tereditor.Plugins.UI.Kit.DialogWindow.DialogWindow() -> void
 Tereditor.Plugins.UI.Kit.Editor.EditorFrame

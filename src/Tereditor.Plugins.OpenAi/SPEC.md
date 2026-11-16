@@ -18,8 +18,8 @@ through Model providers, the sign-in is Codex's own. Early support; not headless
   and shows only whether one is stored. The bundled `openai` provider declares the Responses API, so Codex is offered it as a model
   source and the Codex launch seam (Providers SPEC) points Codex at the `provider-key` helper. The key is typed into a masked field, sent
   once and never shown again.
-- Sign-in, phase 1: policy only. The component shows OpenAI's sign-in policy (allowed; a remote host needs OpenAI's approval for hosted apps) and a
-  Sign in button that opens a terminal in the active workspace and runs `codex login`. tereditor runs no OAuth flow, reads no token and stores
+- Sign-in, phase 1: policy only. The component is a row like the other providers (title, hint, Add key or Replace key and Remove key opening the shared key form, no inline field; `ApiKeyRow` in UI.Kit), named `ModelProvider-openai`; Model providers hides its bundled OpenAI API row while the component is present, so the page lists OpenAI once. Under it the component shows a "Sign in with ChatGPT" row with the Sign in button on the right, and under it OpenAI's sign-in policy
+  (allowed; a remote host needs OpenAI's approval for hosted apps). The button opens a terminal in the active workspace and runs `codex login`. tereditor runs no OAuth flow, reads no token and stores
   none. Without an open workspace the button says so. A sign-in does not make the provider a model source; the agent's own provider already
   uses it.
 - Open decision: the `openai` row stays bundled in Model providers, because a contributed provider cannot take a bundled id. This plugin

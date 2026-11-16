@@ -88,6 +88,12 @@ internal static class ProvidersUiChecks
             Settle();
             Require(Find<TextBlock>(page, "AirComponent").Count == 1 && groups[0].IsVisible && !groups[1].IsVisible, "a contributed component shows its group, with no hint");
 
+            // A plugin block named like a bundled provider replaces that provider's row, so the page lists it once.
+            Require(Find<StackPanel>(groups[2], "ModelProvider-openai").Single().IsVisible, "the bundled OpenAI API row shows while no plugin fills in for it");
+            registry.AddSlotSection("air-gateway", new(ProvidersSlots.Other, _ => new StackPanel { Name = "ModelProvider-openai" }));
+            Settle();
+            Require(Find<StackPanel>(groups[2], "ModelProvider-openai").Count(entry => entry.IsVisible) == 1, "a plugin block for OpenAI replaces the bundled OpenAI API row");
+
             // Add a key: the form takes it masked, clears it, and nothing on the page shows it.
             Click(page, "Add key", Find<StackPanel>(page, "ModelProvider-openrouter").Single());
             Settle();

@@ -1,6 +1,7 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 
 using Tereditor.Plugins.Api;
@@ -85,16 +86,22 @@ internal sealed class ProvidersPage : StackPanel
         box.Children.Add(Ui.Text(heading, Ui.TextBrush, 13));
         var contributed = context.SlotView(slot);
         box.Children.Add(contributed);
-        var rows = 0;
+        var rows = new List<(string Id, Control Row)>();
         foreach (var row in report?.Providers.Where(row => row.Provider.Group == group) ?? [])
         {
-            box.Children.Add(Row(row));
-            rows++;
+            var control = Row(row);
+            box.Children.Add(control);
+            rows.Add((row.Provider.Id, control));
         }
         // A group nothing fills shows nothing, not even its heading. The slot fills and empties while the page is open.
+        // A plugin that fills the slot with the row of a bundled provider (a control named like it) replaces that row, so the page lists the provider once.
         if (contributed is Panel panel)
         {
-            void Follow() => box.IsVisible = rows > 0 || panel.Children.Count > 0;
+            void Follow()
+            {
+                foreach (var (id, control) in rows) control.IsVisible = !panel.GetLogicalDescendants().OfType<Control>().Any(claimed => claimed.Name == "ModelProvider-" + id);
+                box.IsVisible = rows.Count > 0 || panel.Children.Count > 0;
+            }
             panel.Children.CollectionChanged += (_, _) => Follow();
             Follow();
         }
@@ -104,57 +111,18 @@ internal sealed class ProvidersPage : StackPanel
     private Control Row(ModelProviderRow row)
     {
         var provider = row.Provider;
-        var column = new StackPanel { Spacing = 4, Name = "ModelProvider-" + provider.Id };
-        var line = new DockPanel();
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        DockPanel.SetDock(actions, Dock.Right);
-        // A contributed provider is managed by the plugin that contributed it.
-        if (provider.Contributor is null)
-        {
-            var stored = row.Ready && provider.NeedsKey;
-            if (stored) actions.Children.Add(Ui.Button("Remove key", () => Load(() => context.RequestAsync(ProvidersContract.RemoveModelKey, new ModelProviderParams(provider.Id)).AsTask())));
-            actions.Children.Add(Ui.Button(stored ? "Replace key" : "Add key", () => { adding = adding == provider.Id ? null : provider.Id; custom = false; Render(); }));
-            if (provider.Custom) actions.Children.Add(Ui.Button("Remove provider", () => Load(() => context.RequestAsync(ProvidersContract.RemoveCustomProvider, new ModelProviderParams(provider.Id)).AsTask())));
-        }
-        line.Children.Add(actions);
+        var column = new ApiKeyRow(provider.Name,
+            secret => Load(() => context.RequestAsync(ProvidersContract.SaveModelKey, new SaveModelKeyParams(provider.Id, secret)).AsTask()),
+            () => Load(() => context.RequestAsync(ProvidersContract.RemoveModelKey, new ModelProviderParams(provider.Id)).AsTask()))
+        { Name = "ModelProvider-" + provider.Id };
+        if (provider.Custom && provider.Contributor is null) column.ExtraActions.Add(("Remove provider", () => Load(() => context.RequestAsync(ProvidersContract.RemoveCustomProvider, new ModelProviderParams(provider.Id)).AsTask())));
+        if (provider.Note is { } note) column.Hints.Add(note);
+        if (provider.OAuth is { Allowed: false, ReasonIfNot: { } reason }) column.Hints.Add(reason);
         var kinds = string.Join(", ", provider.Apis.Select(api => Label(api.Kind)).Distinct());
-        line.Children.Add(Ui.Text(provider.Name + (row.Ready ? "  (ready)" : "") + "  ·  " + kinds, Ui.TextBrush, 13));
-        column.Children.Add(line);
-        if (provider.Note is { } note) column.Children.Add(Hint(note));
-        if (provider.OAuth is { Allowed: false, ReasonIfNot: { } reason }) column.Children.Add(Hint(reason));
-        if (adding == provider.Id) column.Children.Add(KeyForm(provider));
+        column.Show(provider.Name + (row.Ready ? "  (ready)" : "") + "  ·  " + kinds, row.Ready && provider.NeedsKey);
+        column.Open = adding == provider.Id;
+        column.OpenChanged = open => { adding = open ? provider.Id : null; custom = false; Render(); };
         return column;
-    }
-
-    private static TextBlock Hint(string text)
-    {
-        var hint = Ui.Text(text, Ui.Muted, 12);
-        hint.TextWrapping = TextWrapping.Wrap;
-        return hint;
-    }
-
-    private Control KeyForm(ProviderDefinition provider)
-    {
-        var key = new TextBox { PasswordChar = '•', PlaceholderText = "API key", Name = "ModelProviderKey", MinWidth = 280 };
-        AutomationProperties.SetName(key, "API key for " + provider.Name);
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 8 };
-        void Save()
-        {
-            var secret = key.Text ?? "";
-            key.Text = "";
-            if (secret.Trim().Length == 0) return;
-            adding = null;
-            Load(() => context.RequestAsync(ProvidersContract.SaveModelKey, new SaveModelKeyParams(provider.Id, secret)).AsTask());
-        }
-        key.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { Save(); e.Handled = true; } };
-        var save = Ui.Button("Save", Save);
-        var cancel = Ui.Button("Cancel", () => { adding = null; Render(); });
-        Grid.SetColumn(save, 1);
-        Grid.SetColumn(cancel, 2);
-        row.Children.Add(key);
-        row.Children.Add(save);
-        row.Children.Add(cancel);
-        return row;
     }
 
     private static readonly string[] CustomKinds = [ModelApiKinds.AnthropicMessages, ModelApiKinds.OpenAiResponses, ModelApiKinds.OpenAiChat, ModelApiKinds.GoogleGenerative];
