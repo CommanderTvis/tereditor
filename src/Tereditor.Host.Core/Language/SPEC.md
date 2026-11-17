@@ -291,7 +291,7 @@ Many workspaces each running Roslyn (1–3 GiB each) exhausted a 24 GiB machine,
 `{"idleMinutes","memoryBudgetMb","caps":{id:n,"*":n}}`, validated and normalized by the host) holds them;
 every decision reads the current value, and a change triggers an enforcement pass.
 
-- Memory budget, the primary limit, across all servers of every kind. Default (`memoryBudgetMb` 0): 30% of
+- Memory budget, the primary limit, across all servers of every kind. Default (`memoryBudgetMb` 0, an unchecked box in Settings): 30% of
   physical memory (or the container limit) clamped to 3–24 GiB — 7.2 GiB on 24 GiB, 4.8 GiB on 16 GiB,
   9.6 GiB on 32 GiB: room for about 8–12 Roslyn servers at the measured ~0.5–0.8 GiB settled footprint,
   far below the 40 GiB seen, while the floor still fits one large server and the ceiling stops a big
@@ -300,7 +300,7 @@ every decision reads the current value, and a change triggers an enforcement pas
   memory), resident set elsewhere. Child processes (Roslyn's build host) are not counted.
 - Count cap per server kind, the secondary guard: `csharp` 4, `intellij`, `kotlin` and `scala` (JVM) 2,
   every other kind 6 (`*`).
-- Idle timeout, default 10 minutes (0 never): a server no request used for that long stops.
+- Idle timeout, default 10 minutes (stored 0 means never; Settings shows an unchecked box): a server no request used for that long stops.
 - Memory pressure: when macOS reports a warning or critical pressure level
   (`kern.memorystatus_vm_pressure_level` ≥ 2), Linux has under 10% `MemAvailable`, or Windows passes the
   runtime's high-memory-load threshold, servers not used within the last 2 minutes stop.

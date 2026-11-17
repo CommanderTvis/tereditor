@@ -284,7 +284,11 @@ internal static class LanguageLimitChecks
                 Require(text.Contains("ui", StringComparison.Ordinal) && text.Contains("300\u00A0MiB", StringComparison.Ordinal), "The running rows lack their workspace or memory: " + text);
                 Require(running.GetVisualDescendants().OfType<Button>().Any(button => button.Content as string is { } label && label.Contains("1 running", StringComparison.Ordinal)), "The Running summary lacks the count.");
                 Require(view.FindControl<TextBlock>("LimitsSummary")!.Text!.Contains("budget", StringComparison.Ordinal), "The summary lacks the budget.");
-                Require(view.FindControl<TextBox>("LimitsCSharp")!.Text == "4" && view.FindControl<TextBox>("LimitsIdle")!.Text == "10", "The defaults are not shown.");
+                var idle = view.FindControl<OptionalNumberRow>("LimitsIdle")!;
+                var budget = view.FindControl<OptionalNumberRow>("LimitsBudget")!;
+                Require(view.FindControl<TextBox>("LimitsCSharp")!.Text == "4" && idle.IsOn && idle.Number == 10 && idle.Input.IsEnabled, "The idle default is not shown on.");
+                Require(!budget.IsOn && !budget.Input.IsEnabled && budget.Value is null && budget.Number > 0, "The automatic budget is not shown off with its value: " + budget.Number);
+                var automatic = budget.Number;
                 // Related limits form two groups (timeout and budget, then the three server caps): one hairline between the
                 // groups, none between rows of a group and none directly above the Save button.
                 var limitRows = view.GetLogicalDescendants().OfType<Border>().Where(border => border.Classes.Contains("settings-row")).ToList();
@@ -295,10 +299,21 @@ internal static class LanguageLimitChecks
                 var limitsStack = (StackPanel)limitRows[0].GetLogicalParent()!;
                 Require(limitsStack.Children[limitsStack.Children.IndexOf(view.FindControl<Button>("LimitsSave")!) - 1] == limitRows[^1] && !Hairline(limitRows[^1]),
                     "A hairline sits directly above Save limits.");
-                view.FindControl<TextBox>("LimitsIdle")!.Text = "25";
+                // Unchecked means never: the number greys out but keeps its value, and the host gets 0.
+                idle.Check.IsChecked = false;
+                Require(!idle.Input.IsEnabled && idle.Value is null && idle.Number == 10, "An unchecked idle row did not grey out and keep its number.");
+                view.FindControl<Button>("LimitsSave")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                E2E.E2eWorkspace.Until(() => state.Current.Settings.LanguageLimits.Contains("\"idleMinutes\":0", StringComparison.Ordinal) && state.Current.Settings.LanguageLimits.Contains("\"memoryBudgetMb\":0", StringComparison.Ordinal));
+                view.Refresh();
+                Require(!idle.IsOn && idle.Number == 10 && !budget.IsOn && budget.Number == automatic, "The saved off state was not shown off.");
+                idle.Check.IsChecked = true; budget.Check.IsChecked = true;
+                Require(idle.Input.IsEnabled && idle.Value == 10 && budget.Value == automatic, "Checking a row did not bring back its number.");
+                budget.Input.Value = 2048;
+                idle.Input.Value = 25;
                 view.FindControl<TextBox>("LimitsCSharp")!.Text = "3";
                 view.FindControl<Button>("LimitsSave")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 E2E.E2eWorkspace.Until(() => state.Current.Settings.LanguageLimits.Contains("\"idleMinutes\":25", StringComparison.Ordinal));
+                Require(state.Current.Settings.LanguageLimits.Contains("\"memoryBudgetMb\":2048", StringComparison.Ordinal), "The manual budget was not saved: " + state.Current.Settings.LanguageLimits);
                 Require(state.Current.Settings.LanguageLimits.Contains("\"csharp\":3", StringComparison.Ordinal), "The C# cap was not saved: " + state.Current.Settings.LanguageLimits);
                 var stop = rows.Children.OfType<Grid>().Single().Children.OfType<Button>().Single();
                 stop.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

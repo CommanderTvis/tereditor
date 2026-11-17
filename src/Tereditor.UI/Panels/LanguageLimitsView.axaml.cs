@@ -63,6 +63,7 @@ internal sealed partial class LanguageLimitsView : UserControl
         defaults = summary["defaultCaps"] as JsonObject ?? new();
         var budget = summary["budgetBytes"]?.GetValue<long>() ?? 0;
         var physical = summary["physicalBytes"]?.GetValue<long>() ?? 0;
+        Control<OptionalNumberRow>("LimitsBudget").ShowWhenOff((int)Math.Min(budget / (1024 * 1024), 1_048_576));
         var automatic = summary["automaticBudget"]?.GetValue<bool>() == true;
         Control<TextBlock>("LimitsSummary").Text = $"Memory budget now: {Mib(budget)}" +
             (automatic ? $" (automatic: 30% of {Mib(physical)} physical memory, 3–24 GiB)" : "") +
@@ -76,8 +77,12 @@ internal sealed partial class LanguageLimitsView : UserControl
         catch (System.Text.Json.JsonException) { saved = new(); }
         var caps = saved["caps"] as JsonObject ?? new();
         int Cap(string id, int fallback) => caps[id]?.GetValue<int>() ?? defaults[id]?.GetValue<int>() ?? fallback;
-        Control<TextBox>("LimitsIdle").Text = (saved["idleMinutes"]?.GetValue<int>() ?? 10).ToString(CultureInfo.InvariantCulture);
-        Control<TextBox>("LimitsBudget").Text = (saved["memoryBudgetMb"]?.GetValue<int>() ?? 0).ToString(CultureInfo.InvariantCulture);
+        // The host stores 0 for "never" and "automatic"; here that is an unchecked box. Off, the idle box shows the default
+        // and the budget box the budget in force (set by Show, once the host has told it).
+        static int? On(JsonNode? node) => node?.GetValue<int>() is > 0 and var value ? value : null;
+        Control<OptionalNumberRow>("LimitsIdle").Show(saved["idleMinutes"] is null ? 10 : On(saved["idleMinutes"]), 10);
+        var budget = Control<OptionalNumberRow>("LimitsBudget");
+        budget.Show(On(saved["memoryBudgetMb"]), budget.Number ?? 4096);
         Control<TextBox>("LimitsCSharp").Text = Cap("csharp", 4).ToString(CultureInfo.InvariantCulture);
         Control<TextBox>("LimitsJvm").Text = Cap("kotlin", 2).ToString(CultureInfo.InvariantCulture);
         Control<TextBox>("LimitsOther").Text = Cap("*", 6).ToString(CultureInfo.InvariantCulture);
@@ -86,8 +91,10 @@ internal sealed partial class LanguageLimitsView : UserControl
     private async void SaveClicked(object? sender, RoutedEventArgs e)
     {
         var message = Control<TextBlock>("LimitsMessage");
+        var idleRow = Control<OptionalNumberRow>("LimitsIdle");
+        var budgetRow = Control<OptionalNumberRow>("LimitsBudget");
         static int? Number(string? text) => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var value) ? value : null;
-        if (Number(Control<TextBox>("LimitsIdle").Text) is not { } idle || Number(Control<TextBox>("LimitsBudget").Text) is not { } budget ||
+        if (idleRow.IsOn && idleRow.Number is null || budgetRow.IsOn && budgetRow.Number is null ||
             Number(Control<TextBox>("LimitsCSharp").Text) is not { } csharp || Number(Control<TextBox>("LimitsJvm").Text) is not { } jvm || Number(Control<TextBox>("LimitsOther").Text) is not { } other)
         {
             message.Foreground = Ui.Danger; message.Text = "Enter whole numbers.";
@@ -95,7 +102,7 @@ internal sealed partial class LanguageLimitsView : UserControl
         }
         var caps = new JsonObject { ["csharp"] = csharp, ["*"] = other };
         foreach (var id in JvmServers) caps[id] = jvm;
-        var json = new JsonObject { ["idleMinutes"] = idle, ["memoryBudgetMb"] = budget, ["caps"] = caps }.ToJsonString();
+        var json = new JsonObject { ["idleMinutes"] = idleRow.Value ?? 0, ["memoryBudgetMb"] = budgetRow.Value ?? 0, ["caps"] = caps }.ToJsonString();
         var button = Control<Button>("LimitsSave");
         button.IsEnabled = false;
         try

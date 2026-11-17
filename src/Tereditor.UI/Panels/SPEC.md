@@ -316,7 +316,7 @@ header is the one-line summary ("20 running · 28 MiB"); the section starts coll
 It polls the host's `running` operation every 5 s off the UI thread while shown.
 
 Settings › Code Intelligence holds only configuration in a Limits section (`LanguageLimitsView`): the idle
-timeout, memory budget (automatic or fixed, with the automatic derivation and memory pressure noted), the
+timeout and memory budget as two optional-number rows (`OptionalNumberRow`: a check box, a number and its unit; unchecked greys the number out, keeps its value and means never or automatic, which the host stores as 0; an unchecked budget shows the budget in force; the automatic derivation and memory pressure are noted), the
 explanation of when servers stop, and the C#, JVM and other count caps, saved as the `language-limits` host
 setting and re-shown from its broadcast; its rows form two groups (timeout and budget, then the three caps) with one hairline between them and none between rows of a group or above Save. Settings shows no live server state. `--lsp-limits` checks it headless.
 
