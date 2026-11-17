@@ -30,7 +30,16 @@ public sealed partial class HostStateStore
                 if (languages is not null) return languages;
                 languages = new(LanguageDirectory,
                     () => DirectoryPath is not null && Current.Settings.LspEnabled && Environment.GetEnvironmentVariable("TEREDITOR_LSP_DISABLE") != "1", () => Current.Settings.LanguageServers, WorkspaceLanguage, SaveWorkspaceLanguage, LanguageServerSpecs)
-                { DeathObserved = PublishLanguageDeath, GlobalProvider = () => LanguageConsent?.Provider() ?? Current.Settings.JavaKotlinProvider, StandardWithAnyReplaced = () => LanguageConsent is not null, Consent = server => LanguageConsent?.GrantFor(server), ToolPaths = () => Current.Settings.LanguageTools, Limits = CurrentLanguageLimits };
+                {
+                    DeathObserved = PublishLanguageDeath,
+                    GlobalProvider = () => LanguageConsent?.Provider() ?? Current.Settings.JavaKotlinProvider,
+                    StandardWithAnyReplaced = () => LanguageConsent is not null,
+                    Consent = server => LanguageConsent?.GrantFor(server),
+                    ToolPaths = () => Current.Settings.LanguageTools,
+                    Limits = CurrentLanguageLimits,
+                    RuntimesEnabled = () => RuntimesEnabled?.Invoke() ?? true,
+                    RuntimePin = executable => RuntimePin?.Invoke(executable) ?? ""
+                };
                 WorkspaceRemoved += workspace => _ = languages.CloseWorkspaceAsync(workspace);
                 return languages;
             }
@@ -65,6 +74,12 @@ public sealed partial class HostStateStore
 
     /// <summary>The language servers enabled plugins provide (H21), set by the plugin runtime when it starts.</summary>
     internal Func<IReadOnlyList<LanguageServerSpec>>? LanguageServerSource { get; set; }
+
+    /// <summary>Whether the Runtimes for tooling plugin is on, set by the plugin runtime when it starts; unset (a host without the plugin), downloads are allowed.</summary>
+    internal Func<bool>? RuntimesEnabled { get; set; }
+
+    /// <summary>The path the user pinned for a runtime's program (Settings › Runtimes for tooling), set by the plugin runtime when it starts.</summary>
+    internal Func<string, string>? RuntimePin { get; set; }
 
     /// <summary>The servers in the catalog now: the plugin runtime's, or, for a host that runs none, the builtin plugins'.</summary>
     internal IReadOnlyList<LanguageServerSpec> LanguageServerSpecs() => LanguageServerSource?.Invoke() ?? LanguageServers.BuiltinSpecs;

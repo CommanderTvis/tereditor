@@ -71,7 +71,7 @@ internal static class ManagedRuntimes
 {
     internal static readonly string[] OfficialHosts = ["builds.dotnet.microsoft.com"];
 
-    /// <summary>Bun's releases are GitHub release assets: the tag URL redirects to this host.</summary>
+    /// <summary>Bun's and uv's releases are GitHub release assets: the tag URL redirects to this host.</summary>
     internal static readonly string[] BunHosts = ["github.com", "release-assets.githubusercontent.com"];
 
     /// <summary>The folder inside an installed runtime that holds its tools.</summary>
@@ -83,7 +83,8 @@ internal static class ManagedRuntimes
     internal static readonly ManagedRuntimeKind[] Kinds =
     [
         new("dotnet-sdk", ".NET SDK", ["dotnet"], "", "DOTNET_ROOT"),
-        new("bun", "Bun", ["bun"], "*", "BUN_ROOT", Provisioned: true)
+        new("bun", "Bun", ["bun"], "*", "BUN_ROOT", Provisioned: true),
+        new("uv", "uv", ["uv", "uvx"], "*", "UV_ROOT", Provisioned: true)
     ];
 
     /// <summary>The pins in force; checks replace them with a fake archive.</summary>
@@ -233,6 +234,8 @@ internal static class ManagedRuntimes
 
     private const string BunSource = "SHA-256 from SHASUMS256.txt of the bun-v1.4.4 GitHub release (oven-sh/bun, glibc builds on Linux), verified against the download";
 
+    private const string UvSource = "SHA-256 from the .sha256 file of the uv 0.13.9 GitHub release (astral-sh/uv), matched against the SHA-256 of the download";
+
     private static readonly ManagedRuntimePin[] Builtin =
     [
     new("dotnet-sdk", "10.0.401", "linux-x86_64", "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.401/dotnet-sdk-10.0.401-linux-x64.tar.gz",
@@ -277,5 +280,15 @@ internal static class ManagedRuntimes
         "2d57a0eec0cb44d95c918c3f9734f60455a1306ae5085d76fc68f44e3ee30d09", "", "zip", BunSource, BunHosts),
     new("bun", "1.4.4", "windows-x86_64", "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-windows-x64.zip",
         "cd2c0fccc78f3ede1f50ca827a15f063eda13d4d150a3d0674f4f6e323d864a5", "", "zip", BunSource, BunHosts),
+    new("uv", "0.13.9", "macos-aarch64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-aarch64-apple-darwin.tar.gz",
+        "5aeca67f2283f75235de40d0bd9c0a5bbc5fce23b6d48b3bf9fa1b2db08382ca", "", "tar.gz", UvSource, BunHosts),
+    new("uv", "0.13.9", "linux-x86_64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-x86_64-unknown-linux-gnu.tar.gz",
+        "a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5", "", "tar.gz", UvSource, BunHosts),
+    new("uv", "0.13.9", "linux-aarch64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-aarch64-unknown-linux-gnu.tar.gz",
+        "0797542018e541a9288855df555c8077eed06f7a47d206362030480e8ecc9f3d", "", "tar.gz", UvSource, BunHosts),
+    new("uv", "0.13.9", "windows-x86_64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-x86_64-pc-windows-msvc.zip",
+        "edd61f7f5728a56cc62455386661860bdfc7bab65872f39b0c25bdcc1d8e1beb", "", "zip", UvSource, BunHosts),
+    new("uv", "0.13.9", "windows-aarch64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-aarch64-pc-windows-msvc.zip",
+        "72eed595983a4d7d22d79f21065b0f4479cc7e5c7a89104bb410c8f47559a878", "", "zip", UvSource, BunHosts),
     ];
 }

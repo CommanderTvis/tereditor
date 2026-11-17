@@ -65,6 +65,8 @@ using Tereditor.Plugins.Providers;
 using Tereditor.Plugins.Providers.Host;
 using Tereditor.Plugins.Review;
 using Tereditor.Plugins.Review.Host;
+using Tereditor.Plugins.Runtimes;
+using Tereditor.Plugins.Runtimes.Host;
 using Tereditor.Plugins.SpecDialect;
 using Tereditor.Plugins.Tailscale;
 using Tereditor.Plugins.Tailscale.Host;
@@ -144,6 +146,7 @@ public static class BuiltinPlugins
         (BranchGraphPlugin.Manifest, new BranchGraphHost()),
         (ReviewPlugin.Manifest, new ReviewHost()),
         (ProcessesPlugin.Manifest, new ProcessesHost()),
+        (RuntimesPlugin.Manifest, new RuntimesHost()),
         (VisualizeContract.Manifest, new VisualizeHost()),
         (CodexManifest.Manifest, new CodexHost()),
         (OmpManifest.Manifest, new OmpHost()),

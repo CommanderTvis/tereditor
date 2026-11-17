@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using Tereditor.Host.Core.Language;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
 
@@ -264,7 +265,37 @@ internal sealed class PluginHostContext(PluginRuntime runtime, PluginEntry entry
     }
 
     public async ValueTask<string?> BunPathAsync(string workspace, CancellationToken cancellationToken = default) =>
-        await runtime.Seams.State.Languages.ProvideToolAsync("bun", workspace, cancellationToken);
+        await ResolveRuntimeAsync(RuntimeKind.Bun, workspace, cancellationToken) is { Available: true } bun ? bun.Command : null;
+
+    public async ValueTask<RuntimeResolution> ResolveRuntimeAsync(RuntimeKind kind, string workspace, CancellationToken cancellationToken = default) =>
+        await runtime.Seams.State.Languages.ResolveRuntimeAsync(kind, workspace, cancellationToken);
+
+    public void TrackRuntimeProcess(RuntimeResolution resolution, int processId) => LanguageService.TrackRuntimeProcess(resolution, processId);
+
+    public void OnUserDisabled(Func<ValueTask> handler) => Register(table => table.UserDisabled = table.UserDisabled.Add(handler));
+
+    public async ValueTask<IReadOnlyList<RuntimeStatus>> RuntimeStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var languages = runtime.Seams.State.Languages;
+        return [await languages.RuntimeStatusAsync(RuntimeKind.Bun, cancellationToken), await languages.RuntimeStatusAsync(RuntimeKind.Uv, cancellationToken)];
+    }
+
+    public async ValueTask<IReadOnlyList<RuntimeStatus>> DownloadRuntimeAsync(RuntimeKind kind, CancellationToken cancellationToken = default)
+    {
+        await runtime.Seams.State.Languages.DownloadRuntimeAsync(kind, cancellationToken);
+        return await RuntimeStatusAsync(cancellationToken);
+    }
+
+    public async ValueTask<IReadOnlyList<RuntimeStatus>> RemoveRuntimeDownloadAsync(RuntimeKind kind, CancellationToken cancellationToken = default)
+    {
+        await runtime.Seams.State.Languages.RemoveRuntimeDownloadAsync(kind);
+        return await RuntimeStatusAsync(cancellationToken);
+    }
+
+    public async ValueTask PurgeRuntimeDownloadsAsync(CancellationToken cancellationToken = default) => await runtime.Seams.State.Languages.PurgeRuntimeDownloadsAsync();
+
+    public async ValueTask PurgeLanguageServerDownloadsAsync(string serverId, CancellationToken cancellationToken = default) =>
+        await runtime.Seams.State.Languages.PurgeServerDownloadsAsync(serverId);
 
     public async ValueTask<GitRunResult> GitAsync(string cwd, IReadOnlyList<string> args, GitRunOptions? options = null, CancellationToken cancellationToken = default) =>
         await runtime.Seams.Git(cwd, args, options, cancellationToken);

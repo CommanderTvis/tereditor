@@ -465,6 +465,19 @@
           "Tereditor.Plugins.Review": "[1.0.0, )"
         }
       },
+      "tereditor.plugins.runtimes": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.runtimes.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Runtimes": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.specdialect": {
         "type": "Project",
         "dependencies": {

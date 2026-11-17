@@ -652,6 +652,8 @@ public abstract class LanguageServerPlugin(string pluginId) : PluginHostModule
     public override ValueTask<PluginDisposer?> ActivateAsync(IPluginHostContext context)
     {
         context.LanguageServer(Spec);
+        // Turning the plugin off removes what the host downloaded for the server; quitting does not.
+        context.OnUserDisabled(() => context.PurgeLanguageServerDownloadsAsync(Spec.Id));
         return ValueTask.FromResult<PluginDisposer?>(null);
     }
 }

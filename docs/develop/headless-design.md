@@ -374,10 +374,12 @@ What the code does today (verified by reading `LanguageServers*.cs`, `ManagedArt
   64 hex SHA-256 first, downloads from an allow-listed host with `AllowAutoRedirect = false`, hashes the file, extracts
   to a `.partial-<guid>` directory, writes a `.tereditor-artifact.json` marker, then renames. Formats it can unpack are
   `gz`, `tar.gz` and (default branch) `zip`. NuGet and npm servers have their own pinned paths.
-- Runtimes are never downloaded. Every runtime is found, not installed: `LanguageServers.ProbeTool` looks at the host-wide
-  tool override (`HostSettings.LanguageTools`), then the tool's home variable (`DOTNET_ROOT`, `JAVA_HOME`), then the
-  hardened `PATH` (`LanguageExecutables.FindOnPath`, absolute entries only, never inside the workspace). A missing one is an
-  `IOException` that tells the user to install it ("Needs node ...").
+- Most runtimes are found, not installed: `LanguageServers.ProbeTool` looks at the host-wide tool override
+  (`HostSettings.LanguageTools`, and the path pinned in Settings › Runtimes for tooling), then the tool's home variable
+  (`DOTNET_ROOT`, `JAVA_HOME`), then the hardened `PATH` (`LanguageExecutables.FindOnPath`, absolute entries only, never inside the
+  workspace). A missing one is an `IOException` that tells the user to install it ("Needs node ..."). Bun, uv and, under the managed
+  toolchain, the .NET SDK are the exceptions: `ManagedRuntimes` pins them by SHA-256 and downloads them on first use (Bun and uv only
+  while the Runtimes for tooling plugin is on; with it off the error says so and offers to turn it on).
 - Per server (verified in the plugin files):
 
 | Server | Runtime need today | How it finds it |

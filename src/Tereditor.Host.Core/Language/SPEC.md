@@ -227,7 +227,7 @@ download.
 ### Managed runtimes
 
 The tools servers need can also come from pinned runtimes in the cache, so a slim headless image carries none of them.
-`ManagedRuntimes` holds one entry per runtime kind (the .NET SDK and Bun now; a JDK and Python are table entries to
+`ManagedRuntimes` holds one entry per runtime kind (the .NET SDK, Bun and uv now; a JDK and Python are table entries to
 add) and one pin per version and platform: exact version, URL on an allow-listed host, the SHA-256 the host verifies
 before extraction, and the publisher's SHA-512 recorded beside it. Installation reuses `ArtifactInstaller`: hash
 first, bounded extraction, an atomic move into `runtimes/<id>/<version>-<hash prefix>`, nothing left behind on a
@@ -257,6 +257,21 @@ Bun checks against the same integrity hashes, and runs the ACP plugin's npx agen
 the working directory, so every Bun run gets `BUN_OPTIONS` pointing at an empty config with `.env` off, and its home in the cache.
 A musl Linux has no pinned Bun: use a Bun of your own (Use path…) or set a server's runtime to `node`. All five servers
 passed `initialize`, a symbol request and a hover under Bun like under Node.
+
+uv (`uv` and `uvx`) is pinned the same way (0.13.9; macOS arm64, Linux x64 and arm64 as glibc builds, Windows x64 and arm64; tar.gz and zip, SHA-256 from the release's
+`.sha256` files, matched against our own hash of the download). No language server needs it; the ACP plugin's uvx agents do. uv reads `uv.toml`,
+`pyproject.toml` and `.env` from the working directory, so every uv run gets `UV_NO_CONFIG=1` and `UV_NO_ENV_FILE=1`; the downloaded copy
+also keeps its cache, tools and Pythons in `uv-home` of the cache (`UV_CACHE_DIR`, `UV_TOOL_DIR`, `UV_PYTHON_INSTALL_DIR`), next to `bun-home`.
+
+Bun and uv are downloaded only while the Runtimes for tooling plugin ([its SPEC](../../Tereditor.Plugins.Runtimes/SPEC.md)) is on, and only
+when a plugin asks (`IPluginHostContext.ResolveRuntimeAsync`, or a server that needs Bun starting), never at startup. That
+request resolves in this order: the path the user pinned (the host tool path, else the plugin's setting), then an install on the hardened PATH (skipped under
+`toolchains.source = managed`, which means only the host's own copies), then the downloaded copy, downloaded now when none exists.
+With the plugin off, and no pinned or PATH install, a server that needs Bun says `Needs Bun.` and that Runtimes for tooling is off and where to
+turn it on; the downloaded copy is not used. Turning the plugin off removes `runtimes/bun`, `runtimes/uv`, `bun-home` and `uv-home`
+(`LanguageService.PurgeRuntimeDownloadsAsync`) after stopping the language servers that run on Bun and the processes plugins reported with
+`TrackRuntimeProcess`. Turning a language server plugin off removes `servers/<id>`, `cache/<id>` and `workspaces/*/<id>`
+(`PurgeServerDownloadsAsync`). Quitting tereditor removes nothing. A path the user pinned and a Bun or uv found on PATH are never stopped or deleted.
 
 Under a managed toolchain every server run gets one environment (`ILanguageServerInstallation.ManagedEnvironment`):
 `PATH` of the managed bin directories plus `/usr/bin:/bin` (not the host PATH, except in `managed-then-path`),

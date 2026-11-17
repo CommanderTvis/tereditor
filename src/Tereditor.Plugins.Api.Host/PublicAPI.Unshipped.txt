@@ -984,3 +984,76 @@ Tereditor.Plugins.Api.Host.LanguageServerSpec.TermsQuestions.get -> System.Colle
 Tereditor.Plugins.Api.Host.LanguageServerSpec.TermsQuestions.init -> void
 Tereditor.Plugins.Api.Host.AgentExecutables
 static Tereditor.Plugins.Api.Host.AgentExecutables.Names.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Tereditor.Plugins.Api.Host.RuntimeKind.Bun = 0 -> Tereditor.Plugins.Api.Host.RuntimeKind
+Tereditor.Plugins.Api.Host.RuntimeSource.Pinned = 0 -> Tereditor.Plugins.Api.Host.RuntimeSource
+Tereditor.Plugins.Api.Host.RuntimeSource.System = 1 -> Tereditor.Plugins.Api.Host.RuntimeSource
+Tereditor.Plugins.Api.Host.RuntimeKind.Uv = 1 -> Tereditor.Plugins.Api.Host.RuntimeKind
+Tereditor.Plugins.Api.Host.RuntimeSource.Downloaded = 2 -> Tereditor.Plugins.Api.Host.RuntimeSource
+Tereditor.Plugins.Api.Host.RuntimeResolution.Args.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Tereditor.Plugins.Api.Host.RuntimeResolution.Command.get -> string!
+static Tereditor.Plugins.Api.Host.PluginDownloads.Purge(System.Collections.Generic.IEnumerable<string!>! paths) -> long
+override Tereditor.Plugins.Api.Host.RuntimeResolution.Equals(object? obj) -> bool
+Tereditor.Plugins.Api.Host.RuntimeResolution.Equals(Tereditor.Plugins.Api.Host.RuntimeResolution? other) -> bool
+Tereditor.Plugins.Api.Host.RuntimeResolution.<Clone>$() -> Tereditor.Plugins.Api.Host.RuntimeResolution!
+Tereditor.Plugins.Api.Host.RuntimeResolution.Deconstruct(out Tereditor.Plugins.Api.Host.RuntimeKind Kind, out bool Available, out string! Command, out System.Collections.Generic.IReadOnlyList<string!>! Args, out System.Collections.Generic.IReadOnlyDictionary<string!, string!>! Env, out Tereditor.Plugins.Api.Host.RuntimeSource? Source, out string! Message, out bool OfferEnable) -> void
+Tereditor.Plugins.Api.Host.IPluginHostContext.ResolveRuntimeAsync(Tereditor.Plugins.Api.Host.RuntimeKind kind, string! workspace, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Tereditor.Plugins.Api.Host.RuntimeResolution!>
+Tereditor.Plugins.Api.Host.IPluginHostContext.OnUserDisabled(System.Func<System.Threading.Tasks.ValueTask>! handler) -> void
+Tereditor.Plugins.Api.Host.IPluginHostContext.TrackRuntimeProcess(Tereditor.Plugins.Api.Host.RuntimeResolution! resolution, int processId) -> void
+Tereditor.Plugins.Api.Host.RuntimeResolution.Kind.get -> Tereditor.Plugins.Api.Host.RuntimeKind
+Tereditor.Plugins.Api.Host.RuntimeResolution.Command.init -> void
+Tereditor.Plugins.Api.Host.RuntimeResolution.Kind.init -> void
+Tereditor.Plugins.Api.Host.RuntimeResolution.Args.init -> void
+Tereditor.Plugins.Api.Host.RuntimeResolution.Available.get -> bool
+Tereditor.Plugins.Api.Host.RuntimeResolution.Env.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+static Tereditor.Plugins.Api.Host.RuntimeResolution.operator ==(Tereditor.Plugins.Api.Host.RuntimeResolution? left, Tereditor.Plugins.Api.Host.RuntimeResolution? right) -> bool
+Tereditor.Plugins.Api.Host.RuntimeStatus.Deconstruct(out Tereditor.Plugins.Api.Host.RuntimeKind Kind, out string! Name, out Tereditor.Plugins.Api.Host.RuntimeSource? Source, out string! Path, out string! Version, out string! Pinned, out long DownloadBytes, out bool Downloaded, out string! Message) -> void
+override Tereditor.Plugins.Api.Host.RuntimeResolution.GetHashCode() -> int
+Tereditor.Plugins.Api.Host.RuntimeKind
+Tereditor.Plugins.Api.Host.IPluginHostContext.RuntimeStatusAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.Host.RuntimeStatus!>!>
+Tereditor.Plugins.Api.Host.IPluginHostContext.RemoveRuntimeDownloadAsync(Tereditor.Plugins.Api.Host.RuntimeKind kind, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.Host.RuntimeStatus!>!>
+Tereditor.Plugins.Api.Host.IPluginHostContext.DownloadRuntimeAsync(Tereditor.Plugins.Api.Host.RuntimeKind kind, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.Host.RuntimeStatus!>!>
+Tereditor.Plugins.Api.Host.RuntimeResolution.Available.init -> void
+Tereditor.Plugins.Api.Host.RuntimeResolution.Source.get -> Tereditor.Plugins.Api.Host.RuntimeSource?
+Tereditor.Plugins.Api.Host.RuntimeResolution.Env.init -> void
+Tereditor.Plugins.Api.Host.RuntimeResolution.Source.init -> void
+Tereditor.Plugins.Api.Host.RuntimeResolution.OfferEnable.get -> bool
+Tereditor.Plugins.Api.Host.RuntimeResolution.Message.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeResolution.OfferEnable.init -> void
+Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeLanguageServerDownloadsAsync(string! serverId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Tereditor.Plugins.Api.Host.RuntimeStatus.Name.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.Version.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeResolution.Message.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Path.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.Version.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Kind.get -> Tereditor.Plugins.Api.Host.RuntimeKind
+Tereditor.Plugins.Api.Host.RuntimeStatus.Pinned.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.Kind.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Name.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadBytes.get -> long
+Tereditor.Plugins.Api.Host.RuntimeStatus.Path.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Pinned.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Source.get -> Tereditor.Plugins.Api.Host.RuntimeSource?
+Tereditor.Plugins.Api.Host.RuntimeStatus.Source.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Downloaded.get -> bool
+Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadBytes.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Downloaded.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Message.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.Message.init -> void
+Tereditor.Plugins.Api.Host.PluginDownloads
+Tereditor.Plugins.Api.Host.RuntimeStatus
+Tereditor.Plugins.Api.Host.RuntimeSource
+override Tereditor.Plugins.Api.Host.RuntimeStatus.ToString() -> string!
+static Tereditor.Plugins.Api.Host.RuntimeStatus.operator !=(Tereditor.Plugins.Api.Host.RuntimeStatus? left, Tereditor.Plugins.Api.Host.RuntimeStatus? right) -> bool
+static Tereditor.Plugins.Api.Host.RuntimeStatus.operator ==(Tereditor.Plugins.Api.Host.RuntimeStatus? left, Tereditor.Plugins.Api.Host.RuntimeStatus? right) -> bool
+override Tereditor.Plugins.Api.Host.RuntimeStatus.GetHashCode() -> int
+override Tereditor.Plugins.Api.Host.RuntimeStatus.Equals(object? obj) -> bool
+Tereditor.Plugins.Api.Host.RuntimeStatus.Equals(Tereditor.Plugins.Api.Host.RuntimeStatus? other) -> bool
+Tereditor.Plugins.Api.Host.RuntimeStatus.<Clone>$() -> Tereditor.Plugins.Api.Host.RuntimeStatus!
+Tereditor.Plugins.Api.Host.RuntimeResolution
+static Tereditor.Plugins.Api.Host.PluginDownloads.Size(string! path) -> long
+override Tereditor.Plugins.Api.Host.RuntimeResolution.ToString() -> string!
+static Tereditor.Plugins.Api.Host.RuntimeResolution.operator !=(Tereditor.Plugins.Api.Host.RuntimeResolution? left, Tereditor.Plugins.Api.Host.RuntimeResolution? right) -> bool
+Tereditor.Plugins.Api.Host.RuntimeStatus.RuntimeStatus(Tereditor.Plugins.Api.Host.RuntimeKind Kind, string! Name, Tereditor.Plugins.Api.Host.RuntimeSource? Source, string! Path, string! Version, string! Pinned, long DownloadBytes, bool Downloaded, string! Message) -> void
+static Tereditor.Plugins.Api.Host.RuntimeResolution.Unavailable(Tereditor.Plugins.Api.Host.RuntimeKind kind, string! message, bool offerEnable = false) -> Tereditor.Plugins.Api.Host.RuntimeResolution!
+Tereditor.Plugins.Api.Host.RuntimeResolution.RuntimeResolution(Tereditor.Plugins.Api.Host.RuntimeKind Kind, bool Available, string! Command, System.Collections.Generic.IReadOnlyList<string!>! Args, System.Collections.Generic.IReadOnlyDictionary<string!, string!>! Env, Tereditor.Plugins.Api.Host.RuntimeSource? Source, string! Message, bool OfferEnable) -> void
+Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeRuntimeDownloadsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask

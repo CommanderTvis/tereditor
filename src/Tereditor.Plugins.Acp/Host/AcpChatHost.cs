@@ -84,11 +84,33 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
     {
         var directory = entry.Cwd.Length > 0 ? entry.Cwd : cwd;
         var env = entry.Env;
-        // A registry npx agent runs with the host's pinned Bun, so no Node or npx is needed; npx stays when Bun cannot be provided, and for a command the user chose.
-        var (command, args, usesBun) = AcpEntryText.Resolve(entry, entry.CommandOverride.Length == 0 && entry.Origin == "registry" && entry.LaunchCommand() == "npx" ? await context.BunPathAsync(directory) : null);
-        if (usesBun) env = AcpRunner.GuardedEnvironment(Path.Combine(DataDirectory, "bun"), env);
-        return await ProcessAcpTransport.StartAsync(new AcpLaunch(command, args, env, directory));
+        var command = entry.LaunchCommand();
+        var args = entry.LaunchArgs();
+        RuntimeResolution? runtime = null;
+        // A registry npx agent runs with Bun and a uvx agent with uv, so no Node or npx is needed. The host finds them: the user's own path, one on PATH, or its own download
+        // (Runtimes for tooling). A command the user chose runs as it is.
+        if (entry.CommandOverride.Length == 0 && entry.Origin == "registry" && command is "npx" or "uvx")
+        {
+            runtime = await context.ResolveRuntimeAsync(command == "npx" ? RuntimeKind.Bun : RuntimeKind.Uv, directory);
+            if (runtime.Available)
+            {
+                (command, args) = command == "npx" ? AcpEntryText.Bun(runtime.Command, args) : (runtime.Command, ["tool", "run", .. args]);
+                env = new Dictionary<string, string>(runtime.Env).Concat(env).GroupBy(pair => pair.Key).ToDictionary(group => group.Key, group => group.Last().Value);
+            }
+            // npx from the user's own Node still starts the agent; uvx has no other way to run.
+            else if (command == "uvx" || !OnPath("npx")) throw new InvalidOperationException(runtime.Message);
+        }
+        var transport = await ProcessAcpTransport.StartAsync(new AcpLaunch(command, args, env, directory));
+        if (runtime is { Available: true }) context.TrackRuntimeProcess(runtime, transport.ProcessId);
+        return transport;
     }
+
+    private static bool OnPath(string program) =>
+        (System.Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator).Where(directory => Path.IsPathFullyQualified(directory))
+            .Any(directory => File.Exists(Path.Combine(directory, program)) || OperatingSystem.IsWindows() && File.Exists(Path.Combine(directory, program + ".cmd")));
+
+    /// <summary>What the plugin downloaded: installed agent programs, the registry copy with its icons and Bun's cache. The agent list and the user's sign-ins are not here.</summary>
+    internal IEnumerable<string> Downloads => [Path.Combine(DataDirectory, "agents"), Path.Combine(DataDirectory, "registry"), Path.Combine(DataDirectory, "bun")];
 
     private static string RecordKey(string workspaceId, string chatId) => workspaceId + "\0" + chatId;
 

@@ -101,3 +101,7 @@ covers every ELF file in a Linux payload; the Codex and Claude Code process-grou
 checksums, Visual Studio's ARM64 C++ tools on `windows-11-arm` (probe log), the locks. Checks run: build, format,
 `check:packaged -- --packaged` on macOS (and failing on a payload without a library, a plugin or terminfo), the
 payload rule on the cross-built Linux payload, a Debug browser build. Not run: Windows and Linux packages, Android.
+
+## 2026-11-17 — Runtimes for tooling plugin
+
+The builtin `Runtimes for tooling` plugin ([spec](src/Tereditor.Plugins.Runtimes/SPEC.md)) is on by default and owns where Bun and uv come from: pinned path, then PATH, then its own pinned download (uv 0.13.9 added beside Bun, SHA-256 per platform), downloaded on the first request of a client plugin, never at startup. `IPluginHostContext.ResolveRuntimeAsync` is the API; `BunPathAsync` wraps it. Off, nothing downloads and language servers and ACP say so and offer to turn it on. `OnUserDisabled` (user switch only, not quit) deletes the downloads of Runtimes, ACP and every language server plugin. Verified with `--runtimes`, `--acp`, `--managed-runtimes`, `--plugins` (only the unrelated Providers JSON finding failed), `--conformance`. Not seen rendered: the settings page. Not covered: language-owned caches (NuGet, Go, gems, Coursier), a button in the chat to turn the plugin on.

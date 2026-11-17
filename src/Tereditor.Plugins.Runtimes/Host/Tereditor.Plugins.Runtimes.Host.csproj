@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Contract/Tereditor.Plugins.Runtimes.csproj" />
+    <ProjectReference Include="../../Tereditor.Plugins.Api.Host/Tereditor.Plugins.Api.Host.csproj" />
+    <InternalsVisibleTo Include="Tereditor.Checks" />
+  </ItemGroup>
+</Project>

@@ -140,6 +140,12 @@ deactivations are started without an intervening await, every plugin is already 
 runs, so a dependent's disposer calling into its dependency gets the disabled error even though it runs first.
 Reverse order fixes the order of firing, not this.
 
+A fourth step exists for one cause only: the user turned the plugin off (the reconcile pass finds the plugin not enabled in its settings, whatever the
+reason it was last active). After the disposer, the handlers the plugin registered with `OnUserDisabled` run, each started on the thread pool and
+bounded at two minutes, a failure logged. Host shutdown, a dependency being turned off, a plugin refused for a host kind and the removal of an external plugin's
+code never run them. Plugins use it to delete what they downloaded (`PluginDownloads.Purge`); `tests/Tereditor.Checks/RuntimesChecks.cs` pins both
+sides (`--runtimes`).
+
 ## Discovery is a read
 
 An external directory whose manifest claims a builtin plugin's id is refused rather than replacing the builtin.

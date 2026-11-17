@@ -52,6 +52,9 @@
     <Project Path="src/Tereditor.Plugins.Processes/Contract/Tereditor.Plugins.Processes.csproj" />
     <Project Path="src/Tereditor.Plugins.Processes/Host/Tereditor.Plugins.Processes.Host.csproj" />
     <Project Path="src/Tereditor.Plugins.Processes/UI/Tereditor.Plugins.Processes.UI.csproj" />
+    <Project Path="src/Tereditor.Plugins.Runtimes/Contract/Tereditor.Plugins.Runtimes.csproj" />
+    <Project Path="src/Tereditor.Plugins.Runtimes/Host/Tereditor.Plugins.Runtimes.Host.csproj" />
+    <Project Path="src/Tereditor.Plugins.Runtimes/UI/Tereditor.Plugins.Runtimes.UI.csproj" />
     <Project Path="src/Tereditor.Plugins.Chat/Tereditor.Plugins.Chat.csproj" />
     <Project Path="src/Tereditor.Plugins.Chat.UI/Tereditor.Plugins.Chat.UI.csproj" />
     <Project Path="src/Tereditor.Plugins.ClaudeCode/Tereditor.Plugins.ClaudeCode.csproj" />

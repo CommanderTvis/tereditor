@@ -519,6 +519,11 @@ Then the disposer runs. On a toggle the runtime awaits it, bounded, because a pl
 to close it. On host shutdown the disposer is started and not awaited. That difference is the only asymmetry
 between the two teardown paths.
 
+A fourth step runs only when the user turned the plugin off (the `enabled` setting; not host shutdown, a dependency that went away or a plugin whose code was removed): the handlers
+registered with `OnUserDisabled` run once, after the disposer, bounded at two minutes each. A plugin that downloads something uses them to delete everything it
+downloaded and nothing the user made (sign-ins, keys, settings), with `PluginDownloads.Purge`. A language server plugin does it for its server without code
+of its own (`LanguageServerPlugin` registers the handler).
+
 Persisted state is untouched. The plugin's settings namespace and its state files stay exactly as they were, so
 turning a plugin off and on again is not a reset.
 
@@ -720,6 +725,7 @@ set is closed.
 | H23 | provide a workspace environment step: edit variables and PATH, run tools through the host (`WorkspaceEnvironmentStep` with `IWorkspaceEnvironmentEdit`), add shell init and report a labelled fact for the chips; the policy (H22), not the step, decides its order. Exactly one step per plugin, which declares `dependsOn` `Env` | `TerminalEnvironment` is synchronous and runs under the terminal service's lock, so it cannot run a tool |
 | H24 | provide a repo hosting provider for the remotes it recognizes (`RepoHost` with a `RepoHostProvider`): recognition by remote URL, sign-in status, pull request lookup and state in the neutral `PullRequest` model, create/update, ready/merge/reopen, a compare URL; and observe each finished branch status (`OnBranchStatus`); the host routes by `origin` and owns git, guards, push, cache and budgets | `PullRequests.cs`, `BranchStatus.cs` and `GitHubAuthentication.cs` call `gh` inline and recognize only GitHub and GitLab by URL |
 | H27 | read the host process table, per-process CPU and memory, the running language servers and the owned-process registry, and switch agent-owned process management on or off (`Processes`, an `IProcessHost`, null on a host without one); only the Processes plugin uses it | the registry stays inert and nothing is listed |
+| H28 | find a runtime for a program the plugin starts: `ResolveRuntimeAsync(RuntimeKind.Bun or Uv, workspace)` answers the command, the arguments that go before the package (`x` for Bun, `tool run` for uv), the environment (caches in the host's cache; configuration files and `.env` in the working directory ignored) and the source (pinned path, system install, downloaded copy), or "unavailable" with a plain sentence and `OfferEnable` when only the Runtimes for tooling plugin is missing; `TrackRuntimeProcess` lets the host stop a process that runs from the downloaded copy when that copy is removed; `BunPathAsync` is the path of the same answer; `OnUserDisabled` and `PluginDownloads.Purge` (see Disabling); the status, download, remove and purge members are for the Runtimes for tooling plugin | each plugin looked for Bun on its own, and nothing downloaded was ever deleted |
 | — | expose exact absolute files outside the worktree for core text editing (`ExternalFiles`) | file reads and saves are confined to the workspace |
 
 H11 (send text to an agent session) and H16 (contribute agent extensions and skills) are not ported: tereditor

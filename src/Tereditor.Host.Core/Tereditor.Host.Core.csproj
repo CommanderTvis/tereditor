@@ -22,6 +22,7 @@
     <ProjectReference Include="../Tereditor.Plugins.BranchGraph/Host/Tereditor.Plugins.BranchGraph.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Review/Host/Tereditor.Plugins.Review.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Processes/Host/Tereditor.Plugins.Processes.Host.csproj" />
+    <ProjectReference Include="../Tereditor.Plugins.Runtimes/Host/Tereditor.Plugins.Runtimes.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Visualize/Host/Tereditor.Plugins.Visualize.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Codex/Host/Tereditor.Plugins.Codex.Host.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Omp/Host/Tereditor.Plugins.Omp.Host.csproj" />

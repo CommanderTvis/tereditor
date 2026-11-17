@@ -33,6 +33,7 @@ internal sealed class ActivationTables(long id)
     public ImmutableList<Action<TerminalEvent>> TerminalObservers { get; set; } = [];
     public ImmutableList<Func<IReadOnlyList<AgentSession>>> AgentSessionSources { get; set; } = [];
     public ImmutableList<Func<string, AgentLaunchContribution?>> LaunchContributors { get; set; } = [];
+    public ImmutableList<Func<ValueTask>> UserDisabled { get; set; } = [];
     public ImmutableList<Func<TerminalRef, TerminalAgentRecord, RevivePrefill?>> ReviveHooks { get; set; } = [];
     public ImmutableList<Action<WorkspaceEvent>> WorkspaceObservers { get; set; } = [];
     public ImmutableList<Action<WorkspaceFilesChanged>> FileObservers { get; set; } = [];

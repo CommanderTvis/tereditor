@@ -10,6 +10,7 @@ M:Tereditor.Plugins.Api.Host.IPluginHostContext.AgentRecord(Tereditor.Plugins.Ap
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.AgentSessions(System.Func{System.Collections.Generic.IReadOnlyList{Tereditor.Plugins.Api.Host.AgentSession}})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.BunPathAsync(System.String,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.Dependency(Tereditor.Plugins.Api.PluginContract)
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.DownloadRuntimeAsync(Tereditor.Plugins.Api.Host.RuntimeKind,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.ExternalFiles(System.Func{System.String,System.Collections.Generic.IReadOnlyList{System.String}})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.GitAsync(System.String,System.Collections.Generic.IReadOnlyList{System.String},Tereditor.Plugins.Api.Host.GitRunOptions,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.InstructionSectionsAsync(System.String,System.String,System.Threading.CancellationToken)
@@ -21,6 +22,7 @@ M:Tereditor.Plugins.Api.Host.IPluginHostContext.OnFilesChanged(System.Action{Ter
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.OnInstructionSectionsChanged(System.Action{System.String})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.OnSettings``1(System.Action{``0})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.OnTerminal(System.Action{Tereditor.Plugins.Api.Host.TerminalEvent})
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.OnUserDisabled(System.Func{System.Threading.Tasks.ValueTask})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.OnWorkspace(System.Action{Tereditor.Plugins.Api.Host.WorkspaceEvent})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.OnWorkspaceEnvironment(System.Action{System.String,System.Collections.Generic.IReadOnlyList{Tereditor.Plugins.Api.Host.WorkspaceEnvironmentFact}})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.Projects
@@ -29,11 +31,16 @@ M:Tereditor.Plugins.Api.Host.IPluginHostContext.PromptTexts(System.String,Teredi
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.PromptTexts(System.String,Tereditor.Plugins.Api.Host.PromptPlacement,System.String)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.PublicBaseUrl
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.Publish``1(Tereditor.Plugins.Api.PluginChannel{``0},``0,Tereditor.Plugins.Api.Host.PluginCall)
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeLanguageServerDownloadsAsync(System.String,System.Threading.CancellationToken)
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeRuntimeDownloadsAsync(System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.ReadState``1(System.String,``0)
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.RemoveRuntimeDownloadAsync(Tereditor.Plugins.Api.Host.RuntimeKind,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.RepoHost(Tereditor.Plugins.Api.Host.RepoHostProvider)
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.ResolveRuntimeAsync(Tereditor.Plugins.Api.Host.RuntimeKind,System.String,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.RevivePrefill(System.Func{Tereditor.Plugins.Api.TerminalRef,Tereditor.Plugins.Api.TerminalAgentRecord,Tereditor.Plugins.Api.Host.RevivePrefill})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.Route(System.Func{Tereditor.Plugins.Api.Host.PluginHttpRequest,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask{Tereditor.Plugins.Api.Host.PluginHttpResponse}})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.RunToolAsync(System.String,System.String,System.Collections.Generic.IReadOnlyList{System.String},System.TimeSpan,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.RuntimeStatusAsync(System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.SetAgentRecord(Tereditor.Plugins.Api.TerminalRef,Tereditor.Plugins.Api.TerminalAgentRecord)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.SetInstructionSectionAsync(System.String,System.String,System.String,System.Boolean,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.Settings``1
@@ -46,6 +53,7 @@ M:Tereditor.Plugins.Api.Host.IPluginHostContext.Terminals
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.Tool(Tereditor.Plugins.Api.PluginToolDefinition)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.ToolGuidance(System.String)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.ToolGuidanceSections
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.TrackRuntimeProcess(Tereditor.Plugins.Api.Host.RuntimeResolution,System.Int32)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.WatchWorkspaceAsync(System.String,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.WorkspaceAsync(System.String,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.WorkspaceEnvironment(Tereditor.Plugins.Api.Host.IWorkspaceEnvironmentPolicy)

@@ -443,14 +443,66 @@ public interface IPluginHostContext
         IReadOnlyDictionary<string, string?>? environment = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Finds Bun by the host's toolchain rules (the user's own path, the pinned Bun in the host's cache, or PATH) and, when the pinned one is the
-    /// answer, downloads it first, checked against its SHA-256. It never returns a program inside the workspace.
+    /// Finds Bun the way <see cref="ResolveRuntimeAsync"/> does and returns only its path. It never returns a program inside the workspace.
+    /// Use <see cref="ResolveRuntimeAsync"/> to get the arguments, the environment and the reason when Bun is missing.
     /// </summary>
     /// <param name="workspace">The directory the program would run in; a Bun inside it is refused.</param>
     /// <param name="cancellationToken">Cancels the download.</param>
     /// <returns>The path of Bun, or <see langword="null"/> when none is available (the caller falls back to its own runner).</returns>
     [PluginPermission("process")]
     ValueTask<string?> BunPathAsync(string workspace, CancellationToken cancellationToken = default) => ValueTask.FromResult<string?>(null);
+
+    /// <summary>
+    /// Finds a runtime for a program the plugin starts (an ACP agent's <c>npx</c> or <c>uvx</c> command, a language server's package manager).
+    /// The order is the path the user pinned, then an install on PATH (never inside the workspace), then the copy the Runtimes for tooling plugin
+    /// downloads, which it does now, checked against its SHA-256, only when this is the first request and the plugin is on.
+    /// With that plugin off and nothing else available the answer is unavailable with a sentence to show and <see cref="RuntimeResolution.OfferEnable"/>.
+    /// </summary>
+    /// <param name="kind">The runtime.</param>
+    /// <param name="workspace">The directory the program would run in; a runtime inside it is refused.</param>
+    /// <param name="cancellationToken">Cancels the download.</param>
+    [PluginPermission("process")]
+    ValueTask<RuntimeResolution> ResolveRuntimeAsync(RuntimeKind kind, string workspace, CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult(RuntimeResolution.Unavailable(kind, "This host cannot provide " + (kind == RuntimeKind.Bun ? "Bun" : "uv") + "."));
+
+    /// <summary>
+    /// Tells the host a process started from a resolved runtime. When the runtime is the downloaded copy, the host stops the process before it deletes the
+    /// copy (the user turned Runtimes for tooling off). Other sources are never stopped.
+    /// </summary>
+    /// <param name="resolution">What <see cref="ResolveRuntimeAsync"/> returned for the process.</param>
+    /// <param name="processId">The process id.</param>
+    [PluginPermission("process")]
+    void TrackRuntimeProcess(RuntimeResolution resolution, int processId) { }
+
+    /// <summary>
+    /// Runs once after this plugin is turned off by the user, not when tereditor quits, restarts or removes the plugin's code. Use it to delete everything
+    /// the plugin downloaded (see <see cref="PluginDownloads"/>); never the user's data. Runs after the disposer; a handler that throws is logged.
+    /// </summary>
+    /// <param name="handler">Called at most once per activation.</param>
+    [PluginAmbient]
+    void OnUserDisabled(Func<ValueTask> handler) { }
+
+    /// <summary>The state of every runtime, for the Runtimes for tooling settings page. Starts no download.</summary>
+    [PluginPermission("process")]
+    ValueTask<IReadOnlyList<RuntimeStatus>> RuntimeStatusAsync(CancellationToken cancellationToken = default) => ValueTask.FromResult<IReadOnlyList<RuntimeStatus>>([]);
+
+    /// <summary>Downloads the pinned copy of a runtime now, whatever else is available.</summary>
+    [PluginPermission("process")]
+    ValueTask<IReadOnlyList<RuntimeStatus>> DownloadRuntimeAsync(RuntimeKind kind, CancellationToken cancellationToken = default) => ValueTask.FromResult<IReadOnlyList<RuntimeStatus>>([]);
+
+    /// <summary>Stops the processes running from the downloaded copy of a runtime and deletes the copy and its caches. The user's pinned path is kept.</summary>
+    [PluginPermission("process")]
+    ValueTask<IReadOnlyList<RuntimeStatus>> RemoveRuntimeDownloadAsync(RuntimeKind kind, CancellationToken cancellationToken = default) => ValueTask.FromResult<IReadOnlyList<RuntimeStatus>>([]);
+
+    /// <summary>Stops every process running from a downloaded runtime and deletes all downloaded runtimes and their caches.</summary>
+    [PluginPermission("process")]
+    ValueTask PurgeRuntimeDownloadsAsync(CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+
+    /// <summary>Stops a language server and deletes what the host downloaded for it: its installation and its per-workspace caches.</summary>
+    /// <param name="serverId">The id of the server this plugin provides.</param>
+    /// <param name="cancellationToken">Cancels the deletion.</param>
+    [PluginPermission("language.server")]
+    ValueTask PurgeLanguageServerDownloadsAsync(string serverId, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 
     /// <summary>Resolves a handle on a dependency declared in this plugin's manifest.</summary>
     /// <param name="contract">The dependency's contract.</param>

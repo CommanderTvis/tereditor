@@ -53,6 +53,8 @@ internal sealed class ProcessAcpTransport : IAcpTransport
         return new ProcessAcpTransport(process);
     }
 
+    internal int ProcessId => process.Id;
+
     public Stream FromAgent => process.StandardOutput.BaseStream;
     public Stream ToAgent => process.StandardInput.BaseStream;
 

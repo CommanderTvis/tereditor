@@ -237,6 +237,11 @@ internal static class Program
             ManagedLanguageChecks.Run(root).GetAwaiter().GetResult();
             return;
         }
+        if (args.SequenceEqual(["--runtimes"]))
+        {
+            RuntimesChecks.Run(root).GetAwaiter().GetResult();
+            return;
+        }
         if (args.SequenceEqual(["--managed-runtimes"]))
         {
             ManagedRuntimeChecks.Run(root);
@@ -1584,6 +1589,7 @@ internal static class Program
         Gate.Case("shell-integration", () => ShellIntegrationChecks.RunHost(root).GetAwaiter().GetResult());
         Gate.Case("windows-host", () => WindowsChecks.RunHost(root).GetAwaiter().GetResult());
         Gate.Case("processes", () => ProcessesChecks.Run(root).GetAwaiter().GetResult());
+        Gate.Case("runtimes", () => RuntimesChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("owned-processes", () => OwnedProcessChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("workspace-tools", () => WorkspaceToolChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("agent-launch-origins", AgentLaunchChecks.RunHost);

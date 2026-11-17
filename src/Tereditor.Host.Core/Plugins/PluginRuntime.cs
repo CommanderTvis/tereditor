@@ -57,6 +57,8 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
         Seams.State.PluginNamespaceValidator = ValidateNamespace;
         Seams.State.PluginDependents = Cascade;
         Seams.State.LanguageServerSource = LanguageServerSpecs;
+        Seams.State.RuntimesEnabled = () => RuntimesAllowed();
+        Seams.State.RuntimePin = RuntimePin;
         if (Seams.Terminals is { } terminals)
         {
             terminals.EnvironmentContributor = Environment;
@@ -424,7 +426,7 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
         foreach (var entry in order.Reverse().Concat(cycle))
         {
             if (desired.GetValueOrDefault(entry.Id) || entry.State != PluginStatus.Active && entry.Activation is null) continue;
-            await DeactivateAsync(entry);
+            await DeactivateAsync(entry, userDisabled: !Enabled(entry, settings, Seams.Kind));
             lock (gate)
                 if (entry.State == PluginStatus.Disabled && Enabled(entry, settings, Seams.Kind) &&
                     entry.Manifest.DependsOn.Select(dependency => Blocker(dependency, desired)).FirstOrDefault(reason => reason is not null) is { } blocker)
@@ -432,6 +434,21 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
             Publish();
         }
         Publish();
+    }
+
+    // Whether the Runtimes for tooling plugin may download. A host that does not run the plugin has no switch to turn it off.
+    private bool RuntimesAllowed()
+    {
+        PluginEntry? entry;
+        lock (gate) entry = registry.Get(Tereditor.Plugins.Runtimes.RuntimesPlugin.Id);
+        return entry is null || Enabled(entry, Seams.State.Current.PluginSettings, Seams.Kind);
+    }
+
+    // The program the user pinned for bun or uv in Settings > Runtimes for tooling.
+    private string RuntimePin(string executable)
+    {
+        var settings = Settings<Tereditor.Plugins.Runtimes.RuntimesSettings>(Tereditor.Plugins.Runtimes.RuntimesPlugin.Id);
+        return executable switch { "bun" => settings.BunPath, "uv" => settings.UvPath, _ => "" };
     }
 
     private static bool Enabled(PluginEntry entry, IReadOnlyDictionary<string, JsonElement> settings, HostKind kind) =>
@@ -513,13 +530,17 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
         }
     }
 
-    private async Task DeactivateAsync(PluginEntry entry)
+    // userDisabled: the user turned the plugin off (not tereditor quitting, a plugin that stopped or a dependency that went away), so its OnUserDisabled handlers run.
+    private async Task DeactivateAsync(PluginEntry entry, bool userDisabled = false)
     {
-        if (Stop(entry) is { } tables) await ReleaseAsync(entry.Id, tables, dispose: true);
+        if (Stop(entry) is { } tables) await ReleaseAsync(entry.Id, tables, dispose: true, userDisabled);
     }
 
+    // How long the handlers of a plugin the user turned off get to delete its downloads.
+    private static readonly TimeSpan UserDisabledTimeout = TimeSpan.FromMinutes(2);
+
     // Drains the activation's in-flight work, then runs its disposer, each bounded.
-    private async Task ReleaseAsync(string id, ActivationTables tables, bool dispose)
+    private async Task ReleaseAsync(string id, ActivationTables tables, bool dispose, bool userDisabled = false)
     {
         if (!await tables.DrainAsync(Seams.DrainTimeout))
             Log(id, "warn", $"plugin {id} still had calls in flight after {Seams.DrainTimeout.TotalMilliseconds} ms", null);
@@ -530,18 +551,31 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
         }
         foreach (var resource in tables.Resources) Guard(id, resource.Dispose);
         if (tables.Runner is { } runner) await runner.DisposeAsync();
-        if (!dispose || tables.Disposer is not { } disposer) return;
-        try
+        if (dispose && tables.Disposer is { } disposer)
         {
-            // Started inline, so disposers started in order begin in order.
-            Task disposal;
-            try { disposal = disposer().AsTask(); }
-            catch (Exception error) { disposal = Task.FromException(error); }
-            if (await Task.WhenAny(disposal, Task.Delay(Seams.DisposeTimeout)) != disposal)
-                Log(id, "warn", $"plugin {id} disposer did not settle within {Seams.DisposeTimeout.TotalMilliseconds} ms", null);
-            else await disposal;
+            try
+            {
+                // Started inline, so disposers started in order begin in order.
+                Task disposal;
+                try { disposal = disposer().AsTask(); }
+                catch (Exception error) { disposal = Task.FromException(error); }
+                if (await Task.WhenAny(disposal, Task.Delay(Seams.DisposeTimeout)) != disposal)
+                    Log(id, "warn", $"plugin {id} disposer did not settle within {Seams.DisposeTimeout.TotalMilliseconds} ms", null);
+                else await disposal;
+            }
+            catch (Exception error) { Log(id, "error", "the disposer threw: " + error.Message, null); }
         }
-        catch (Exception error) { Log(id, "error", "the disposer threw: " + error.Message, null); }
+        if (!dispose || !userDisabled) return;
+        foreach (var handler in tables.UserDisabled)
+        {
+            try
+            {
+                var running = Task.Run(() => handler().AsTask());
+                if (await Task.WhenAny(running, Task.Delay(UserDisabledTimeout)) != running) Log(id, "warn", $"plugin {id} was still deleting its downloads after {UserDisabledTimeout.TotalSeconds} s", null);
+                else await running;
+            }
+            catch (Exception error) { Log(id, "error", "deleting the downloads failed: " + error.Message, null); }
+        }
     }
 
     // Settings namespaces

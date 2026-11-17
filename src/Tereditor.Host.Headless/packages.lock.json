@@ -69,6 +69,7 @@
           "Tereditor.Plugins.Processes.Host": "[1.0.0, )",
           "Tereditor.Plugins.Providers.Host": "[1.0.0, )",
           "Tereditor.Plugins.Review.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Runtimes.Host": "[1.0.0, )",
           "Tereditor.Plugins.SpecDialect.Host": "[1.0.0, )",
           "Tereditor.Plugins.Tailscale.Host": "[1.0.0, )",
           "Tereditor.Plugins.Vertex": "[1.0.0, )",
@@ -520,6 +521,19 @@
         "dependencies": {
           "Tereditor.Plugins.Api.Host": "[1.0.0, )",
           "Tereditor.Plugins.Review": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.runtimes": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.runtimes.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api.Host": "[1.0.0, )",
+          "Tereditor.Plugins.Runtimes": "[1.0.0, )"
         }
       },
       "tereditor.plugins.specdialect": {

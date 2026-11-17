@@ -44,7 +44,7 @@ internal sealed partial class LanguageServers
         Toolchain is var source && source != ToolchainSource.Path && !ManagedRuntimes.Kinds.SelectMany(kind => kind.Tools).Any(tool => ToolOverride(tool).Length > 0)
             ? ManagedRuntimes.RunEnvironment(directory, ManagedArtifacts.Platform(), workspace, inheritPath: source == ToolchainSource.ManagedThenPath) : null;
 
-    private string ToolOverride(string executable) => CurrentTools().GetValueOrDefault(executable) ?? "";
+    private string ToolOverride(string executable) => CurrentTools().GetValueOrDefault(executable) is { Length: > 0 } chosen ? chosen : RuntimePin(executable);
 
     /// <summary>
     /// Finds one tool without running it: the user's path for it first, then <paramref name="homeVariable"/>'s <c>bin</c> and root, then the
@@ -75,9 +75,10 @@ internal sealed partial class LanguageServers
         if (source != ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { } kind)
         {
             var platform = ManagedArtifacts.Platform();
-            if (ManagedRuntimes.FindInstalled(directory, executable, platform, workspace) is { } managed) return new("found", managed, "managed", "");
+            if (Usable(kind) && ManagedRuntimes.FindInstalled(directory, executable, platform, workspace) is { } managed) return new("found", managed, "managed", "");
             if (source == ToolchainSource.Managed)
-                return kind.Provisioned && !Toolchains.Offline && ManagedRuntimes.Choose(kind.Id, platform, workspace) is { } due
+                return !Usable(kind) ? new("missing", "", "managed", OffProblem(kind))
+                    : kind.Provisioned && !Toolchains.Offline && ManagedRuntimes.Choose(kind.Id, platform, workspace) is { } due
                     ? new("download", "", "managed", $"{kind.Name} {due.Version} is downloaded on first use.")
                     : new("missing", "", "managed", ManagedRuntimes.Choose(kind.Id, platform, workspace) is { } pin
                     ? $"The pinned {kind.Name} {pin.Version} is not installed yet. It is downloaded on first start, or run warm."
@@ -90,6 +91,7 @@ internal sealed partial class LanguageServers
         var rejected = new List<string>();
         if (LanguageExecutables.FindOnPath(executable, workspace, rejected) is { } found) return new("found", found, "path", "");
         // Under the host's PATH a provisioned runtime (Bun) that is not on it is the pinned one in the cache, once downloaded.
+        if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } && !RuntimesEnabled()) return new("missing", "", "managed", OffProblem(ManagedRuntimes.KindOf(executable)!));
         if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } && ManagedRuntimes.FindInstalled(directory, executable, ManagedArtifacts.Platform(), workspace) is { } cached)
             return new("found", cached, "managed", "");
         if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } fetch && !Toolchains.Offline && ManagedRuntimes.Choose(fetch.Id, ManagedArtifacts.Platform(), workspace) is { } wanted)
@@ -146,7 +148,7 @@ internal sealed partial class LanguageServers
     private async Task EnsureRuntimeAsync(string owner, string executable, string homeVariable, string workspace, CancellationToken token)
     {
         var platform = ManagedArtifacts.Platform();
-        if (ManagedRuntimes.KindOf(executable) is { } kind && (Toolchain != ToolchainSource.Path || kind.Provisioned) && ToolOverride(executable).Length == 0 && ManagedRuntimes.Choose(kind.Id, platform, workspace) is { } pin)
+        if (ManagedRuntimes.KindOf(executable) is { } kind && Usable(kind) && (Toolchain != ToolchainSource.Path || kind.Provisioned) && ToolOverride(executable).Length == 0 && ManagedRuntimes.Choose(kind.Id, platform, workspace) is { } pin)
         {
             if (Toolchain != ToolchainSource.Managed && ProbeTool(executable, workspace, homeVariable, fresh: true) is { State: "found" }) return;
             await ManagedRuntimes.EnsureAsync(directory, pin, managedHttp, message => CodeIntelligenceLog.Info("host.install-progress", ("server", owner), ("message", message)), Toolchains.Offline, token);

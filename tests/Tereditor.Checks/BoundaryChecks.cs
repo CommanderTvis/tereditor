@@ -97,7 +97,7 @@ internal static class BoundaryChecks
         var projects = new[] { "src", "tests" }.Select(area => Path.Combine(root, area)).Where(Directory.Exists)
             .SelectMany(Directory.EnumerateDirectories).SelectMany(directory => Directory.EnumerateFiles(directory, "*.csproj", SearchOption.AllDirectories).Where(project => !Path.GetRelativePath(directory, project).Split(Path.DirectorySeparatorChar).Any(part => Generated.Contains(part) || part.StartsWith('.')))).Order(StringComparer.Ordinal).ToArray();
         var rules = Allowed.ToDictionary();
-        foreach (var plugin in new[] { "Acp", "SpecDialect", "Blueprint", "ClaudeCode", "Discord", "BranchGraph", "Review", "Processes", "Visualize", "Codex", "Omp", "Pi", "Providers", "OpenAi", "Bedrock", "Vertex", "AirGateway", "AirContext", "Tailscale", "Epub", "CodeIntelligence", "EnvMise", "EnvDirenv", "EnvPython", "EnvJavaScript", "EnvJvm", "Env", "GitHub" })
+        foreach (var plugin in new[] { "Acp", "SpecDialect", "Blueprint", "ClaudeCode", "Discord", "BranchGraph", "Review", "Processes", "Runtimes", "Visualize", "Codex", "Omp", "Pi", "Providers", "OpenAi", "Bedrock", "Vertex", "AirGateway", "AirContext", "Tailscale", "Epub", "CodeIntelligence", "EnvMise", "EnvDirenv", "EnvPython", "EnvJavaScript", "EnvJvm", "Env", "GitHub" })
         {
             var contract = "Tereditor.Plugins." + plugin;
             rules[contract] = [Api];

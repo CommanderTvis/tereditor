@@ -727,9 +727,6 @@ internal static class AcpChecks
         Require(runPlan.CommandLine.StartsWith("bunx pi-acp@0.0.34", StringComparison.Ordinal) && runPlan.Verification == AcpRegistry.Pinned && !runPlan.CommandLine.Contains("npx", StringComparison.Ordinal), "An npx agent's plan runs with Bun and keeps its pin verification.");
         var (runner, runnerArgs) = Tereditor.Plugins.Acp.Host.AcpRunner.Bun("/opt/bun", ["-y", "@scope/pi-acp@0.0.34", "--acp"]);
         Require(runner == "/opt/bun" && runnerArgs.SequenceEqual(["x", "@scope/pi-acp@0.0.34", "--acp"]) && Tereditor.Plugins.Acp.Host.AcpRunner.Bun("b", ["pi@1", "-y"]).Args.SequenceEqual(["x", "pi@1", "-y"]), "The npx arguments did not become the same package run by bun x.");
-        var guardHome = Path.Combine(root, "bun-guard");
-        var guarded = Tereditor.Plugins.Acp.Host.AcpRunner.GuardedEnvironment(guardHome, new Dictionary<string, string> { ["TOKEN"] = "t", ["DO_NOT_TRACK"] = "0" });
-        Require(guarded["BUN_OPTIONS"].Contains("--no-env-file", StringComparison.Ordinal) && guarded["BUN_OPTIONS"].Contains(Path.Combine(guardHome, "empty-bunfig.toml"), StringComparison.Ordinal) && new FileInfo(Path.Combine(guardHome, "empty-bunfig.toml")).Length == 0 && guarded["BUN_INSTALL"] == guardHome && guarded["TOKEN"] == "t" && guarded["DO_NOT_TRACK"] == "0", "Bun was not kept from the workspace's bunfig and .env, or the agent's own environment was lost.");
         var loose = (JsonObject)fixture.DeepClone();
         loose["agents"]!.AsArray().OfType<JsonObject>().First(agent => agent["id"]!.GetValue<string>() == "pi-acp")["distribution"]!["npx"]!["package"] = "pi-acp";
         var goose = (JsonObject)loose["agents"]!.AsArray().OfType<JsonObject>().First(agent => agent["id"]!.GetValue<string>() == "goose")["distribution"]!["binary"]![mac]!;

@@ -68,6 +68,7 @@
     <ProjectReference Include="../Tereditor.Plugins.BranchGraph/UI/Tereditor.Plugins.BranchGraph.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Review/UI/Tereditor.Plugins.Review.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Processes/UI/Tereditor.Plugins.Processes.UI.csproj" />
+    <ProjectReference Include="../Tereditor.Plugins.Runtimes/UI/Tereditor.Plugins.Runtimes.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Visualize/UI/Tereditor.Plugins.Visualize.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Codex/UI/Tereditor.Plugins.Codex.UI.csproj" />
     <ProjectReference Include="../Tereditor.Plugins.Omp/UI/Tereditor.Plugins.Omp.UI.csproj" />
