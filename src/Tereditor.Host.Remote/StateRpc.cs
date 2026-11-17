@@ -94,6 +94,7 @@ public sealed class StateRpc(IHostStateService host, IHostApplicationLifetime li
             EditorLineNumbersHidden = !state.Settings.EditorLineNumbers,
             EditorIndentWithTabs = state.Settings.EditorIndentWithTabs,
             EditorDetectIndentOff = !state.Settings.EditorDetectIndent,
+            EditorZoomGesturesOff = !state.Settings.EditorZoomGestures,
             EditorFontFamily = state.Settings.EditorFontFamily,
             EditorLineHeight = state.Settings.EditorLineHeight,
             LanguageServers = state.Settings.LanguageServers,

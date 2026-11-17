@@ -71,6 +71,8 @@ public sealed record HostSettings
     public bool EditorIndentWithTabs { get; init; }
     /// <summary>Whether editors follow a file's own clear indentation (tabs or spaces, and their size) over the settings.</summary>
     public bool EditorDetectIndent { get; set; } = true;
+    /// <summary>Whether a trackpad pinch, a touch pinch or Ctrl/Cmd with the wheel changes the editors' text size; off, those gestures do nothing there.</summary>
+    public bool EditorZoomGestures { get; set; } = true;
     /// <summary>The code editors' font family; empty is the bundled JetBrains Mono, and so is a family a client does not have.</summary>
     public string EditorFontFamily { get; set; } = "";
     /// <summary>The code editors' row height in tenths of the font's natural line height (10–20); zero is the default of 10.</summary>

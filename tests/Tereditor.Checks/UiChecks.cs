@@ -568,6 +568,31 @@ internal static class UiChecks
             }
             var languageInput = new NumericUpDown { Maximum = 2147483647 };
             Require(SettingsView.DigitFieldWidth(languageInput, 24) > 120, "A large-value field must keep a width fitting its digits.");
+            // The zoom checkbox goes through the host and reaches the editors; a line-width row keeps every label whole at a narrow width.
+            var zoomBox = Find<CheckBox>(liveSettings, "EditorZoomGestures");
+            Require(zoomBox.IsChecked == true && Tereditor.Scintilla.ScintillaEditor.ZoomGestures, "Zoom gestures start on.");
+            zoomBox.IsChecked = false;
+            Pump(() => !Tereditor.Scintilla.ScintillaEditor.ZoomGestures, "Turning zoom gestures off did not reach the editors.");
+            zoomBox.IsChecked = true;
+            Pump(() => Tereditor.Scintilla.ScintillaEditor.ZoomGestures, "Turning zoom gestures on did not reach the editors.");
+            foreach (var kind in new[] { "FileLineWidthControl", "MarkdownLineWidthControl" })
+            {
+                var rowControl = Find<Control>(liveSettings, kind);
+                rowControl.Measure(new Avalonia.Size(320, double.PositiveInfinity));
+                rowControl.Arrange(new Avalonia.Rect(0, 0, 320, rowControl.DesiredSize.Height));
+                rowControl.UpdateLayout();
+                var labels = rowControl.GetVisualDescendants().OfType<TextBlock>().Where(text => !string.IsNullOrEmpty(text.Text)).ToList();
+                Require(labels.Count >= 4, kind + " lost its labels.");
+                foreach (var label in labels)
+                {
+                    var origin = label.TranslatePoint(default, rowControl)!.Value;
+                    Require(label.Bounds.Height >= label.FontSize && (label.TextWrapping != TextWrapping.NoWrap || label.TextTrimming == Avalonia.Media.TextTrimming.None || label.DesiredSize.Width <= label.Bounds.Width + 0.5) && origin.X >= 0 && origin.X + label.Bounds.Width <= 320.5 && (label.Bounds.Width >= label.DesiredSize.Width - 0.5),
+                        $"{kind}: the label \"{label.Text}\" is clipped at a narrow width ({origin.X}+{label.Bounds.Width} of 320).");
+                }
+                var switchAt = Find<Switch>(rowControl, kind.Replace("Control", "Bounded")).TranslatePoint(default, rowControl)!.Value;
+                var inputAt = Find<TextBox>(rowControl, kind.Replace("Control", "Input")).TranslatePoint(default, rowControl)!.Value;
+                Require(switchAt.Y < inputAt.Y || switchAt.X < inputAt.X, kind + ": the switch comes before the number.");
+            }
         }
         var previewWidth = ((StackPanel)Find<MarkdownPreview>(restored, "MarkdownPreview").Content!).MaxWidth;
         var markdownWidth = Find<TextBox>(liveSettings, "MarkdownLineWidthInput");

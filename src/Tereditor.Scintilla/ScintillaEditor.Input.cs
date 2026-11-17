@@ -233,9 +233,10 @@ public sealed partial class ScintillaEditor
         base.OnPointerWheelChanged(e);
         if (disposed) return;
         // Control or Command with the wheel zooms, as a browser reports a trackpad pinch; a notch is a tenth of magnification.
+        // With zoom gestures off it is still claimed and does nothing, so the window's page zoom stays put too.
         if (e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta))
         {
-            Magnify(e.Delta.Y / 10);
+            if (ZoomGestures) Magnify(e.Delta.Y / 10);
             e.Handled = true;
             return;
         }

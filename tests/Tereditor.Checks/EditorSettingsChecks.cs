@@ -148,6 +148,22 @@ internal static class EditorSettingsChecks
             ScintillaEditor.LineSpacing = 1;
             Require(Math.Abs(Row(cs.Editor) - natural) < 0.5, "Line height 1.0 restores the natural row.");
 
+            // Zoom gestures: on by default; off, a pinch and Ctrl/Cmd with the wheel leave the text size alone, live.
+            var size = ScintillaEditor.TextSize;
+            Require(ScintillaEditor.ZoomGestures && new HostSettings().EditorZoomGestures, "Zoom gestures are on by default.");
+            TerminalFontZoomChecks.Magnify(window, cs.Editor, 0.25); Pump();
+            Require(ScintillaEditor.TextSize > size, "With zoom gestures on a pinch sizes the editor text.");
+            ScintillaEditor.TextSize = size; Pump();
+            ScintillaEditor.ZoomGestures = false;
+            try
+            {
+                TerminalFontZoomChecks.Magnify(window, cs.Editor, 0.25);
+                TerminalFontZoomChecks.Wheel(window, cs.Editor, -2, KeyModifiers.Control);
+                TerminalFontZoomChecks.Wheel(window, cs.Editor, 2, KeyModifiers.Meta); Pump();
+                Require(ScintillaEditor.TextSize == size, $"With zoom gestures off a pinch or Ctrl/Cmd + wheel leaves the text size alone ({size} then {ScintillaEditor.TextSize}).");
+            }
+            finally { ScintillaEditor.ZoomGestures = true; ScintillaEditor.TextSize = size; }
+
             // Font family: a live switch for editors and diffs; an unknown family falls back to the bundled font.
             if (installed is not null)
             {

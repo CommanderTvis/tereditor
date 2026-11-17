@@ -742,7 +742,16 @@ public sealed partial class SettingsView : UserControl
             Share(HostStateChange.Setting("editor-detect-indent", Setting(requested)));
             detect.IsChecked = state.Current.Settings.EditorDetectIndent;
         };
-        refreshers.Add(() => { height.Value = CurrentHeight(); IndentChoice(); detect.IsChecked = state.Current.Settings.EditorDetectIndent; });
+        var zoom = PageControl<CheckBox>(panel, "EditorZoomGestures");
+        zoom.IsChecked = state.Current.Settings.EditorZoomGestures;
+        zoom.IsCheckedChanged += (_, _) =>
+        {
+            var requested = zoom.IsChecked == true;
+            if (requested == state.Current.Settings.EditorZoomGestures) return;
+            Share(HostStateChange.Setting("editor-zoom-gestures", Setting(requested)));
+            zoom.IsChecked = state.Current.Settings.EditorZoomGestures;
+        };
+        refreshers.Add(() => { height.Value = CurrentHeight(); IndentChoice(); detect.IsChecked = state.Current.Settings.EditorDetectIndent; zoom.IsChecked = state.Current.Settings.EditorZoomGestures; });
         PageControl<ContentControl>(panel, "FileLineWidthHost").Content = LineWidthControl("File",
             "Wraps source files and diffs in the editor font.",
             () => preferences.FileLineWidth, () => preferences.FileLineWidthBounded);
@@ -842,11 +851,12 @@ public sealed partial class SettingsView : UserControl
         };
         input.LostFocus += (_, _) => { Commit(); if (Parsed() is null) input.Text = Current(); Validate(); };
         limit.IsChecked = bounded();
+        input.IsEnabled = bounded();
         limit.CheckedChange += requested =>
         {
             if (requested == bounded()) return;
             Share(HostStateChange.Setting(key + "-bounded", Setting(requested)));
-            limit.IsChecked = bounded();
+            limit.IsChecked = bounded(); input.IsEnabled = bounded();
         };
         // A broadcast updates the controls in place: an untouched input follows the host, an edited draft is kept.
         var shown = Current();
@@ -854,7 +864,7 @@ public sealed partial class SettingsView : UserControl
         {
             if (input.Text == shown) input.Text = Current();
             shown = Current();
-            limit.IsChecked = bounded();
+            limit.IsChecked = bounded(); input.IsEnabled = bounded();
             Validate();
         });
         Validate();

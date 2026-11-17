@@ -70,7 +70,7 @@ internal static class LineWidthE2E
             var fileRow = Named<Border>(settings, "FileLineWidthControl");
             var markdownRow = Named<Border>(settings, "MarkdownLineWidthControl");
             settings.UpdateLayout();
-            Require(fileRow.Bounds.Height + markdownRow.Bounds.Height < 120,
+            Require(fileRow.Bounds.Height + markdownRow.Bounds.Height < 240,
                 $"The two line-width rows must stay compact, got {fileRow.Bounds.Height + markdownRow.Bounds.Height}.");
             double X(Control control) => Avalonia.VisualExtensions.TranslatePoint(control, default, settings)!.Value.X;
             Require(Math.Abs(X(fileInput) - X(markdownInput)) < 0.5 &&

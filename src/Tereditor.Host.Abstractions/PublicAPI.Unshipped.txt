@@ -2373,6 +2373,8 @@ Tereditor.Host.Abstractions.HostSettings.EditorIndentWithTabs.get -> bool
 Tereditor.Host.Abstractions.HostSettings.EditorIndentWithTabs.init -> void
 Tereditor.Host.Abstractions.HostSettings.EditorDetectIndent.get -> bool
 Tereditor.Host.Abstractions.HostSettings.EditorDetectIndent.set -> void
+Tereditor.Host.Abstractions.HostSettings.EditorZoomGestures.get -> bool
+Tereditor.Host.Abstractions.HostSettings.EditorZoomGestures.set -> void
 Tereditor.Host.Abstractions.HostSettings.EditorFontFamily.get -> string!
 Tereditor.Host.Abstractions.HostSettings.EditorFontFamily.set -> void
 Tereditor.Host.Abstractions.HostSettings.EditorLineHeight.get -> int

@@ -320,6 +320,12 @@
             <rendering:Switch x:Name="EditorLineNumbers" Grid.Column="1" Label="Show line numbers" ToolTip.Tip="Show line numbers" VerticalAlignment="Center" />
           </Grid>
         </Border>
+        <Border Classes="settings-row">
+          <StackPanel Spacing="4">
+            <CheckBox x:Name="EditorZoomGestures" Content="Zoom the editor with pinch or Ctrl/Cmd + wheel" />
+            <TextBlock Text="Off, a pinch or Ctrl/Cmd with the wheel does nothing in an editor. Scrolling still works. Keyboard zoom is not changed." Classes="settings-description" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
         <TextBlock Text="Wrapping" Classes="settings-label" />
         <ContentControl x:Name="FileLineWidthHost" />
         <ContentControl x:Name="MarkdownLineWidthHost" />
@@ -327,16 +333,16 @@
     </DataTemplate>
     <DataTemplate x:Key="LineWidthControl">
       <Border Classes="settings-row compact">
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
-          <StackPanel Spacing="2" VerticalAlignment="Center">
-            <TextBlock x:Name="LineWidthTitle" Classes="settings-label" />
-            <TextBlock x:Name="LineWidthDescription" Classes="settings-description" />
-          </StackPanel>
-          <TextBox x:Name="LineWidthInput" Grid.Column="1" Width="72" VerticalAlignment="Center" />
-          <TextBlock Text="symbols" Grid.Column="2" Width="48" Classes="settings-description" VerticalAlignment="Center" />
-          <TextBlock Text="Limit lines" Grid.Column="3" Width="64" Classes="settings-description" VerticalAlignment="Center" />
-          <rendering:Switch x:Name="LineWidthBounded" Grid.Column="4" Label="Limit lines to this width" ToolTip.Tip="Limit lines to this width" VerticalAlignment="Center" />
-        </Grid>
+        <StackPanel Spacing="6">
+          <TextBlock x:Name="LineWidthTitle" Classes="settings-label" TextWrapping="Wrap" />
+          <TextBlock x:Name="LineWidthDescription" Classes="settings-description" TextWrapping="Wrap" />
+          <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="6">
+            <rendering:Switch x:Name="LineWidthBounded" Label="Limit lines to this width" ToolTip.Tip="Limit lines to this width" VerticalAlignment="Center" />
+            <TextBlock Text="Limit lines to" Classes="settings-description" VerticalAlignment="Center" />
+            <TextBox x:Name="LineWidthInput" Width="72" VerticalAlignment="Center" />
+            <TextBlock Text="symbols" Classes="settings-description" VerticalAlignment="Center" />
+          </WrapPanel>
+        </StackPanel>
       </Border>
     </DataTemplate>
     <DataTemplate x:Key="LayoutPage">

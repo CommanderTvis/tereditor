@@ -86,12 +86,12 @@ public sealed partial class ScintillaEditor : Control, IDisposable
         // Two fingers size the text of every editor, as they size a page elsewhere on a touch screen.
         GestureRecognizers.Add(new PinchGestureRecognizer());
         var pinched = 0d;
-        AddHandler(PinchEvent, (_, e) => { if (pinched == 0) pinched = TextSize; tapping = false; TextSize = pinched * e.Scale; e.Handled = true; });
+        AddHandler(PinchEvent, (_, e) => { if (!ZoomGestures) { e.Handled = true; return; } if (pinched == 0) pinched = TextSize; tapping = false; TextSize = pinched * e.Scale; e.Handled = true; });
         AddHandler(PinchEndedEvent, (_, _) => { if (pinched == 0) return; pinched = 0; TextSizeChosen?.Invoke(); });
         // A trackpad pinch (macOS magnify) sizes them too, and claims the gesture so the window's page zoom stays put.
         magnifyEnd = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         magnifyEnd.Tick += (_, _) => EndMagnify();
-        AddHandler(PointerTouchPadGestureMagnifyEvent, (_, e) => { Magnify(e.Delta.X); e.Handled = true; });
+        AddHandler(PointerTouchPadGestureMagnifyEvent, (_, e) => { if (ZoomGestures) Magnify(e.Delta.X); e.Handled = true; });
         timer = new DispatcherTimer(TimeSpan.FromMilliseconds(500), DispatcherPriority.Background, (_, _) =>
         { if (IsFocused && !disposed) { document.Tick(); InvalidateVisual(); } });
         timer.Stop();
@@ -182,6 +182,9 @@ public sealed partial class ScintillaEditor : Control, IDisposable
 
     /// <summary>Wraps lines at the pane's edge even without a wrap width, where sideways scrolling is a chore.</summary>
     public static bool WrapAlways { get; set; }
+
+    /// <summary>Whether a pinch or Ctrl/Cmd with the wheel sizes the text. Off, the editor claims those gestures and ignores them, so the page does not zoom either; plain scrolling is unaffected.</summary>
+    public static bool ZoomGestures { get; set; } = true;
 
     /// <summary>
     /// Text column width before lines wrap, at <see cref="DefaultTextSize"/>, like the reference's bounded file

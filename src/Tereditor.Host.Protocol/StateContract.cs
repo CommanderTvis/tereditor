@@ -77,6 +77,8 @@ public sealed class SettingsMessage
     [ProtoMember(39)] public string TerminalHiddenChips { get; set; } = "";
     /// <summary>Optional: absent, from a host that predates the setting (protocol 25), means the client keeps its own profile value.</summary>
     [ProtoMember(40)] public bool? GroupWorkspacesUnderCreator { get; set; }
+    /// <summary>Inverted so a host that predates the setting reads as zooming, its default.</summary>
+    [ProtoMember(41)] public bool EditorZoomGesturesOff { get; set; }
 }
 
 [ProtoContract]

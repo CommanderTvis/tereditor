@@ -223,9 +223,12 @@ could not save this change: …” inline and re-renders from host state.
   workspace root (`indent_style`, `indent_size`, `tab_width`; `root = true` stops), then the file's own clear
   indentation, then these settings. Font and line height reach every file editor, diff and Markdown source live;
   indentation applies to file editors; terminals keep their own font. Show-whitespace is not offered. The
-  wrapping rows are two compact `settings-row` rows, File and Markdown, each on
-  one line: name with a muted detail, a 40–240 integer field with a `symbols` suffix, and a `Limit lines` switch,
-  in columns that line up across the rows. The field commits on Enter or focus loss (no Save button); an invalid
+  "Zoom the editor with pinch or Ctrl/Cmd + wheel" checkbox (default on, host-shared, live in every editor) decides whether a trackpad or touch
+  pinch and Ctrl/Cmd with the wheel change the text size. Off, the editor still claims those gestures and ignores them, so the
+  window's page zoom does not change either; plain and two-finger scrolling and the keyboard zoom shortcuts are untouched. The
+  wrapping rows are two compact `settings-row` rows, File and Markdown. Each has a wrapping name and muted detail, then a
+  wrapping line of controls in a stable order: the `Limit lines` switch, then a `Limit lines to` 40–240 integer field with a
+  `symbols` suffix. The field is disabled while the switch is off. No label is truncated at a narrow width. The field commits on Enter or focus loss (no Save button); an invalid
   draft is marked and reverts on focus loss, Escape reverts it. Defaults are 120 and 78, bounded.
   Invalid drafts stay local with a range error; Escape restores the host value; Enter saves when valid. A
   broadcast updates an untouched field and the switch in place, but keeps an edited draft.
