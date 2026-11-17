@@ -202,7 +202,17 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
     {
         lock (gate)
         {
-            if (!folder.Apply(update)) log("The agent sent an update this host does not fold: " + AcpFolder.Str(update, "sessionUpdate"));
+            // One chat is one session; an update for another (a child session only a version 2 agent announces) is not this conversation.
+            if (sessionId is not null && session.Length > 0 && session != sessionId) { log("An update for another session was left out: " + session); return; }
+            // A payload that is not shaped as the protocol says must not cost the chat the updates after it.
+            try
+            {
+                if (!folder.Apply(update)) log("The agent sent an update this host does not fold: " + AcpFolder.Str(update, "sessionUpdate"));
+            }
+            catch (Exception error) when (error is InvalidOperationException or FormatException or System.Text.Json.JsonException)
+            {
+                log("The agent sent an update this host could not read (" + AcpFolder.Str(update, "sessionUpdate") + "): " + error.Message);
+            }
             ScheduleFlush();
         }
     }
@@ -301,6 +311,7 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
         lock (gate)
         {
             folder.CloseStreaming();
+            if (failure is not null || stop is "cancelled" or "refusal") folder.SettleOpenTools();
             if (failure is not null) folder.Notice(ChatNoticeLevel.Error, "The turn failed: " + failure, ChatNoticeKinds.Failure, true);
             else if (stop == "refusal") folder.Notice(ChatNoticeLevel.Error, "The agent refused to continue.", ChatNoticeKinds.Failure, false);
             else if (stop == "cancelled") folder.Notice(ChatNoticeLevel.Info, "Interrupted", ChatNoticeKinds.Interrupt);

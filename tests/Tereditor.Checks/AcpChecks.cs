@@ -346,6 +346,40 @@ internal static class AcpChecks
         Require(future.Header is { Status: ChatStatus.Failed, Error: { } reason } && reason.Contains("version 2", StringComparison.Ordinal), "A protocol mismatch fails the chat and says which version the agent speaks.");
     }
 
+    // The updates of every kind fold into the chat: commands lose a leading slash, a subagent's traffic hangs from its Task call, and a cancelled turn leaves no call running.
+    internal static void Folding()
+    {
+        var folder = new AcpFolder();
+        static JsonObject Json(string text) => (JsonObject)JsonNode.Parse(text)!;
+        folder.Apply(Json("""{"sessionUpdate":"available_commands_update","availableCommands":[{"name":"/web","description":"Search","input":{"hint":"query"}},{"name":"test","description":"Run tests"},{"name":""}]}"""));
+        Require(folder.Header.Commands.Count == 2 && folder.Header.Commands[0] is { Name: "web", ArgumentHint: "query", Description: "Search" } && folder.Header.Commands[1].Name == "test", "Commands list by name with the hint and description, the slash is not part of the name.");
+        folder.Apply(Json("""{"sessionUpdate":"available_commands_update","availableCommands":[{"name":"plan"}]}"""));
+        Require(folder.Header.Commands.Count == 1 && folder.Header.Commands[0].Name == "plan", "A new list replaces the old one.");
+
+        folder.Apply(Json("""{"sessionUpdate":"tool_call","toolCallId":"c1","title":"Investigate tests","kind":"other","status":"in_progress","rawInput":{"description":"Investigate tests","prompt":"Find why"},"_meta":{"claudeCode":{"toolName":"Task"}}}"""));
+        folder.Apply(Json("""{"sessionUpdate":"tool_call","toolCallId":"c2","title":"Read a.txt","kind":"read","status":"in_progress","_meta":{"claudeCode":{"toolName":"Read","parentToolUseId":"c1"}}}"""));
+        folder.Apply(Json("""{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Looking"},"_meta":{"claudeCode":{"parentToolUseId":"c1"}}}"""));
+        folder.Apply(Json("""{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Main"}}"""));
+        folder.Apply(Json("""{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":" words"}}"""));
+        folder.Apply(Json("""{"sessionUpdate":"plan","entries":[{"content":"Check","status":"pending","priority":"high"}],"_meta":{"claudeCode":{"parentToolUseId":"c1"}}}"""));
+        folder.Apply(Json("""{"sessionUpdate":"plan","entries":[{"content":"Main","status":"pending","priority":"high"}]}"""));
+        var task = folder.Items.OfType<ChatToolItem>().Single(tool => tool.Id == "tc1");
+        Require(task is { Name: "Task", Summary: "Investigate tests", ParentId: null, State: ChatToolState.Running }, "A Task call keeps the Task name, takes its title as the summary and is no child.");
+        Require(folder.Items.OfType<ChatToolItem>().Single(tool => tool.Id == "tc2").ParentId == "tc1", "A call stamped with a parent hangs from the Task call.");
+        Require(folder.Items.OfType<ChatAssistantItem>().Where(item => item.ParentId == "tc1").Select(item => item.Text).Count() == 2 && folder.Items.OfType<ChatAssistantItem>().Any(item => item.Id == "plan:tc1" && item.ParentId == "tc1"), "A subagent's message and checklist are its own items.");
+        Require(folder.Items.OfType<ChatAssistantItem>().Single(item => item.Id.StartsWith('a') && item.ParentId is null).Text == "Main words", "The parent's chunks join into one message.");
+        Require(folder.Items.OfType<ChatAssistantItem>().Single(item => item.Id == "plan").Text.Contains("Main", StringComparison.Ordinal), "A subagent's plan does not replace the parent's.");
+        folder.Apply(Json("""{"sessionUpdate":"tool_call_update","toolCallId":"c1","status":"completed","content":[{"type":"content","content":{"type":"text","text":"Report"}}]}"""));
+        task = folder.Items.OfType<ChatToolItem>().Single(tool => tool.Id == "tc1");
+        Require(task is { Name: "Task", State: ChatToolState.Done, Output: "Report" }, "An update without a title keeps the Task name; its result is the output.");
+        folder.SettleOpenTools();
+        Require(folder.Items.OfType<ChatToolItem>().Single(tool => tool.Id == "tc2").State == ChatToolState.Failed && folder.Items.OfType<ChatToolItem>().Single(tool => tool.Id == "tc1").State == ChatToolState.Done, "A turn that ends leaves no call running and keeps the finished ones.");
+
+        folder.Apply(Json("""{"sessionUpdate":"usage_update","used":53000,"size":200000.0,"cost":{"amount":0.5,"currency":"USD"}}"""));
+        Require(folder.Header.Usage is { ContextTokens: 53000, ContextWindow: 200000, CostUsd: 0.5 }, "Usage reads integers and fractions.");
+        Require(!folder.Apply(Json("""{"sessionUpdate":"something_new"}""")), "An unknown kind is reported as not folded and costs nothing.");
+    }
+
     // What the agent receives for the editor's selection, a preview's selection, picked files and folders, images and the editor's context.
     internal static async Task Prompts(string root)
     {
@@ -1305,6 +1339,7 @@ internal static class AcpChecks
         await Protocol();
         phase = "Session";
         await Session();
+        Folding();
         Directory.CreateDirectory(root);
         phase = "Prompts";
         await Prompts(Path.Combine(root, "prompts"));

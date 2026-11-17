@@ -87,6 +87,15 @@ internal sealed class AcpFolder
         Put(new ChatNoticeItem("n" + ++counter, Next(), level, text) { Category = category, Retryable = retryable, Action = action });
     }
 
+    /// <summary>
+    /// The turn is over and these calls never reported an end (a cancelled turn, a failed one): they stop showing as running, a subagent's included.
+    /// </summary>
+    public void SettleOpenTools()
+    {
+        foreach (var tool in items.OfType<ChatToolItem>().Where(tool => tool.State is ChatToolState.Pending or ChatToolState.Running).ToList())
+            Put(tool with { State = ChatToolState.Failed });
+    }
+
     /// <summary>Ends the growing message or thought so the next chunk starts a new item.</summary>
     public void CloseStreaming()
     {
@@ -136,8 +145,9 @@ internal sealed class AcpFolder
             case "available_commands_update":
                 Update(header => header with
                 {
-                    Commands = [.. (update["availableCommands"] as JsonArray ?? []).OfType<JsonObject>().Select(command =>
-                        new ChatCommand(Str(command, "name"), Str(command, "description") is { Length: > 0 } text ? text : null) { ArgumentHint = Str(command["input"], "hint") is { Length: > 0 } hint ? hint : null })]
+                    // The composer adds the slash itself; an agent that sends "/web" must not list "//web". A nameless entry cannot be run.
+                    Commands = [.. (update["availableCommands"] as JsonArray ?? []).OfType<JsonObject>().Select(command => (Name: Str(command, "name").TrimStart('/'), Command: command)).Where(entry => entry.Name.Length > 0).Select(entry =>
+                        new ChatCommand(entry.Name, Str(entry.Command, "description") is { Length: > 0 } text ? text : null) { ArgumentHint = Str(entry.Command["input"], "hint") is { Length: > 0 } hint ? hint : null })]
                 });
                 return true;
             case "current_mode_update":
@@ -154,9 +164,9 @@ internal sealed class AcpFolder
                 {
                     Usage = header.Usage with
                     {
-                        ContextTokens = update["used"]?.GetValue<long>() ?? header.Usage.ContextTokens,
-                        ContextWindow = update["size"]?.GetValue<long>() ?? header.Usage.ContextWindow,
-                        CostUsd = update["cost"] is JsonObject { } cost && cost["amount"] is { } amount ? amount.GetValue<double>() : header.Usage.CostUsd
+                        ContextTokens = Number(update["used"]) is { } used ? (long)used : header.Usage.ContextTokens,
+                        ContextWindow = Number(update["size"]) is { } size ? (long)size : header.Usage.ContextWindow,
+                        CostUsd = update["cost"] is JsonObject { } cost && Number(cost["amount"]) is { } amount ? amount : header.Usage.CostUsd
                     }
                 });
                 return true;
@@ -164,6 +174,18 @@ internal sealed class AcpFolder
                 return false;
         }
     }
+
+    /// <summary>A JSON number as a double, whether the agent wrote it as an integer or with a fraction; null for anything else.</summary>
+    private static double? Number(JsonNode? node) => node is JsonValue value && value.TryGetValue<double>(out var number) ? number : null;
+
+    /// <summary>
+    /// The subagent call an update happened inside. ACP version 1 has no subagent record; Claude Code's adapter stamps every update of a subagent
+    /// with <c>_meta.claudeCode.parentToolUseId</c>, the id of the Task or Agent tool call. The item id of that call is "t" + the id.
+    /// </summary>
+    private static string? ParentOf(JsonObject update) =>
+        Str((update["_meta"] as JsonObject)?["claudeCode"], "parentToolUseId") is { Length: > 0 } parent ? "t" + parent : null;
+
+    private static bool StartsSubagent(string? name) => name is "Task" or "Agent";
 
     private void Chunk(JsonObject update, bool user = false, bool thought = false)
     {
@@ -176,14 +198,16 @@ internal sealed class AcpFolder
             streaming = item.Id;
             return;
         }
+        var parent = ParentOf(update);
         if (streaming is { } id)
         {
-            if (!thought && Get<ChatAssistantItem>(id) is { } message) { Put(message with { Text = message.Text + text }); return; }
-            if (thought && Get<ChatThinkingItem>(id) is { } thinking) { Put(thinking with { Text = thinking.Text + text }); return; }
+            // A subagent's words and its parent's can interleave; a chunk only grows the item of its own thread.
+            if (!thought && Get<ChatAssistantItem>(id) is { } message && message.ParentId == parent) { Put(message with { Text = message.Text + text }); return; }
+            if (thought && Get<ChatThinkingItem>(id) is { } thinking && thinking.ParentId == parent) { Put(thinking with { Text = thinking.Text + text }); return; }
         }
         CloseStreaming();
         var next = "a" + ++counter;
-        Put(thought ? new ChatThinkingItem(next, Next(), text) { Streaming = true } : new ChatAssistantItem(next, Next(), text) { Streaming = true });
+        Put(thought ? new ChatThinkingItem(next, Next(), text) { Streaming = true, ParentId = parent } : new ChatAssistantItem(next, Next(), text) { Streaming = true, ParentId = parent });
         streaming = next;
     }
 
@@ -193,8 +217,11 @@ internal sealed class AcpFolder
         var text = new StringBuilder("**Plan**\n\n");
         foreach (var entry in (update["entries"] as JsonArray ?? []).OfType<JsonObject>())
             text.Append(Str(entry, "status") switch { "completed" => "- [x] ", "in_progress" => "- [~] ", _ => "- [ ] " }).AppendLine(Str(entry, "content"));
-        var existing = Get<ChatAssistantItem>("plan");
-        Put(existing is null ? new ChatAssistantItem("plan", Next(), text.ToString()) : existing with { Text = text.ToString() });
+        // A subagent's checklist is its own item inside its thread, so it never replaces the parent's plan.
+        var parent = ParentOf(update);
+        var planId = parent is null ? "plan" : "plan:" + parent;
+        var existing = Get<ChatAssistantItem>(planId);
+        Put(existing is null ? new ChatAssistantItem(planId, Next(), text.ToString()) { ParentId = parent } : existing with { Text = text.ToString() });
     }
 
     private static ChatToolState StateOf(string status) => status switch
@@ -211,7 +238,10 @@ internal sealed class AcpFolder
         var callId = Str(update, "toolCallId");
         var id = "t" + callId;
         var existing = Get<ChatToolItem>(id);
-        var name = Str(update, "title") is { Length: > 0 } title ? title : existing?.Name ?? (Str(update, "kind") is { Length: > 0 } kind ? kind : "Tool");
+        var meta = (update["_meta"] as JsonObject)?["claudeCode"];
+        // The adapter names the tool in its meta. A subagent call keeps that name (the view nests and opens its thread by it) and its title is the summary.
+        var subagent = StartsSubagent(Str(meta, "toolName")) ? Str(meta, "toolName") : StartsSubagent(existing?.Name) ? existing!.Name : null;
+        var name = subagent ?? (Str(update, "title") is { Length: > 0 } title ? title : existing?.Name ?? (Str(update, "kind") is { Length: > 0 } kind ? kind : "Tool"));
         var state = update.ContainsKey("status") ? StateOf(Str(update, "status")) : existing?.State ?? ChatToolState.Pending;
         var path = (update["locations"] as JsonArray)?.OfType<JsonObject>().Select(location => Str(location, "path")).FirstOrDefault(p => p.Length > 0) ?? existing?.FilePath;
         string? output = existing?.Output;
@@ -237,8 +267,8 @@ internal sealed class AcpFolder
         var input = update["rawInput"] is { } raw ? AcpLocalJson.Input(raw) : existing?.Input ?? AcpLocalJson.Input(null);
         var truncated = output is { } o && o.Length > ChatContract.OutputLimit;
         if (truncated) full[id] = output!;
-        var summary = existing?.Summary ?? (path is { Length: > 0 } ? path : null);
-        Put(new ChatToolItem(id, existing?.Seq ?? Next(), name, input, state) { Summary = summary, Output = truncated ? output![..ChatContract.OutputLimit] : output, OutputTruncated = truncated, FilePath = path });
+        var summary = existing?.Summary ?? (subagent is not null && Str(update, "title") is { Length: > 0 } described ? described : path is { Length: > 0 } ? path : null);
+        Put(new ChatToolItem(id, existing?.Seq ?? Next(), name, input, state) { ParentId = ParentOf(update) ?? existing?.ParentId, Summary = summary, Output = truncated ? output![..ChatContract.OutputLimit] : output, OutputTruncated = truncated, FilePath = path });
     }
 
     /// <summary>The id of the config option that sets the model, or null when the agent lists its models through <c>models</c> (set by <c>session/set_model</c>).</summary>

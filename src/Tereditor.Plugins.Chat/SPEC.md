@@ -137,7 +137,7 @@ An ACP agent needs no view change: its plugin supplies a `ChatAgent` and a host 
 | `agent_message_chunk` | a `ChatAssistantItem` with `Streaming` growing in place by id, then final |
 | `agent_thought_chunk` | `ChatThinkingItem` |
 | `user_message_chunk` (replay on load) | `ChatUserItem` |
-| `tool_call` / `tool_call_update` | `ChatToolItem` keyed by `toolCallId`: `kind` and `title` give `Name` and `Summary`, `status` maps to `ChatToolState`, content and locations to `Output` and `FilePath`; `ParentId` nests nothing unless the agent reports a parent |
+| `tool_call` / `tool_call_update` | `ChatToolItem` keyed by `toolCallId`: `kind` and `title` give `Name` and `Summary`, `status` maps to `ChatToolState`, content and locations to `Output` and `FilePath`; `ParentId` comes from Claude Code's adapter meta (`_meta.claudeCode.parentToolUseId`; see the ACP plugin spec) and is null otherwise |
 | `session/request_permission` | `ChatPermissionItem` (options become the answers, `RequestId` the JSON-RPC id), answered with `Answer`; the call stays open until answered |
 | `plan` | an assistant item or a notice; the contract has no plan record |
 | `available_commands_update` | `ChatHeader.Commands` |

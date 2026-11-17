@@ -41,7 +41,19 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 - Updates folded by `AcpFolder`: `user_message_chunk`, `agent_message_chunk` and `agent_thought_chunk` (grow one item until another kind of update
   arrives), `tool_call` and `tool_call_update` (keyed by `toolCallId`; text content, diffs as `-`/`+` lines with the file path for the card,
   terminal references), `plan` (one assistant item replaced in place, entries as a checklist), `available_commands_update` (slash menu),
-  `current_mode_update`, `config_option_update`, `session_info_update` (title), `usage_update` (context size and cost).
+  `current_mode_update`, `config_option_update`, `session_info_update` (title), `usage_update` (context size and cost). An unknown kind is
+  logged and skipped; a payload that does not read as the protocol says is logged and costs the chat nothing else. An update whose session id is not
+  the chat's own is left out.
+- Slash commands (spec: Slash Commands, version 1): `available_commands_update` replaces the list in the header (name without a leading slash,
+  description, `input.hint` as the argument hint), and the composer's "/" menu shows it. A chosen command is sent as the text of the first
+  `text` block of the next `session/prompt` ("/web query"), before any other block; the agent recognizes it. Nothing is sent as a separate method.
+- Subagents: ACP version 1 has no subagent record (the `subagent_update` of version 2 is not spoken; the client negotiates version 1 only).
+  The one convention folded is Claude Code's adapter: every update of a subagent carries `_meta.claudeCode.parentToolUseId`, the id of its Task
+  (or Agent) call, and a tool call carries `_meta.claudeCode.toolName`. A call named Task or Agent keeps that name (its title is the summary), so
+  the shared chat view draws an Agent card that opens the subagent's thread; every message, thought, tool call and checklist stamped with the parent
+  becomes an item with `ParentId` of that call and is shown only in the thread. The card's state is the call's status and its result the call's
+  output. A permission request is never nested, so it stays visible in the main list. A turn that is cancelled, refused or fails settles the calls
+  still running as failed. Other adapters report no parent, so their subagent work stays a flat list of calls.
 - Stop reasons: `end_turn` is Idle; `cancelled` adds an interrupt marker; `refusal` and errors add a failure notice; `max_tokens` and
   `max_turn_requests` add a warning.
 - Permissions: `session/request_permission` becomes a permission card with the agent's own title; the call stays open until the user answers.
