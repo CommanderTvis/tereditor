@@ -621,6 +621,44 @@ internal static class AcpChecks
         Require(refused is not null, "A terminal cannot start outside the workspace.");
         try { await methods.HandleAsync("session/unknown", new JsonObject(), CancellationToken.None); refused = null; } catch (AcpException error) { refused = error; }
         Require(refused is { Code: AcpException.MethodNotFound }, "An unknown client method is answered as not found.");
+
+        // An unsaved editor buffer is what a read sees, with line and limit applied to it; other files come from disk.
+        var edited = new AcpClientMethods(workspace, (path, _) => Task.FromResult<string?>(path == Path.GetFullPath(Path.Combine(workspace, "a.txt")) ? "x\ny\nz" : null));
+        Require((await edited.HandleAsync("fs/read_text_file", new JsonObject { ["path"] = "a.txt" }, CancellationToken.None))!["content"]!.GetValue<string>() == "x\ny\nz", "A read returns the unsaved buffer instead of the disk text.");
+        Require((await edited.HandleAsync("fs/read_text_file", new JsonObject { ["path"] = "a.txt", ["line"] = 2, ["limit"] = 1 }, CancellationToken.None))!["content"]!.GetValue<string>() == "y", "line and limit apply to the unsaved buffer.");
+        Require((await edited.HandleAsync("fs/read_text_file", new JsonObject { ["path"] = "new/b.txt" }, CancellationToken.None))!["content"]!.GetValue<string>() == "written", "A file without an unsaved buffer is read from disk.");
+
+        // Sensitive files: the sensitive-path list, and a write there needs the user's yes.
+        Require(new[] { ".git/hooks/pre-commit", ".claude/settings.json", "pkg/.vscode/tasks.json", ".mcp.json", ".ZSHRC", ".config/fish/config.fish", ".tereditor\\workspace.toml" }.All(path => AcpSensitivePaths.Reason(path) is not null)
+            && new[] { "src/a.cs", ".github/workflows/ci.yml", ".gitignore", "docs/hooks/readme.md" }.All(path => AcpSensitivePaths.Reason(path) is null), "Execution and approval files are on the sensitive list; ordinary files are not.");
+        var asked = new List<string>();
+        var answer = false;
+        var guarded = new AcpClientMethods(workspace, null, (path, why, before, after, _) => { asked.Add(path + "|" + before + "|" + after); return Task.FromResult(answer); });
+        async Task<AcpException?> Write(AcpClientMethods target, string path, string content, string? sessionId = null)
+        {
+            var parameters = new JsonObject { ["path"] = path, ["content"] = content };
+            if (sessionId is not null) parameters["sessionId"] = sessionId;
+            try { await target.HandleAsync("fs/write_text_file", parameters, CancellationToken.None); return null; } catch (AcpException error) { return error; }
+        }
+        Require(await Write(guarded, ".git/hooks/pre-commit", "#!/bin/sh") is { } denied && denied.Message.Contains("did not allow", StringComparison.Ordinal) && !File.Exists(Path.Combine(workspace, ".git", "hooks", "pre-commit")) && asked.Count == 1, "A denied write to a Git hook is refused with a clear error and writes nothing.");
+        Require(await Write(new AcpClientMethods(workspace), ".mcp.json", "{}") is not null && !File.Exists(Path.Combine(workspace, ".mcp.json")), "Without a way to ask, a sensitive write is refused.");
+        answer = true;
+        Require(await Write(guarded, ".claude/settings.json", "{}") is null && File.ReadAllText(Path.Combine(workspace, ".claude", "settings.json")) == "{}", "An allowed write to a sensitive file goes through.");
+        Require(await Write(guarded, "plain.txt", "p") is null && asked.Count == 2, "A write to an ordinary file does not ask.");
+        Require(asked[0] == ".git/hooks/pre-commit||#!/bin/sh".Replace('/', Path.DirectorySeparatorChar), "The question carries the path, the old text (none for a new file) and the new text.");
+
+        // The sessionId param picks that session's roots at the time of use.
+        var sessions = new AcpClientMethods(workspace, null, null, id => id == "s1" ? [workspace] : id == "s2" ? [outside] : null);
+        Require(await Write(sessions, "k.txt", "k", "s1") is null && File.Exists(Path.Combine(workspace, "k.txt")), "A known session writes inside its root.");
+        Require(await Write(sessions, "k2.txt", "k", "s2") is null && File.Exists(Path.Combine(outside, "k2.txt")), "A session's own root is the one a relative path is taken against.");
+        Require(await Write(sessions, Path.Combine(workspace, "k3.txt"), "k", "s2") is { } leaving && leaving.Message.Contains("outside", StringComparison.Ordinal), "A session cannot reach a root that is not its own.");
+        Require(await Write(sessions, "k4.txt", "k", "nope") is { } unknown && unknown.Message.Contains("Unknown session", StringComparison.Ordinal), "An unknown session is refused.");
+
+        // The question appears on the chat's permission card and the user's answer settles it.
+        var card = session.AskAsync(".git/hooks/pre-commit", "Git hooks run commands on Git actions.", null, "#!/bin/sh", CancellationToken.None);
+        await Until(() => Items(session).OfType<ChatPermissionItem>().Any(item => item.Decision == ChatPermissionDecision.Pending && item.Diffs.Count == 1), "The question is a permission card with the change as a diff.");
+        session.Answer(Items(session).OfType<ChatPermissionItem>().Last().RequestId, false, false);
+        Require(!await card, "Denying the card answers no.");
     }
 
     private static string FixtureText() => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "acp-registry.json"));

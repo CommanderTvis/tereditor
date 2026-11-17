@@ -370,6 +370,7 @@ Tereditor.Plugins.Api.UI.IPluginEditors.OnEvent(System.Action<Tereditor.Plugins.
 Tereditor.Plugins.Api.UI.IPluginEditors.OpenAsync(string! workspaceId, string! path, Tereditor.Plugins.Api.UI.EditorOpenOptions? options = null) -> System.Threading.Tasks.ValueTask<Tereditor.Plugins.Api.UI.EditorRef?>
 Tereditor.Plugins.Api.UI.IPluginEditors.ReportSelection(Tereditor.Plugins.Api.UI.EditorRef! editor, Tereditor.Plugins.Api.UI.EditorSelection? selection) -> void
 Tereditor.Plugins.Api.UI.IPluginEditors.SaveAsync(string! id) -> System.Threading.Tasks.ValueTask
+Tereditor.Plugins.Api.UI.IPluginEditors.UnsavedText(string! id) -> string?
 Tereditor.Plugins.Api.UI.IPluginPreference
 Tereditor.Plugins.Api.UI.IPluginPreference.Get() -> string?
 Tereditor.Plugins.Api.UI.IPluginPreference.Remove() -> void

@@ -9,7 +9,11 @@ namespace Tereditor.Plugins.Acp.Host;
 /// The client methods an ACP agent calls: file reads and writes and terminals. The agent is untrusted, so every path and every
 /// working directory is confined to the workspace root: it is resolved (symbolic links included) and refused when it leaves the root.
 /// </summary>
-internal sealed class AcpClientMethods(string root) : IAcpClientMethods, IDisposable
+/// <param name="root">The workspace root, the one root of every session unless <paramref name="rootsOf"/> says otherwise.</param>
+/// <param name="unsaved">Gives the unsaved editor text of a file (its absolute path), or null; a read answers with it instead of the disk text.</param>
+/// <param name="ask">Asks the user before a write to a sensitive file (see <see cref="AcpSensitivePaths"/>): the path, why, the old text and the new text. Without it such a write is refused.</param>
+/// <param name="rootsOf">The roots of a session by its id, or null for a session this client does not know. Without it every session has the workspace root.</param>
+internal sealed class AcpClientMethods(string root, Func<string, CancellationToken, Task<string?>>? unsaved = null, Func<string, string, string?, string, CancellationToken, Task<bool>>? ask = null, Func<string, IReadOnlyList<string>?>? rootsOf = null) : IAcpClientMethods, IDisposable
 {
     public const int DefaultOutputLimit = 1_000_000;
     private const int MaxReadBytes = 8 * 1024 * 1024;
@@ -45,14 +49,26 @@ internal sealed class AcpClientMethods(string root) : IAcpClientMethods, IDispos
     }
 
     /// <summary>The absolute path inside the workspace, or an invalid-params error; a relative path is taken against the root.</summary>
-    internal string Confine(string? path)
+    internal string Confine(string? path, IReadOnlyList<string>? roots = null)
     {
         if (string.IsNullOrEmpty(path)) throw new AcpException(AcpException.InvalidParams, "A path is required.");
-        var resolved = Resolve(Path.IsPathRooted(path) ? path : Path.Combine(root, path));
-        var relative = Path.GetRelativePath(root, resolved);
-        if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
+        var resolved = Resolve(Path.IsPathRooted(path) ? path : Path.Combine(roots?[0] ?? root, path));
+        if (!(roots ?? [root]).Any(candidate => Inside(candidate, resolved)))
             throw new AcpException(AcpException.InvalidParams, "That path is outside the workspace.");
         return resolved;
+    }
+
+    private static bool Inside(string folder, string resolved)
+    {
+        var relative = Path.GetRelativePath(folder, resolved);
+        return !(relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative));
+    }
+
+    /// <summary>The roots the call may touch: those of the session it names (checked now, at the time of use), else the workspace root.</summary>
+    private IReadOnlyList<string> RootsOf(JsonObject parameters)
+    {
+        if (rootsOf is null || parameters["sessionId"] is not JsonValue value || !value.TryGetValue<string>(out var session)) return [root];
+        return rootsOf(session)?.Select(folder => Resolve(Path.GetFullPath(folder))).ToArray() is { Length: > 0 } roots ? roots : throw new AcpException(AcpException.InvalidParams, "Unknown session.");
     }
 
     public async Task<JsonNode?> HandleAsync(string method, JsonObject parameters, CancellationToken cancellationToken)
@@ -62,9 +78,18 @@ internal sealed class AcpClientMethods(string root) : IAcpClientMethods, IDispos
             case "fs/read_text_file": return await ReadAsync(parameters, cancellationToken);
             case "fs/write_text_file":
                 {
-                    var path = Confine(AcpFolder.Str(parameters, "path"));
+                    var roots = RootsOf(parameters);
+                    var path = Confine(AcpFolder.Str(parameters, "path"), roots);
+                    var content = AcpFolder.Str(parameters, "content");
+                    var relative = Path.GetRelativePath(roots.First(candidate => Inside(candidate, path)), path);
+                    if (AcpSensitivePaths.Reason(relative) is { } why)
+                    {
+                        var before = File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken) : null;
+                        if (ask is null || !await ask(relative, why, before, content, cancellationToken))
+                            throw new AcpException(AcpException.InvalidParams, $"The user did not allow a write to {relative}. {why}");
+                    }
                     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                    await File.WriteAllTextAsync(path, AcpFolder.Str(parameters, "content"), new UTF8Encoding(false), cancellationToken);
+                    await File.WriteAllTextAsync(path, content, new UTF8Encoding(false), cancellationToken);
                     return new JsonObject();
                 }
             case "terminal/create": return Create(parameters);
@@ -96,11 +121,12 @@ internal sealed class AcpClientMethods(string root) : IAcpClientMethods, IDispos
 
     private async Task<JsonNode?> ReadAsync(JsonObject parameters, CancellationToken cancellationToken)
     {
-        var path = Confine(AcpFolder.Str(parameters, "path"));
+        var path = Confine(AcpFolder.Str(parameters, "path"), RootsOf(parameters));
         var info = new FileInfo(path);
         if (!info.Exists) throw new AcpException(-32002, "No such file: " + Path.GetRelativePath(root, path));
         if (info.Length > MaxReadBytes) throw new AcpException(AcpException.InvalidParams, "The file is larger than 8 MB.");
-        var text = await File.ReadAllTextAsync(path, cancellationToken);
+        // What the editor holds unsaved is what the user sees, so the agent reads that.
+        var text = (unsaved is null ? null : await unsaved(path, cancellationToken)) ?? await File.ReadAllTextAsync(path, cancellationToken);
         var line = parameters["line"]?.GetValue<int>();
         var limit = parameters["limit"]?.GetValue<int>();
         if (line is not null || limit is not null)

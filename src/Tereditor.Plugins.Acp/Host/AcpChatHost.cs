@@ -23,6 +23,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
 
     private readonly ConcurrentDictionary<(string, string), AcpChatSession> sessions = new();
     private readonly Lock recordsGate = new();
+    private readonly AcpBuffers buffers = new(context);
 
     /// <summary>Where the registry copy and installed binaries live; ~/.tereditor/acp unless a check says otherwise.</summary>
     public string DataDirectory { get; init; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".tereditor", "acp");
@@ -275,7 +276,12 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
             if (ListAgents().Agents.FirstOrDefault(agent => agent.Id == p.AgentId) is { } chosen) _ = AgentIcons.EnsureAsync(chosen);
             return ValueTask.FromResult(new Ack());
         });
-        context.Method(ChatContract.Open, (p, _, _) => OpenAsync(p));
+        context.Method(ChatContract.Open, (p, call, _) => OpenAsync(p, call));
+        context.Method(AcpContract.BufferReply, (p, _, _) =>
+        {
+            buffers.Settle(p);
+            return ValueTask.FromResult(new Ack());
+        });
         context.Method(ChatContract.Snapshot, (p, _, _) => ValueTask.FromResult(sessions.TryGetValue((p.WorkspaceId, p.ChatId), out var session) ? session.Snapshot() : []));
         context.Method(ChatContract.Send, async (p, _, _) =>
         {
@@ -324,13 +330,19 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         await Task.WhenAll(all.Select(session => session.DisposeAsync().AsTask()));
     }
 
-    private async ValueTask<ChatHeader> OpenAsync(ChatOpenParams p)
+    private async ValueTask<ChatHeader> OpenAsync(ChatOpenParams p, PluginCall call)
     {
         if (sessions.TryGetValue((p.WorkspaceId, p.ChatId), out var existing) && existing.Active) return existing.Header;
         var cwd = (await context.WorkspaceAsync(p.WorkspaceId, CancellationToken.None))?.Path ?? p.WorkspaceId;
         var record = await Task.Run(() => LoadRecord(p.WorkspaceId, p.ChatId));
         var entry = ListAgents().Agents.FirstOrDefault(agent => agent.Id == record?.AgentId) ?? throw new InvalidOperationException("Choose an ACP agent for this chat first.");
-        var session = new AcpChatSession(p.WorkspaceId, p.ChatId, cwd, () => connect is null ? LaunchAsync(entry, cwd) : connect(entry, cwd), Publish, message => context.Log.Warn(message), new AcpClientMethods(cwd),
+        buffers.Client(p.WorkspaceId, call);
+        AcpChatSession? created = null;
+        var methods = new AcpClientMethods(cwd,
+            async (path, token) => await buffers.UnsavedAsync(p.WorkspaceId, Path.GetRelativePath(cwd, path).Replace('\\', '/'), token),
+            (path, why, before, after, token) => created is null ? Task.FromResult(false) : created.AskAsync(path, why, before, after, token),
+            id => created?.SessionId is { } own && own != id ? null : [cwd]);
+        var session = created = new AcpChatSession(p.WorkspaceId, p.ChatId, cwd, () => connect is null ? LaunchAsync(entry, cwd) : connect(entry, cwd), Publish, message => context.Log.Warn(message), methods,
             answer => answers[entry.Id] = answer, () => SignInAsync(entry.Id, CancellationToken.None), entry.DefaultMode, modes => RememberModes(entry.Id, modes),
             new AcpSessionLink(() => SetupFor(p.WorkspaceId, p.ChatId), support => RememberSupport(entry.Id, support)));
         sessions[(p.WorkspaceId, p.ChatId)] = session;

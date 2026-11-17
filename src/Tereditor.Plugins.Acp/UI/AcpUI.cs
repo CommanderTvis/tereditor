@@ -53,7 +53,22 @@ public sealed class AcpUI : PluginUIModule
             button.ContextMenu = menu;
             return button;
         }));
-        return () => selections.Dispose();
+        var buffers = context.Subscribe(AcpContract.Buffer, request => _ = AnswerBufferAsync(context, request));
+        return () => { selections.Dispose(); buffers.Dispose(); };
+    }
+
+    /// <summary>Answers the host's read of a file: the unsaved text of the editor that holds it, or nothing. Always replies.</summary>
+    private static async Task AnswerBufferAsync(IPluginUIContext context, AcpBufferRequest request)
+    {
+        string? text = null;
+        try
+        {
+            if (context.Editors.List(request.WorkspaceId).FirstOrDefault(editor => editor.Kind == EditorKind.File && editor.Path == request.Path) is { Dirty: true } editor)
+                text = context.Editors.UnsavedText(editor.Id);
+        }
+        catch (Exception error) when (error is not OperationCanceledException) { }
+        try { await context.RequestAsync(AcpContract.BufferReply, new AcpBufferReply(request.Id, text)); }
+        catch (Exception error) when (error is PluginCallException or InvalidOperationException) { }
     }
 
     /// <summary>Fills the right-click menu with every configured agent, the default marked, and a way to the settings. It shows the last list at once and refreshes while it opens.</summary>

@@ -462,6 +462,8 @@ internal sealed class PluginUIContext : IPluginUIContext
 
         public bool IsDirty(string id) => List().FirstOrDefault(editor => editor.Id == id)?.Dirty == true;
 
+        public string? UnsavedText(string id) => Workbench.Windows.Select(window => window.UnsavedText(id)).FirstOrDefault(text => text is not null);
+
         public async ValueTask SaveAsync(string id)
         {
             foreach (var window in Workbench.Windows) await window.SaveEditorAsync(id);

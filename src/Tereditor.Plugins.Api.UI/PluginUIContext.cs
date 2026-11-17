@@ -35,6 +35,11 @@ public interface IPluginEditors
     /// <returns>Whether it is dirty; <see langword="false"/> for an unknown id.</returns>
     bool IsDirty(string id);
 
+    /// <summary>The text an editor holds that is not saved yet.</summary>
+    /// <param name="id">The editor's id.</param>
+    /// <returns>The buffer text; <see langword="null"/> when the editor is unknown, is not a text editor or has no unsaved changes.</returns>
+    string? UnsavedText(string id);
+
     /// <summary>Saves an editor's contents through the host's compare-and-swap save.</summary>
     /// <param name="id">The editor's id.</param>
     /// <returns>Completes when saved.</returns>

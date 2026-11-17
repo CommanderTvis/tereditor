@@ -79,6 +79,12 @@ public sealed record AcpChatAgents(IReadOnlyDictionary<string, string> Agents);
 /// <summary>Asks for the icon of one registry agent whose chat just started; the host fetches it when the disk has none.</summary>
 public sealed record AcpAgentIconParams(string AgentId);
 
+/// <summary>Asks the editor for the unsaved text of a workspace file, so an agent's read sees what the user sees. Pushed to the client that opened the chat.</summary>
+public sealed record AcpBufferRequest(string Id, string WorkspaceId, string Path);
+
+/// <summary>The answer: the buffer text, or nothing when the file has no unsaved changes in an editor.</summary>
+public sealed record AcpBufferReply(string Id, string? Text);
+
 public static class AcpContract
 {
     public const int WireVersion = 1;
@@ -101,10 +107,14 @@ public static class AcpContract
     public static readonly PluginMethod<AcpChatAgentsParams, AcpChatAgents> ChatAgents = new("chatAgents");
     /// <summary>Where an agent's sign-in comes from: names and accounts the host detected, never a secret.</summary>
     public static readonly PluginMethod<AcpSignInParams, AcpSignInInfo> SignIn = new("signIn");
+    /// <summary>The editor's answer to a <see cref="Buffer"/> request.</summary>
+    public static readonly PluginMethod<AcpBufferReply, Ack> BufferReply = new("bufferReply");
+    /// <summary>The host asks the editor for the unsaved text of a file (workspace-relative path).</summary>
+    public static readonly PluginChannel<AcpBufferRequest> Buffer = PluginChannel<AcpBufferRequest>.Event("buffer");
 
     /// <summary>The chat contract is shared with the other chat plugins: ACP serves its methods and its updates channel.</summary>
     public static readonly PluginContract Contract = PluginContract.Create<AcpSettings>(AcpManifest.Id, WireVersion,
-        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, AgentIcon, ChatAgents, SignIn], [ChatContract.Updates],
+        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, AgentIcon, ChatAgents, SignIn, BufferReply], [ChatContract.Updates, Buffer],
         AcpJson.Default, ChatContract.Json);
 }
 
@@ -126,4 +136,6 @@ public static class AcpContract
 [JsonSerializable(typeof(AcpChatAgents))]
 [JsonSerializable(typeof(AcpSignInParams))]
 [JsonSerializable(typeof(AcpSignInInfo))]
+[JsonSerializable(typeof(AcpBufferRequest))]
+[JsonSerializable(typeof(AcpBufferReply))]
 internal sealed partial class AcpJson : JsonSerializerContext;

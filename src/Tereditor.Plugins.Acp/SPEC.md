@@ -67,6 +67,13 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   `terminal/wait_for_exit`, `terminal/kill`, `terminal/release`. Every path and every terminal working directory is resolved, symbolic links
   included, and refused when it leaves the workspace root. A terminal runs its command directly (no shell), merges stdout and stderr, cuts the
   front of its output at the agent's byte limit and is killed when released, when the chat closes or when the agent exits.
+- File system details: a call's `sessionId` picks that session's roots (the workspace folder), checked at the time of use; an unknown id is
+  refused. A read of a file that an editor holds with unsaved changes returns the buffer text (`line` and `limit` apply to it): the host pushes
+  `buffer` to the client that opened the chat, the UI half answers with `bufferReply` from `IPluginEditors.UnsavedText`, and no answer in two
+  seconds means the disk text. A write goes to disk; an open editor sees it as any external change (a clean buffer reloads, a dirty one shows the
+  changed-on-disk banner and is never replaced). A write to a file that controls execution or approval (`AcpSensitivePaths`: Git hooks and
+  config, `.claude`, `.codex`, `.vscode`, `.cursor`, `.idea`, `.tereditor`, `.mcp.json`, shell start-up files, `.envrc`) first asks on the chat's permission card
+  with the change as a diff; a denial answers the agent with an error. Relative paths stay accepted.
 - Process: `ProcessAcpTransport` starts the agent in the workspace directory (or the entry's directory) with the entry's environment added; closing
   stdin and then killing the process tree ends it. An exit shows the chat as Exited with the last stderr lines and a retryable failure notice;
   opening the chat again starts a new agent and resumes the stored session through `session/load` when the agent can.
@@ -160,9 +167,7 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 
 ## Not yet supported
 
-- Unsaved editor buffers: `fs/read_text_file` and `fs/write_text_file` read and write the files on disk (confined to the workspace); the host
-  half has no access to the editor's document model, so unsaved buffers are not seen and writes do not reach open editors as diffs. Tool
-  diffs are shown on the tool card as text.
+- Writes shown as a diff on the tool card: a write through `fs/write_text_file` has no tool call to attach to, so only a tool's own diff content is drawn; the write itself reaches an open editor through the file watcher.
 - The terminal service: agent terminals are plain child processes owned by the chat, not terminal tabs, and are not in the owned-process
   registry (that registry is keyed by a terminal tab).
 - `authenticate` for a method of type `agent`: the method is implemented in the client but nothing calls it; it is only listed. Terminal logins have a button.

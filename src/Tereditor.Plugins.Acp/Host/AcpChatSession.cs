@@ -249,6 +249,22 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
         return new JsonObject { ["outcome"] = chosen is null ? new JsonObject { ["outcome"] = "cancelled" } : new JsonObject { ["outcome"] = "selected", ["optionId"] = chosen } };
     }
 
+    /// <summary>Asks the user, on the chat's permission card with the change as a diff, before the client itself does something the agent did not ask permission for. True only when the user allowed it.</summary>
+    public async Task<bool> AskAsync(string path, string why, string? oldText, string newText, CancellationToken cancellationToken)
+    {
+        var toolCall = new JsonObject
+        {
+            ["title"] = "Allow a write to " + path + "? " + why,
+            ["kind"] = "edit",
+            ["content"] = new JsonArray(new JsonObject { ["type"] = "diff", ["path"] = path, ["oldText"] = oldText, ["newText"] = newText })
+        };
+        var options = new JsonArray(
+            new JsonObject { ["optionId"] = "allow", ["name"] = "Allow", ["kind"] = "allow_once" },
+            new JsonObject { ["optionId"] = "reject", ["name"] = "Deny", ["kind"] = "reject_once" });
+        var answer = await PermissionAsync(new JsonObject { ["toolCall"] = toolCall, ["options"] = options }, cancellationToken);
+        return answer?["outcome"]?["optionId"]?.GetValue<string>() == "allow";
+    }
+
     /// <summary>Resolves every waiting permission request as cancelled (the turn was cancelled or the agent ended).</summary>
     private void SettlePermissions(string? optionId)
     {

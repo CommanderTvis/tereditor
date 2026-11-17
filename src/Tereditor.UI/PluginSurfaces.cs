@@ -764,6 +764,8 @@ public sealed partial class WorkbenchWindow
             { Layout.Close(group.Id, tab.Id); return; }
     }
 
+    internal string? UnsavedText(string id) => Body<Tereditor.UI.Editor.CodeDocumentView>(id) is { HasPendingChanges: true } view ? view.Editor.Text : null;
+
     internal async Task SaveEditorAsync(string id)
     {
         if (EditableDocument(documentContent.GetValueOrDefault(id)) is { } view) await SaveEditorAsync(view);
