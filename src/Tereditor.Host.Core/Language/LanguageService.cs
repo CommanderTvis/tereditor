@@ -355,7 +355,13 @@ public sealed partial class LanguageService : IAsyncDisposable
                     link = (LanguageLinks.InTab is { } inTab ? await inTab(server.Id, workspace, deadline.Token) : null)
                         ?? throw new IOException($"{server.Id} cannot run in the Playground; only servers that run in a browser page can.");
                 var sessionDirectory = link is null ? servers.SessionDirectory(server, workspace) : null;
-                var start = link is null ? await servers.ProvisionAsync(server, workspace, deadline.Token, options, sessionDirectory!) : new ProcessStartInfo();
+                // The wait itself is bounded: a provider that ignores its token must not leave the row installing for ever.
+                ProcessStartInfo start;
+                try { start = link is null ? await servers.ProvisionAsync(server, workspace, deadline.Token, options, sessionDirectory!).WaitAsync(deadline.Token) : new ProcessStartInfo(); }
+                catch (OperationCanceledException) when (deadline.IsCancellationRequested && !candidate.Token.IsCancellationRequested)
+                {
+                    throw new IOException($"Installing or locating {server.Id} took longer than 15 minutes. Check the network and that the tools it needs (for example go or pwsh) are on PATH, then use Retry.");
+                }
                 start.Environment[LanguageProcesses.Variable] = processes;
                 if (link is null && options.Arguments is not null)
                 {
@@ -368,7 +374,12 @@ public sealed partial class LanguageService : IAsyncDisposable
                     servers.ConfigureCaches(start, server, workspace);
                 }
                 candidate.State = "initializing"; candidate.Detail = "Starting and indexing the workspace…";
-                var session = await LanguageSession.StartAsync(start, workspace, server, deadline.Token, options, log, servers.DirectoryPath, exit => RecordExit(workspace, server.Id, exit, candidate.StartedBy), sessionDirectory, link);
+                LanguageSession session;
+                try { session = await LanguageSession.StartAsync(start, workspace, server, deadline.Token, options, log, servers.DirectoryPath, exit => RecordExit(workspace, server.Id, exit, candidate.StartedBy), sessionDirectory, link); }
+                catch (OperationCanceledException) when (deadline.IsCancellationRequested && !candidate.Token.IsCancellationRequested)
+                {
+                    throw new IOException($"{server.Id} did not finish starting within 15 minutes. Use Retry, or open its log in Settings > Code Intelligence.");
+                }
                 try { if (drafts.TryGetValue(key, out var saved)) await session.RestoreDraftsAsync(saved, deadline.Token); }
                 catch
                 {

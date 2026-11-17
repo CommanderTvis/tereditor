@@ -381,6 +381,7 @@ Candidates that are all declarations of one type are one symbol, not a choice: t
 type (confirmed by the server's definition of the first listing them all) and that type's own
 constructors in the same project (server container names) resolve to the type. Types in different
 projects, or anything else sharing the name, stay ambiguous.
+A qualified name whose member the server's workspace search does not list (a server may index only types, as the IntelliJ server may for Java methods) is found through its owner: the owner is searched by name and the member is selected in that file's outline. A start that stops for terms is dropped and started again when those terms are accepted (in every workspace), so a row never keeps "accept the terms" after acceptance. Provisioning and startup are bounded by the 15 minute deadline even when a provider ignores its token; the row then ends in an error naming the server and the tools to check, never in installing. The Settings card shows the version once, its facts and notes in one style, and ends the terms line in a result or "Terms unavailable".
 No match is `notFound` naming the `workspaceSymbols` call. Other operations with a query and no
 path search workspace symbols and say so in `detail`; that search is `ready` when any server
 answered, with servers missing for other languages listed in `detail` rather than failing the

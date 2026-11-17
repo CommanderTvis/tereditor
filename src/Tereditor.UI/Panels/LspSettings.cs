@@ -146,7 +146,7 @@ public sealed partial class SettingsView
                 var warning = facts["warning"]?.GetValue<string>() ?? "";
                 var source = facts["source"]?.GetValue<string>() switch { "managed" => "Managed", "path" => "PATH", "override" => "Executable override", _ => "None" };
                 resolved.Foreground = result.State == "ready" ? Ui.Muted : Ui.Danger;
-                resolved.Text = $"{source}: {(path.Length > 0 ? path : "no executable")}" + (version.Length > 0 ? $"\nVersion: {version}" : "") + $"\n{result.Detail}\n{facts["pinning"]?.GetValue<string>()}";
+                resolved.Text = $"{source}: {(path.Length > 0 ? path : "no executable")}" + (version.Length > 0 && version != serverVersion ? $"\nVersion: {version}" : "") + $"\n{result.Detail}\n{facts["pinning"]?.GetValue<string>()}";
                 allowPath.IsEnabled = facts["pathCapable"]?.GetValue<bool>() == true;
                 if (termsSection.IsVisible)
                 {
@@ -158,7 +158,11 @@ public sealed partial class SettingsView
                 pathWarning.Foreground = Ui.Danger; pathWarning.Text = warning; pathWarning.IsVisible = warning.Length > 0;
             }
             catch (OperationCanceledException) { }
-            catch (Exception failure) when (!lifetime.IsCancellationRequested) { resolved.Foreground = Ui.Danger; resolved.Text = "Executable unavailable: " + failure.Message; }
+            catch (Exception failure) when (!lifetime.IsCancellationRequested)
+            {
+                resolved.Foreground = Ui.Danger; resolved.Text = "Executable unavailable: " + failure.Message;
+                if (termsSection.IsVisible) { termsConfirmed = true; ShowStatus(TermsKnowledge.Unavailable, detail: failure.Message); }
+            }
         }
         void UpdateTerms()
         {

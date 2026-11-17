@@ -36,7 +36,7 @@ public sealed class IntelliJPlugin() : LanguageServerPlugin(Id)
         Repository = "https://github.com/JetBrains/intellij-lsp.nvim",
         RepositoryLabel = "Official client repository",
         Pinning = LanguageServerPinning.None,
-        PinningDescription = "Managed and fully pinned: exact build, SHA-256 per platform, verified before extraction; acceptance of its terms is required.",
+        PinningDescription = "A fixed build, checked before it is unpacked. You must accept its terms first.",
         PathCapable = false,
         HostsRuntime = true,
         AllowsOverride = false,

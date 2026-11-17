@@ -40,7 +40,7 @@
             <TextBlock x:Name="LspVersion" Classes="settings-description" />
             <StackPanel x:Name="LspTermsSection" Spacing="4" IsVisible="False">
               <TextBlock Text="License terms" Classes="settings-label" />
-              <TextBlock x:Name="LspTermsStatus" TextWrapping="Wrap" />
+              <TextBlock x:Name="LspTermsStatus" TextWrapping="Wrap" Classes="settings-description" />
               <WrapPanel>
                 <Button x:Name="LspReviewTerms" Content="Review and accept terms" Margin="0,0,8,0" />
                 <Button x:Name="LspInstall" Content="Install now" Margin="0,0,8,0" IsVisible="False" />
@@ -53,14 +53,14 @@
               <Button x:Name="LspProviderRepository" Content="Source repository ↗" Classes="link" />
             </WrapPanel>
             <CheckBox x:Name="LspAllowPath" Content="Use the executable on PATH instead of the managed installation" />
-            <TextBlock x:Name="LspResolved" TextWrapping="Wrap" />
-            <TextBlock x:Name="LspPathWarning" TextWrapping="Wrap" IsVisible="False" />
+            <TextBlock x:Name="LspResolved" TextWrapping="Wrap" Classes="settings-description" />
+            <TextBlock x:Name="LspPathWarning" TextWrapping="Wrap" IsVisible="False" Classes="settings-description" />
             <StackPanel x:Name="LspDependencySection" Spacing="4" IsVisible="False">
               <TextBlock Text="System dependencies" Classes="settings-label" />
               <local:LanguageDependencyList x:Name="LspDependencies" />
               <TextBlock Text="Host tools this server needs. A path you choose is outside the workspace and used by every language server on this host." Classes="settings-description" />
             </StackPanel>
-            <TextBlock Text="The pinned managed installation is the default and is verified before it runs. A PATH executable is an unverified binary that a project could influence, so it is used only when you allow it for this server, and never from inside the workspace. Servers without a managed installation need PATH allowed. Executable overrides are your own explicit choice and are also refused inside the workspace. Project files cannot choose executables." Classes="settings-description" />
+            <TextBlock Text="The managed copy is checked before it runs. A program from PATH is used only if you allow it, and never from inside the workspace. Project files cannot choose programs." Classes="settings-description" />
             <TextBlock Text="Executable override" Classes="settings-label" />
             <TextBox x:Name="LspCommand" PlaceholderText="Automatic" />
             <CheckBox x:Name="LspDefaultArguments" Content="Use default arguments" />

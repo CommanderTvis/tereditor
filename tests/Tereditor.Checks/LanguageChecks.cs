@@ -355,6 +355,13 @@ internal static class LanguageChecks
                 "A shared name did not list its candidates with a working call: " + sameName.Detail);
             var qualified = await Ready(host, new(root, Operation: "definition", Query: "Suite/run"));
             Require(qualified.State == "ready" && qualified.Locations.Single() is { Path: "outline.ts", Line: 1, Column: 2 }, "A qualified name did not choose among same-named symbols: " + qualified.Detail);
+            // A server that lists only types in workspace search (issue #64): Type/Member still resolves, through the owner's outline.
+            var ownerOnly = await Ready(host, new(root, Operation: "definition", Query: "Suite/Hidden"));
+            Require(ownerOnly.State == "notFound", "A member missing from the owner's outline was not reported: " + ownerOnly.State);
+            await File.WriteAllTextAsync(Path.Combine(root, "typeonly.flag"), "");
+            var typeOnly = await Ready(host, new(root, Operation: "definition", Query: "Suite/run"));
+            File.Delete(Path.Combine(root, "typeonly.flag"));
+            Require(typeOnly.State == "ready" && typeOnly.Locations.Single() is { Path: "outline.ts", Line: 1, Column: 2 }, "A member the workspace search does not list was not found through its owner: " + typeOnly.State + " " + typeOnly.Detail);
             var unknown = await Ready(host, new(root, Operation: "implementation", Query: "Nowhere"));
             Require(unknown.State == "notFound" && unknown.Detail.Contains("\"operation\":\"workspaceSymbols\"", StringComparison.Ordinal), "An unknown name did not name the search call: " + unknown.Detail);
             await File.WriteAllTextAsync(Path.Combine(root, "ambiguous.ts"), "function overload() {}");
@@ -1684,6 +1691,7 @@ internal static class LanguageChecks
                     ? new object[] { new { name = "Suite", kind = 5, location = At(outlineUri, 0, 6) }, new { name = "SuiteHelper", kind = 5, location = At(outlineUri, 4, 0) } }
                     : [new { name = "run", kind = 6, location = At(outlineUri, 1, 2) }, new { name = "run()", kind = 6, location = At(new Uri(Path.GetFullPath("runner.ts")).AbsoluteUri, 0, 9) }];
             }
+            else if (method == "workspace/symbol" && File.Exists("typeonly.flag") && parameters?["query"]?.ToString() == "run") result = Array.Empty<object>();
             else if (method == "workspace/symbol") result = new[] { new { name = "target", kind = 13, location = new { uri = documents.Keys.First(), range } } };
             else if (method == "textDocument/typeDefinition") result = new[] { new { uri = new Uri(Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "..", "library.ts"))).AbsoluteUri, range } };
             else if (method == "textDocument/references")

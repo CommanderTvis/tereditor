@@ -13,6 +13,7 @@ public sealed partial class LanguageService
         var search = await ExecuteAsync(request with { Operation = "workspaceSymbols", Query = LanguageUsage.SimpleName(request.Query), Offset = 0, Limit = 200 }, token);
         var candidates = search.Locations.Where(item => LanguageUsage.NamesSymbol(item.Text, request.Query))
             .DistinctBy(item => (item.Path, item.Line, item.Column)).ToArray();
+        if (candidates.Length == 0 && LanguageUsage.IsQualified(request.Query) && await ByOwnerAsync(request, token) is { } owned) return owned;
         if (candidates.Length == 0)
             return search with
             {
@@ -50,6 +51,27 @@ public sealed partial class LanguageService
             Freshness = "partial",
             Coverage = search.Coverage
         };
+    }
+
+    /// <summary>
+    /// A qualified name whose member the server's workspace search does not list (some servers index only types): finds the owner by name,
+    /// then selects the member in the owner's file outline. Null when the owner is not found or no file selects the member.
+    /// </summary>
+    private async Task<LanguageResult?> ByOwnerAsync(LanguageRequest request, CancellationToken token)
+    {
+        var owner = request.Query[..request.Query.LastIndexOfAny(['/', '.'])];
+        var search = await ExecuteAsync(request with { Operation = "workspaceSymbols", Query = LanguageUsage.SimpleName(owner), Offset = 0, Limit = 200 }, token);
+        var paths = search.Locations.Where(item => LanguageUsage.NamesSymbol(item.Text, owner)).Select(item => item.Path)
+            .Where(path => !LanguageSession.IsVirtual(path) && !Path.IsPathFullyQualified(path)).Distinct().Take(ByNameFiles).ToArray();
+        var resolved = new List<LanguageResult>();
+        foreach (var path in paths)
+        {
+            token.ThrowIfCancellationRequested();
+            var attempt = await ExecuteAsync(request with { Path = path }, token);
+            if (attempt.State == "ready") resolved.Add(attempt);
+            else if (attempt.State == "ambiguous" && paths.Length == 1) return attempt;
+        }
+        return resolved.Count == 1 ? resolved[0] with { Detail = $"Resolved \"{request.Query}\" through its owner's outline. " + resolved[0].Detail } : null;
     }
 
     /// <summary>

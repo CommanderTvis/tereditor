@@ -104,6 +104,22 @@ internal sealed class LanguageTermsRequiredException(LanguageServer server)
 
 public sealed partial class LanguageService
 {
+    /// <summary>Drops the starts that stopped for this server's terms, in every workspace, and starts them again: the acceptance is picked up without a manual retry.</summary>
+    private void ResumeAfterAcceptance(string serverId)
+    {
+        foreach (var pair in entries.ToArray())
+        {
+            var entry = pair.Value;
+            if (entry.ServerId != serverId || entry.State != "requiresAcceptance" && !(entry.Session.IsValueCreated && entry.Session.Value.IsFaulted && entry.Session.Value.Exception!.GetBaseException() is LanguageTermsRequiredException)) continue;
+            if (!entries.TryRemove(new KeyValuePair<string, Entry>(pair.Key, entry))) continue;
+            _ = Task.Run(async () =>
+            {
+                try { await StopAsync(entry, "its terms were accepted"); await ExecuteAsync(new(entry.Workspace, Operation: "retry", Server: serverId), lifetime.Token); }
+                catch (Exception) { }
+            });
+        }
+    }
+
     internal async ValueTask<LanguageTermsResult> TermsAsync(LanguageTermsRequest request, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
@@ -112,6 +128,8 @@ public sealed partial class LanguageService
             ?? throw new ArgumentException("Select a server whose installation has terms.");
         var workspace = Path.TrimEndingDirectorySeparator(Path.GetFullPath(request.Workspace));
         var options = WorkspaceLanguageConfiguration.Parse(configuration(workspace, server.Id), server.Id);
-        return await LanguageTerms.ReviewAsync(servers.Storage, server, servers.InstallationFor(server, workspace, options.InstallationPath), request, token);
+        var reviewed = await LanguageTerms.ReviewAsync(servers.Storage, server, servers.InstallationFor(server, workspace, options.InstallationPath), request, token);
+        if (reviewed.Accepted) ResumeAfterAcceptance(server.Id);
+        return reviewed;
     }
 }
