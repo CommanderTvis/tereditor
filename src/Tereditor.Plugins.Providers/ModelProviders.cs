@@ -10,7 +10,7 @@ public enum ProviderGroup
     /// <summary>JetBrains AI. Filled in by the Air Gateway plugin.</summary>
     [JsonStringEnumMemberName("jetbrains-ai")] JetBrainsAi,
 
-    /// <summary>Cloud platforms: Vertex AI, Bedrock, Azure, Foundry. Each is its own plugin.</summary>
+    /// <summary>Cloud platforms (a kind of provider, not a heading on the page): Vertex AI, Bedrock, Azure, Foundry. Each is its own plugin.</summary>
     [JsonStringEnumMemberName("hyperscalers")] Hyperscalers,
 
     /// <summary>Routers and providers that need only an endpoint and a key.</summary>
@@ -142,11 +142,31 @@ public static class ProvidersSlots
     /// <summary>The JetBrains AI block. Empty until the Air Gateway plugin contributes its component.</summary>
     public const string JetBrainsAi = "providers:jetbrains-ai";
 
-    /// <summary>The Cloud platforms block (Vertex AI, Bedrock, Azure, Foundry). Empty until a plugin contributes a component.</summary>
+    /// <summary>The place for the cloud platforms (Vertex AI, Bedrock, Azure, Foundry). Empty until a plugin contributes a component.</summary>
     public const string Hyperscalers = "providers:hyperscalers";
 
     /// <summary>The block after the bundled routers and providers, for a component that belongs with them.</summary>
     public const string Other = "providers:other";
+}
+
+/// <summary>
+/// The one order of the Model providers page: by popularity. OpenAI, Anthropic and Google, then JetBrains AI and the routers, then the cloud
+/// platforms. Any other provider follows, by name.
+/// </summary>
+public static class ProviderOrder
+{
+    private static readonly string[] Ranked = ["openai", "anthropic", "google", "jetbrains-ai", "openrouter", "together", "fireworks", "bedrock", "vertex"];
+
+    /// <summary>The rank of a provider id; a smaller rank comes first, an id not ranked comes after every ranked one.</summary>
+    public static int Rank(string id) { var at = Array.IndexOf(Ranked, id); return at < 0 ? int.MaxValue : at; }
+
+    /// <summary>The rank of a block a plugin fills in a slot, used while the block names no provider of its own.</summary>
+    public static int SlotRank(string slot) => slot switch
+    {
+        ProvidersSlots.JetBrainsAi => Rank("jetbrains-ai"),
+        ProvidersSlots.Hyperscalers => Rank("bedrock"),
+        _ => int.MaxValue
+    };
 }
 
 /// <summary>The providers that need only an endpoint and a key, bundled as data. Documented endpoints; none of them carries code.</summary>

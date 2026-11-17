@@ -10,7 +10,7 @@ using Tereditor.Plugins.Vertex;
 
 namespace Tereditor.Checks;
 
-// The Cloud platforms plugins (Amazon Bedrock, Google Vertex AI): manifests, the provider each contributes from its non-secret settings, who is offered it
+// The cloud platform plugins (Amazon Bedrock, Google Vertex AI): manifests, the provider each contributes from its non-secret settings, who is offered it
 // (Claude Code only), and the Claude Code launch seam, which sets variables and never carries a secret.
 internal static class CloudPlatformChecks
 {
@@ -35,10 +35,10 @@ internal static class CloudPlatformChecks
             && VertexPlatform.Definition(new() { Project = "my-project-123", Region = "$(x)" }) is null && VertexPlatform.Definition(new() { Project = "No Spaces" }) is null, "an unsafe value is refused");
         var bedrock = BedrockPlatform.Definition(new() { Region = "eu-west-1", Profile = "work" }) ?? throw new InvalidOperationException("cloud-platforms: complete Bedrock settings contribute a provider");
         var vertex = VertexPlatform.Definition(new() { Project = "my-project-123", Region = "us-east5" }) ?? throw new InvalidOperationException("cloud-platforms: complete Vertex settings contribute a provider");
-        Require(bedrock is { Id: "bedrock", Group: ProviderGroup.Hyperscalers, NeedsKey: false } && bedrock.Apis is [{ Kind: ModelApiKinds.Bedrock, Auth: [ModelAuthKind.Platform], BaseUrl: "https://bedrock-runtime.eu-west-1.amazonaws.com" }], "Bedrock is a keyless Cloud platforms provider on the Bedrock API");
+        Require(bedrock is { Id: "bedrock", Group: ProviderGroup.Hyperscalers, NeedsKey: false } && bedrock.Apis is [{ Kind: ModelApiKinds.Bedrock, Auth: [ModelAuthKind.Platform], BaseUrl: "https://bedrock-runtime.eu-west-1.amazonaws.com" }], "Bedrock is a keyless cloud platform provider on the Bedrock API");
         Require(bedrock.Environment.OrderBy(pair => pair.Key).SequenceEqual([new("AWS_PROFILE", "work"), new("AWS_REGION", "eu-west-1"), new("CLAUDE_CODE_USE_BEDROCK", "1")]), "Bedrock sets the Claude Code switch, the region and the profile");
         Require(BedrockPlatform.Definition(new() { Region = "eu-west-1" })!.Environment.ContainsKey("AWS_PROFILE") == false, "an empty profile sets no profile");
-        Require(vertex is { Id: "vertex", Group: ProviderGroup.Hyperscalers, NeedsKey: false } && vertex.Apis is [{ Kind: ModelApiKinds.Vertex, Auth: [ModelAuthKind.Platform], BaseUrl: "https://us-east5-aiplatform.googleapis.com" }], "Vertex is a keyless Cloud platforms provider on the Vertex API");
+        Require(vertex is { Id: "vertex", Group: ProviderGroup.Hyperscalers, NeedsKey: false } && vertex.Apis is [{ Kind: ModelApiKinds.Vertex, Auth: [ModelAuthKind.Platform], BaseUrl: "https://us-east5-aiplatform.googleapis.com" }], "Vertex is a keyless cloud platform provider on the Vertex API");
         Require(vertex.Environment.OrderBy(pair => pair.Key).SequenceEqual([new("ANTHROPIC_VERTEX_PROJECT_ID", "my-project-123"), new("CLAUDE_CODE_USE_VERTEX", "1"), new("CLOUD_ML_REGION", "us-east5")]), "Vertex sets the Claude Code switch, the project and the region");
         Require(VertexPlatform.Definition(new() { Project = "my-project-123" })!.Apis[0].BaseUrl == "https://aiplatform.googleapis.com", "the global Vertex region has the global endpoint");
         Require(new[] { bedrock, vertex }.All(provider => !provider.Environment.Keys.Any(name => name.Contains("KEY", StringComparison.OrdinalIgnoreCase) || name.Contains("SECRET", StringComparison.OrdinalIgnoreCase) || name.Contains("TOKEN", StringComparison.OrdinalIgnoreCase))), "no secret variable is set");

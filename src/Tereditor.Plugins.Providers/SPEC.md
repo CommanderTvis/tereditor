@@ -29,9 +29,8 @@ off. This plugin is the optional side that matches providers to those declaratio
   Air Gateway is not moved yet.
 - The contribution contract. A dependent plugin calls `contribute` with its id and provider definitions, and `withdraw` when it stops;
   contributed ids cannot take over a bundled or earlier id. Its UI fills a place of the page with `SlotSection`: `providers:jetbrains-ai`,
-  `providers:hyperscalers` (shown to the user as Cloud platforms) or `providers:other`.
-- The page has the groups JetBrains AI and Cloud platforms (each hidden, heading included, until a plugin fills it), Other routers and
-  providers (the bundled rows and the user's own), and an Add a custom provider form: a name, a base URL, the API kinds it speaks and an
+  `providers:hyperscalers` or `providers:other`. A slot is a place in the one list, not a heading.
+- The page is one list with no group headings, sorted by popularity (`ProviderOrder`, the only place of the order): OpenAI, Anthropic, Google, then JetBrains AI, OpenRouter, Together, Fireworks, then Amazon Bedrock and Google Vertex AI; every other provider (the rest of the bundled rows and the user's own) follows by name. A plugin block that fills a slot takes the rank of the provider it names (`ModelProvider-<id>`, which also hides that provider's catalog row) and is hidden while empty. Under the list is an Add a custom provider form: a name, a base URL, the API kinds it speaks and an
   optional key (none for a local endpoint). A custom provider is stored in this plugin's state without its key. A plain `http://` address is
   accepted only on this computer. This is the only provider page: there is no per-agent key page.
 - The model source of an agent is recorded in this plugin's own state (`modelSources`), per agent plugin id: none (the default, tereditor

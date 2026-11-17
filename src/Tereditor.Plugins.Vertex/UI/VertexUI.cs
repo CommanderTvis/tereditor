@@ -3,7 +3,7 @@ using Tereditor.Plugins.Providers;
 
 namespace Tereditor.Plugins.Vertex.UI;
 
-/// <summary>The Google Vertex AI plugin's UI half: one component in the Cloud platforms group of Settings › Plugins › Model providers.</summary>
+/// <summary>The Google Vertex AI plugin's UI half: one component in the provider list of Settings › Plugins › Model providers.</summary>
 public sealed class VertexUI : PluginUIModule
 {
     public override PluginDisposer? Activate(IPluginUIContext context)

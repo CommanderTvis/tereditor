@@ -11,14 +11,18 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.Providers.UI;
 
 /// <summary>
-/// Settings › Plugins › Model providers: the blocks JetBrains AI, Cloud platforms and Other routers and providers, each a place another plugin can
-/// fill, and an action to add a custom provider. Keys are typed into masked fields, sent once and never shown again.
+/// Settings › Plugins › Model providers: one list of providers in ProviderOrder, with the blocks other plugins fill
+/// (OpenAI sign-in, JetBrains AI, Bedrock, Vertex) at their place in it, and an action to add a custom provider. Keys are typed into masked fields, sent once and never shown again.
 /// </summary>
 internal sealed class ProvidersPage : StackPanel
 {
     private readonly IPluginUIContext context;
     private readonly ModelSourceLaunch launch;
     private readonly StackPanel groups = new() { Spacing = 20, Name = "ModelProviderGroups" };
+    private readonly StackPanel listing = new() { Spacing = 8, Name = "ModelProviderList" };
+    private readonly List<(string Id, string Name, Control Row)> rows = [];
+    private readonly List<(string Slot, Control View)> slots = [];
+    private bool arranging, rearrange;
     private ModelProvidersReport? report;
     private string? adding;
     private bool custom;
@@ -34,6 +38,13 @@ internal sealed class ProvidersPage : StackPanel
         intro.TextWrapping = TextWrapping.Wrap;
         Children.Add(new StackPanel { Spacing = 4, Children = { Ui.Text("Model providers", Ui.TextBrush, 15), intro } });
         Children.Add(groups);
+        // The slot views live as long as the page. A plugin fills or empties one while the page is open, which reorders the list.
+        foreach (var slot in new[] { ProvidersSlots.JetBrainsAi, ProvidersSlots.Hyperscalers, ProvidersSlots.Other })
+        {
+            var view = context.SlotView(slot);
+            if (view is Panel panel) panel.Children.CollectionChanged += (_, _) => Arrange();
+            slots.Add((slot, view));
+        }
         AttachedToVisualTree += (_, _) => Load(() => context.RequestAsync(ProvidersContract.Models, new ModelProvidersParams()).AsTask());
         Render();
     }
@@ -74,38 +85,47 @@ internal sealed class ProvidersPage : StackPanel
     private void Render()
     {
         groups.Children.Clear();
-        AddGroup("JetBrains AI", ProviderGroup.JetBrainsAi, ProvidersSlots.JetBrainsAi);
-        AddGroup("Cloud platforms", ProviderGroup.Hyperscalers, ProvidersSlots.Hyperscalers);
-        AddGroup("Other routers and providers", ProviderGroup.Other, ProvidersSlots.Other);
+        listing.Children.Clear();
+        rows.Clear();
+        foreach (var row in report?.Providers ?? []) rows.Add((row.Provider.Id, row.Provider.Name, Row(row)));
+        Arrange();
+        groups.Children.Add(listing);
         groups.Children.Add(CustomForm());
     }
 
-    private void AddGroup(string heading, ProviderGroup group, string slot)
+    // The one list: catalog rows and plugin blocks together, in ProviderOrder, by name within a rank. A plugin block that names a provider
+    // ("ModelProvider-<id>") takes that provider's rank and replaces its catalog row, so the page lists the provider once.
+    private void Arrange()
     {
-        var box = new StackPanel { Spacing = 8, Name = "ProviderGroup-" + group };
-        box.Children.Add(Ui.Text(heading, Ui.TextBrush, 13));
-        var contributed = context.SlotView(slot);
-        box.Children.Add(contributed);
-        var rows = new List<(string Id, Control Row)>();
-        foreach (var row in report?.Providers.Where(row => row.Provider.Group == group) ?? [])
+        // Adding a slot view to the list can fill it at once, which asks to arrange again: run the pass again after this one, never inside it.
+        if (arranging) { rearrange = true; return; }
+        arranging = true;
+        try { do { rearrange = false; ArrangeOnce(); } while (rearrange); }
+        finally { arranging = false; }
+    }
+
+    private void ArrangeOnce()
+    {
+        var claimed = slots.SelectMany(slot => slot.View.GetLogicalDescendants().OfType<Control>()).Select(control => control.Name)
+            .Where(name => name?.StartsWith("ModelProvider-", StringComparison.Ordinal) == true).Select(name => name![14..]).ToHashSet();
+        var entries = new List<(int Rank, string Name, Control Control)>();
+        foreach (var (id, name, control) in rows)
         {
-            var control = Row(row);
-            box.Children.Add(control);
-            rows.Add((row.Provider.Id, control));
+            control.IsVisible = !claimed.Contains(id);
+            entries.Add((ProviderOrder.Rank(id), name, control));
         }
-        // A group nothing fills shows nothing, not even its heading. The slot fills and empties while the page is open.
-        // A plugin that fills the slot with the row of a bundled provider (a control named like it) replaces that row, so the page lists the provider once.
-        if (contributed is Panel panel)
+        foreach (var (slot, view) in slots)
         {
-            void Follow()
-            {
-                foreach (var (id, control) in rows) control.IsVisible = !panel.GetLogicalDescendants().OfType<Control>().Any(claimed => claimed.Name == "ModelProvider-" + id);
-                box.IsVisible = rows.Count > 0 || panel.Children.Count > 0;
-            }
-            panel.Children.CollectionChanged += (_, _) => Follow();
-            Follow();
+            var own = view.GetLogicalDescendants().OfType<Control>().Select(control => control.Name).Where(name => name?.StartsWith("ModelProvider-", StringComparison.Ordinal) == true)
+                .Select(name => ProviderOrder.Rank(name![14..])).DefaultIfEmpty(ProviderOrder.SlotRank(slot)).Min();
+            view.IsVisible = view is not Panel panel || panel.Children.Count > 0;
+            entries.Add((own, "", view));
         }
-        groups.Children.Add(box);
+        // Leave the list alone when it already reads right: moving a slot view out and in makes it fill again, which would ask for another pass without end.
+        var ordered = entries.OrderBy(entry => entry.Rank).ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase).Select(entry => entry.Control).ToList();
+        if (listing.Children.SequenceEqual(ordered)) return;
+        listing.Children.Clear();
+        foreach (var control in ordered) listing.Children.Add(control);
     }
 
     private Control Row(ModelProviderRow row)

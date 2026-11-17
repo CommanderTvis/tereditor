@@ -3,7 +3,7 @@ using Tereditor.Plugins.Providers;
 
 namespace Tereditor.Plugins.Bedrock.UI;
 
-/// <summary>The Amazon Bedrock plugin's UI half: one component in the Cloud platforms group of Settings › Plugins › Model providers.</summary>
+/// <summary>The Amazon Bedrock plugin's UI half: one component in the provider list of Settings › Plugins › Model providers.</summary>
 public sealed class BedrockUI : PluginUIModule
 {
     public override PluginDisposer? Activate(IPluginUIContext context)

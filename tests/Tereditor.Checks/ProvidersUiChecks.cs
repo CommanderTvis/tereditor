@@ -20,8 +20,8 @@ using Tereditor.UI.Plugins;
 
 namespace Tereditor.Checks;
 
-// Settings › Plugins › Model providers and the model source slot, headless over a fake plugin context backed by the real service: the three groups,
-// a contributed component replacing a group's hint, adding a key and a custom provider, the slot's choice per agent filtered by the agent's
+// Settings › Plugins › Model providers and the model source slot, headless over a fake plugin context backed by the real service: the one provider list in popularity order,
+// contributed components placed in that list, adding a key and a custom provider, the slot's choice per agent filtered by the agent's
 // declaration and recorded, and the slot with Model providers off, which is only a hint.
 internal static class ProvidersUiChecks
 {
@@ -77,22 +77,26 @@ internal static class ProvidersUiChecks
             var page = registry.SettingsSections.Single().Value.Create();
             host.Children.Add(page);
             Settle();
-            var groups = new[] { ProviderGroup.JetBrainsAi, ProviderGroup.Hyperscalers, ProviderGroup.Other }.Select(group => Find<StackPanel>(page, "ProviderGroup-" + group).Single()).ToArray();
-            Require(!groups[0].IsVisible && !groups[1].IsVisible && groups[2].IsVisible, "the JetBrains AI and Cloud platforms groups are not shown while nothing fills them");
-            Require(Find<StackPanel>(groups[2], "ModelProvider-openrouter").Count == 1 && Find<StackPanel>(groups[2], "ModelProvider-anthropic").Count == 1, "bundled providers are listed under Other routers and providers");
+            var list = Find<StackPanel>(page, "ModelProviderList").Single();
+            string[] Order() => list.Children.Where(child => child.IsVisible).Select(child => child is Control entry ? (entry.GetLogicalDescendants().Prepend(entry).OfType<Control>().Select(inner => inner.Name).FirstOrDefault(name => name?.StartsWith("ModelProvider-", StringComparison.Ordinal) == true) ?? entry.Name ?? "") : "").ToArray();
+            Require(!Texts(page).Any(text => text.Contains("Cloud platforms", StringComparison.Ordinal)), "the page has one list and no Cloud platforms heading");
+            Require(Order() is ["ModelProvider-openai", "ModelProvider-anthropic", "ModelProvider-openrouter", "ModelProvider-together", "ModelProvider-fireworks", ..], "the catalog rows follow the popularity order, OpenAI and Anthropic first, then the routers");
             Require(Texts(page).Any(text => text.Contains("Claude subscription", StringComparison.Ordinal) || text.Contains("does not allow a Claude subscription", StringComparison.Ordinal)), "Anthropic shows why a subscription sign-in is not offered");
 
-            // A contributed component fills its group and removes the hint.
+            // A contributed component takes its place in the list: JetBrains AI after Anthropic, before the routers.
             registry.SetActive("air-gateway", true);
             registry.AddSlotSection("air-gateway", new(ProvidersSlots.JetBrainsAi, _ => new TextBlock { Name = "AirComponent", Text = "Central sign-in" }));
             Settle();
-            Require(Find<TextBlock>(page, "AirComponent").Count == 1 && groups[0].IsVisible && !groups[1].IsVisible, "a contributed component shows its group, with no hint");
+            Require(Find<TextBlock>(page, "AirComponent").Count == 1 && Order() is ["ModelProvider-openai", "ModelProvider-anthropic", _, "ModelProvider-openrouter", ..], "a contributed JetBrains AI component sits between Anthropic and the routers");
 
             // A plugin block named like a bundled provider replaces that provider's row, so the page lists it once.
-            Require(Find<StackPanel>(groups[2], "ModelProvider-openai").Single().IsVisible, "the bundled OpenAI API row shows while no plugin fills in for it");
+            Require(Find<StackPanel>(page, "ModelProvider-openai").Single().IsVisible, "the bundled OpenAI API row shows while no plugin fills in for it");
             registry.AddSlotSection("air-gateway", new(ProvidersSlots.Other, _ => new StackPanel { Name = "ModelProvider-openai" }));
             Settle();
-            Require(Find<StackPanel>(groups[2], "ModelProvider-openai").Count(entry => entry.IsVisible) == 1, "a plugin block for OpenAI replaces the bundled OpenAI API row");
+            Require(Find<StackPanel>(page, "ModelProvider-openai").Count(entry => entry.IsVisible) == 1 && Order()[0] == "ModelProvider-openai", "a plugin block for OpenAI replaces the bundled OpenAI API row and stays first");
+            registry.AddSlotSection("air-gateway", new(ProvidersSlots.Hyperscalers, _ => new StackPanel { Name = "ModelProvider-bedrock" }));
+            Settle();
+            Require(Array.IndexOf(Order(), "ModelProvider-bedrock") > Array.IndexOf(Order(), "ModelProvider-fireworks") && Array.IndexOf(Order(), "ModelProvider-bedrock") < Array.IndexOf(Order(), "ModelProvider-deepseek"), "a cloud platform block sits after the routers and before the rest of the catalog");
 
             // Add a key: the form takes it masked, clears it, and nothing on the page shows it.
             Click(page, "Add key", Find<StackPanel>(page, "ModelProvider-openrouter").Single());
@@ -146,7 +150,7 @@ internal static class ProvidersUiChecks
         }
         finally { window.Close(); }
         ModelSourceFirst();
-        Console.WriteLine("PASS providers-ui: groups, contributed component, key and custom provider forms, model source slot, Providers off, Model source first on agent pages");
+        Console.WriteLine("PASS providers-ui: one ordered list, contributed component, key and custom provider forms, model source slot, Providers off, Model source first on agent pages");
     }
 
     // Convention: Model source is the first setting of every agent page, right after the page's heading block.
