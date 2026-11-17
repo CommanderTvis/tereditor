@@ -578,9 +578,9 @@ internal static class UiChecks
             foreach (var kind in new[] { "FileLineWidthControl", "MarkdownLineWidthControl" })
             {
                 var rowControl = Find<Control>(liveSettings, kind);
-                rowControl.Measure(new Avalonia.Size(320, double.PositiveInfinity));
-                rowControl.Arrange(new Avalonia.Rect(0, 0, 320, rowControl.DesiredSize.Height));
-                rowControl.UpdateLayout();
+                // A fixed width makes the parent's own layout pass produce the narrow layout; a manual Measure/Arrange is undone by it.
+                rowControl.Width = 320; rowControl.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+                liveSettings.UpdateLayout();
                 var labels = rowControl.GetVisualDescendants().OfType<TextBlock>().Where(text => !string.IsNullOrEmpty(text.Text)).ToList();
                 Require(labels.Count >= 4, kind + " lost its labels.");
                 foreach (var label in labels)
@@ -592,6 +592,7 @@ internal static class UiChecks
                 var switchAt = Find<Switch>(rowControl, kind.Replace("Control", "Bounded")).TranslatePoint(default, rowControl)!.Value;
                 var inputAt = Find<TextBox>(rowControl, kind.Replace("Control", "Input")).TranslatePoint(default, rowControl)!.Value;
                 Require(switchAt.Y < inputAt.Y || switchAt.X < inputAt.X, kind + ": the switch comes before the number.");
+                rowControl.ClearValue(Layoutable.WidthProperty); rowControl.ClearValue(Layoutable.HorizontalAlignmentProperty);
             }
         }
         var previewWidth = ((StackPanel)Find<MarkdownPreview>(restored, "MarkdownPreview").Content!).MaxWidth;
