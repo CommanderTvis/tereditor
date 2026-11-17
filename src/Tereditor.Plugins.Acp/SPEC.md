@@ -23,9 +23,10 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   `AcpClosedException`.
 - `initialize` sends `protocolVersion: 1`, the client capabilities (`fs.readTextFile`, `fs.writeTextFile`, `terminal`) and `clientInfo`. An
   agent answering another version is refused by name (`AcpVersionException`). Agent capabilities read: `loadSession`, prompt capabilities
-  (`image`, `audio`, `embeddedContext`), `authMethods`, `agentInfo`.
+  (`image`, `audio`, `embeddedContext`), `mcpCapabilities.http`, `sessionCapabilities.systemPrompt`, `authMethods`, `agentInfo`.
 - Messages to the agent are built as JSON nodes; the registry and icon cache records use the plugin's own
   source-generated metadata, never reflection, with the bytes the reflection serializer wrote.
+- Tereditor's tools and instructions (`AcpSessionSetup`): every session start, `session/new` and `session/load` alike, passes `mcpServers` and `systemPrompt` from what the agent advertised, never from its name. The host builds the setup off the UI thread when the session starts. Tools: when `mcpCapabilities.http` is true, one entry `{type: "http", name: "tereditor", url, headers: []}` whose url is the host's MCP address keyed to the chat (the same `/mcp/<token>` a Claude Code chat gets, token from `TerminalToken` for the chat's tab); otherwise `mcpServers` is `[]`. tereditor's server is HTTP only, so an agent that takes only stdio or SSE gets no tools. Instructions: when `sessionCapabilities.systemPrompt` is a present object, `systemPrompt: {mode: "append", content: [{type: "text", text}]}` with the text the Claude Code and Codex plugins also compose (a header, the enabled plugins' tool guidance, the host's and plugins' sections, less those the project turns off), asked for agent id `acp`. `systemPrompt` is an unstable ACP field (adapters since claude-agent-acp 0.108 and codex-acp 2.7 take it; both pinned registry versions do), like `session/set_model` and `auth/status`. No first-prompt preamble and no `_meta` path stand in for an agent without it: that would fake a system prompt in the transcript. After `initialize` the host records what the agent can take in `AcpAgentEntry.TereditorSupport` (`both`, `tools`, `instructions`, `none`; blank before the first chat), kept across edits and reinstalls like `KnownModes`, and the agent's pane shows one line from it (`AcpEntryText.SupportLine`).
 - Session: `session/new` (modes, models and config options of the answer fill the header), `session/load` when the agent advertises
   `loadSession` and the chat has a stored session id (the replayed updates rebuild the transcript; otherwise a new session starts),
   `session/prompt` for a turn, `session/cancel`, `session/set_mode`, `session/set_model`, `session/set_config_option`.
@@ -156,10 +157,10 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 - The keychain and any credential file of an agent other than Copilot: not looked up, because the facts are not verified.
 - The `preview` channel, the registry's `extensions` and per-agent `website` links are not used.
 - A plan record (plans are text), audio prompts from the composer, images in
-  agent output, `session/list` and `session/fork`, the agent's `mcpServers` (none are passed), steering or queuing a message while a turn
+  agent output, `session/list` and `session/fork`, an stdio bridge to tereditor's MCP server for agents that take no HTTP servers (tereditor's headless `mcp` is another tool set), steering or queuing a message while a turn
   runs (the send is refused until the turn ends), and a headless UI check of the chat view with streamed ACP output (the chips and the
   approval card are covered by `--claude-chat-ui`; the ACP folding is covered by `--acp`). A thought level is an option chip, not the model menu's effort.
-- Unstable ACP methods and extensions.
+- Unstable ACP methods and extensions other than the ones named above (`session/set_model`, `auth/status`, `systemPrompt`).
 
 ## Checks
 

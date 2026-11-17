@@ -32,13 +32,16 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
     private readonly Func<Task<AcpSignInInfo>>? signIn;
     private readonly string? defaultMode;
     private readonly Action<IReadOnlyList<ChatMode>>? modesSeen;
+    private readonly AcpSessionLink? link;
 
     /// <param name="answered">Told what the agent said at its start (its sign-in methods and, when it offers them, its accounts).</param>
     /// <param name="defaultMode">The mode to switch to after the session opens, when the agent lists it and is not already in it.</param>
     /// <param name="modesSeen">Told which modes the agent listed.</param>
     /// <param name="signIn">Asked, off the lock, for where the agent's sign-in can come from when the agent says it needs one.</param>
-    public AcpChatSession(string workspaceId, string chatId, string cwd, Func<Task<IAcpTransport>> connect, Action<ChatPush> publish, Action<string> log, IAcpClientMethods? methods = null, Action<AcpAnswer>? answered = null, Func<Task<AcpSignInInfo>>? signIn = null, string? defaultMode = null, Action<IReadOnlyList<ChatMode>>? modesSeen = null)
+    /// <param name="link">What tereditor adds to the session (its MCP server and instructions) and where the agent's support is reported.</param>
+    public AcpChatSession(string workspaceId, string chatId, string cwd, Func<Task<IAcpTransport>> connect, Action<ChatPush> publish, Action<string> log, IAcpClientMethods? methods = null, Action<AcpAnswer>? answered = null, Func<Task<AcpSignInInfo>>? signIn = null, string? defaultMode = null, Action<IReadOnlyList<ChatMode>>? modesSeen = null, AcpSessionLink? link = null)
     {
+        this.link = link;
         this.defaultMode = defaultMode;
         this.modesSeen = modesSeen;
         this.answered = answered;
@@ -96,16 +99,18 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
             _ = WatchAsync(client, transport);
             agent = await client.InitializeAsync("tereditor", "0.1", lifetime.Token);
             answered?.Invoke(new AcpAnswer(agent.AuthMethods, await AccountsAsync(client, agent)));
+            link?.Seen(AcpSessionSetup.Support(agent));
+            var setup = link?.Setup() ?? new AcpSessionSetup(null, null);
             JsonObject session;
             if (resume is { Length: > 0 } && agent.LoadSession)
             {
                 lock (gate) { folder.Clear(); FlushNow(); }
-                session = await client.LoadSessionAsync(resume, cwd, lifetime.Token);
+                session = await client.LoadSessionAsync(resume, cwd, lifetime.Token, setup.McpServers(agent), setup.SystemPrompt(agent));
                 sessionId = resume;
             }
             else
             {
-                session = await client.NewSessionAsync(cwd, lifetime.Token);
+                session = await client.NewSessionAsync(cwd, lifetime.Token, setup.McpServers(agent), setup.SystemPrompt(agent));
                 sessionId = AcpFolder.Str(session, "sessionId");
             }
             lock (gate)

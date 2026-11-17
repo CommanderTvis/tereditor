@@ -41,6 +41,8 @@ public sealed record AcpAgentEntry(string Id, string Name, string Command)
     public string DefaultMode { get; set; } = "";
     /// <summary>The modes the agent listed the last time a chat started. The host fills it; the settings page offers these for <see cref="DefaultMode"/>.</summary>
     public IReadOnlyList<AcpKnownMode> KnownModes { get; set; } = [];
+    /// <summary>What tereditor can give the agent, from its last start: "both", "tools" (MCP only), "instructions" (system prompt only) or "none"; blank before its first chat. The host fills it.</summary>
+    public string TereditorSupport { get; set; } = "";
 
     /// <summary>The program that starts: the override when there is one.</summary>
     public string LaunchCommand() => CommandOverride.Length > 0 ? CommandOverride : Command;

@@ -127,6 +127,55 @@ internal static class AcpChecks
         Require(untouched.Header.PermissionMode == uri + "#agent" && !plain.Methods.Contains("session/set_config_option"), "A default the agent does not list is left alone.");
     }
 
+    // What tereditor gives a session follows what the agent advertised: an HTTP MCP server only to an agent that takes HTTP, the instruction text
+    // only to one with a system prompt capability, on session/new and on session/load alike.
+    private static async Task TereditorSetup()
+    {
+        var setup = new AcpSessionSetup("http://127.0.0.1:1/mcp/token", "# You are running inside tereditor");
+        async Task<(AcpFakeAgent Agent, string Support)> Start(AcpFakeAgent agent, string? resume)
+        {
+            var support = "";
+            await using var session = new AcpChatSession("ws", "chat-setup", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(agent)), _ => { }, _ => { }, link: new AcpSessionLink(() => setup, seen => support = seen));
+            session.Begin();
+            await session.StartAsync(resume);
+            Require(session.Header.Status == ChatStatus.Idle, "A session with tereditor's setup starts.");
+            return (agent, support);
+        }
+        var (both, bothSupport) = await Start(new AcpFakeAgent { McpHttp = true, SystemPrompt = true }, null);
+        var created = (JsonObject)both.Last["session/new"]!;
+        Require(created["mcpServers"]!.AsArray().Single() is JsonObject { } server && server["type"]!.GetValue<string>() == "http" && server["name"]!.GetValue<string>() == "tereditor"
+            && server["url"]!.GetValue<string>() == "http://127.0.0.1:1/mcp/token" && server["headers"] is JsonArray { Count: 0 }, "An agent that takes HTTP gets tereditor's server with the required headers list.");
+        Require(created["systemPrompt"] is JsonObject { } prompt && prompt["mode"]!.GetValue<string>() == "append" && prompt["content"]!.AsArray().Single()!["type"]!.GetValue<string>() == "text"
+            && prompt["content"]![0]!["text"]!.GetValue<string>() == "# You are running inside tereditor", "An agent with a system prompt capability gets the text in append mode.");
+        Require(bothSupport == "both", "The host is told the agent takes both.");
+
+        var (tools, toolsSupport) = await Start(new AcpFakeAgent { McpHttp = true }, null);
+        Require(tools.Last["session/new"]!["mcpServers"]!.AsArray().Count == 1 && tools.Last["session/new"]!["systemPrompt"] is null && toolsSupport == "tools", "Without the capability no system prompt is sent and the support is tools only.");
+        var (prompt2, promptSupport) = await Start(new AcpFakeAgent { SystemPrompt = true }, null);
+        Require(prompt2.Last["session/new"]!["mcpServers"]!.AsArray().Count == 0 && prompt2.Last["session/new"]!["systemPrompt"] is not null && promptSupport == "instructions", "Without HTTP support no MCP server is sent and the support is instructions only.");
+        var (neither, neitherSupport) = await Start(new AcpFakeAgent(), null);
+        Require(neither.Last["session/new"]!["mcpServers"]!.AsArray().Count == 0 && neither.Last["session/new"]!["systemPrompt"] is null && neitherSupport == "none", "An agent with neither gets neither, and the support says none.");
+
+        var (loaded, _) = await Start(new AcpFakeAgent { McpHttp = true, SystemPrompt = true }, "old");
+        Require(loaded.Last["session/load"]!["mcpServers"]!.AsArray().Count == 1 && loaded.Last["session/load"]!["systemPrompt"] is not null && !loaded.Last.ContainsKey("session/new"), "A resumed session gets the server and the text again.");
+
+        var withoutSetup = new AcpFakeAgent { McpHttp = true, SystemPrompt = true };
+        await using (var plain = new AcpChatSession("ws", "chat-plain", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(withoutSetup)), _ => { }, _ => { }))
+        {
+            plain.Begin();
+            await plain.StartAsync(null);
+        }
+        Require(withoutSetup.Last["session/new"]!["mcpServers"]!.AsArray().Count == 0 && withoutSetup.Last["session/new"]!["systemPrompt"] is null, "A chat the host gave no setup sends neither.");
+
+        var text = AcpSystemPrompt.Compose(["Use set_title."], ["## Section"]);
+        Require(text.StartsWith("# You are running inside tereditor", StringComparison.Ordinal) && text.Contains("- Use set_title.", StringComparison.Ordinal) && text.Contains("## Section", StringComparison.Ordinal), "The text names tereditor, then the tool list, then the sections.");
+
+        Require(AcpEntryText.SupportLine("both").Contains("tools and instructions", StringComparison.Ordinal) && AcpEntryText.SupportLine("none").Contains("neither", StringComparison.Ordinal)
+            && AcpEntryText.SupportLine("").Contains("first chat", StringComparison.Ordinal), "The settings line says what the agent gets, and that it is not known before the first chat.");
+        var json = System.Text.Json.JsonSerializer.Serialize(new AcpAgentEntry("a", "A", "a") { TereditorSupport = "tools" }, AcpHostJson.Default.AcpAgentEntry);
+        Require(System.Text.Json.JsonSerializer.Deserialize(json, AcpHostJson.Default.AcpAgentEntry)!.TereditorSupport == "tools", "The recorded support survives the host's saved state.");
+    }
+
     internal static void Logo()
     {
         var svg = System.Text.Encoding.UTF8.GetString(Tereditor.Plugins.Acp.UI.AcpGlyph.Svg);
@@ -1083,6 +1132,7 @@ internal static class AcpChecks
         EntryText();
         Logo();
         await DefaultMode();
+        await TereditorSetup();
         await Protocol();
         await Session();
         Directory.CreateDirectory(root);

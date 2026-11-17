@@ -40,6 +40,9 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
     /// <summary>What <c>promptCapabilities</c> advertises for images and for embedded resources.</summary>
     public bool Image { get; init; } = true;
     public bool EmbeddedContext { get; init; } = true;
+    /// <summary>Advertises <c>mcpCapabilities.http</c> and <c>sessionCapabilities.systemPrompt</c>, as the pinned Claude and Codex adapters do.</summary>
+    public bool McpHttp { get; init; }
+    public bool SystemPrompt { get; init; }
     public AcpOffer Offer { get; }
     /// <summary>The params of the last request of each method.</summary>
     public Dictionary<string, JsonNode?> Last { get; } = [];
@@ -197,7 +200,7 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
                 return new JsonObject
                 {
                     ["protocolVersion"] = ProtocolVersion,
-                    ["agentCapabilities"] = new JsonObject { ["loadSession"] = LoadSession, ["promptCapabilities"] = new JsonObject { ["image"] = Image, ["embeddedContext"] = EmbeddedContext }, ["auth"] = AuthStatus ? new JsonObject { ["status"] = new JsonObject() } : null },
+                    ["agentCapabilities"] = new JsonObject { ["loadSession"] = LoadSession, ["promptCapabilities"] = new JsonObject { ["image"] = Image, ["embeddedContext"] = EmbeddedContext }, ["mcpCapabilities"] = new JsonObject { ["http"] = McpHttp, ["sse"] = false }, ["sessionCapabilities"] = SystemPrompt ? new JsonObject { ["systemPrompt"] = new JsonObject() } : new JsonObject(), ["auth"] = AuthStatus ? new JsonObject { ["status"] = new JsonObject() } : null },
                     ["authMethods"] = TerminalType
                         ? new JsonArray(
                             new JsonObject { ["id"] = "term", ["name"] = "Sign in in a terminal", ["type"] = "terminal", ["args"] = new JsonArray("login", "--web"), ["env"] = new JsonObject { ["FAKE_LOGIN_MODE"] = "it's web" } },
@@ -208,9 +211,12 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
             case "authenticate": return new JsonObject();
             case "auth/status": return new JsonObject { ["accounts"] = new JsonArray(new JsonObject { ["label"] = "octocat" }, "second-account") };
             case "session/new" when AuthRequired: throw new AcpException(AcpException.AuthRequired, "Authentication required");
-            case "session/new": return NewSession("sess-" + Interlocked.Increment(ref sessions));
+            case "session/new":
+                lock (Last) Last[method] = parameters;
+                return NewSession("sess-" + Interlocked.Increment(ref sessions));
             case "session/load":
                 {
+                    lock (Last) Last[method] = parameters;
                     var id = parameters!["sessionId"]!.GetValue<string>();
                     await Update(id, new JsonObject { ["sessionUpdate"] = "user_message_chunk", ["content"] = Text("earlier question") });
                     await Update(id, new JsonObject { ["sessionUpdate"] = "agent_message_chunk", ["content"] = Text("earlier answer") });

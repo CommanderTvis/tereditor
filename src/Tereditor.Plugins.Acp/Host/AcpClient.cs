@@ -7,6 +7,12 @@ internal sealed record AcpAgentInfo(int ProtocolVersion, bool LoadSession, bool 
 {
     /// <summary>Whether the agent says it answers auth/status (a <c>status</c> entry under <c>agentCapabilities.auth</c>).</summary>
     public bool AdvertisesAuthStatus => ((Raw["agentCapabilities"] as JsonObject)?["auth"] as JsonObject)?.ContainsKey("status") == true;
+
+    /// <summary>Whether the agent connects to MCP servers over HTTP (<c>mcpCapabilities.http</c>); tereditor's server is HTTP only.</summary>
+    public bool McpHttp => (((Raw["agentCapabilities"] as JsonObject)?["mcpCapabilities"] as JsonObject)?["http"] as JsonValue)?.TryGetValue<bool>(out var on) == true && on;
+
+    /// <summary>Whether the agent takes a client system prompt (<c>sessionCapabilities.systemPrompt</c>, an unstable field; a bare object means append mode).</summary>
+    public bool SystemPromptAppend => ((Raw["agentCapabilities"] as JsonObject)?["sessionCapabilities"] as JsonObject)?["systemPrompt"] is JsonObject;
 }
 
 /// <summary>
@@ -117,13 +123,21 @@ internal sealed class AcpClient : IAsyncDisposable
         connection.RequestAsync("authenticate", new JsonObject { ["methodId"] = methodId }, cancellationToken);
 
     /// <summary>Starts a session; the result carries <c>sessionId</c> and, when offered, <c>modes</c>, <c>models</c> and <c>configOptions</c>.</summary>
-    public async Task<JsonObject> NewSessionAsync(string cwd, CancellationToken cancellationToken) =>
-        await connection.RequestAsync("session/new", new JsonObject { ["cwd"] = cwd, ["mcpServers"] = new JsonArray() }, cancellationToken) as JsonObject
+    public async Task<JsonObject> NewSessionAsync(string cwd, CancellationToken cancellationToken, JsonArray? mcpServers = null, JsonObject? systemPrompt = null) =>
+        await connection.RequestAsync("session/new", SessionParams(new JsonObject { ["cwd"] = cwd }, mcpServers, systemPrompt), cancellationToken) as JsonObject
         ?? throw new AcpException(AcpException.Internal, "The agent answered session/new with no result.");
 
     /// <summary>Resumes a stored session; the agent replays the conversation as updates before this returns.</summary>
-    public async Task<JsonObject> LoadSessionAsync(string sessionId, string cwd, CancellationToken cancellationToken) =>
-        await connection.RequestAsync("session/load", new JsonObject { ["sessionId"] = sessionId, ["cwd"] = cwd, ["mcpServers"] = new JsonArray() }, cancellationToken) as JsonObject ?? new JsonObject();
+    public async Task<JsonObject> LoadSessionAsync(string sessionId, string cwd, CancellationToken cancellationToken, JsonArray? mcpServers = null, JsonObject? systemPrompt = null) =>
+        await connection.RequestAsync("session/load", SessionParams(new JsonObject { ["sessionId"] = sessionId, ["cwd"] = cwd }, mcpServers, systemPrompt), cancellationToken) as JsonObject ?? new JsonObject();
+
+    // The MCP servers are always present (the field is required); the system prompt only when the agent takes one.
+    private static JsonObject SessionParams(JsonObject parameters, JsonArray? mcpServers, JsonObject? systemPrompt)
+    {
+        parameters["mcpServers"] = mcpServers ?? new JsonArray();
+        if (systemPrompt is not null) parameters["systemPrompt"] = systemPrompt;
+        return parameters;
+    }
 
     /// <summary>Runs one turn. Returns the stop reason (<c>end_turn</c>, <c>max_tokens</c>, <c>max_turn_requests</c>, <c>refusal</c>, <c>cancelled</c>).</summary>
     public async Task<string> PromptAsync(string sessionId, JsonArray content, CancellationToken cancellationToken) =>

@@ -214,6 +214,9 @@ internal sealed partial class AcpSettingsView : StackPanel
             _ = RunAsync(async () => { await context.UpdateSettingsAsync(new AcpSettings { DefaultAgent = isDefault.IsChecked == true ? entry.Id : "" }); return 0; }, _ => { }, "Couldn't save the default agent");
         panel.Children.Add(isDefault);
         if (DefaultModePicker(entry, mode => Edit(item => item with { DefaultMode = mode })) is { } modePicker) panel.Children.Add(modePicker);
+        var support = Text(AcpEntryText.SupportLine(entry.TereditorSupport), detail: true);
+        support.Name = "AcpTereditorSupport";
+        panel.Children.Add(support);
 
         if (detail.IsRegistry)
         {

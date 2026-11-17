@@ -75,7 +75,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         var entry = await new AcpInstaller(Path.Combine(DataDirectory, "agents"), Download).InstallAsync(root, request, AcpRegistry.Platform(), cancellationToken);
         // An update or reinstall keeps what the user set on the agent.
         if (ListAgents().Agents.FirstOrDefault(existing => existing.Id == entry.Id) is { } before)
-            entry = entry with { Enabled = before.Enabled, CommandOverride = before.CommandOverride, UseDefaultArgs = before.UseDefaultArgs, ArgsOverride = before.ArgsOverride, Cwd = before.Cwd, DefaultMode = before.DefaultMode, KnownModes = before.KnownModes, Env = new Dictionary<string, string>(entry.Env).Concat(before.Env).GroupBy(pair => pair.Key).ToDictionary(group => group.Key, group => group.Last().Value) };
+            entry = entry with { Enabled = before.Enabled, CommandOverride = before.CommandOverride, UseDefaultArgs = before.UseDefaultArgs, ArgsOverride = before.ArgsOverride, Cwd = before.Cwd, DefaultMode = before.DefaultMode, KnownModes = before.KnownModes, TereditorSupport = before.TereditorSupport, Env = new Dictionary<string, string>(entry.Env).Concat(before.Env).GroupBy(pair => pair.Key).ToDictionary(group => group.Key, group => group.Last().Value) };
         failures.TryRemove(entry.Id, out _);
         return AddAgent(entry);
     }
@@ -156,7 +156,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         {
             var all = context.ReadState<List<AcpAgentEntry>>(AgentsState, []);
             // The modes are the host's own record, so an edit made from an older copy of the entry cannot wipe them.
-            if (all.FirstOrDefault(existing => existing.Id == entry.Id) is { } before) entry.KnownModes = before.KnownModes;
+            if (all.FirstOrDefault(existing => existing.Id == entry.Id) is { } before) (entry.KnownModes, entry.TereditorSupport) = (before.KnownModes, before.TereditorSupport);
             all.RemoveAll(existing => existing.Id == entry.Id);
             all.Add(entry);
             context.WriteState(AgentsState, all);
@@ -175,6 +175,44 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
             entry.KnownModes = known;
             context.WriteState(AgentsState, all);
         }
+    }
+
+    /// <summary>Keeps what the agent can take from tereditor so the settings page can say so.</summary>
+    private void RememberSupport(string id, string support)
+    {
+        lock (recordsGate)
+        {
+            var all = context.ReadState<List<AcpAgentEntry>>(AgentsState, []);
+            if (all.FirstOrDefault(existing => existing.Id == id) is not { } entry || entry.TereditorSupport == support) return;
+            entry.TereditorSupport = support;
+            context.WriteState(AgentsState, all);
+        }
+    }
+
+    // The loopback server's root: the plugin's base URL names its own route under it.
+    private string LoopbackRoot()
+    {
+        var url = context.PublicBaseUrl();
+        var route = PluginIdentity.Route(context.Id);
+        return url.EndsWith(route, StringComparison.Ordinal) ? url[..^route.Length] : url;
+    }
+
+    /// <summary>
+    /// What tereditor gives this chat's session: its MCP address keyed to the chat, as a Claude Code chat gets, and the instruction
+    /// text for the workspace. It reads the project's instruction file, so the session start calls it off the UI thread. A part that
+    /// cannot be made is left out and the chat still starts.
+    /// </summary>
+    private AcpSessionSetup SetupFor(string workspaceId, string chatId)
+    {
+        string? url = null, text = null;
+        try { url = $"{LoopbackRoot()}/mcp/{context.TerminalToken(new TerminalRef(workspaceId, chatId))}"; }
+        catch (InvalidOperationException error) { context.Log.Warn("the chat gets no tereditor tools: " + error.Message); }
+        try
+        {
+            text = AcpSystemPrompt.Compose(context.PromptTexts(AcpManifest.Id, PromptPlacement.ToolList, workspaceId), context.PromptTexts(AcpManifest.Id, PromptPlacement.Section, workspaceId));
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException) { context.Log.Warn("the chat gets no tereditor instructions: " + error.Message); }
+        return new(url, text);
     }
 
     public AcpAgentList RemoveAgent(string id)
@@ -292,7 +330,8 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         var record = await Task.Run(() => LoadRecord(p.WorkspaceId, p.ChatId));
         var entry = ListAgents().Agents.FirstOrDefault(agent => agent.Id == record?.AgentId) ?? throw new InvalidOperationException("Choose an ACP agent for this chat first.");
         var session = new AcpChatSession(p.WorkspaceId, p.ChatId, cwd, () => connect is null ? LaunchAsync(entry, cwd) : connect(entry, cwd), Publish, message => context.Log.Warn(message), new AcpClientMethods(cwd),
-            answer => answers[entry.Id] = answer, () => SignInAsync(entry.Id, CancellationToken.None), entry.DefaultMode, modes => RememberModes(entry.Id, modes));
+            answer => answers[entry.Id] = answer, () => SignInAsync(entry.Id, CancellationToken.None), entry.DefaultMode, modes => RememberModes(entry.Id, modes),
+            new AcpSessionLink(() => SetupFor(p.WorkspaceId, p.ChatId), support => RememberSupport(entry.Id, support)));
         sessions[(p.WorkspaceId, p.ChatId)] = session;
         if (existing is not null) await existing.DisposeAsync();
         var header = session.Begin();

@@ -3,6 +3,18 @@ namespace Tereditor.Plugins.Acp;
 /// <summary>How the settings page writes and reads an agent's arguments and environment as plain text.</summary>
 public static class AcpEntryText
 {
+    private static readonly IReadOnlyDictionary<string, string> SupportLines = new Dictionary<string, string>
+    {
+        ["both"] = "Gets tereditor's tools and instructions.",
+        ["tools"] = "Gets tereditor's tools. It takes no instructions from tereditor.",
+        ["instructions"] = "Gets tereditor's instructions. It cannot connect to tereditor's tools.",
+        ["none"] = "Gets neither tereditor's tools nor its instructions. This agent has no way to take them."
+    };
+
+    /// <summary>The settings line on what tereditor gives an agent, from <see cref="AcpAgentEntry.TereditorSupport"/>.</summary>
+    public static string SupportLine(string support) =>
+        SupportLines.GetValueOrDefault(support) ?? "Tereditor's tools and instructions: known after its first chat.";
+
     /// <summary>One <c>NAME=value</c> per line; blank lines and lines without a name are dropped.</summary>
     public static IReadOnlyDictionary<string, string> ParseEnvironment(string text)
     {
