@@ -33,6 +33,8 @@ internal static class FileRevealE2E
                 using var app = server is null ? new E2eWorkspace(workspace)
                     : new E2eWorkspace(endpoint!, "file-reveal", workspace, workspace + "-profile", workspace, terminals: new E2eTerminals(terminalAdapter!));
                 Until(() => app.Window.WorkspaceMounted);
+                // A remote window opens on its start path without choosing a tool, so Files is shown as the local one does.
+                if (remote) app.ShowTool("files");
 
                 app.Click(app.FileRow("README.md"), mouseButton: Avalonia.Input.MouseButton.Right);
                 var files = app.FileRow("README.md").ContextMenu!;
