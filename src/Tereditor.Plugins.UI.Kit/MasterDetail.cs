@@ -104,13 +104,13 @@ public sealed class MasterDetail : Grid
         title.Children.Add(new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.TextBrush, HorizontalAlignment = HorizontalAlignment.Left });
         if (!string.IsNullOrEmpty(note))
         {
-            var version = new TextBlock { Name = "MasterNote_" + id, Text = note, FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+            var version = new TextBlock { Name = "MasterNote_" + id, Text = note, FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
             SetColumn(version, 1);
             title.Children.Add(version);
         }
         if (!string.IsNullOrEmpty(badge))
         {
-            var tag = new TextBlock { Name = "MasterBadge_" + id, Text = badge, FontSize = 11, Foreground = Ui.Muted, FontStyle = FontStyle.Italic, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+            var tag = new TextBlock { Name = "MasterBadge_" + id, Text = badge, FontSize = 11, Foreground = Ui.Muted, FontStyle = FontStyle.Italic, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
             if (badgeTip is not null) ToolTip.SetTip(tag, badgeTip);
             SetColumn(tag, 2);
             title.Children.Add(tag);

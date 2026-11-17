@@ -333,10 +333,10 @@
     </DataTemplate>
     <DataTemplate x:Key="LineWidthControl">
       <Border Classes="settings-row compact">
-        <StackPanel Spacing="6">
+        <StackPanel Spacing="8">
           <TextBlock x:Name="LineWidthTitle" Classes="settings-label" TextWrapping="Wrap" />
           <TextBlock x:Name="LineWidthDescription" Classes="settings-description" TextWrapping="Wrap" />
-          <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="6">
+          <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
             <rendering:Switch x:Name="LineWidthBounded" Label="Limit lines to this width" ToolTip.Tip="Limit lines to this width" VerticalAlignment="Center" />
             <TextBlock Text="Limit lines to" Classes="settings-description" VerticalAlignment="Center" />
             <TextBox x:Name="LineWidthInput" Width="72" VerticalAlignment="Center" />
