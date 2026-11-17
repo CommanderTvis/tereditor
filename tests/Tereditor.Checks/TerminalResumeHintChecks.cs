@@ -184,6 +184,18 @@ internal static class TerminalResumeHintChecks
         Require(view.CompanionStacked && view.CompanionWidth is { } narrow && Math.Abs(narrow - 300) < 1, "Opening while narrow stacks the companion and still remembers the width.");
         view.Companion = null; Settle();
         Require(!view.CompanionStacked && saved.Count == 1, "Closing a stacked companion reports no width.");
+        // The surface never loses its minimum width: a huge saved width, a narrower window and a zoom all clamp the companion.
+        fixture.Window.Width = 900; Settle();
+        view.CompanionWidth = 5000; view.Companion = pane; Settle();
+        Require(!view.CompanionStacked && body.Bounds.Width >= 360 - 1 && body.Bounds.Width >= 0.3 * view.Bounds.Width - 1, $"A saved width larger than the view leaves the surface {body.Bounds.Width} of {view.Bounds.Width}.");
+        foreach (var width in new[] { 700.0, 600.0, 1400.0 })
+        {
+            fixture.Window.Width = width; Settle();
+            Require(!view.CompanionStacked && body.Bounds.Width >= Math.Max(360, 0.3 * view.Bounds.Width) - 1 && pane.Bounds.Width <= TerminalView.CompanionMaxWidth(view.Bounds.Width) + 1,
+                $"At window width {width} the surface keeps {body.Bounds.Width} of {view.Bounds.Width} and the companion {pane.Bounds.Width}.");
+        }
+        // Zoom shrinks the view's logical width while the saved width stays: the narrower widths above are that case.
+        view.Companion = null; Settle();
         // The chips are part of the terminal's box: no border line, and beside a companion the strip keeps to the surface's column so the companion reaches the bottom edge.
         fixture.Window.Width = 900; Settle();
         var chips = view.GetLogicalDescendants().OfType<StackPanel>().Single(control => control.Name == "TerminalAccessories");

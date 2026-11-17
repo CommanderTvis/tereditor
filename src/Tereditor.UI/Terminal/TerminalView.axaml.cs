@@ -412,6 +412,12 @@ public sealed partial class TerminalView : UserControl, IDisposable
     /// <summary>Below this view width the companion stacks below the surface instead of squeezing it.</summary>
     public const double CompanionStackBelow = 560;
 
+    /// <summary>The least width the surface keeps beside a companion: the larger of this and <see cref="SurfaceMinShare"/> of the view.</summary>
+    public const double SurfaceMinWidth = 360, SurfaceMinShare = 0.3;
+
+    /// <summary>The widest the companion column may be at this view width, so it never takes the surface's room.</summary>
+    public static double CompanionMaxWidth(double viewWidth) => Math.Max(0, viewWidth - Math.Max(SurfaceMinWidth, SurfaceMinShare * viewWidth) - 1);
+
     /// <summary>A stacked companion never takes more than this share of the height; the surface keeps the rest.</summary>
     public const double CompanionStackMaxShare = 0.6;
 
@@ -444,6 +450,7 @@ public sealed partial class TerminalView : UserControl, IDisposable
             if (!companion.IsVisible || CompanionStacked) return;
             CompanionColumns[0].Width = new GridLength(1, GridUnitType.Star);
             CompanionColumns[2].Width = companionWidth;
+            LayoutCompanion();
         }
     }
 
@@ -510,6 +517,10 @@ public sealed partial class TerminalView : UserControl, IDisposable
             rows[1].MinHeight = Math.Max(StackedSurfaceMinHeight, Bounds.Height * (1 - CompanionStackMaxShare));
             rows[3].MinHeight = StackedCompanionMinHeight;
         }
+        // One clamp for every path (drag, restored width, resize, zoom): the surface keeps its minimum, the companion yields.
+        var wideColumns = CompanionColumns;
+        wideColumns[0].MinWidth = companion.IsVisible && !stacked ? Math.Min(Math.Max(SurfaceMinWidth, SurfaceMinShare * Bounds.Width), Bounds.Width) : 0;
+        wideColumns[2].MaxWidth = companion.IsVisible && !stacked && Bounds.Width > 0 ? CompanionMaxWidth(Bounds.Width) : double.PositiveInfinity;
         companionSplitter.IsVisible = companion.IsVisible && !stacked;
         stackSplitter.IsVisible = stacked;
         // Beside the companion the chips and the status rows stay in the surface's column, so the companion reaches the bottom edge.
