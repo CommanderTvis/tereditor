@@ -442,6 +442,21 @@ new review. Source links expose only discovered files and reveal JSON key paths 
 contents. CLI plugin/marketplace changes show the exact command before execution. tereditor’s own integration
 is loaded only for app-started Claude processes through `--plugin-dir`; activation never installs or updates it in Claude’s user settings.
 
+### Turning things off from the Context table
+
+Right-click a row to turn it off; every action is one edit through the settings engine (diff, scope choice in the review dialog: this project, just me, or all projects, host state, no local copy). The dialog says that sessions started afterwards use the change and a running one may keep what it loaded. The label names the tokens the row costs ("saves 480 tokens", "saves up to" for a server whose tools are deferred). A row that is already off offers "Turn ... back on". Left click on a skill opens its SKILL.md when the snapshot knows the file (user and project skill folders, plugin skills from the plugin's declared files); a skill with no file on disk (built into Claude Code) does nothing. Only mechanisms the docs state are used (https://code.claude.com/docs/en/permissions, skills, settings-reference, mcp, memory):
+
+| Row | Setting written | Scopes | Effect on tokens |
+| --- | --- | --- | --- |
+| Skill (user, project, bundled) | `skillOverrides.<name>: "off"` | any file | Listed to nobody and hidden from the `/` menu. "Plugin skills are not affected" |
+| Skill from a plugin | `permissions.deny` rule `Skill(<plugin:name>)` | any file | Docs: "Hide from Claude via permissions". The size saved is not stated |
+| MCP server | `permissions.deny` rule `mcp__<server>__*` ("." and space in the name become "_") | any file | Bare-name and glob deny rules remove the tools from Claude's context |
+| One MCP tool | `permissions.deny` rule `mcp__<server>__<tool>` | any file | Same, per tool |
+| Built-in tool | `permissions.deny` rule `<Tool>` (for example `WebSearch`) | any file | "A bare tool name like `Bash` removes the tool from Claude's context entirely". /context reports one total for all built-in tools, so single tools show no size. EndConversation cannot be removed and ToolSearch is left out on purpose |
+| System prompt, MCP server instructions | none | | No documented switch |
+
+Documented but not offered yet: `claudeMdExcludes` (memory files; not the managed CLAUDE.md), `autoMemoryEnabled` / `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `disabledMcpjsonServers` (a server of a project's .mcp.json, which also stops the server connecting), `disableClaudeAiConnectors`, `enabledPlugins` (turns a plugin's skills, servers and hooks off). Not confirmed by the docs, so left out: how many tokens a `Skill()` deny saves, that a deny rule drops a server's instructions, and per-tool sizes of built-in tools.
+
 ## Status and recovery
 
 Activation owns the process poll, bridge, terminal environment, revive hook and status route.

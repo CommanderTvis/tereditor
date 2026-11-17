@@ -195,6 +195,15 @@ internal static partial class ClaudeEdits
             case HookEdit hook:
                 AddHook(document, HookEventName(hook.Event), hook.Matcher.Trim(), hook.Command);
                 break;
+            case DenyToolEdit deny:
+                var permissions = Branch(document, "permissions");
+                var rules = Json.StringList(permissions["deny"]).ToList();
+                if (deny.Denied) { if (!rules.Contains(deny.Rule)) rules.Add(deny.Rule); }
+                else rules.RemoveAll(rule => rule == deny.Rule);
+                if (rules.Count > 0) permissions["deny"] = new JsonArray([.. rules.Select(rule => (JsonNode?)rule)]);
+                else permissions.Remove("deny");
+                Prune(document, "permissions");
+                break;
             case SkillEdit skill:
                 // An override is only ever a switch-off: re-enabling is the absence of one, not "on" written back.
                 if (skill.Enabled)
@@ -219,6 +228,7 @@ internal static partial class ClaudeEdits
             PluginAddEdit add => $"Add the plugin \"{add.Plugin}\" from \"{add.Marketplace}\" — affects {who}.",
             HookEdit hook => $"Run `{hook.Command}` on {HookEventName(hook.Event)}{(hook.Matcher.Length > 0 ? $" for {hook.Matcher}" : "")} — affects {who}.",
             SkillCreateEdit create => $"Create the skill \"{create.Name}\" — affects {who}.",
+            DenyToolEdit deny => deny.Denied ? $"Hide \"{deny.Rule}\" from Claude with a deny rule — affects {who}." : $"Stop hiding \"{deny.Rule}\" from Claude — affects {who}.",
             SkillEdit skill => skill.Enabled ? $"Stop overriding the skill \"{skill.Name}\" — affects {who}." : $"Turn off the skill \"{skill.Name}\" — affects {who}.",
             SettingEdit setting => setting.Value is not { ValueKind: not JsonValueKind.Null } value
                 ? $"Remove \"{setting.Key}\" — affects {who}."

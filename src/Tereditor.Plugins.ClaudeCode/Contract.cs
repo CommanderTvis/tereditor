@@ -166,6 +166,7 @@ public sealed record DirectoryMarketplaceSource(string Path) : ClaudeMarketplace
 [JsonDerivedType(typeof(HookEdit), "hook")]
 [JsonDerivedType(typeof(SkillCreateEdit), "skill-create")]
 [JsonDerivedType(typeof(SkillEdit), "skill")]
+[JsonDerivedType(typeof(DenyToolEdit), "deny-tool")]
 [JsonDerivedType(typeof(FileEdit), "file")]
 public abstract record ClaudeEdit;
 /// <summary>Sets a dotted key; a null value removes it. A value is a boolean, number, string or list of strings.</summary>
@@ -177,6 +178,8 @@ public sealed record PluginAddEdit(string Marketplace, ClaudeMarketplaceSource S
 public sealed record HookEdit(ClaudeHookEvent Event, string Matcher, string Command) : ClaudeEdit;
 public sealed record SkillCreateEdit(string Name, string Description) : ClaudeEdit;
 public sealed record SkillEdit(string Name, bool Enabled) : ClaudeEdit;
+/// <summary>Adds (Denied) or removes one rule of <c>permissions.deny</c>: a bare tool name, <c>mcp__server__*</c> or <c>Skill(name)</c>, which hide that tool or skill from Claude.</summary>
+public sealed record DenyToolEdit(string Rule, bool Denied) : ClaudeEdit;
 public sealed record FileEdit(ClaudeFileTemplate Template) : ClaudeEdit;
 
 public sealed record ClaudeEditRequest(string WorkspaceId, ClaudeWritableScope Scope, ClaudeEdit Edit)

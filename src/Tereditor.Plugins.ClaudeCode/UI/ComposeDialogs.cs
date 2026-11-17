@@ -8,7 +8,7 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.ClaudeCode.UI;
 
 /// <summary>An edit composed by a dialog, with the title its review dialog wears.</summary>
-internal sealed record PendingEdit(ClaudeEdit Edit, string Title);
+internal sealed record PendingEdit(ClaudeEdit Edit, string Title, string? Note = null);
 
 /// <summary>
 /// The dialogs that describe a capability before anything is asked about where it goes: an MCP server, a skill, a hook

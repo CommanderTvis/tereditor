@@ -240,6 +240,36 @@ internal static class ClaudeContextChecks
             rows[0].Tokens == 1_300 && rows.Sum(row => row.Tokens) == 1_300 + 4_300 + 671 + 717 + 6_200,
             "The baseline rows are the categories a fresh session pays for, the system prompt without the appended file. Got: " +
             string.Join(", ", rows.Select(row => row.Key + "=" + row.Tokens)));
+        // Context-menu actions: only documented switches, none for the system prompt, and the way back for what is off.
+        var none = new HashSet<string>();
+        var skills = rows.Single(row => row.Key == "skills").Children;
+        var dataviz = ClaudeConfigPanel.RowActions(skills.Single(row => row.Label == "dataviz"), none, none).Single();
+        var reviewing = ClaudeConfigPanel.RowActions(skills.Single(row => row.Label == "example:review"), none, none).Single();
+        var docs = ClaudeConfigPanel.RowActions(rows.Single(row => row.Key == "mcp-tools").Children[0], none, none).Single();
+        var docsTool = ClaudeConfigPanel.RowActions(rows.Single(row => row.Key == "mcp-tools").Children[0].Children[0], none, none).Single();
+        var builtIn = rows.Single(row => row.Key == "system-tools").Children;
+        Require(ClaudeConfigPanel.RowActions(rows[0], none, none).Count == 0 && ClaudeConfigPanel.RowActions(rows.Single(row => row.Key == "skills"), none, none).Count == 0 &&
+            builtIn.Count > 0 && builtIn.All(tool => tool.Tokens < 0) && !builtIn.Any(tool => tool.Label is "EndConversation" or "ToolSearch"),
+            "The system prompt and the group rows have no actions; built-in tools list one row each, with no size /context does not give.");
+        Require(dataviz.Edit.Edit is SkillEdit { Name: "dataviz", Enabled: false } && dataviz.Label.Contains("saves 480 tokens", StringComparison.Ordinal) &&
+            reviewing.Edit.Edit is DenyToolEdit { Rule: "Skill(example:review)", Denied: true } &&
+            docs.Edit.Edit is DenyToolEdit { Rule: "mcp__docs__*", Denied: true } && docs.Label.Contains("saves up to", StringComparison.Ordinal) &&
+            docsTool.Edit.Edit is DenyToolEdit { Rule: "mcp__docs__update", Denied: true } &&
+            ClaudeConfigPanel.RowActions(builtIn.Single(tool => tool.Label == "WebSearch"), none, none).Single().Edit.Edit is DenyToolEdit { Rule: "WebSearch", Denied: true },
+            "A skill goes through skillOverrides, a plugin skill through a Skill() deny rule, an MCP server or tool and a built-in tool through permissions.deny.");
+        var off = new HashSet<string> { "mcp__docs__*", "WebSearch" };
+        Require(ClaudeConfigPanel.RowActions(rows.Single(row => row.Key == "mcp-tools").Children[0], off, none).Single().Edit.Edit is DenyToolEdit { Denied: false } &&
+            ClaudeConfigPanel.RowActions(builtIn.Single(tool => tool.Label == "WebSearch"), off, none).Single().Edit.Edit is DenyToolEdit { Denied: false } &&
+            ClaudeConfigPanel.RowActions(skills.Single(row => row.Label == "dataviz"), none, new HashSet<string> { "dataviz" }).Single().Edit.Edit is SkillEdit { Enabled: true } &&
+            ClaudeConfigPanel.ServerToolPrefix("my.server x") == "mcp__my_server_x",
+            "What is already off offers to turn it back on.");
+        // A skill's file: a user or project skill's folder, a plugin's skill from its declared file; none for a built-in one.
+        var userSkill = new ClaudeCapability(ClaudeCapabilityKind.Skill, "tidy", new(ClaudeConfigScope.User, "/home/u/.claude/skills/tidy"), true);
+        var plugin = new ClaudeCapability(ClaudeCapabilityKind.Plugin, "example@market", new(ClaudeConfigScope.User, "/home/u/.claude/settings.json"), true)
+        { Parts = [new(ClaudePluginPartKind.Skill, "example:review") { Path = "/home/u/.claude/plugins/cache/example/skills/review/SKILL.md" }, new(ClaudePluginPartKind.Skill, "inline")] };
+        var files = ClaudeConfigPanel.SkillFiles([userSkill, plugin]);
+        Require(files["tidy"] == Path.Combine("/home/u/.claude/skills/tidy", "SKILL.md") && files["example:review"].EndsWith("review/SKILL.md", StringComparison.Ordinal) &&
+            !files.ContainsKey("dataviz") && !files.ContainsKey("inline"), "Skill names resolve to their SKILL.md from the snapshot; a built-in or file-less skill has none.");
         var mcp = rows.Single(row => row.Key == "mcp-tools");
         Require(mcp.Children.Select(server => server.Label).SequenceEqual(["docs", "notes"]) && mcp.Children[0].Tokens == 1_980 &&
             mcp.Children[0].Children.Select(tool => tool.Label).SequenceEqual(["update", "read", "create"]),

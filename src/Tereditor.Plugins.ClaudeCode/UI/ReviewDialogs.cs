@@ -46,6 +46,7 @@ internal static class ReviewDialogs
         var busy = false;
         var generation = 0;
 
+        if (pending.Note is not null) panel.Children.Add(ClaudeParts.Wrapped(pending.Note, Ui.Hint, 12));
         panel.Children.Add(Ui.Text("Where should this change go?", Ui.Muted, 12));
         var scopes = new StackPanel { Spacing = 4 };
         panel.Children.Add(scopes);

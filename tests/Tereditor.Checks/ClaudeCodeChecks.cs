@@ -1892,6 +1892,12 @@ internal static class ClaudeCodeChecks
         var settingsPath = Path.Combine(project, ".claude", "settings.json");
         Require(Diff(await Apply(ClaudeWritableScope.Project, new HookEdit(ClaudeHookEvent.PostToolUse, "Edit|Write", "./format.sh"))).Contains("./format.sh", StringComparison.Ordinal) &&
             Read(settingsPath).GetProperty("hooks").GetProperty("PostToolUse").GetArrayLength() == 1, "A hook is written to the project settings.");
+        Require(Diff(await Apply(ClaudeWritableScope.Project, new DenyToolEdit("WebSearch", true))).Contains("WebSearch", StringComparison.Ordinal) &&
+            Read(settingsPath).GetProperty("permissions").GetProperty("deny").EnumerateArray().Select(item => item.GetString()).SequenceEqual(["WebSearch"]),
+            "A deny rule is added to permissions.deny.");
+        await Apply(ClaudeWritableScope.Project, new DenyToolEdit("WebSearch", true));
+        await Apply(ClaudeWritableScope.Project, new DenyToolEdit("WebSearch", false));
+        Require(!(Read(settingsPath).TryGetProperty("permissions", out var permissions) && permissions.TryGetProperty("deny", out _)), "Turning it back on removes the rule and the empty list.");
         Require(Diff(await Apply(ClaudeWritableScope.Project, new PluginAddEdit("claude-code-plugins", new GithubMarketplaceSource("anthropics/claude-code"), "typescript-lsp")))
             .Contains("anthropics/claude-code", StringComparison.Ordinal) &&
             Read(settingsPath).GetProperty("enabledPlugins").GetProperty("typescript-lsp@claude-code-plugins").GetBoolean(), "A plugin is enabled in the project settings with its marketplace.");

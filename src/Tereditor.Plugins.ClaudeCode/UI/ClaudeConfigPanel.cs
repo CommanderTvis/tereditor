@@ -416,6 +416,14 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return pending;
     }
 
+    private static Control NotReported()
+    {
+        var text = Ui.Text("—", Ui.Hint, 11);
+        text.VerticalAlignment = VerticalAlignment.Center;
+        ToolTip.SetTip(text, "/context does not report a size for each built-in tool");
+        return text;
+    }
+
     private static Control NotLoaded()
     {
         var text = Ui.Text("not loaded", Ui.Hint, 11);
@@ -424,6 +432,77 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         ToolTip.SetTip(text, "/context does not list this file for a fresh session here");
         return text;
     }
+
+    // The built-in tools the tools reference names that a user can hide with a bare deny rule. EndConversation (cannot be
+    // removed) and ToolSearch (loads the deferred MCP tools) are left out on purpose.
+    internal static readonly string[] BuiltInTools =
+    [
+        "Agent", "AskUserQuestion", "Bash", "CronCreate", "CronDelete", "CronList", "Edit", "EnterPlanMode", "EnterWorktree", "Glob", "Grep",
+        "ListMcpResourcesTool", "LSP", "Monitor", "NotebookEdit", "Read", "ReadMcpResourceTool", "Skill", "TodoWrite", "WebFetch", "WebSearch", "Workflow", "Write"
+    ];
+
+    /// <summary>One context-menu entry of a Context row: its label and the edit the review dialog then asks a scope for.</summary>
+    internal sealed record RowAction(string Label, PendingEdit Edit);
+
+    // Claude Code writes a server's name into tool names with every "." and space as "_".
+    internal static string ServerToolPrefix(string server) => "mcp__" + server.Replace('.', '_').Replace(' ', '_');
+
+    private const string RestartNote = "Sessions you start afterwards use this. A session that is already running may keep what it loaded.";
+
+    /// <summary>
+    /// What a Context row can turn off, from the documented switches only: a skill through <c>skillOverrides</c> (a plugin's
+    /// skill through a <c>Skill(name)</c> deny rule, since overrides skip plugin skills), an MCP server or tool and a built-in
+    /// tool through <c>permissions.deny</c>. Rows that cannot be turned off, like the system prompt, get none. A row that is
+    /// already off offers the way back.
+    /// </summary>
+    internal static List<RowAction> RowActions(BaselineEntry entry, IReadOnlySet<string> denied, IReadOnlySet<string> skillsOff)
+    {
+        var saves = entry.Tokens > 0 ? $" (saves {(entry.Suffix.Length > 0 ? "up to " : "")}{ClaudeContextUsageView.Tokens(entry.Tokens)} tokens)" : "";
+        RowAction Toggle(string noun, string rule, string name, string detail)
+        {
+            var off = denied.Contains(rule);
+            return off ? new($"Turn {noun} back on", new(new DenyToolEdit(rule, false), $"Turn \"{name}\" back on", detail))
+                : new($"Turn off this {noun}{saves}", new(new DenyToolEdit(rule, true), $"Turn off \"{name}\"", detail));
+        }
+        if (entry.Key.StartsWith("skills/", StringComparison.Ordinal))
+        {
+            var name = entry.Key["skills/".Length..];
+            if (entry.Tip?.StartsWith("Plugin", StringComparison.OrdinalIgnoreCase) == true) return [Toggle("skill", $"Skill({name})", name, RestartNote)];
+            return skillsOff.Contains(name)
+                ? [new("Turn skill back on", new(new SkillEdit(name, true), $"Turn \"{name}\" back on", RestartNote))]
+                : [new("Turn off this skill" + saves, new(new SkillEdit(name, false), $"Turn off \"{name}\"", RestartNote))];
+        }
+        if (entry.Key.StartsWith("mcp-tools/", StringComparison.Ordinal))
+        {
+            var rest = entry.Key["mcp-tools/".Length..];
+            var slash = rest.IndexOf('/');
+            return slash < 0 ? [Toggle("MCP server", ServerToolPrefix(rest) + "__*", rest, RestartNote)]
+                : entry.Tip is { } tool ? [Toggle("MCP tool", tool, tool, RestartNote)] : [];
+        }
+        if (entry.Key.StartsWith("system-tools/", StringComparison.Ordinal))
+            return [Toggle("tool", entry.Label, entry.Label, RestartNote)];
+        return [];
+    }
+
+    /// <summary>
+    /// The SKILL.md each skill name of the Context table opens, read from the snapshot's capabilities: a plugin's skills from
+    /// the files its manifest declares (named <c>plugin:skill</c>), user and project skills from their folder. A skill with
+    /// no file on disk, such as one compiled into Claude Code, is absent.
+    /// </summary>
+    internal static Dictionary<string, string> SkillFiles(IReadOnlyList<ClaudeCapability> capabilities)
+    {
+        var files = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var item in capabilities)
+        {
+            if (item.Kind == ClaudeCapabilityKind.Skill && item.Origin.Path is { } folder) files.TryAdd(item.Name, System.IO.Path.Combine(folder, "SKILL.md"));
+            foreach (var part in item.Parts ?? [])
+                if (part.Kind == ClaudePluginPartKind.Skill && part.Path is { } file) files.TryAdd(part.Name, file);
+        }
+        return files;
+    }
+
+    private IReadOnlySet<string> rowDenied = new HashSet<string>(), rowSkillsOff = new HashSet<string>();
+    private Dictionary<string, string> rowSkillFiles = [];
 
     // Suffix follows the count, as " if loaded" on a server whose tools /context counts whether loaded or deferred.
     internal sealed record BaselineEntry(string Key, string Label, string Icon, long Tokens, IReadOnlyList<BaselineEntry> Children, string? Tip = null, string Suffix = "");
@@ -467,7 +546,9 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             {
                 "System prompt" => new("system-prompt", "Claude Code system prompt", "robot", Math.Max(0, claudePrompt ?? category.Tokens), [],
                     "Claude Code's own prompt; tereditor's appended instructions are counted on their own row"),
-                "System tools" => new("system-tools", "Built-in tools", "terminal", category.Tokens, []),
+                "System tools" => new("system-tools", "Built-in tools", "terminal", category.Tokens,
+                    [.. BuiltInTools.Select(tool => new BaselineEntry("system-tools/" + tool, tool, "terminal", -1, [], tool))],
+                    "/context reports one total for these. Turning a tool off removes its definition from Claude's context."),
                 "MCP tools" => McpRow(category.Tokens),
                 "MCP server instructions" => new("mcp-instructions", "MCP server instructions", "book", category.Tokens, []),
                 "Skills" => new("skills", "Skills", "sparkling", category.Tokens,
@@ -485,6 +566,24 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         var open = expandedRows.Contains(entry.Key);
         var line = BaselineLine(entry, depth, open);
         list.Children.Add(line);
+        var actions = RowActions(entry, rowDenied, rowSkillsOff);
+        if (actions.Count > 0)
+        {
+            var menu = new ContextMenu { Name = "ClaudeContextRowMenu" };
+            foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => Edit(action.Edit)));
+            line.ContextMenu = menu;
+        }
+        if (entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && rowSkillFiles.TryGetValue(entry.Key["skills/".Length..], out var skillFile))
+        {
+            line.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            ToolTip.SetTip(line, skillFile);
+            line.PointerPressed += (_, args) =>
+            {
+                if (!args.GetCurrentPoint(line).Properties.IsLeftButtonPressed) return;
+                OpenSource(skillFile, null);
+                args.Handled = true;
+            };
+        }
         if (entry.Children.Count == 0) return;
         var parts = new StackPanel { Name = "ClaudeContextBaselineParts", Tag = entry.Key, IsVisible = open };
         foreach (var child in entry.Children) AddBaselineRow(parts, child, depth + 1);
@@ -506,7 +605,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     internal static DockPanel BaselineLine(BaselineEntry entry, int depth, bool open)
     {
         var line = new DockPanel { Name = "ClaudeContextBaseline", Tag = entry.Key, Margin = new Thickness(8 + depth * 16, 4, 8, 4), Background = Brushes.Transparent };
-        line.Children.Add(SizeColumn(Measure(entry.Tokens, Ui.Muted, entry.Suffix)));
+        line.Children.Add(SizeColumn(entry.Tokens < 0 ? NotReported() : Measure(entry.Tokens, Ui.Muted, entry.Suffix)));
         var glyph = Ui.Icon(entry.Icon, Ui.Hint, 14);
         glyph.Margin = new Thickness(0, 0, 8, 0);
         glyph.VerticalAlignment = VerticalAlignment.Center;
@@ -637,6 +736,10 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             list.Children.Add(instructions);
         }
         // What else a fresh session starts with, as /context counts it: Claude's own prompt and tools, MCP and skills.
+        rowDenied = snapshot?.Settings.FirstOrDefault(setting => setting.Key == "permissions.deny") is { Value.ValueKind: JsonValueKind.Array } deny
+            ? deny.Value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!).ToHashSet() : new HashSet<string>();
+        rowSkillsOff = snapshot?.Capabilities.Where(item => item.Kind == ClaudeCapabilityKind.Skill && !item.Enabled).Select(item => item.Name).ToHashSet() ?? new HashSet<string>();
+        rowSkillFiles = SkillFiles(snapshot?.Capabilities ?? []);
         foreach (var entry in baseline) AddBaselineRow(list, entry, depth: 0);
         return list;
     }
