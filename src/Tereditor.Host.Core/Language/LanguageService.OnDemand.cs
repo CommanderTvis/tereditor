@@ -39,6 +39,10 @@ public sealed partial class LanguageService
             foreach (var id in started.Select(item => item.Server).Where(id => id.Length > 0).Distinct())
                 if (!await WaitForProjectsAsync(workspace, id, OnDemandWait - waited.Elapsed, token)) loading.Add(id);
             var searched = await ExecuteAsync(request, token);
+            // A server that died cannot have the name; saying "not found" or "still loading" would send the agent in circles.
+            foreach (var id in started.Select(item => item.Server).Where(id => id.Length > 0).Distinct())
+                if (entries.TryGetValue(workspace + "\0" + id, out var dead) && dead.Session.IsValueCreated && dead.Session.Value is { IsCompletedSuccessfully: true } done && done.Result.Exited && searched.Locations.Count == 0)
+                    return searched with { State = "error", Server = id, Detail = $"{id}: The language server exited{(done.Result.ExitRecord is { } died ? ": " + died.Reason : ".")} Use Retry to restart it.", Freshness = "unavailable" };
             return searched.State == "initializing" || loading.Count > 0 && searched.State is "notFound" or "ambiguous"
                 ? searched with { State = "initializing", Detail = StillLoading(loading.Count > 0 ? string.Join(", ", loading) : "a language server", waited.Elapsed) + " " + searched.Detail }
                 : searched;
@@ -59,6 +63,8 @@ public sealed partial class LanguageService
     {
         if (!entries.TryGetValue(workspace + "\0" + server, out var entry) || !entry.Session.IsValueCreated || !entry.Session.Value.IsCompletedSuccessfully) return true;
         var session = await entry.Session.Value;
+        // A server that exited is not loading anything; the request that follows reports the exit instead of a wait that never ends.
+        if (session.Exited) return true;
         return await session.WaitSettledAsync(timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout, token);
     }
 
@@ -132,6 +138,7 @@ public sealed partial class LanguageService
     {
         var server = result.Server.Length > 0 ? result.Server : request.Path.Length > 0 && Path.IsPathFullyQualified(request.Workspace) ? Detect(request.Workspace, request.Path)?.Id ?? "" : "";
         var start = $"lsp_status {{\"operation\":\"retry\",\"server\":\"{server}\",\"workspace\":\"{request.Workspace}\"}}";
+        if (result.State == "error" && server.Length > 0 && result.Detail.Contains("The language server exited", StringComparison.Ordinal)) return $"{server} is not running; restart it with {start}.";
         if (result.State == "stopped" && server.Length > 0) return $"{server} is stopped; start it with {start}.";
         if (result.State == "disabled") return server.Length > 0 ? $"{server} is disabled in Settings > LSP; ask the user to enable it, then call {start}." : "Language services are disabled in Settings > LSP; ask the user to enable them.";
         if (result.State == "unsupported" && result.Detail.StartsWith("No language server", StringComparison.Ordinal)) return "No language server handles this file type; use text search for it.";

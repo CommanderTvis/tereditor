@@ -225,7 +225,7 @@ internal sealed partial class LanguageSession : IAsyncDisposable, ILanguageServe
             if (connection.Exited)
             {
                 diagnostics.Clear();
-                throw new IOException("The language server exited.");
+                throw new IOException("The language server exited" + (ExitRecord is { } died ? ": " + died.Reason : "."));
             }
             if (request.Operation == "capabilities") return CapabilitiesResult(request);
             if (request.Operation == "rawRequest" && request.Path.Length == 0)

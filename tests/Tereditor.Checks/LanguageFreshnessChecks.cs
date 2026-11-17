@@ -93,7 +93,18 @@ internal static partial class LanguageFreshnessChecks
             Require(watched.Contains("1 " + new Uri(Path.Combine(workspace, "Fresh.cs")).AbsoluteUri, StringComparison.Ordinal), "The new file was not reported as created: " + watched);
             Require(!watched.Contains("README", StringComparison.Ordinal), "A file no watcher covers was reported: " + watched);
             Require(JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(workspace, ".tools", "initialize.json")))!["pid"]!.GetValue<int>() == pid, "The server was restarted to see a new file.");
-            Console.WriteLine("PASS language freshness: loading graph waits, new files without restart, type and constructor resolution");
+            // A server that died answers every call with its state and the way to restart it, never with "still loading, call again".
+            using (var server = System.Diagnostics.Process.GetProcessById(pid)) { server.Kill(); await server.WaitForExitAsync(); }
+            var status = await Until(() => Call("lsp_status", new { workspace }), result => result["state"]!.ToString() == "error");
+            Require(status["state"]!.ToString() == "error", "A dead server was not reported as error: " + status);
+            foreach (var query in new[] { "Widget", "Fresh" })
+            {
+                var dead = await Call("lsp_navigate", new { operation = "references", query, workspace });
+                var text = dead["detail"]!.ToString();
+                Require(dead["state"]!.ToString() == "error" && text.Contains("exited", StringComparison.Ordinal) && !text.Contains("call again", StringComparison.Ordinal) && dead["hint"]?.ToString().Contains("retry", StringComparison.Ordinal) == true,
+                    "A by-name lookup against a dead server did not say so plainly: " + dead);
+            }
+            Console.WriteLine("PASS language freshness: loading graph waits, new files without restart, type and constructor resolution, dead server named");
         }
         finally
         {
