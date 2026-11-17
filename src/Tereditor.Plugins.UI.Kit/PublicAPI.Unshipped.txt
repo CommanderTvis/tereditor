@@ -671,7 +671,7 @@ Tereditor.Plugins.UI.Kit.MasterDetail.Selected -> System.Action<string?>?
 Tereditor.Plugins.UI.Kit.MasterDetail.SelectedId.get -> string?
 Tereditor.Plugins.UI.Kit.MasterDetail.SetRows(System.Collections.Generic.IReadOnlyList<Avalonia.Controls.Control!>! rows, string? select, bool none = false) -> void
 static Tereditor.Plugins.UI.Kit.MasterDetail.Row(string! id, Avalonia.Controls.Control? icon, string! name, string? subtitle, string? problem) -> Avalonia.Controls.Control!
-static Tereditor.Plugins.UI.Kit.MasterDetail.Row(string! id, Avalonia.Controls.Control? icon, string! name, string? note, string? description, string? problem, Avalonia.Controls.Control? action) -> Avalonia.Controls.Control!
+static Tereditor.Plugins.UI.Kit.MasterDetail.Row(string! id, Avalonia.Controls.Control? icon, string! name, string? note, string? description, string? problem, Avalonia.Controls.Control? action, string? badge = null, string? badgeTip = null) -> Avalonia.Controls.Control!
 static Tereditor.Plugins.UI.Kit.MasterDetail.Group(string! id, string! text) -> Avalonia.Controls.Control!
 Tereditor.Plugins.UI.Kit.MasterDetail.RailWidth.get -> double
 Tereditor.Plugins.UI.Kit.MasterDetail.RailWidth.set -> void

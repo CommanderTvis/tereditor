@@ -213,7 +213,7 @@ internal sealed partial class AcpSettingsView : StackPanel
         isDefault.IsCheckedChanged += (_, _) =>
             _ = RunAsync(async () => { await context.UpdateSettingsAsync(new AcpSettings { DefaultAgent = isDefault.IsChecked == true ? entry.Id : "" }); return 0; }, _ => { }, "Couldn't save the default agent");
         panel.Children.Add(isDefault);
-        panel.Children.Add(DefaultModePicker(entry, mode => Edit(item => item with { DefaultMode = mode })));
+        if (DefaultModePicker(entry, mode => Edit(item => item with { DefaultMode = mode })) is { } modePicker) panel.Children.Add(modePicker);
 
         if (detail.IsRegistry)
         {
@@ -250,20 +250,21 @@ internal sealed partial class AcpSettingsView : StackPanel
         return panel;
     }
 
-    /// <summary>The mode a new chat switches to. The choices are the modes the agent listed in its last chat; until then there is only the agent's own.</summary>
-    private static Control DefaultModePicker(AcpAgentEntry entry, Action<string> save)
+    /// <summary>The mode a new chat switches to. The choices are the modes the agent listed in its last chat; with fewer than two there is nothing to choose, so there is no control.</summary>
+    internal static Control? DefaultModePicker(AcpAgentEntry entry, Action<string> save)
     {
+        if (entry.KnownModes.Count < 2) return null;
         var panel = new StackPanel { Spacing = 4 };
-        panel.Children.Add(Text("Default mode for new chats", detail: true));
-        var choices = new List<AcpKnownMode> { new("", "The agent's own") };
+        panel.Children.Add(Text("Mode for new chats", detail: true));
+        var choices = new List<AcpKnownMode> { new("", "Agent's default") };
         choices.AddRange(entry.KnownModes);
         if (entry.DefaultMode.Length > 0 && choices.All(choice => choice.Id != entry.DefaultMode)) choices.Add(new(entry.DefaultMode, entry.DefaultMode));
         var box = new ComboBox { Name = "AcpDefaultMode", ItemsSource = choices, SelectedItem = choices.First(choice => choice.Id == entry.DefaultMode), MinWidth = 220 };
         box.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<AcpKnownMode>((choice, _) => new TextBlock { Text = choice?.Name });
-        Avalonia.Automation.AutomationProperties.SetName(box, "default mode for new chats");
+        Avalonia.Automation.AutomationProperties.SetName(box, "mode for new chats");
         box.SelectionChanged += (_, _) => { if (box.SelectedItem is AcpKnownMode chosen && chosen.Id != entry.DefaultMode) save(chosen.Id); };
         panel.Children.Add(box);
-        if (entry.KnownModes.Count == 0) panel.Children.Add(Text("The agent lists its modes when a chat starts. Start one chat with this agent and they appear here.", detail: true));
+        panel.Children.Add(Text("A new chat starts in this mode. The agent's default leaves the choice to the agent.", detail: true));
         return panel;
     }
 
@@ -385,7 +386,7 @@ internal sealed partial class AcpSettingsView : StackPanel
         var detail = new AcpAgentDetail(entry, AcpRows.RegistryAgent(entry, registry), row.Problem);
         var mark = row.Problem is { } problem ? StatusIcon("alertWarning", Ui.Danger, problem) : detail.CanUpdate ? StatusIcon("refresh", Ui.Muted, "Update available") : StatusIcon("check", Ui.Success, "Installed");
         var note = entry.Origin == "registry" ? entry.Version is { } version ? "v" + version : null : "Custom";
-        return MasterDetail.Row(entry.Id, AcpIconFor(entry.Id), entry.Name, note, detail.Description.Length > 0 ? detail.Description : row.Subtitle, null, mark);
+        return MasterDetail.Row(entry.Id, AcpIconFor(entry.Id), entry.Name, note, detail.Description.Length > 0 ? detail.Description : row.Subtitle, null, mark, detail.Registry?.NotRecommended is null ? null : "Not recommended", detail.Registry?.NotRecommended);
     }
 
     private Control RegistryAgentRow(AcpRegistryRowModel model)
@@ -394,7 +395,7 @@ internal sealed partial class AcpSettingsView : StackPanel
         Control action = model.CanInstall
             ? Quiet("AcpInstall_" + agent.Id, model.ActionLabel, () => Install(agent.Id))
             : new TextBlock { Name = "AcpInstalled_" + agent.Id, Text = model.ActionLabel, FontSize = 12, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
-        return MasterDetail.Row(RegistryPrefix + agent.Id, AcpIconFor(agent.Id), model.Title, "v" + agent.Version, agent.Description, null, action);
+        return MasterDetail.Row(RegistryPrefix + agent.Id, AcpIconFor(agent.Id), model.Title, "v" + agent.Version, agent.Description, null, action, agent.NotRecommended is null ? null : "Not recommended", agent.NotRecommended);
     }
 
     /// <summary>Asks in the overlay over this window; the install is requested for exactly the version and distribution the dialog showed.</summary>

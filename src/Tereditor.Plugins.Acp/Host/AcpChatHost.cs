@@ -83,15 +83,10 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
     private async Task<IAcpTransport> LaunchAsync(AcpAgentEntry entry, string cwd)
     {
         var directory = entry.Cwd.Length > 0 ? entry.Cwd : cwd;
-        var command = entry.LaunchCommand();
-        IReadOnlyList<string> args = entry.LaunchArgs();
         var env = entry.Env;
         // A registry npx agent runs with the host's pinned Bun, so no Node or npx is needed; npx stays when Bun cannot be provided, and for a command the user chose.
-        if (entry.CommandOverride.Length == 0 && entry.Origin == "registry" && command == "npx" && await context.BunPathAsync(directory) is { Length: > 0 } bun)
-        {
-            (command, args) = AcpRunner.Bun(bun, args);
-            env = AcpRunner.GuardedEnvironment(Path.Combine(DataDirectory, "bun"), env);
-        }
+        var (command, args, usesBun) = AcpEntryText.Resolve(entry, entry.CommandOverride.Length == 0 && entry.Origin == "registry" && entry.LaunchCommand() == "npx" ? await context.BunPathAsync(directory) : null);
+        if (usesBun) env = AcpRunner.GuardedEnvironment(Path.Combine(DataDirectory, "bun"), env);
         return await ProcessAcpTransport.StartAsync(new AcpLaunch(command, args, env, directory));
     }
 

@@ -8,7 +8,7 @@ internal sealed record AcpRegistryRowModel(AcpRegistryAgent Agent, string Status
     public string ActionLabel => Status switch { "installed" => "Installed", "update" => "Update ▷", "unavailable" => "Not on this machine", _ => "Install ▷" };
     public bool CanInstall => Status is "available" or "update";
     public string StatusText => Status switch { "installed" => "Installed", "update" => "Another version is installed", "unavailable" => "Not available on this machine", _ => "Not installed" };
-    public string Title => $"{Agent.Name}  v{Agent.Version}";
+    public string Title => Agent.Name;
 }
 
 /// <summary>The rows of the settings lists: what the registry browser shows for a search, and the matches with what is already configured.</summary>

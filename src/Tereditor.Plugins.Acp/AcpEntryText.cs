@@ -45,9 +45,32 @@ public static class AcpEntryText
         return arguments;
     }
 
-    /// <summary>The line the user sees for an entry: the command and its arguments, quoting arguments that hold spaces.</summary>
-    public static string CommandLine(AcpAgentEntry entry) =>
-        string.Join(' ', new[] { entry.LaunchCommand() }.Concat(entry.LaunchArgs()).Select(part => part.Contains(' ') ? "\"" + part + "\"" : part));
+    /// <summary>
+    /// How an entry starts, the one place the launcher and the settings page both ask: a registry npx agent with no executable override runs with
+    /// <paramref name="bun"/> when there is one, otherwise (and for any command the user chose) its own command runs as it is.
+    /// </summary>
+    public static (string Command, IReadOnlyList<string> Args, bool UsesBun) Resolve(AcpAgentEntry entry, string? bun)
+    {
+        var command = entry.LaunchCommand();
+        IReadOnlyList<string> args = entry.LaunchArgs();
+        if (entry.CommandOverride.Length == 0 && entry.Origin == "registry" && command == "npx" && !string.IsNullOrEmpty(bun))
+        {
+            var (bunCommand, bunArgs) = Bun(bun, args);
+            return (bunCommand, bunArgs, true);
+        }
+        return (command, args, false);
+    }
+
+    /// <summary>The npx arguments as Bun runs them: <c>bun x</c> asks nothing, so a leading <c>-y</c> or <c>--yes</c> is dropped.</summary>
+    public static (string Command, IReadOnlyList<string> Args) Bun(string bun, IReadOnlyList<string> npxArgs) =>
+        (bun, ["x", .. npxArgs.SkipWhile(argument => argument is "-y" or "--yes")]);
+
+    /// <summary>The line the user sees for an entry: what the launcher runs (<see cref="Resolve"/>; Bun shows as bunx, which is how it is started), arguments with spaces quoted.</summary>
+    public static string CommandLine(AcpAgentEntry entry)
+    {
+        var (command, args, usesBun) = Resolve(entry, "bun");
+        return string.Join(' ', (usesBun ? new[] { "bunx" }.Concat(args.Skip(1)) : new[] { command }.Concat(args)).Select(part => part.Contains(' ') ? "\"" + part + "\"" : part));
+    }
 
     /// <summary>One argument per line; blank lines are dropped and a trailing carriage return is not part of the argument.</summary>
     public static IReadOnlyList<string> ParseLines(string text) =>

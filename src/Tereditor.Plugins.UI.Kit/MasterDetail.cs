@@ -95,13 +95,26 @@ public sealed class MasterDetail : Grid
 
     /// <summary>
     /// A row with more: <paramref name="note"/> sits after the name in small muted text (a version), <paramref name="description"/> is one trimmed line under
-    /// it, and <paramref name="action"/> (an Install button, a check mark) sits at the right edge before the problem dot.
+    /// it, and <paramref name="action"/> (an Install button, a check mark) sits at the right edge before the problem dot. The name trims with an ellipsis; the note and the optional
+    /// <paramref name="badge"/> (a small muted tag, <paramref name="badgeTip"/> says why) keep their width after it, so nothing overlaps.
     /// </summary>
-    public static Control Row(string id, Control? icon, string name, string? note, string? description, string? problem, Control? action)
+    public static Control Row(string id, Control? icon, string name, string? note, string? description, string? problem, Control? action, string? badge = null, string? badgeTip = null)
     {
-        var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-        title.Children.Add(new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.TextBrush });
-        if (!string.IsNullOrEmpty(note)) title.Children.Add(new TextBlock { Text = note, FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center });
+        var title = new Grid { ColumnDefinitions = new ColumnDefinitions { new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto) } };
+        title.Children.Add(new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.TextBrush, HorizontalAlignment = HorizontalAlignment.Left });
+        if (!string.IsNullOrEmpty(note))
+        {
+            var version = new TextBlock { Name = "MasterNote_" + id, Text = note, FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+            SetColumn(version, 1);
+            title.Children.Add(version);
+        }
+        if (!string.IsNullOrEmpty(badge))
+        {
+            var tag = new TextBlock { Name = "MasterBadge_" + id, Text = badge, FontSize = 11, Foreground = Ui.Muted, FontStyle = FontStyle.Italic, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+            if (badgeTip is not null) ToolTip.SetTip(tag, badgeTip);
+            SetColumn(tag, 2);
+            title.Children.Add(tag);
+        }
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(title);
         if (!string.IsNullOrEmpty(description)) text.Children.Add(new TextBlock { Text = description, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.Muted });

@@ -92,6 +92,21 @@ internal static class AcpChecks
         Require(master.SelectedId == "registry:b" && picked.Count == 1, "Filling the list keeps the selection and says nothing.");
         var texts = rows[3].GetLogicalDescendants().OfType<Avalonia.Controls.TextBlock>().Select(text => text.Text).ToList();
         Require(texts.SequenceEqual(["Beta", "v2", "Another line"]) && rows[3].GetLogicalDescendants().Contains(button), "A row has name, note, description and its action.");
+        // A narrow row with a long name: one version label, a badge, and no overlap between the version, the badge and the action.
+        var install = new Avalonia.Controls.Button { Content = "Install ▷" };
+        var narrow = Tereditor.Plugins.UI.Kit.MasterDetail.Row("registry:c", null, "A very long agent name that cannot fit", "v2026.11.13", "Description", null, install, "Not recommended", "Use the native chat.");
+        narrow.Measure(new Avalonia.Size(240, double.PositiveInfinity));
+        narrow.Arrange(new Avalonia.Rect(narrow.DesiredSize));
+        Avalonia.Rect Bounds(Avalonia.Controls.Control visual) => new(Avalonia.VisualExtensions.TranslatePoint(visual, default, narrow) ?? default, visual.Bounds.Size);
+        var labels = narrow.GetLogicalDescendants().OfType<Avalonia.Controls.TextBlock>().ToList();
+        var version = labels.Single(text => text.Text == "v2026.11.13");
+        var badge = labels.Single(text => text.Text == "Not recommended");
+        Require(labels.Count(text => text.Text?.Contains("2026.11.13", StringComparison.Ordinal) == true) == 1, "The version shows once.");
+        Require(!Bounds(version).Intersects(Bounds(install)) && !Bounds(badge).Intersects(Bounds(install)) && !Bounds(version).Intersects(Bounds(badge)) && Bounds(version).Right <= 240 && Bounds(badge).Right <= 240, "At a narrow width the version, the badge and the action do not overlap.");
+        var npxEntry = new AcpAgentEntry("pi-acp", "Pi", "npx") { Origin = "registry", Args = ["-y", "pi-acp@0.0.34"] };
+        Require(Tereditor.Plugins.Acp.AcpEntryText.CommandLine(npxEntry) == "bunx pi-acp@0.0.34" && Tereditor.Plugins.Acp.AcpEntryText.Resolve(npxEntry, null) is { Command: "npx", UsesBun: false } && Tereditor.Plugins.Acp.AcpEntryText.Resolve(npxEntry, "/b/bun") is { Command: "/b/bun", UsesBun: true }, "The Runs line shows bunx exactly when the launcher runs Bun.");
+        Require(Tereditor.Plugins.Acp.UI.AcpSettingsView.DefaultModePicker(npxEntry, _ => { }) is null && Tereditor.Plugins.Acp.UI.AcpSettingsView.DefaultModePicker(npxEntry with { KnownModes = [new("a", "A")] }, _ => { }) is null && Tereditor.Plugins.Acp.UI.AcpSettingsView.DefaultModePicker(npxEntry with { KnownModes = [new("a", "A"), new("b", "B")] }, _ => { }) is not null, "The mode choice shows only for an agent with two or more modes.");
+        Require(Tereditor.Plugins.Acp.UI.AcpRows.Registry(AcpRegistry.View(System.Text.Json.Nodes.JsonNode.Parse("""{"agents":[{"id":"claude-acp","name":"Claude Agent","version":"1.0.0","description":"d","distribution":{"npx":{"package":"x"}}}]}""")!.AsObject(), "t", null, null, "darwin-aarch64"), [], null).Single() is { Title: "Claude Agent", Agent.NotRecommended: not null }, "The row title has no version and the Claude adapter is flagged.");
     }
 
     // The default mode: the host remembers the modes the agent lists, and a new chat switches to the chosen one (Copilot's mode ids are URLs).
