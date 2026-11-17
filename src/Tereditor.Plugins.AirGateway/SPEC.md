@@ -2,39 +2,31 @@
 id: module-plugin-air-gateway
 type: module-design
 status: draft
-title: Air Gateway — Claude Code and Codex through JetBrains Central
+title: Air Gateway — Claude Code, Codex and Pi through JetBrains Central
 parent: group-plugins-agents
-depends-on: [module-plugin-api, module-plugin-ui-kit]
+depends-on: [module-plugin-api, module-plugin-ui-kit, module-plugin-providers]
 references: [submodule-host-plugins, submodule-ui-plugins, submodule-ui-panels]
 tags: [plugins, central, governance]
 ---
 
-# Air Gateway — Claude Code and Codex through JetBrains Central
+# Air Gateway — Claude Code, Codex and Pi through JetBrains Central
 
 Adapted from the former ThinkRail fork's JetBrains Central integration. The fork routed Central into `pi`
-through one extension file; pi is out of scope here, so this plugin keeps the fork's detection, sign-in, proxy,
-update and access-source behaviour and replaces the pi extension with Central's `central run <agent>`, one launch at a time, for Codex and Claude Code.
-omp is not routed through Central.
+through one extension file; this plugin keeps the fork's detection, sign-in, proxy,
+update and access-source behaviour and replaces the pi extension with Central's `central run <agent>`, one launch at a time, for Claude Code, Codex and Pi.
+omp and the ACP agents are not routed through Central: Central declares wiring for Claude Code, Codex and Pi only.
 
 Air Gateway was called Air Governance until JetBrains renamed the product; the plugin id `air-governance` is migrated to `air-gateway` when host state loads (HostState.SPEC.md), and older history keeps the old name.
 
 ## Responsibility
 
-Lets the user choose where Claude Code and Codex get their AI, from Settings › Air Gateway (Pi, omp and ACP agents are not governed):
+Adds JetBrains AI (Central) to Model providers and starts the agents that choose it through Central. The plugin depends on Model providers (all three halves). There is no AI source switch and no agent list on its page: the choice is the Model source setting, the first setting of the Claude Code, Codex and Pi pages (owned by Model providers).
 
-- Direct (default): each agent keeps its own account. The plugin contributes nothing.
-- JetBrains AI through Central: each enabled agent (Claude Code, Codex; both on by default) is started through
-  JetBrains Air Gateway by the user's own `central` CLI.
+- The host half contributes the provider `jetbrains-ai` (`AirLaunch.Provider`: no key, no API, `WiredAgents` = Claude Code, Codex, Pi) while the plugin runs, and withdraws it when the plugin stops, which also drops the choices that used it. The UI half fills the provider's place in the Model providers list (`ModelProvider-jetbrains-ai`) with a row that says which agents it works with and opens this page. Only those three agents are offered the option; with the plugin off, or unavailable (the Playground), it is absent.
+- Both halves follow Model providers' `models` channel and keep the set of agents whose Model source is `jetbrains-ai` (`AirLaunch.Chosen`) as an in-memory snapshot: the UI half for launch lines, the host half for revived terminals and chats, credits and the Account read.
+- The plugin has no settings of its own (`AirSettings` is empty). The plugin ships disabled, since governing agents is the user's choice.
 
-The Agents list reads the agent roster (Plugin API, `AgentRoster`) and shows an agent only while its plugin is on (active or failed)
-and its program was not found missing; an agent nobody could probe is shown. A chosen agent that is hidden by this stays as one
-dimmed line: "<agent> is turned off in Settings › Plugins" when its plugin is off, or the launcher's reason ("Claude Code was not found on PATH.
-Install Claude Code, then try again.") when its program is missing, so a saved choice is never hidden silently. The list follows
-the roster's change notification.
-
-The chosen source and the per-agent switches are the plugin's settings namespace (`source`, `claudeCode`, `codex`; a saved `omp` key is ignored),
-persisted by the host and effective at once for the next launch. The plugin ships disabled, since governing agents is
-the user's choice.
+The Model source hint says the choice applies to terminals and chats started afterwards; sessions already running keep their old command.
 
 ## Mechanism
 
@@ -43,11 +35,11 @@ launch only; Central states that the agent's configuration is not changed. The p
 configuration and never calls `central add` or `central remove`: nothing under `~/.claude`, `~/.codex`,
 `CLAUDE_CONFIG_DIR` or `CODEX_HOME` is written, and switching back leaves nothing to undo.
 
-With Central chosen, the plugin contributes, through the Plugin API's agent launch seam (W22 in the UI half for
+For each agent whose Model source is JetBrains AI (Central), the plugin contributes, through the Plugin API's agent launch seam (W22 in the UI half for
 launchers and starts, H18 in the host half for revived terminals), a replacing wrapper
-`<central> run <claude-code|codex> --` to launcher ids `claude` and `codex`. The agent plugins apply it to the
+`<central> run <claude-code|codex|pi> --` to launcher ids `claude`, `codex` and `pi`. Model providers itself adds nothing to those launches. The agent plugins apply it to the
 executable word of the command they build: the launcher, its right-click flags, the Create-workspace and Project Home
-starts, resumes and the host's revive offer, so the agent's usual arguments follow the `--`. tereditor's own
+starts, resumes and the host's revive offer, so the agent's usual arguments follow the `--`. Pi has no terminal launcher: its chat host applies the wrapper to the `pi --mode rpc` child (`central run pi -- --mode rpc …`) and refuses to start while a contribution is blocked. tereditor's own
 environment prefixes stay outermost. A custom command in the agent's settings (not the default `claude` or `codex`)
 is never rewritten and so is not governed; the pane says so. Running terminals keep the command they started with.
 `<central>` is the path the host found, else the bare name: if Central is missing the launch fails in the shell
@@ -65,7 +57,7 @@ malformed and probe-failed distinguished); `central status` (15 s) is read only 
 and only a positively observed `not connected` or `stopped` sets a flag. Output is capped at 16 KiB, timeouts kill
 the process tree, stderr is discarded.
 
-Only local, read-only checks run automatically: `central --version`, `central status` and, with Central chosen and
+Only local, read-only checks run automatically: `central --version`, `central status` and, while an agent's Model source is Central and
 signed in, `central limit --json` (15 s, 16 KiB), never `login`, never a browser, never the OAuth or Cloud endpoints. The pane runs it when it opens, on window
 activation (at most once per 15 s), after Sign in and Sign out, and, while a sign-in is awaited after Sign in, every
 5 s for at most 3 minutes, stopping once signed in, on Sign out, or when the pane closes. Checks never overlap, run
@@ -77,12 +69,11 @@ error states. There is no manual check button. Everything else is an explicit bu
 then `proxy restart`; a failed restart is a warning). A missing CLI shows the platform install command from
 central-cli.labs.jb.gg as text; the plugin never runs it.
 
-With Central chosen and signed in, the pane also shows the chosen source's remaining credits, for example `16.27 of 20.00 credits remaining, refills 2027-01-15` (plus the top-up when nonzero). They are read from `central limit --json` with every automatic check and after a successful Switch: `tariffQuota.available` and `maximum` (numbers or numeric strings; else `maxDollars` less `usedDollars`), `topUpQuota.available` and `refillNext` (epoch ms). Status and the pane carry only those numbers, never the email or licence name. Missing, malformed, negative, non-finite or inconsistent values, a failed or timed-out command, signed out and the direct source all show nothing.
+While an agent's Model source is Central and Central is signed in, the pane also shows the chosen source's remaining credits, for example `16.27 of 20.00 credits remaining, refills 2027-01-15` (plus the top-up when nonzero). They are read from `central limit --json` with every automatic check and after a successful Switch: `tariffQuota.available` and `maximum` (numbers or numeric strings; else `maxDollars` less `usedDollars`), `topUpQuota.available` and `refillNext` (epoch ms). Status and the pane carry only those numbers, never the email or licence name. Missing, malformed, negative, non-finite or inconsistent values, a failed or timed-out command, signed out and the direct source all show nothing.
 
 ## Credits in the header
 
-While Central is the chosen source and governs at least one agent (`AirLaunch.Wired`: an enabled Claude Code or Codex
-switch), the UI half shows the remaining credits as `x / y credits` at the trailing end of each window's header,
+While Central governs at least one agent (`AirLaunch.Wired`: an agent whose Model source is JetBrains AI (Central)), the UI half shows the remaining credits as `x / y credits` at the trailing end of each window's header,
 before the connection status and Settings, through the Plugin API's header item (W24); otherwise it shows nothing.
 The numbers are the status channel's credits (above), so the host that runs `central` supplies them, including a
 remote one; the host stamps each successful read with its time (`ReadAt`). The tooltip names the governed agents,
@@ -93,7 +84,7 @@ top-up included, the item uses the warning colour. Clicking it opens Settings �
 Reads are the status method with the probe (so the same `--version`, `status` and `limit --json` as the pane), one
 shared reader per activation however many windows show the item: when an item attaches or its window activates,
 when a terminal whose agent ran through `central run` leaves the host projection, and every 5 minutes, at most once
-per 15 s (the pane's throttle); and at once when the source or an agent switch changes. Reads never overlap; a forced
+per 15 s (the pane's throttle); and at once when an agent's Model source changes to or from Central. Reads never overlap; a forced
 read during one runs after it. Nothing is read while no item is attached, Central governs no agent or the plugin is
 disabled. Status pushes (the pane's checks, actions and the agents' Account reads) update the item without a read.
 Before the first read nothing is shown; after a read without credits the item shows `credits ?` in the warning
@@ -104,7 +95,7 @@ Settings › Air Gateway.
 ## Account for governed agents
 
 A host-side launch contribution also carries `Account` (Plugin API H18): source `Central`, read on request. Codex and
-Claude Code call it from their Account tab while their launches are governed, and it runs a fresh probe and
+Claude Code (Pi has no Account tab) call it from their Account tab while their launches are governed, and it runs a fresh probe and
 `central limit --json` (the read above), then returns the `email` and `licenseName` of that output, the credits and
 the refill time. They are passed on for display only, never stored or logged, and never put on the plugin's status
 channel. An unavailable Central is reported as one actionable message instead of numbers: not installed, cannot be
@@ -114,7 +105,7 @@ contribution carries no account.
 ## Listing access sources
 
 
-`central access` output is not parsed. Listing runs automatically, with no button, only while Central is the chosen source, supported and signed in: when the pane opens, when the source becomes Central, after sign-in, after a Switch (which also refreshes the credits) and on the throttled activation check (at most once per 15 s). Until then the pane says what it waits for (checking, Central not installed or unavailable, sign in to Central) and the direct source shows nothing. The listing runs in the host half; a result arriving after a newer request, the source changing or the pane closing is dropped. It runs:
+`central access` output is not parsed. Listing runs automatically, with no button, only while an agent's Model source is Central and Central is supported and signed in: when the pane opens, when an agent starts using Central, after sign-in, after a Switch (which also refreshes the credits) and on the throttled activation check (at most once per 15 s). Until then the pane says what it waits for (checking, Central not installed or unavailable, sign in to Central) and with no agent on Central it shows nothing. The listing runs in the host half; a result arriving after a newer request, the source changing or the pane closing is dropped. It runs:
 `central login export` (16 KiB, 15 s) yields a version-1 `central-<base64url>` envelope with `environment`,
 `refresh_token` and the current `ai_access` selection. The refresh token is exchanged (`client_id=central-cli`) at
 the fixed OAuth endpoint of that environment and the access token is sent to JetBrains Cloud's
@@ -158,11 +149,11 @@ replies. Mutating calls are serialised and publish a busy status on the `status`
 
 `--air-gateway` runs the host and pane checks against a fake `central` modelled on the fork's fixture (version,
 status rows, `login export`, access switching, proxy, login, update) plus a `run` that records its argv, under a throwaway home: detection,
-the contributions per source and toggle, the Claude and Codex launch lines executed by a real shell so prompts with
+the contributions per agent Model source (Claude Code, Codex and Pi), the Claude and Codex launch lines executed by a real shell so prompts with
 quotes and `$(...)` arrive as single arguments, a fake HOME whose `.claude`, `.codex`, `CLAUDE_CONFIG_DIR` and
-`CODEX_HOME` stay byte- and time-identical across every action and source switch, failures, access switching, the
-host seam over plugin RPC (including disable), the pane and real launchers through headless input, and the header
-item against a stand-in host: hidden for direct and for Central with no agent, credits after a toggle, the warning
+`CODEX_HOME` stay byte- and time-identical across every action and Model source change, failures, access switching, the
+host seam over plugin RPC (including the provider contributed and withdrawn, and Model sources followed), the pane (no source choice, no agent list) and real launchers through headless input, and the header
+item against a stand-in host: hidden with no agent on Central, credits after a Model source change, the warning
 colour, the reason when credits cannot be read, a pushed status, the click into Settings, and removal on disable.
 The listing runs against a loopback fake of the OAuth server and Cloud (a checks-only endpoint override that production
 code never sets): success with the current marker, signed out, unknown environment, redirect, malformed and oversized

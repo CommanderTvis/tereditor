@@ -19,13 +19,14 @@ internal sealed record AirCreditsShown(bool Visible, string Text = "", string Ti
 /// The credits the header items show, one per activation however many windows there are. It reads Central (the
 /// host's read-only <c>central limit --json</c>, through the status method) only while Central governs at least one
 /// agent and an item is attached: when an item attaches or its window activates, after a governed agent's terminal
-/// ends, every <see cref="Interval"/>, at most once per <see cref="Throttle"/>, and at once when the source or an
-/// agent switch changes. Reads never overlap; a forced read during one runs after it. Status pushes from the pane or
+/// ends, every <see cref="Interval"/>, at most once per <see cref="Throttle"/>, and at once when an agent's Model
+/// source changes to or from JetBrains AI (Central). Reads never overlap; a forced read during one runs after it. Status pushes from the pane or
 /// the agents' Account tabs update it without a read.
 /// </summary>
 internal sealed class AirCreditsFeed : IDisposable
 {
     private readonly IPluginUIContext context;
+    private readonly AirChosen chosen;
     private readonly List<IDisposable> observers = [];
     private DispatcherTimer? timer;
     private AirStatus? status;
@@ -41,17 +42,20 @@ internal sealed class AirCreditsFeed : IDisposable
     /// <summary>Least time between reads that were not forced by a settings change.</summary>
     internal static TimeSpan Throttle { get; set; } = TimeSpan.FromSeconds(15);
 
-    public AirCreditsFeed(IPluginUIContext context)
+    public AirCreditsFeed(IPluginUIContext context, AirChosen chosen)
     {
         this.context = context;
-        observers.Add(context.OnSettings<AirSettings>(changed => { read = false; failure = null; Schedule(); Changed?.Invoke(); _ = RefreshAsync(true); }));
+        this.chosen = chosen;
+        void Switched() { read = false; failure = null; Schedule(); Changed?.Invoke(); _ = RefreshAsync(true); }
+        chosen.Changed += Switched;
+        observers.Add(new Unsubscribe(() => chosen.Changed -= Switched));
         // A governed agent that ended has spent credits: its terminal leaving the projection triggers a read.
         observers.Add(context.WatchHost(Governed, (next, previous) => { if (previous.Except(next).Any()) _ = RefreshAsync(false); }));
     }
 
     public event Action? Changed;
 
-    public AirCreditsShown Shown => Present(context.Settings<AirSettings>(), status, read, failure);
+    public AirCreditsShown Shown => Present(chosen.Agents, status, read, failure);
 
     /// <summary>A status from the plugin's channel or a reply: the latest the host knows.</summary>
     public void Apply(AirStatus next) { status = next; Changed?.Invoke(); }
@@ -64,9 +68,9 @@ internal sealed class AirCreditsFeed : IDisposable
     public void Activated() => _ = RefreshAsync(false);
 
     private static HashSet<string> Governed(PluginHostProjection host) =>
-        [.. host.Terminals.Values.SelectMany(tabs => tabs).Where(tab => tab.Agent is { } agent && AirLaunch.CentralNames.Values.Any(name => agent.Command.Contains(" run " + name + " --", StringComparison.Ordinal))).Select(tab => tab.TabKey)];
+        [.. host.Terminals.Values.SelectMany(tabs => tabs).Where(tab => tab.Agent is { } agent && AirLaunch.Agents.Any(wiring => agent.Command.Contains(" run " + wiring.CentralName + " --", StringComparison.Ordinal))).Select(tab => tab.TabKey)];
 
-    private bool Active => views > 0 && AirLaunch.Wired(context.Settings<AirSettings>());
+    private bool Active => views > 0 && AirLaunch.Wired(chosen.Agents);
 
     private void Schedule()
     {
@@ -104,13 +108,12 @@ internal sealed class AirCreditsFeed : IDisposable
     /// Nothing unless Central governs an agent. Then the credits when the host has them, and after a read that found
     /// none, a warning naming why. Before the first read nothing is shown rather than a guess.
     /// </summary>
-    internal static AirCreditsShown Present(AirSettings settings, AirStatus? status, bool read, string? failure)
+    internal static AirCreditsShown Present(IReadOnlySet<string> chosen, AirStatus? status, bool read, string? failure)
     {
-        if (!AirLaunch.Wired(settings)) return new(false);
-        var governs = string.Join(" and ", AirLaunch.CentralNames.Keys.Where(id => AirLaunch.Enabled(settings, id))
-            .Select(id => id switch { "claude" => "Claude Code", "codex" => "Codex", _ => id }));
+        if (!AirLaunch.Wired(chosen)) return new(false);
+        var governs = string.Join(" and ", AirLaunch.Agents.Where(agent => chosen.Contains(agent.AgentId)).Select(agent => agent.Label));
         const string Open = "Click to open Settings › Air Gateway.";
-        if (failure is null && status is { Source: AirSources.Central, Credits: { } credits })
+        if (failure is null && status is { Credits: { } credits })
         {
             var culture = CultureInfo.InvariantCulture;
             var lines = new List<string>
@@ -145,6 +148,11 @@ internal sealed class AirCreditsFeed : IDisposable
         { Auth: not "connected" } => "Could not check whether Central is signed in.",
         _ => "Central did not report the remaining credits."
     };
+
+    private sealed class Unsubscribe(Action action) : IDisposable
+    {
+        public void Dispose() => action();
+    }
 
     public void Dispose()
     {

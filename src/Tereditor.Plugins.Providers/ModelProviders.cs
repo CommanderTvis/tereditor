@@ -100,6 +100,12 @@ public sealed record ProviderDefinition(string Id, string Name, ProviderGroup Gr
 
     /// <summary>The plugin that contributed the provider; null for a bundled or custom one.</summary>
     public string? Contributor { get; init; }
+
+    /// <summary>
+    /// The agent ids (`claude-code`, `codex`, `pi`) whose launch the contributor wires itself, with no API shared between the agent and the provider.
+    /// Those agents are offered the provider; Model providers writes no file and adds no launch word for them, since the contributor's own launch contribution does.
+    /// </summary>
+    public IReadOnlyList<string> WiredAgents { get; init; } = [];
 }
 
 /// <summary>One way an agent can use a provider: an API both declare, and the credential kind that fits.</summary>
@@ -134,6 +140,19 @@ public static class ProviderMatching
     /// <param name="routing">What the agent accepts.</param>
     /// <param name="provider">The provider.</param>
     public static bool Offered(AgentRouting routing, ProviderDefinition provider) => Offers(routing, provider).Count > 0;
+
+    /// <summary>Whether an agent can take the provider: the contributor wires the agent itself, or the agent's routing shares an API and a credential kind with it.</summary>
+    /// <param name="agentId">The agent plugin's id.</param>
+    /// <param name="routing">What the agent accepts; null when it declares nothing.</param>
+    /// <param name="provider">The provider.</param>
+    public static bool Works(string agentId, AgentRouting? routing, ProviderDefinition provider) =>
+        provider.WiredAgents.Contains(agentId) || routing is not null && Offered(routing, provider);
+
+    /// <summary>The names of the agents the provider works with, in the order given: the capability a provider shows (not its API kinds).</summary>
+    /// <param name="provider">The provider.</param>
+    /// <param name="agents">Every agent: its id, its name and what it accepts.</param>
+    public static IReadOnlyList<string> AgentNames(ProviderDefinition provider, IEnumerable<(string Id, string Name, AgentRouting? Routing)> agents) =>
+        [.. agents.Where(agent => Works(agent.Id, agent.Routing, provider)).Select(agent => agent.Name)];
 }
 
 /// <summary>The named places of Settings › Plugins › Model providers that another plugin fills with a control, through <c>SlotSection</c>.</summary>

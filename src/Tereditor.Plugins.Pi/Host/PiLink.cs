@@ -36,10 +36,12 @@ internal sealed class ProcessPiLink : IPiLink
 
     public static async Task<ProcessPiLink> StartAsync(PiSpawn spawn, Action<string> error)
     {
-        var arguments = new List<string> { "--mode", "rpc" };
+        if (spawn.Blocked is { } reason) throw new InvalidOperationException(reason);
+        // A wrapper replaces the executable word (`central run pi --`), so its remaining words come before Pi's own arguments.
+        var arguments = new List<string>(spawn.Wrapper.Skip(1)) { "--mode", "rpc" };
         if (spawn.Session is { Length: > 0 } session) arguments.AddRange(["--session", session]);
         if (spawn.Model is { Length: > 0 } model) arguments.AddRange(["--model", model]);
-        var start = new ProcessStartInfo(spawn.Command, arguments)
+        var start = new ProcessStartInfo(spawn.Executable, arguments)
         {
             WorkingDirectory = spawn.Cwd,
             RedirectStandardInput = true,

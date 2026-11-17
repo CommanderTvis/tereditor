@@ -10,12 +10,12 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.AirGateway.UI;
 
 /// <summary>
-/// Settings › Air Gateway. The source and the agent switches are plugin settings. Only the local, read-only
+/// Settings › Air Gateway. Which agents Central governs is each agent's Model source, not a setting here. Only the local, read-only
 /// sign-in status check runs automatically (on open, on window activation at most every <see cref="Throttle"/>,
 /// after sign-in and sign-out, and every <see cref="PollInterval"/> for at most <see cref="PollLimit"/> while a
 /// sign-in is awaited, only while the pane is attached and visible); every other action is a button. The AI access
-/// sources are listed automatically (on the host, never on the UI thread) while Central is the chosen source and is
-/// signed in: on open, when the source becomes Central, after sign-in, after a switch and on the throttled
+/// sources are listed automatically (on the host, never on the UI thread) while Central governs an agent and is
+/// signed in: on open, when an agent starts using Central, after sign-in, after a switch and on the throttled
 /// activation check. The pane shows the exact command shape new launches will get.
 /// </summary>
 internal sealed partial class AirSettingsView : UserControl
@@ -24,13 +24,9 @@ internal sealed partial class AirSettingsView : UserControl
     private readonly TextBlock centralLine, credits, launches, launchNote, result, accessNote;
     private readonly StackPanel install, access;
     private readonly TextBox installCommand;
-    private readonly RadioButton direct, central;
-    private readonly CheckBox claudeCode, codex;
-    private readonly (CheckBox Box, string PluginId, string Name, string Label, Func<AirSettings, bool> Chosen)[] agents;
     private readonly Button signIn, signOut, startProxy, update;
     private readonly List<IDisposable> observers = [];
     private AirStatus? status;
-    private bool applying;
     private bool busy;
     private bool checking;
     private long generation;
@@ -58,24 +54,12 @@ internal sealed partial class AirSettingsView : UserControl
         result = Get<TextBlock>("AirResult"); accessNote = Get<TextBlock>("AirAccessNote");
         install = Get<StackPanel>("AirInstall"); access = Get<StackPanel>("AirAccessSources");
         installCommand = Get<TextBox>("AirInstallCommand");
-        direct = Get<RadioButton>("AirSourceDirect"); central = Get<RadioButton>("AirSourceCentral");
-        claudeCode = Get<CheckBox>("AirAgentClaudeCode"); codex = Get<CheckBox>("AirAgentCodex");
-        agents =
-        [
-            (claudeCode, "claude-code", "Claude Code", "Claude Code", settings => settings.ClaudeCode),
-            (codex, "codex", "Codex", "Codex", settings => settings.Codex)
-        ];
         signIn = Get<Button>("AirSignIn"); signOut = Get<Button>("AirSignOut");
         startProxy = Get<Button>("AirStartProxy"); update = Get<Button>("AirUpdate");
-        direct.IsCheckedChanged += (_, _) => { if (!applying && direct.IsChecked == true) Save(Settings with { Source = AirSources.Direct }); };
-        central.IsCheckedChanged += (_, _) => { if (!applying && central.IsChecked == true) Save(Settings with { Source = AirSources.Central }); };
-        claudeCode.IsCheckedChanged += (_, _) => { if (!applying) Save(Settings with { ClaudeCode = claudeCode.IsChecked == true }); };
-        codex.IsCheckedChanged += (_, _) => { if (!applying) Save(Settings with { Codex = codex.IsChecked == true }); };
         signIn.Click += (_, _) => _ = RunAsync(AirGatewayContract.SignIn);
         signOut.Click += (_, _) => _ = RunAsync(AirGatewayContract.SignOut);
         startProxy.Click += (_, _) => _ = RunAsync(AirGatewayContract.StartProxy);
         update.Click += (_, _) => _ = RunAsync(AirGatewayContract.Update);
-        ApplySettings(Settings);
         Render();
         AttachedToVisualTree += (_, _) =>
         {
@@ -83,9 +67,14 @@ internal sealed partial class AirSettingsView : UserControl
             generation++;
             hostWindow = TopLevel.GetTopLevel(this) as Window;
             if (hostWindow is not null) hostWindow.Activated += Activated;
-            observers.Add(context.OnSettings<AirSettings>(next => { var was = lastSource; ApplySettings(next); _ = RefreshAsync(true, next.Source != was); }));
-            observers.Add(AgentRoster.Watch(context, _ => ShowAgents(Settings)));
-            observers.Add(context.Subscribe(AirGatewayContract.Changed, next => { status = next; Render(); }, new AirStatusParams()));
+            // The host pushes a status when an agent's Model source changes; a change in who is governed refreshes the credits and the listing.
+            observers.Add(context.Subscribe(AirGatewayContract.Changed, next =>
+            {
+                var was = Governed;
+                status = next;
+                Render();
+                if (was != Governed) _ = RefreshAsync(true, true);
+            }, new AirStatusParams()));
             // After the observers: a check with none registered is skipped, so the on-open check must follow them.
             _ = CheckAsync(true);
         };
@@ -101,56 +90,8 @@ internal sealed partial class AirSettingsView : UserControl
         };
     }
 
-    private string lastSource = AirSources.Direct;
-
-    private AirSettings Settings => context.Settings<AirSettings>();
-
-    private void ApplySettings(AirSettings settings)
-    {
-        applying = true;
-        try
-        {
-            direct.IsChecked = settings.Source != AirSources.Central;
-            central.IsChecked = settings.Source == AirSources.Central;
-            claudeCode.IsChecked = settings.ClaudeCode;
-            codex.IsChecked = settings.Codex;
-            lastSource = settings.Source;
-            ShowAgents(settings);
-        }
-        finally { applying = false; }
-    }
-
-    /// <summary>
-    /// What one agent's row shows, from the agent roster: the agent when its plugin is on and its program was not found
-    /// missing; nothing when it is off, missing or not installed and the agent is not chosen; a dimmed line saying why when
-    /// it is chosen, so a saved choice is never hidden silently. An agent nobody could probe counts as shown.
-    /// </summary>
-    internal static (bool Show, string Text, bool Dim) AgentRow(string name, string label, bool chosen, AgentRosterEntry? agent) =>
-        agent is { Offered: true } ? (true, label, false)
-        : chosen ? (true, agent is { PluginOn: true } ? agent.Reason ?? name + " was not found." : name + " is turned off in Settings › Plugins", true)
-        : (false, label, false);
-
-    private void ShowAgents(AirSettings settings)
-    {
-        var roster = AgentRoster.Read(context);
-        foreach (var (box, pluginId, name, label, chosen) in agents)
-        {
-            var row = AgentRow(name, label, chosen(settings), roster.FirstOrDefault(entry => entry.Id == pluginId));
-            box.IsVisible = row.Show;
-            box.Content = row.Text;
-            box.Opacity = row.Dim ? .6 : 1;
-        }
-    }
-
-    private async void Save(AirSettings settings)
-    {
-        try { await context.UpdateSettingsAsync(settings); }
-        catch (Exception error) when (error is not OperationCanceledException)
-        {
-            context.Notify(PluginNotificationKind.Error, "Couldn't change the Air Gateway setting", error.Message);
-            ApplySettings(Settings);
-        }
-    }
+    /// <summary>Whether an agent's Model source is JetBrains AI (Central), as the host last said.</summary>
+    private bool Governed => status?.Agents.Any(agent => agent.Chosen) == true;
 
     private void Activated(object? sender, EventArgs e) => OnActivated();
 
@@ -237,7 +178,7 @@ internal sealed partial class AirSettingsView : UserControl
     {
         var mine = generation;
         if (observers.Count == 0) return;
-        if (Settings.Source != AirSources.Central) { ShowAccess(null, ""); return; }
+        if (!Governed) { ShowAccess(null, ""); return; }
         var central = status?.Central;
         if (central is null) { ShowAccess(null, "Checking Central…"); return; }
         if (central.State != "supported") { ShowAccess(null, central.State == "absent" ? "Central is not installed, so its access sources can't be listed." : "Central is not available, so its access sources can't be listed."); return; }
@@ -254,7 +195,7 @@ internal sealed partial class AirSettingsView : UserControl
             if (mine == generation && token == listGeneration) ShowAccess(null, error.Message);
             return;
         }
-        if (mine != generation || token != listGeneration || Settings.Source != AirSources.Central) return;
+        if (mine != generation || token != listGeneration || !Governed) return;
         ShowAccess(list.Sources, list.Detail ?? "");
     }
 
@@ -332,9 +273,8 @@ internal sealed partial class AirSettingsView : UserControl
         installCommand.Text = current.Central.InstallCommand;
         startProxy.IsVisible = current.Central.Proxy == "stopped";
         update.IsVisible = current.Central.State == "outdated";
-        launches.Text = string.Join("\n", current.Agents.Select(agent =>
-            $"{agent.Label}: {agent.Launch ?? (current.Source == AirSources.Central && !agent.Enabled ? "unchanged (switched off above)" : "unchanged (its own account)")}"));
-        launchNote.Text = current.Source != AirSources.Central ? "" :
+        launches.Text = string.Join("\n", current.Agents.Select(agent => $"{agent.Label}: {agent.Launch ?? "unchanged (its own provider)"}"));
+        launchNote.Text = !Governed ? "" :
             current.Central.State is "absent" or "malformed-version" or "probe-failed" ? "Central was not found or could not be verified: governed launches will fail in the terminal rather than start without governance." :
             current.Central.State == "outdated" ? "This Central is older than the minimum supported; update it before launching." :
             "An agent whose command is customised in its own settings keeps that command and is not governed.";

@@ -13,7 +13,7 @@
   <StackPanel Spacing="16">
     <TextBlock Text="Air Gateway" FontSize="14" FontWeight="SemiBold" Foreground="{x:Static kit:Ui.TextBrush}" />
     <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}"
-               Text="Choose where Claude Code and Codex get their AI: from their own accounts, or from JetBrains AI through the Central CLI.&#10;&#10;The choice only changes the command that starts each new agent terminal. No agent configuration file is edited.&#10;&#10;tereditor checks Central's sign-in status on its own when this page opens, when the window regains focus, and while a sign-in is waiting. Everything else (signing in or out, listing sources, switching source, starting the proxy, updating Central) runs only when you press its button." />
+               Text="JetBrains AI (Central) is one choice of the Model source setting, the first setting on the Claude Code, Codex and Pi pages. Choose it there for an agent to take its AI from JetBrains AI through the Central CLI.&#10;&#10;The choice only changes the command that starts each new agent terminal or chat. No agent configuration file is edited. It applies to terminals and chats you start afterwards; sessions already running keep their old command.&#10;&#10;tereditor checks Central's sign-in status on its own when this page opens, when the window regains focus, and while a sign-in is waiting. Everything else (signing in or out, switching source, starting the proxy, updating Central) runs only when you press its button. The AI access sources below are listed automatically while Central governs an agent." />
     <TextBlock x:Name="AirCentralLine" TextWrapping="Wrap" Text="Checking Central…" />
     <TextBlock x:Name="AirCredits" TextWrapping="Wrap" IsVisible="False" Foreground="{x:Static kit:Ui.TextBrush}" />
     <StackPanel x:Name="AirInstall" Spacing="4" IsVisible="False">
@@ -26,18 +26,6 @@
       <Button x:Name="AirStartProxy" Content="Start proxy" Margin="0,0,8,8" IsVisible="False" />
       <Button x:Name="AirUpdate" Content="Update Central" Margin="0,0,8,8" IsVisible="False" />
     </WrapPanel>
-    <StackPanel Spacing="6">
-      <TextBlock Text="AI source" Foreground="{x:Static kit:Ui.TextBrush}" />
-      <RadioButton x:Name="AirSourceDirect" GroupName="AirSource" Content="Each agent's own account" />
-      <TextBlock Margin="28,0,0,0" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" Text="Each agent signs in and bills as you configured it. Central stays out of the way." />
-      <RadioButton x:Name="AirSourceCentral" GroupName="AirSource" Content="JetBrains AI through Central" />
-      <TextBlock Margin="28,0,0,0" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" Text="The agents below are routed through JetBrains Air and its governance. This applies to terminals you start after choosing it; sessions already running keep their old command." />
-    </StackPanel>
-    <StackPanel Spacing="4">
-      <TextBlock Text="Agents" Foreground="{x:Static kit:Ui.TextBrush}" />
-      <CheckBox x:Name="AirAgentClaudeCode" Content="Claude Code" />
-      <CheckBox x:Name="AirAgentCodex" Content="Codex" />
-    </StackPanel>
     <StackPanel Spacing="6">
       <TextBlock Text="What new launches will run" Foreground="{x:Static kit:Ui.TextBrush}" />
       <TextBlock x:Name="AirLaunches" TextWrapping="Wrap" FontFamily="{x:Static kit:Ui.CodeFont}" Foreground="{x:Static kit:Ui.TextBrush}" />

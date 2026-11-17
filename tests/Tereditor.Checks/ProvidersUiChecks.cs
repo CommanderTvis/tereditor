@@ -7,6 +7,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
 using Tereditor.Host.Abstractions;
+using Tereditor.Plugins.AirGateway;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.ClaudeCode;
@@ -118,7 +119,7 @@ internal static class ProvidersUiChecks
             Click(page, "Add provider", page);
             Settle();
             var row = Find<StackPanel>(page, "ModelProvider-custom-test-gateway").Single();
-            Require(Texts(row).Any(text => text.Contains("Anthropic Messages", StringComparison.Ordinal)) && Buttons(row).Contains("Remove provider"), "the custom provider is listed with its API and can be removed");
+            Require(Texts(row).Any(text => text.Contains("Works with Claude Code", StringComparison.Ordinal) && !text.Contains("Anthropic Messages", StringComparison.Ordinal)) && Buttons(row).Contains("Remove provider"), "the custom provider is listed with the agents it works with, not its API kinds, and can be removed");
 
             // The slot: own provider first, then the user's providers that fit the agent.
             ComboBox Choice(string agent)
@@ -139,6 +140,12 @@ internal static class ProvidersUiChecks
             claude.SelectedIndex = 0;
             Settle();
             Require(sources.Count == 0, "choosing the agent's own provider clears the record");
+
+            // A provider its contributor wires to agents itself is offered to exactly those agents, and no other.
+            service.Contribute(new("air-gateway", [AirLaunch.Provider]));
+            foreach (var wired in new[] { "claude-code", "codex", "pi" }) Require(Names(Choice(wired)).Contains("JetBrains AI (Central)"), wired + " is offered JetBrains AI (Central)");
+            Require(!Names(Choice("omp")).Contains("JetBrains AI (Central)"), "omp is not offered JetBrains AI (Central)");
+            service.Withdraw(new("air-gateway"));
 
             // Off again: the slot goes back to the hint alone, and the record of what was chosen stays in the plugin's own state.
             claude.SelectedIndex = 1;

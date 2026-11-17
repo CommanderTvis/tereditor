@@ -11,13 +11,20 @@
       "tereditor.plugins.airgateway": {
         "type": "Project",
         "dependencies": {
-          "Tereditor.Plugins.Api": "[1.0.0, )"
+          "Tereditor.Plugins.Api": "[1.0.0, )",
+          "Tereditor.Plugins.Providers": "[1.0.0, )"
         }
       },
       "tereditor.plugins.api": {
         "type": "Project"
       },
       "tereditor.plugins.api.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )"
+        }
+      },
+      "tereditor.plugins.providers": {
         "type": "Project",
         "dependencies": {
           "Tereditor.Plugins.Api": "[1.0.0, )"

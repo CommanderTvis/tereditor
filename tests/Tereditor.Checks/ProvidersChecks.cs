@@ -395,5 +395,20 @@ internal static class ProvidersChecks
         restarted.RemoveCustom(new("custom-local"));
         Require(!File.Exists(ompFile) && restarted.Launch("omp") is null, "Removing the provider an agent used removes its file and its contribution.");
         Require(!PluginJson.Serialize(restarted.Report()).Contains("sentinel", StringComparison.Ordinal), "A report carries no key.");
+
+        // A provider its contributor wires to agents itself (JetBrains AI through Central): no file, no launch word of ours, offered to those agents only.
+        var wired = new ProviderDefinition("jetbrains-ai", "JetBrains AI (Central)", ProviderGroup.JetBrainsAi, []) { NeedsKey = false, WiredAgents = ["claude-code", "codex", "pi"] };
+        restarted.Contribute(new("air-gateway", [wired]));
+        restarted.SetSource(new("pi", "jetbrains-ai"));
+        restarted.SetSource(new("claude-code", "jetbrains-ai"));
+        restarted.SetSource(new("codex", "jetbrains-ai"));
+        var wiredReport = restarted.Report();
+        Require(!File.Exists(piFile) && restarted.Launch("pi") is null && sources.Count(choice => choice.ProviderId == "jetbrains-ai") == 3, "A wired provider writes no models file and adds no launch of its own for Pi.");
+        Require(ProviderLaunch.For("claude", wiredReport, false) is null && ProviderLaunch.For("codex", wiredReport) is null, "Model providers adds nothing to a Claude Code or Codex launch the contributor wires: no block, no settings file.");
+        Throws(() => restarted.SetSource(new("omp", "jetbrains-ai")), "An agent the contributor does not wire cannot take it.");
+        Make().Sync();
+        Require(sources.Count(choice => choice.ProviderId == "jetbrains-ai") == 3, "A start before the contributor is back keeps its choices, Pi's included.");
+        restarted.Withdraw(new("air-gateway"));
+        Require(sources.All(choice => choice.ProviderId != "jetbrains-ai"), "When the contributor stops its choices go, so the agents are back on their own providers.");
     }
 }

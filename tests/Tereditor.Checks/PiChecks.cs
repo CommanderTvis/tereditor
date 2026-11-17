@@ -154,6 +154,20 @@ internal static class PiChecks
         await missing.StartAsync(absent);
         Require(missing.Header is { Status: ChatStatus.Failed, Error: { } error } && error.Contains("not found", StringComparison.Ordinal), "A missing pi fails the chat with an install hint.");
 
+        // A launch contribution that replaces the executable (central run pi --) starts Pi in place of the command, and a blocked one starts nothing.
+        var wrapped = new PiChatSession("ws", "chat3", _ => { }, _ => { }, (_, _) => { });
+        var through = new PiSpawn(Path.Combine(directory, "no-such-pi"), directory) { Wrapper = [fake, "--wrapped"] };
+        wrapped.Begin(through);
+        await wrapped.StartAsync(through);
+        await Until(() => wrapped.Header.Status == ChatStatus.Idle, "A wrapper replaces the executable and Pi starts.");
+        Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(3).SequenceEqual(["--wrapped", "--mode", "rpc"]), "The wrapper's words come before Pi's own arguments.");
+        await wrapped.CloseAsync();
+        var blockedSession = new PiChatSession("ws", "chat4", _ => { }, _ => { }, (_, _) => { });
+        var blocked = new PiSpawn(fake, directory) { Blocked = "Central is not signed in." };
+        blockedSession.Begin(blocked);
+        await blockedSession.StartAsync(blocked);
+        Require(blockedSession.Header is { Status: ChatStatus.Failed, Error: "Central is not signed in." }, "A blocked launch contribution stops Pi from starting, with its reason.");
+
         var status = await PiHost.ReadStatusAsync(fake);
         Require(status is { Installed: true, Version: "0.99.1" }, "The version probe reads pi --version.");
         Require(!(await PiHost.ReadStatusAsync(Path.Combine(directory, "none"))).Installed, "A missing pi is reported as not installed.");

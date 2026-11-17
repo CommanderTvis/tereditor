@@ -10,6 +10,12 @@
       },
       "tereditor.plugins.api": {
         "type": "Project"
+      },
+      "tereditor.plugins.providers": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api": "[1.0.0, )"
+        }
       }
     },
     "net10.0/linux-arm64": {},

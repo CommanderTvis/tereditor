@@ -16,6 +16,12 @@ internal sealed record PiSpawn(string Command, string Cwd)
     public string? Session { get; init; }
     /// <summary>Variables other plugins' launch contributions set for the child (a model source's agent directory); empty leaves Pi's environment as it is.</summary>
     public IReadOnlyDictionary<string, string> Environment { get; init; } = new Dictionary<string, string>();
+    /// <summary>Words that start Pi in place of <see cref="Command"/> (another plugin's launch contribution, such as `central run pi --`); empty runs the command itself.</summary>
+    public IReadOnlyList<string> Wrapper { get; init; } = [];
+    /// <summary>Why Pi must not start (a launch contribution is blocked); null when it may.</summary>
+    public string? Blocked { get; init; }
+    /// <summary>The program that is started: the first wrapper word, else the command.</summary>
+    public string Executable => Wrapper.Count > 0 ? Wrapper[0] : Command;
 }
 
 /// <summary>
@@ -113,7 +119,9 @@ internal sealed class PiChatSession : IAsyncDisposable
         {
             lock (gate)
             {
-                folder.SetStatus(ChatStatus.Failed, error is System.ComponentModel.Win32Exception ? $"{spawn.Command} was not found. Install Pi, or set its command in Settings." : error.Message);
+                folder.SetStatus(ChatStatus.Failed, error is System.ComponentModel.Win32Exception
+                    ? spawn.Wrapper.Count > 0 ? $"{spawn.Executable} was not found. Install it, or choose another Model source for Pi." : $"{spawn.Command} was not found. Install Pi, or set its command in Settings."
+                    : error.Message);
                 FlushNow();
             }
         }

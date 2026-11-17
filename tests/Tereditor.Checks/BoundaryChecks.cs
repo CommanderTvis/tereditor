@@ -126,7 +126,8 @@ internal static class BoundaryChecks
         rules["Tereditor.Plugins.OpenAi"] = [.. rules["Tereditor.Plugins.OpenAi"], "Tereditor.Plugins.Providers"];
         rules["Tereditor.Plugins.OpenAi.UI"] = [.. rules["Tereditor.Plugins.OpenAi.UI"], "Tereditor.Plugins.Providers"];
         // The cloud platform plugins depend on Model providers in all three halves: they contribute a provider and fill its page.
-        foreach (var platform in new[] { "Bedrock", "Vertex" })
+        // Air Gateway does the same for JetBrains AI (Central): it contributes a provider and fills its place in the list.
+        foreach (var platform in new[] { "Bedrock", "Vertex", "AirGateway" })
             foreach (var part in new[] { "", ".Host", ".UI" })
                 rules["Tereditor.Plugins." + platform + part] = [.. rules["Tereditor.Plugins." + platform + part], "Tereditor.Plugins.Providers"];
         // Language server plugins (H21) are one host-only project each, referenced by the host core only.

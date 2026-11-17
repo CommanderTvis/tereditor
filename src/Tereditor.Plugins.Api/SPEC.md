@@ -981,7 +981,7 @@ carrying `Installed`) is the one source: the Start work dialog reads the same la
 reads cached answers only: each agent plugin runs its probe on the host, off the UI thread, and calls `Invalidate` when the answer
 arrives. `AgentRoster.Watch(context, handler)` calls the handler on the UI thread with the new roster when an entry, its plugin's
 state or its availability changes (an unchanged roster is not announced). It adds no member to `IPluginUIContext`, so the
-crossing tables are unchanged. Consumers: the Air Gateway Agents list and the Model providers Pi / omp switch.
+crossing tables are unchanged. Consumers: the Model providers Pi / omp switch.
 
 ## Repo hosting contributions (H24, W28)
 

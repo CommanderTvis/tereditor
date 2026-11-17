@@ -9,12 +9,12 @@ namespace Tereditor.Plugins.AirGateway.Host;
 /// The plugin's behaviour apart from the host context: detecting Central and the actions the user triggers on it
 /// (sign in and out, start the proxy, update, list and switch the AI access source). The plugin never edits an
 /// agent's configuration: governed launches are `central run` in the command line, built by the agent's own plugin.
-/// Central runs only from a status check (the read-only `central status` and, with Central chosen and signed in, `central limit --json`, which the pane repeats automatically) or a method the user triggered, and no Central output is stored; the identity and credits reach only the governed agents' Account tabs, on request.
+/// Central runs only from a status check (the read-only `central status` and, while an agent's Model source is JetBrains AI (Central) and Central is signed in, `central limit --json`, which the pane repeats automatically) or a method the user triggered, and no Central output is stored; the identity and credits reach only the governed agents' Account tabs, on request.
 /// </summary>
 internal sealed class AirGatewayRuntime : IDisposable
 {
     private readonly AirCentralCli cli;
-    private readonly Func<AirSettings> settings;
+    private readonly Func<IReadOnlySet<string>> chosen;
     private readonly Action<AirStatus> publish;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly SemaphoreSlim probeGate = new(1, 1);
@@ -26,10 +26,22 @@ internal sealed class AirGatewayRuntime : IDisposable
     private (string? Email, string? License) identity;
     private int busy;
 
-    public AirGatewayRuntime(AirEnvironment environment, Func<AirSettings> settings, Action<AirStatus> publish)
+    public AirGatewayRuntime(AirEnvironment environment, Func<IReadOnlySet<string>> chosen, Action<AirStatus> publish)
     {
         cli = new(environment);
-        this.settings = settings; this.publish = publish;
+        this.chosen = chosen; this.publish = publish;
+    }
+
+    /// <summary>The agents whose Model source changed: forgets the credits when no agent is governed and tells the pane and the header.</summary>
+    public async Task ChosenChangedAsync()
+    {
+        try
+        {
+            var central = await cli.InspectAsync(lifetime.Token);
+            if (!AirLaunch.Wired(chosen())) { credits = null; identity = default; }
+            publish(Build(central));
+        }
+        catch (OperationCanceledException) { }
     }
 
     /// <summary>Where <c>central</c> is on this host, read from the file system only.</summary>
@@ -52,10 +64,10 @@ internal sealed class AirGatewayRuntime : IDisposable
         return Build(central);
     }
 
-    /// <summary>Reads the chosen source's remaining credits (read-only <c>central limit --json</c>) only with Central chosen and signed in; otherwise forgets them.</summary>
+    /// <summary>Reads the remaining credits (read-only <c>central limit --json</c>) only while an agent's Model source is Central and Central is signed in; otherwise forgets them.</summary>
     private async Task RefreshCreditsAsync(AirCentral central, CancellationToken cancellationToken)
     {
-        if (settings().Source == AirSources.Central && observed.Auth == "connected" && central is { State: "supported", Path: not null })
+        if (AirLaunch.Wired(chosen()) && observed.Auth == "connected" && central is { State: "supported", Path: not null })
         {
             var read = await cli.LimitReadAsync(central.Path, cancellationToken);
             credits = read.Credits is { } fresh ? fresh with { ReadAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() } : null;
@@ -90,15 +102,14 @@ internal sealed class AirGatewayRuntime : IDisposable
 
     /// <summary>The host-side contribution: <see cref="AirLaunch.Contribution"/> plus the account the governed launcher runs under.</summary>
     public AgentLaunchContribution? Contribution(string launcherId) =>
-        AirLaunch.Contribution(settings(), launcherId, cli.Locate()) is { } contribution
+        AirLaunch.Contribution(chosen(), launcherId, cli.Locate()) is { } contribution
             ? contribution with { Account = new("Central", AccountAsync) } : null;
 
     private AirStatus Build(AirCentral central)
     {
-        var current = settings();
-        var agents = new[] { ("claude", "Claude Code", current.ClaudeCode), ("codex", "Codex", current.Codex) }
-            .Select(agent => new AirAgent(agent.Item1, agent.Item2, agent.Item3, AirLaunch.Shape(current, agent.Item1, central.Path))).ToArray();
-        return new(central with { Auth = observed.Auth, Proxy = observed.Proxy }, current.Source, agents, Volatile.Read(ref busy) > 0, detail, settings().Source == AirSources.Central && observed.Auth == "connected" ? credits : null);
+        var current = chosen();
+        var agents = AirLaunch.Agents.Select(agent => new AirAgent(agent.AgentId, agent.Label, current.Contains(agent.AgentId), AirLaunch.Shape(current, agent.LauncherId, central.Path))).ToArray();
+        return new(central with { Auth = observed.Auth, Proxy = observed.Proxy }, agents, Volatile.Read(ref busy) > 0, detail, AirLaunch.Wired(current) && observed.Auth == "connected" ? credits : null);
     }
 
     private async Task<AirOutcome> ExclusiveAsync(Func<CancellationToken, Task<(bool Ok, string Message)>> work)

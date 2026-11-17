@@ -1,28 +1,12 @@
 using System.Text.Json.Serialization;
 
 using Tereditor.Plugins.Api;
+using Tereditor.Plugins.Providers;
 
 namespace Tereditor.Plugins.AirGateway;
 
-/// <summary>The AI sources the plugin switches between. <see cref="Direct"/> leaves the agents as the user configured them.</summary>
-public static class AirSources
-{
-    /// <summary>Each agent signs in with its own account; the plugin changes nothing.</summary>
-    public const string Direct = "direct";
-
-    /// <summary>Each enabled agent is started through JetBrains Air by the user's own <c>central run</c>, for that launch only.</summary>
-    public const string Central = "central";
-
-    public static bool IsKnown(string value) => value is Direct or Central;
-}
-
-/// <summary>The plugin's settings namespace: which source is chosen, and for which agents.</summary>
-public sealed record AirSettings
-{
-    public string Source { get; set; } = AirSources.Direct;
-    public bool ClaudeCode { get; set; } = true;
-    public bool Codex { get; set; } = true;
-}
+/// <summary>The plugin's settings namespace. It holds nothing: which agents Central governs is each agent's Model source (Model providers).</summary>
+public sealed record AirSettings;
 
 /// <param name="Probe">Asks <c>central status</c> for the sign-in and proxy rows; without it only the binary and its version are read.</param>
 public sealed record AirStatusParams(bool Probe = false);
@@ -37,10 +21,11 @@ public sealed record AirSwitchParams(string SourceId);
 /// <param name="InstallCommand">What the user runs themselves to install Central on this host's platform.</param>
 public sealed record AirCentral(string State, string Auth, string Proxy, string InstallCommand, string? Path = null, string? Version = null);
 
+/// <param name="Id">The agent plugin's id.</param>
+/// <param name="Chosen">Whether the agent's Model source is JetBrains AI (Central).</param>
 /// <param name="Launch">The exact command shape prefixed to this agent's launches, or <see langword="null"/> when its launches are unchanged.</param>
-public sealed record AirAgent(string Id, string Label, bool Enabled, string? Launch = null);
+public sealed record AirAgent(string Id, string Label, bool Chosen, string? Launch = null);
 
-/// <param name="Source">The source in effect for new launches: the chosen one.</param>
 /// <param name="Remaining">Credits left of the chosen central AI source's recurring quota.</param>
 /// <param name="Total">The recurring quota.</param>
 /// <param name="TopUp">Credits left of the top-up quota; zero when there is none.</param>
@@ -48,8 +33,8 @@ public sealed record AirAgent(string Id, string Label, bool Enabled, string? Lau
 /// <param name="ReadAt">When the host read them from Central, Unix milliseconds.</param>
 public sealed record AirCredits(double Remaining, double Total, double TopUp = 0, long? RefillNext = null, long? ReadAt = null);
 
-/// <param name="Credits">Only with Central chosen and signed in, and only when the last check could read them; otherwise <see langword="null"/>.</param>
-public sealed record AirStatus(AirCentral Central, string Source, IReadOnlyList<AirAgent> Agents, bool Busy = false, string? Detail = null, AirCredits? Credits = null);
+/// <param name="Credits">Only while Central governs an agent and is signed in, and only when the last check could read them; otherwise <see langword="null"/>.</param>
+public sealed record AirStatus(AirCentral Central, IReadOnlyList<AirAgent> Agents, bool Busy = false, string? Detail = null, AirCredits? Credits = null);
 
 public sealed record AirOutcome(bool Ok, string Message, AirStatus Status);
 
@@ -58,34 +43,55 @@ public sealed record AirAccessSource(string Id, string Name, bool Current);
 
 public sealed record AirAccessList(IReadOnlyList<AirAccessSource> Sources, string? Detail = null);
 
+/// <summary>One agent Central can govern: its plugin id, the launcher id its launches ask with, its name and the name `central run` takes.</summary>
+public sealed record AirAgentWiring(string AgentId, string LauncherId, string Label, string CentralName);
+
 /// <summary>
-/// What the plugin contributes to the agents' launches. Governed launches run <c>central run &lt;agent&gt; -- ...</c>,
-/// which starts the agent through JetBrains Air for that launch only and leaves the agent's own configuration alone.
+/// What the plugin contributes to the agents' launches. An agent whose Model source is JetBrains AI (Central) runs
+/// <c>central run &lt;agent&gt; -- ...</c>, which starts the agent through JetBrains Air for that launch only and leaves the agent's own configuration alone.
 /// </summary>
 public static class AirLaunch
 {
-    /// <summary>The agent launcher ids the plugin knows, with the agent names <c>central run</c> takes.</summary>
-    public static readonly IReadOnlyDictionary<string, string> CentralNames = new Dictionary<string, string> { ["claude"] = "claude-code", ["codex"] = "codex" };
+    /// <summary>The agents Central declares good wiring for. Any other agent is not offered the source.</summary>
+    public static readonly IReadOnlyList<AirAgentWiring> Agents =
+    [
+        new("claude-code", "claude", "Claude Code", "claude-code"),
+        new("codex", "codex", "Codex", "codex"),
+        new("pi", "pi", "Pi", "pi")
+    ];
 
-    /// <summary>Whether Central is the chosen source and governs at least one agent's launches.</summary>
-    public static bool Wired(AirSettings settings) => CentralNames.Keys.Any(launcherId => Enabled(settings, launcherId));
+    /// <summary>The provider the plugin adds to Model providers: no key, no API, wired to exactly <see cref="Agents"/>.</summary>
+    public static ProviderDefinition Provider { get; } = new(ProviderCatalog.JetBrainsAi, "JetBrains AI (Central)", ProviderGroup.JetBrainsAi, [])
+    {
+        NeedsKey = false,
+        Note = "Starts the agent through JetBrains Central with your JetBrains AI access. It applies to terminals and chats you start afterwards.",
+        WiredAgents = [.. Agents.Select(agent => agent.AgentId)]
+    };
 
-    public static bool Enabled(AirSettings settings, string launcherId) =>
-        settings.Source == AirSources.Central && launcherId switch { "claude" => settings.ClaudeCode, "codex" => settings.Codex, _ => false };
+    /// <summary>The agents whose Model source is JetBrains AI (Central), among those it wires.</summary>
+    /// <param name="sources">The model sources Model providers reports.</param>
+    public static IReadOnlySet<string> Chosen(IEnumerable<ModelSourceChoice> sources) =>
+        sources.Where(choice => choice.ProviderId == ProviderCatalog.JetBrainsAi && Agents.Any(agent => agent.AgentId == choice.AgentId)).Select(choice => choice.AgentId).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>Whether Central governs at least one agent.</summary>
+    public static bool Wired(IReadOnlySet<string> chosen) => chosen.Count > 0;
+
+    public static bool Enabled(IReadOnlySet<string> chosen, string launcherId) =>
+        Agents.FirstOrDefault(agent => agent.LauncherId == launcherId) is { } wiring && chosen.Contains(wiring.AgentId);
 
     /// <summary>
-    /// The contribution for a launcher, or <see langword="null"/> when the source is direct, the agent is switched off or
-    /// the launcher is unknown. With Central chosen it always governs, failing closed: Claude Code and Codex are wrapped
-    /// with the bare name when Central has not been found, so a missing CLI fails the launch in the shell.
+    /// The contribution for a launcher, or <see langword="null"/> when the agent's Model source is not JetBrains AI (Central) or the
+    /// launcher is unknown. Once chosen it always governs, failing closed: the agent is wrapped with the bare name when Central has
+    /// not been found, so a missing CLI fails the launch in the shell.
     /// </summary>
-    public static AgentLaunchContribution? Contribution(AirSettings settings, string launcherId, string? centralPath) =>
-        Enabled(settings, launcherId)
-            ? new() { Wrapper = [centralPath is { Length: > 0 } ? centralPath : "central", "run", CentralNames[launcherId], "--"], ReplacesExecutable = true }
+    public static AgentLaunchContribution? Contribution(IReadOnlySet<string> chosen, string launcherId, string? centralPath) =>
+        Enabled(chosen, launcherId)
+            ? new() { Wrapper = [centralPath is { Length: > 0 } ? centralPath : "central", "run", Agents.First(agent => agent.LauncherId == launcherId).CentralName, "--"], ReplacesExecutable = true }
             : null;
 
     /// <summary>The command shape shown to the user: the wrapper followed by the agent's usual arguments.</summary>
-    public static string? Shape(AirSettings settings, string launcherId, string? centralPath) =>
-        Contribution(settings, launcherId, centralPath) is { } contribution ? string.Join(' ', contribution.Wrapper) + " <" + launcherId + " arguments>" : null;
+    public static string? Shape(IReadOnlySet<string> chosen, string launcherId, string? centralPath) =>
+        Contribution(chosen, launcherId, centralPath) is { } contribution ? string.Join(' ', contribution.Wrapper) + " <" + launcherId + " arguments>" : null;
 }
 
 public static class AirGatewayContract
@@ -109,7 +115,8 @@ public static class AirGatewayContract
         Category = PluginCategories.ModelProviders,
         // Runs Central's command line on the host's operating system, which a browser tab does not have.
         UnavailableOn = [HostKind.PureWeb],
-        Description = "Starts Claude Code and Codex through JetBrains Air Gateway with the Central CLI, per launch, or leaves them on their own accounts.",
+        DependsOn = [new(ProvidersManifest.Id, ProvidersContract.WireVersion)],
+        Description = "Adds JetBrains AI (Central) to Model providers. An agent that chooses it (Claude Code, Codex or Pi) starts through JetBrains Air Gateway with the Central CLI, per launch.",
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.AirGateway.Host.dll",

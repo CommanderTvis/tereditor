@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
 
-using Tereditor.Plugins.AirGateway.UI;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.Codex;
@@ -159,14 +158,6 @@ internal static class AgentLaunchContributionChecks
         }
         finally { Directory.Delete(root, true); }
 
-        // The lists that consume the roster.
-        AgentRosterEntry Entry(string id, AgentPluginState state, bool? installed, string? reason = null) => new(id, id, id, id, state, installed, reason);
-        var installed = Entry("codex", AgentPluginState.Active, true);
-        var missing = Entry("codex", AgentPluginState.Active, false, "Codex was not found on PATH. Install Codex, then try again.");
-        Require(AirSettingsView.AgentRow("Codex", "Codex", false, installed) == (true, "Codex", false) && AirSettingsView.AgentRow("Codex", "Codex", false, Entry("codex", AgentPluginState.Active, null)) == (true, "Codex", false),
-            "Air Gateway shows an installed or undecided agent");
-        Require(AirSettingsView.AgentRow("Codex", "Codex", false, missing).Show == false && AirSettingsView.AgentRow("Codex", "Codex", true, missing) == (true, missing.Reason!, true),
-            "Air Gateway hides an agent that is not installed, and keeps a chosen one as a dimmed line with the reason");
         // Model providers off: nothing contributes, so each agent's launch line is the one the agent builds itself.
         foreach (var (line, executable) in new[] { ("claude --model opus", "claude"), ("codex -c model=x", "codex"), ("pi --model y", "pi"), ("omp --model z", "omp") })
             Require(AgentLaunchComposition.Apply(line, executable, []) == line, "with no contribution the launch line of " + executable + " is unchanged");

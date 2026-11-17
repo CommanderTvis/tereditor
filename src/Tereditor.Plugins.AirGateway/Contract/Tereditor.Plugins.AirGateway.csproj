@@ -2,5 +2,6 @@
   <!-- The Air Gateway plugin's manifest and contract, shared by its host and UI halves. -->
   <ItemGroup>
     <ProjectReference Include="../../Tereditor.Plugins.Api/Tereditor.Plugins.Api.csproj" />
+    <ProjectReference Include="../../Tereditor.Plugins.Providers/Tereditor.Plugins.Providers.csproj" />
   </ItemGroup>
 </Project>

@@ -5,6 +5,7 @@ namespace Tereditor.Plugins.Providers;
 /// <summary>
 /// What the chosen model source adds to an agent's launch. Codex and Claude Code have a seam here (Pi and omp have theirs in the host half).
 /// A key is never part of it: Codex's launch names the <c>provider-key</c> helper, and Claude Code's settings file does.
+/// A provider whose contributor wires the agent itself (<see cref="ProviderDefinition.WiredAgents"/>) adds nothing here.
 /// </summary>
 public static class ProviderLaunch
 {
@@ -47,6 +48,7 @@ public static class ProviderLaunch
         if (launcherId != Codex || report?.Sources.FirstOrDefault(choice => choice.AgentId == Codex) is not { } source) return null;
         if (report.Providers.FirstOrDefault(row => row.Provider.Id == source.ProviderId) is not { Ready: true } row) return Blocked("The chosen model source is not ready. Choose another in Settings › Plugins › Model providers.");
         var provider = row.Provider;
+        if (provider.WiredAgents.Contains(Codex)) return null;
         if (provider.Apis.FirstOrDefault(api => api.Kind == ModelApiKinds.OpenAiResponses && api.Auth.Contains(ModelAuthKind.ApiKey)) is not { } responses)
             return Blocked("The chosen model source has no OpenAI Responses API for Codex.");
         var id = CodexIdPrefix + new string([.. provider.Id.Select(c => char.IsAsciiLetterOrDigit(c) || c == '-' ? c : '-')]);
@@ -78,6 +80,7 @@ public static class ProviderLaunch
     {
         if (report?.Sources.FirstOrDefault(choice => choice.AgentId == ClaudeAgent) is not { } source) return null;
         if (report.Providers.FirstOrDefault(row => row.Provider.Id == source.ProviderId) is not { Ready: true } row) return Blocked("The chosen model source is not ready. Choose another in Settings › Plugins › Model providers.");
+        if (row.Provider.WiredAgents.Contains(ClaudeAgent)) return null;
         if (row.Provider.Apis.Any(api => api.Kind is ModelApiKinds.Bedrock or ModelApiKinds.Vertex && api.Auth.Contains(ModelAuthKind.Platform)))
         {
             // A launch line a Windows shell reads gets no variables.

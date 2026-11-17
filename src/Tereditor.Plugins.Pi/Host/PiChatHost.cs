@@ -123,8 +123,13 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         var cwd = await RootOf(p.WorkspaceId, CancellationToken.None);
         var record = await Task.Run(() => LoadRecord(p.WorkspaceId, p.ChatId));
         var resume = p.ResumeSessionId ?? record?.SessionFile;
-        var spawn = new PiSpawn(settings.Command.Trim() is { Length: > 0 } command ? command : "pi", cwd)
+        var command = settings.Command.Trim() is { Length: > 0 } own ? own : "pi";
+        // Like the other agents, a custom command is never rewritten: only the plain `pi` is wrapped or blocked by a launch contribution.
+        var contributions = Path.GetFileNameWithoutExtension(command) == "pi" ? context.AgentLaunchContributions(PiManifest.Id) : [];
+        var spawn = new PiSpawn(command, cwd)
         {
+            Wrapper = contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0)?.Wrapper ?? [],
+            Blocked = AgentLaunchComposition.Blocked(contributions),
             Model = p.Model ?? (settings.Model.Length > 0 ? settings.Model : null),
             Thinking = p.Effort ?? (settings.Thinking.Length > 0 ? settings.Thinking : null),
             Session = resume is not null && File.Exists(resume) ? resume : null,

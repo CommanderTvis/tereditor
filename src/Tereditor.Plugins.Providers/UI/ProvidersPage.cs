@@ -61,6 +61,13 @@ internal sealed class ProvidersPage : StackPanel
         _ => kind
     };
 
+    /// <summary>What a provider is for, as the page reads it: the agents it works with (not its API kinds).</summary>
+    private string WorksWith(ProviderDefinition provider)
+    {
+        var agents = ProviderMatching.AgentNames(provider, context.Host().Roster.Where(entry => entry.AgentRouting is not null).Select(entry => (entry.Id, entry.Label, entry.AgentRouting)));
+        return agents.Count == 0 ? "No agent takes it yet" : "Works with " + string.Join(", ", agents);
+    }
+
     private void Load(Func<Task<ModelProvidersReport>> request)
     {
         var mine = ++generation;
@@ -138,8 +145,7 @@ internal sealed class ProvidersPage : StackPanel
         if (provider.Custom && provider.Contributor is null) column.ExtraActions.Add(("Remove provider", () => Load(() => context.RequestAsync(ProvidersContract.RemoveCustomProvider, new ModelProviderParams(provider.Id)).AsTask())));
         if (provider.Note is { } note) column.Hints.Add(note);
         if (provider.OAuth is { Allowed: false, ReasonIfNot: { } reason }) column.Hints.Add(reason);
-        var kinds = string.Join(", ", provider.Apis.Select(api => Label(api.Kind)).Distinct());
-        column.Show(provider.Name + (row.Ready ? "  (ready)" : "") + "  ·  " + kinds, row.Ready && provider.NeedsKey);
+        column.Show(provider.Name + (row.Ready ? "  (ready)" : "") + "  ·  " + WorksWith(provider), row.Ready && provider.NeedsKey);
         column.Open = adding == provider.Id;
         column.OpenChanged = open => { adding = open ? provider.Id : null; custom = false; Render(); };
         return column;

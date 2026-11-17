@@ -43,9 +43,9 @@ internal sealed class ModelSourceView : StackPanel
         AttachedToVisualTree += (_, _) => Load(() => context.RequestAsync(ProvidersContract.Models, new ModelProvidersParams()).AsTask());
     }
 
-    /// <summary>The ready providers <paramref name="routing"/>'s agent is offered, in list order.</summary>
-    internal static IReadOnlyList<ModelProviderRow> Offered(AgentRouting? routing, IReadOnlyList<ModelProviderRow> rows) =>
-        routing is null ? [] : [.. rows.Where(row => row.Ready && ProviderMatching.Offered(routing, row.Provider))];
+    /// <summary>The ready providers an agent is offered (an API it takes, or a contributor that wires it), in list order.</summary>
+    internal static IReadOnlyList<ModelProviderRow> Offered(string agentId, AgentRouting? routing, IReadOnlyList<ModelProviderRow> rows) =>
+        [.. rows.Where(row => row.Ready && ProviderMatching.Works(agentId, routing, row.Provider))];
 
     private void Save(string? providerId) =>
         Load(() => context.RequestAsync(ProvidersContract.SetModelSource, new SetModelSourceParams(agentId, providerId)).AsTask());
@@ -72,7 +72,7 @@ internal sealed class ModelSourceView : StackPanel
     private void Show(ModelProvidersReport report)
     {
         var routing = context.Host().Roster.FirstOrDefault(entry => entry.Id == agentId)?.AgentRouting;
-        var offered = Offered(routing, report.Providers);
+        var offered = Offered(agentId, routing, report.Providers);
         var chosen = report.Sources.FirstOrDefault(source => source.AgentId == agentId)?.ProviderId;
         var entries = new List<(string Name, string? Id)> { ("Use the agent's own provider", null) };
         entries.AddRange(offered.Select(row => (row.Provider.Name, (string?)row.Provider.Id)));
@@ -86,7 +86,11 @@ internal sealed class ModelSourceView : StackPanel
         }
         choice.SelectedIndex = Math.Max(0, entries.FindIndex(entry => entry.Id == chosen));
         applying = false;
-        hint.Text = routing is null ? "This agent has no provider choice."
+        var wired = chosen is not null && offered.Any(row => row.Provider.Id == chosen && row.Provider.WiredAgents.Contains(agentId));
+        hint.Text = wired ? agentId == "pi"
+                ? "New Pi chats start through JetBrains Central. Chats already open keep their old start."
+                : "New terminals of this agent start through JetBrains Central. Terminals already running keep their old command."
+            : routing is null ? "This agent has no provider choice."
             : offered.Count == 0 && chosen is null ? "No provider you added fits this agent yet. Add one in Settings › Plugins › Model providers."
             : agentId is "pi" or "omp" ? (chosen is null ? "This agent starts with its own provider." : "A new start of this agent uses this provider. Its key stays in tereditor and is never put on the command line.")
             : agentId == ProviderLaunch.Codex ? "The choice is saved. New Codex launches use it."

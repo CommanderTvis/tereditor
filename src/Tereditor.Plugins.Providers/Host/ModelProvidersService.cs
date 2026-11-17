@@ -99,8 +99,11 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
             {
                 var row = Rows().FirstOrDefault(candidate => candidate.Provider.Id == id) ?? throw new ArgumentException("No provider has that id.");
                 if (!row.Ready) throw new ArgumentException("Add a key for this provider first.");
+                var wired = row.Provider.WiredAgents.Contains(p.AgentId);
+                if (row.Provider.Apis.Count == 0 && !wired) throw new ArgumentException("This provider does not work with that agent.");
                 // The file comes first: a source that could not be written is never recorded, so the agent keeps its own provider.
-                if (files is not null && AgentModelFiles.Handles(p.AgentId))
+                // A wired provider writes none: its contributor starts the agent, and an old file is removed below.
+                if (files is not null && AgentModelFiles.Handles(p.AgentId) && !wired)
                 {
                     files.Write(p.AgentId, row.Provider, p.Model);
                     written = true;
@@ -192,7 +195,17 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
             foreach (var choice in all)
             {
                 if (!AgentModelFiles.Handles(choice.AgentId)) { kept.Add(choice); continue; }
-                if (rows.FirstOrDefault(row => row.Provider.Id == choice.ProviderId) is { Ready: true } row)
+                var found = rows.FirstOrDefault(row => row.Provider.Id == choice.ProviderId);
+                // A provider whose contributor has not started yet (it starts after this plugin) keeps its choice.
+                if (found is null && choice.ProviderId == ProviderCatalog.JetBrainsAi) { kept.Add(choice); continue; }
+                if (found is { Ready: true } wiredRow && wiredRow.Provider.WiredAgents.Contains(choice.AgentId))
+                {
+                    try { files.Remove(choice.AgentId); }
+                    catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+                    kept.Add(choice);
+                    continue;
+                }
+                if (found is { Ready: true } row)
                 {
                     try
                     {
