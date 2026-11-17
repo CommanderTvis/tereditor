@@ -20,7 +20,12 @@ internal sealed class TextMateHighlighter
     internal const int MaximumCharacters = 1_048_576;
     private static readonly Lazy<Options> Catalog = new(() => new());
     private CustomGrammar[] custom = CustomHighlighting.Current;
-    private Registry? registry;
+    // Grammars load once and are shared by every editor: a registry costs far more than a pass over a small diff.
+    // TextMateSharp grammars are not thread-safe, so passes take the lock.
+    private static readonly object SharedLock = new();
+    private static CustomGrammar[]? sharedCustom;
+    private static Registry? sharedRegistry;
+    private static readonly Dictionary<string, IGrammar?> SharedGrammars = [];
     private string? scope;
     private IGrammar? grammar;
     private List<CachedLine> cache = [];
@@ -53,21 +58,32 @@ internal sealed class TextMateHighlighter
     internal byte[] Highlight(string text, string path, IReadOnlyList<SyntaxLine>? rows, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
+        lock (SharedLock) return HighlightShared(text, path, rows, token);
+    }
+
+    private IGrammar? SharedGrammar(string detected)
+    {
+        if (!ReferenceEquals(sharedCustom, custom)) { sharedCustom = custom; sharedRegistry = null; SharedGrammars.Clear(); }
+        if (SharedGrammars.TryGetValue(detected, out var known)) return known;
+        sharedRegistry ??= new(new Options(custom));
+        return SharedGrammars[detected] = sharedRegistry.LoadGrammar(detected);
+    }
+
+    private byte[] HighlightShared(string text, string path, IReadOnlyList<SyntaxLine>? rows, CancellationToken token)
+    {
         var current = CustomHighlighting.Current;
         if (!ReferenceEquals(custom, current))
         {
             custom = current;
-            registry = null;
             scope = null;
             grammar = null;
             cache = [];
         }
-        registry ??= new(new Options(custom));
         var detected = Detect(path, custom);
         if (scope != detected)
         {
             scope = detected;
-            grammar = detected is null ? null : registry.LoadGrammar(detected);
+            grammar = detected is null ? null : SharedGrammar(detected);
             cache = [];
         }
         TokenizedLines = 0;

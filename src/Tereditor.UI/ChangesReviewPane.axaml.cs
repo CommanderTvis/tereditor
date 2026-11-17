@@ -297,6 +297,8 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
         file.Added + file.Removed > 400 || GeneratedSuffixes.Any(suffix => file.Path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) ||
         Path.GetFileName(file.Path) is "package-lock.json" or "pnpm-lock.yaml" or "yarn.lock");
 
+    private const int MaximumLoads = 3;
+
     private void QueueVisible()
     {
         if (queued || disposed) return;
@@ -315,6 +317,7 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
         string? active = null;
         var revealing = reveal is not null;
         Section? pin = null;
+        List<(Section Section, double Distance)>? wanted = null;
         foreach (var section in sections.Values)
         {
             var top = scroll is null ? 0 : section.Frame.TranslatePoint(default, scroll)?.Y ?? double.MaxValue;
@@ -325,9 +328,17 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
                 top < scroll.Bounds.Height * 3 && top + height > -scroll.Bounds.Height);
             var near = scroll is null || top < scroll.Bounds.Height * 3 && top + height > -scroll.Bounds.Height * 2;
             if (near && section.Card is null) Realize(section);
-            if (visible && (section.View is null || section.Stale) && !section.Loading && !section.Failed) _ = LoadAsync(section, generation, reading.Token);
+            if (visible && (section.View is null || section.Stale) && !section.Loading && !section.Failed)
+                (wanted ??= []).Add((section, top < 0 ? -(top + height) : top));
             else if (!visible && section.View is not null) Unmount(section);
             if (!near && section.Card is not null && section.View is null && !ReferenceEquals(section, pin) && !ReferenceEquals(section, pinned)) Release(section);
+        }
+        // Each finished load builds its view on the UI thread: only a few run at once, the nearest to the viewport first.
+        if (wanted is not null)
+        {
+            var free = MaximumLoads - sections.Values.Count(section => section.Loading);
+            foreach (var (section, _) in wanted.OrderBy(entry => entry.Distance).Take(Math.Max(0, free)))
+                _ = LoadAsync(section, generation, reading.Token);
         }
         Pin(pin);
         PlaceReveal();
@@ -393,7 +404,7 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
             notice.Children.Add(Ui.Button("Retry", () => { section.Failed = false; _ = LoadAsync(section, generation, reading!.Token); }));
             failed.Body.Children.Clear(); failed.Body.Children.Add(notice);
         }
-        finally { section.Loading = false; if (token.IsCancellationRequested) QueueVisible(); }
+        finally { section.Loading = false; QueueVisible(); }
     }
 
     internal bool Contains(DiffView view) => sections.Values.Any(section => ReferenceEquals(section.View, view));

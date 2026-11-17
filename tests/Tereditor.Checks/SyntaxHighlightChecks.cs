@@ -123,6 +123,11 @@ internal static class SyntaxHighlightChecks
         try { highlighter.Highlight(text, "a.cs", null, cancelled.Token); throw new InvalidOperationException("Cancelled highlighting ran."); }
         catch (OperationCanceledException) { }
         Require(highlighter.Highlight(new string('x', TextMateHighlighter.MaximumCharacters + 1), "a.cs", null, default).All(style => style == 0), "Large file highlighting is unbounded.");
+        // Editors share one grammar, so passes from several threads must match a lone pass.
+        var shared = new TextMateHighlighter().Highlight(text, "a.cs", null, default);
+        var parallel = Enumerable.Range(0, 16).Select(_ => Task.Run(() => new TextMateHighlighter().Highlight(text, "a.cs", null, default))).ToArray();
+        Task.WaitAll(parallel);
+        Require(parallel.All(task => task.Result.SequenceEqual(shared)), "Parallel highlighting through the shared grammar differs from a lone pass.");
     }
 
     private static void Toml(TextMateHighlighter highlighter)
