@@ -537,6 +537,9 @@ internal sealed partial class LanguageSession : IAsyncDisposable, ILanguageServe
         .Where(item => item?["range"] is not null)
         .Select(item => Item(path, item!["range"]!, item["message"]?.ToString() ?? "", item["severity"]?.ToString() ?? "1", item["source"]?.ToString() ?? server.Id) with { Raw = item.ToJsonString() }).ToArray();
 
+    /// <summary>The kind of a workspace symbol that gave a file but no range.</summary>
+    internal const string UriOnlyKind = "uri";
+
     private IEnumerable<LanguageItem> Locations(JsonNode? node, string fallback)
     {
         foreach (var value in node is JsonArray array ? array : node is null ? [] : new JsonArray(node.DeepClone()))
@@ -547,6 +550,8 @@ internal sealed partial class LanguageSession : IAsyncDisposable, ILanguageServe
             var path = uri is null ? fallback : Relative(uri) ?? (Uri.TryCreate(uri, UriKind.Absolute, out var parsed) && parsed.IsFile ? parsed.LocalPath : uri);
             var range = location["targetSelectionRange"] ?? location["selectionRange"] ?? location["range"];
             if (path is not null && range is not null) yield return Item(path, range, value["name"]?.ToString() ?? "", value["kind"]?.ToString() ?? "", server.Id) with { Container = value["containerName"]?.ToString() ?? "" };
+            // A workspace symbol may name only a file (LSP 3.17): keep it as a file-level hit that by-name lookup resolves through that file's outline.
+            else if (path is not null && value["location"] is not null && value["name"] is not null) yield return Item(path, new JsonObject { ["start"] = Position(0, 0), ["end"] = Position(0, 0) }, value["name"]!.ToString(), UriOnlyKind, server.Id) with { Container = value["containerName"]?.ToString() ?? "" };
             foreach (var child in Locations(value["children"], fallback)) yield return child;
         }
     }

@@ -61,7 +61,7 @@ internal sealed partial class LanguagePanel : UserControl
         public string Provenance => (Server.StartedBy.Length > 0 ? "started by " + Server.StartedBy + " · " : "") + (Server.Usage is { Calls: > 0 } use
             ? $"Agent calls: {use.Calls} (last: {LanguageNotes.Ago(use.LastUsed, DateTime.UtcNow)})" : "Agent calls: none yet");
         public bool CanStart => Server.State is "idle" or "stopped" or "error" or "unavailable" or "requiresAcceptance";
-        public string Disclosure => CanStart ? Server.State is "error" or "unavailable" ? "Retry ▷" : "Start ▷" : Expanded ? "▾" : "▸";
+        public string Disclosure => CanStart ? Server.State is "error" or "unavailable" ? "Retry ▷" : Server.State == "requiresAcceptance" ? "Review terms ▷" : "Start ▷" : Expanded ? "▾" : "▸";
         public Avalonia.Media.IBrush DetailBrush => ShowExit || Server.State is "error" or "unavailable" ? Ui.Danger : Ui.Muted;
         public string Detection => Server.Path.Length > 0 ? "Suggested by file: " + Server.Path : "No matching files detected.";
         public string Version => "Managed version: " + Server.Version;

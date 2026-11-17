@@ -362,6 +362,10 @@ internal static class LanguageChecks
             var typeOnly = await Ready(host, new(root, Operation: "definition", Query: "Suite/run"));
             File.Delete(Path.Combine(root, "typeonly.flag"));
             Require(typeOnly.State == "ready" && typeOnly.Locations.Single() is { Path: "outline.ts", Line: 1, Column: 2 }, "A member the workspace search does not list was not found through its owner: " + typeOnly.State + " " + typeOnly.Detail);
+            await File.WriteAllTextAsync(Path.Combine(root, "urionly.flag"), "");
+            var uriOnly = await Ready(host, new(root, Operation: "definition", Query: "Suite/run"));
+            File.Delete(Path.Combine(root, "urionly.flag"));
+            Require(uriOnly.State == "ready" && uriOnly.Locations.Single() is { Path: "outline.ts", Line: 1, Column: 2 }, "A workspace symbol without a range was not resolved through its file's outline: " + uriOnly.State + " " + uriOnly.Detail);
             var unknown = await Ready(host, new(root, Operation: "implementation", Query: "Nowhere"));
             Require(unknown.State == "notFound" && unknown.Detail.Contains("\"operation\":\"workspaceSymbols\"", StringComparison.Ordinal), "An unknown name did not name the search call: " + unknown.Detail);
             await File.WriteAllTextAsync(Path.Combine(root, "ambiguous.ts"), "function overload() {}");
@@ -1044,6 +1048,12 @@ internal static class LanguageChecks
             Require(Find<CheckBox>("LspAllowPath").IsChecked == false, "PATH use is not off by default.");
             rail.SelectedItem = rail.Items.Cast<object>().First(item => item?.ToString() == "swift");
             E2E.E2eWorkspace.Until(() => Find<TextBlock>("LspResolved").Text!.Contains("needs an installation", StringComparison.Ordinal));
+            // The card states its facts in one type size and shows the version once.
+            var factSize = Find<TextBlock>("LspVersion").FontSize;
+            Require(Find<TextBlock>("LspResolved").FontSize == factSize && Find<TextBlock>("LspTermsStatus").FontSize == factSize && Find<TextBlock>("LspPathWarning").FontSize == factSize,
+                "The server card mixes type sizes for its facts.");
+            var shownVersion = Find<TextBlock>("LspVersion").Text!.Split(' ').Last();
+            Require(shownVersion.Length == 0 || !Find<TextBlock>("LspResolved").Text!.Contains("Version: " + shownVersion, StringComparison.Ordinal), "The server card shows its version twice.");
             rail.SelectedItem = rail.Items.Cast<object>().First(item => item?.ToString() == "typescript");
             var feature = Find<CheckBox>("LspFeatureEnabled");
             feature.IsChecked = false;
@@ -1691,6 +1701,8 @@ internal static class LanguageChecks
                     ? new object[] { new { name = "Suite", kind = 5, location = At(outlineUri, 0, 6) }, new { name = "SuiteHelper", kind = 5, location = At(outlineUri, 4, 0) } }
                     : [new { name = "run", kind = 6, location = At(outlineUri, 1, 2) }, new { name = "run()", kind = 6, location = At(new Uri(Path.GetFullPath("runner.ts")).AbsoluteUri, 0, 9) }];
             }
+            else if (method == "workspace/symbol" && File.Exists("urionly.flag") && parameters?["query"]?.ToString() == "run")
+                result = new[] { new { name = "run", kind = 6, location = new { uri = new Uri(Path.GetFullPath("outline.ts")).AbsoluteUri } } };
             else if (method == "workspace/symbol" && File.Exists("typeonly.flag") && parameters?["query"]?.ToString() == "run") result = Array.Empty<object>();
             else if (method == "workspace/symbol") result = new[] { new { name = "target", kind = 13, location = new { uri = documents.Keys.First(), range } } };
             else if (method == "textDocument/typeDefinition") result = new[] { new { uri = new Uri(Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "..", "library.ts"))).AbsoluteUri, range } };

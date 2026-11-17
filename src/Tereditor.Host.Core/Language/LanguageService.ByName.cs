@@ -23,6 +23,19 @@ public sealed partial class LanguageService
                 Total = 0,
                 Truncated = false
             };
+        if (candidates.Any(item => item.Kind == LanguageSession.UriOnlyKind))
+        {
+            // The server named files, not positions: select the symbol in each file's outline.
+            var found = new List<LanguageResult>();
+            foreach (var path in candidates.Where(item => item.Kind == LanguageSession.UriOnlyKind).Select(item => item.Path).Where(path => !LanguageSession.IsVirtual(path) && !Path.IsPathFullyQualified(path)).Distinct().Take(ByNameFiles))
+            {
+                token.ThrowIfCancellationRequested();
+                var attempt = await ExecuteAsync(request with { Path = path }, token);
+                if (attempt.State == "ready") found.Add(attempt);
+            }
+            return found.Count == 1 ? found[0] with { Detail = $"Resolved \"{request.Query}\" through the outline of a file the server named. " + found[0].Detail }
+                : search with { State = "notFound", Detail = LanguageUsage.ByNameNotFound(request) + " The server listed files without positions, and no file's outline selects the name uniquely.", Locations = [], Total = 0, Truncated = false };
+        }
         // A type's partial declarations and its own constructors are one symbol to navigate from, not a choice for the caller.
         if (candidates.Length > 1 && await OneTypeAsync(request, candidates, token) is { } type) candidates = [type];
         if (candidates.Length > 1 && LanguageUsage.IsQualified(request.Query))
