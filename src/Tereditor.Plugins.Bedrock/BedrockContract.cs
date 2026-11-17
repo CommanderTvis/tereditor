@@ -72,6 +72,7 @@ public static class BedrockManifest
         Support = PluginSupportLevels.Early,
         EnabledByDefault = true,
         Headless = HeadlessSupport.No,
+        UnavailableOn = [HostKind.PureWeb],
         Assets = "assets",
         Host = "Tereditor.Plugins.Bedrock.Host.dll",
         Ui = "Tereditor.Plugins.Bedrock.UI.dll"

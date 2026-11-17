@@ -32,14 +32,17 @@ internal sealed class OpenAiView : StackPanel
             secret => Run(() => providers.RequestAsync(ProvidersContract.SaveModelKey, new SaveModelKeyParams(OpenAiProvider.ProviderId, secret)).AsTask()),
             () => Run(() => providers.RequestAsync(ProvidersContract.RemoveModelKey, new ModelProviderParams(OpenAiProvider.ProviderId)).AsTask()));
         Children.Add(keyRow);
-        var signInLine = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
-        var signIn = Ui.Button("Sign in", SignIn);
-        signIn.Name = "OpenAiSignIn";
-        ToolTip.SetTip(signIn, "Opens a terminal and runs: " + OpenAiProvider.SignInCommand);
-        DockPanel.SetDock(signIn, Dock.Right);
-        signInLine.Children.Add(signIn);
-        signInLine.Children.Add(Ui.Text("Sign in with ChatGPT", Ui.TextBrush, 13));
-        Children.Add(signInLine);
+        if (OpenAiProvider.Policy.Allowed)
+        {
+            var signInLine = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
+            var signIn = Ui.Button("Sign in", SignIn);
+            signIn.Name = "OpenAiSignIn";
+            ToolTip.SetTip(signIn, "Opens a terminal and runs: " + OpenAiProvider.SignInCommand);
+            DockPanel.SetDock(signIn, Dock.Right);
+            signInLine.Children.Add(signIn);
+            signInLine.Children.Add(Ui.Text("Sign in with ChatGPT", Ui.TextBrush, 13));
+            Children.Add(signInLine);
+        }
         var policy = Ui.Text(OpenAiProvider.SignInText, Ui.Muted, 12);
         policy.Name = "OpenAiSignInPolicy";
         policy.TextWrapping = TextWrapping.Wrap;

@@ -73,6 +73,7 @@ public static class VertexManifest
         Support = PluginSupportLevels.Early,
         EnabledByDefault = true,
         Headless = HeadlessSupport.No,
+        UnavailableOn = [HostKind.PureWeb],
         Assets = "assets",
         Host = "Tereditor.Plugins.Vertex.Host.dll",
         Ui = "Tereditor.Plugins.Vertex.UI.dll"

@@ -52,7 +52,16 @@ public static class ProviderOAuthPolicy
 
     /// <summary>The policy for <paramref name="vendor"/>. A vendor the table does not name is not offered, and the user may mark it.</summary>
     /// <param name="vendor">The vendor id.</param>
-    public static ProviderOAuth For(string vendor) => vendor switch
+    public static ProviderOAuth For(string vendor) => For(vendor, OperatingSystem.IsBrowser());
+
+    /// <summary>The policy for <paramref name="vendor"/> on a host that is or is not a browser tab. A tab has no loopback listener and no sign-in helper, so no sign-in is offered there.</summary>
+    /// <param name="vendor">The vendor id.</param>
+    /// <param name="browser">Whether the host is the Playground.</param>
+    public static ProviderOAuth For(string vendor, bool browser) => browser && vendor == OpenAi
+        ? new(false, null, OpenAi, null, "Sign in with ChatGPT needs a local helper, so it is not available in the browser. Use an API key.") { Overridable = false }
+        : Vendor(vendor);
+
+    private static ProviderOAuth Vendor(string vendor) => vendor switch
     {
         OpenAi => new(true, "authorization-code-pkce", OpenAi, "Sign in with ChatGPT. A remote host needs OpenAI's approval for hosted apps.", null),
         Anthropic => new(false, null, Anthropic, null, "Anthropic does not allow a Claude subscription sign-in in other apps. Use an API key.") { Overridable = false },

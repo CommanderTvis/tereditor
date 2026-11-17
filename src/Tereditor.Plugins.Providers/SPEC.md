@@ -21,7 +21,7 @@ off. This plugin is the optional side that matches providers to those declaratio
   only the Anthropic API is never offered a provider that speaks only OpenAI Chat.
 - Sign-in policy. A provider's `oauth` field says whether the vendor allows the sign-in (`allowed`), the flow, the vendor, a note and the
   reason when it is not allowed. A sign-in counts for matching only when `allowed` is true. Anthropic and Google are never allowed, with a
-  fixed reason and no override. OpenAI is allowed with a note for remote hosts. A vendor the table does not name, or a provider with no
+  fixed reason and no override. OpenAI is allowed with a note for remote hosts, and not allowed in the Playground (`For(vendor, browser)`; reason: it needs a local helper). A vendor the table does not name, or a provider with no
   policy, is not offered; its policy says the user could mark it, but no mark or sign-in flow exists yet.
 - Bundled providers need only an endpoint and a key and are data rows: Anthropic API, OpenAI API, OpenRouter, DeepSeek, Mistral, Groq,
   Together, Fireworks, xAI, Cerebras. A provider that needs more (JetBrains AI through Air Gateway, OpenAI with sign-in, Vertex, Bedrock,

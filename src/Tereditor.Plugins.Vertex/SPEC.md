@@ -20,6 +20,8 @@ A builtin plugin in the Model providers category, in the Cloud platforms group o
 - Credentials. Uses your own Google Cloud credentials: application default credentials. tereditor stores no Google secret. Sign in with gcloud auth application-default login first. tereditor stores no secret for this platform and never reads one.
 - Who uses it. Only Claude Code declares this platform (Model providers SPEC, Cloud platforms). Codex, Pi and omp are offered nothing.
 
+- Playground. `UnavailableOn = [pureWeb]`: a browser tab has no Google Cloud profile or sign-in tool and no Claude Code, so the plugin is refused there.
+
 ## Not yet
 
 Pi, omp and Codex support (each needs its own seam and a check of what the agent really takes), a model list, a credential check from the app, and a Windows shell.

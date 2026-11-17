@@ -9,10 +9,12 @@ using Avalonia.Threading;
 using Tereditor.Host.Abstractions;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
+using Tereditor.Plugins.Bedrock;
 using Tereditor.Plugins.OpenAi;
 using Tereditor.Plugins.OpenAi.UI;
 using Tereditor.Plugins.Providers;
 using Tereditor.Plugins.Providers.Host;
+using Tereditor.Plugins.Vertex;
 
 namespace Tereditor.Checks;
 
@@ -33,6 +35,8 @@ internal static class OpenAiChecks
         Require(manifest is { Category: PluginCategories.ModelProviders, Host: null, Headless: HeadlessSupport.No } && manifest.DependsOn.Single() is { Id: "providers" } dependency && dependency.WireVersion == ProvidersContract.WireVersion,
             "the manifest is a Model providers plugin with a UI half that depends on Model providers at its wire version");
         Require(OpenAiProvider.Policy.Allowed && OpenAiProvider.SignInText.Contains("Codex keeps its own sign-in", StringComparison.Ordinal) && OpenAiProvider.SignInCommand == "codex login", "the policy is allowed and the sign-in is Codex's own");
+        Require(ProviderOAuthPolicy.For(ProviderOAuthPolicy.OpenAi, true) is { Allowed: false, Overridable: false, ReasonIfNot: { Length: > 0 } } && ProviderOAuthPolicy.For(ProviderOAuthPolicy.OpenAi, false).Allowed, "in a browser tab the ChatGPT sign-in is off with a reason");
+        Require(new[] { BedrockManifest.Manifest, VertexManifest.Manifest }.All(plugin => plugin.UnavailableOn.Contains(HostKind.PureWeb)), "Bedrock and Vertex are refused in the Playground");
         Require(BundledProviders.All.Any(provider => provider.Id == OpenAiProvider.ProviderId && provider.Apis.Any(api => api.Kind == ModelApiKinds.OpenAiResponses)), "the provider the component stores a key for speaks the Responses API");
         Require(new[] { ProvidersManifest.Manifest, OpenAiManifest.Manifest }.Select(plugin => plugin.Category).Distinct().Single() == PluginCategories.ModelProviders, "both are in the Model providers category");
 
