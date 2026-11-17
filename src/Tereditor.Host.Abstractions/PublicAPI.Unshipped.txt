@@ -2237,9 +2237,6 @@ const Tereditor.Host.Abstractions.KeymapActions.GoToDeclaration = "GoToDeclarati
 const Tereditor.Host.Abstractions.KeymapActions.GoToImplementation = "GoToImplementation" -> string!
 const Tereditor.Host.Abstractions.KeymapActions.GoToTypeDeclaration = "GoToTypeDeclaration" -> string!
 const Tereditor.Host.Abstractions.KeymapActions.LanguageGroup = "Language" -> string!
-const Tereditor.Host.Abstractions.KeymapActions.LanguageServerStart = "LanguageServerStart" -> string!
-const Tereditor.Host.Abstractions.KeymapActions.LanguageServerStatus = "LanguageServerStatus" -> string!
-const Tereditor.Host.Abstractions.KeymapActions.LanguageServerStop = "LanguageServerStop" -> string!
 const Tereditor.Host.Abstractions.KeymapActions.WorkspaceProblems = "WorkspaceProblems" -> string!
 static Tereditor.Host.Abstractions.KeymapActions.Find(string! id, System.Collections.Generic.IEnumerable<Tereditor.Host.Abstractions.KeymapAction!>? plugins = null) -> Tereditor.Host.Abstractions.KeymapAction?
 static Tereditor.Host.Abstractions.KeymapActions.PluginActionId(string! pluginId, string! localId) -> string!

@@ -124,8 +124,7 @@ public static class KeymapActions
         Settings = "Settings", ToggleLeft = "ToggleLeft", ToggleRight = "ToggleRight", ZoomIn = "ZoomIn", ZoomOut = "ZoomOut", ZoomReset = "ZoomReset",
         Refresh = "Refresh", Back = "Back", Forward = "Forward", UndoClose = "UndoClose", RedoClose = "RedoClose",
         GoToDeclaration = "GoToDeclaration", GoToTypeDeclaration = "GoToTypeDeclaration", GoToImplementation = "GoToImplementation",
-        FindUsages = "FindUsages", DocumentSymbols = "DocumentSymbols", WorkspaceProblems = "WorkspaceProblems",
-        LanguageServerStatus = "LanguageServerStatus", LanguageServerStart = "LanguageServerStart", LanguageServerStop = "LanguageServerStop";
+        FindUsages = "FindUsages", DocumentSymbols = "DocumentSymbols", WorkspaceProblems = "WorkspaceProblems";
 
     /// <summary>The group of the editor's language-server actions.</summary>
     public const string LanguageGroup = "Language";
@@ -154,9 +153,6 @@ public static class KeymapActions
         new(FindUsages, "Find Usages", LanguageGroup),
         new(DocumentSymbols, "Document Symbols", LanguageGroup),
         new(WorkspaceProblems, "Workspace Problems", LanguageGroup),
-        new(LanguageServerStatus, "Language Server Status", LanguageGroup),
-        new(LanguageServerStart, "Start / Retry Language Server", LanguageGroup),
-        new(LanguageServerStop, "Stop Language Server", LanguageGroup),
     ];
 
     /// <summary>The built-in action or the plugin action (from <paramref name="plugins"/>) with the id.</summary>
@@ -283,16 +279,13 @@ public sealed class KeymapBindings
         (KeymapActions.UndoClose, ["Mod+Shift+T", "Mod+Z"], ["Mod+Shift+T", "Mod+Z"]),
         (KeymapActions.RedoClose, ["Mod+Shift+Z"], ["Mod+Shift+Z"]),
         // Language: IntelliJ's chords. Workspace Problems
-        // (Alt+6) would reach terminals, so it and the server controls have no default.
+        // (Alt+6) would reach terminals, so it has no default.
         (KeymapActions.GoToDeclaration, ["Mod+B", "F12"], ["Mod+B", "F12"]),
         (KeymapActions.GoToTypeDeclaration, ["Mod+Shift+B"], ["Mod+Shift+B"]),
         (KeymapActions.GoToImplementation, ["Mod+Alt+B"], ["Mod+Alt+B"]),
         (KeymapActions.FindUsages, ["Alt+F7", "Shift+F12"], ["Alt+F7", "Shift+F12"]),
         (KeymapActions.DocumentSymbols, ["Mod+F12"], ["Mod+F12"]),
         (KeymapActions.WorkspaceProblems, [], []),
-        (KeymapActions.LanguageServerStatus, [], []),
-        (KeymapActions.LanguageServerStart, [], []),
-        (KeymapActions.LanguageServerStop, [], []),
     ];
 }
 

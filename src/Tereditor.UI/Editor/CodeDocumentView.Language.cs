@@ -137,8 +137,8 @@ internal sealed partial class CodeDocumentView
     private static readonly (string Label, string Operation, string ActionId)[] ServerOperations =
     [
         ("Document Symbols", "symbols", KeymapActions.DocumentSymbols), ("Workspace Problems", "diagnostics", KeymapActions.WorkspaceProblems),
-        ("Language Server Status", "status", KeymapActions.LanguageServerStatus), ("Start / Retry Language Server", "retry", KeymapActions.LanguageServerStart),
-        ("Stop Language Server", "stop", KeymapActions.LanguageServerStop)
+        // No keymap action: these three are menu items only, so an empty id never matches a chord.
+        ("Language Server Status", "status", ""), ("Start / Retry Language Server", "retry", ""), ("Stop Language Server", "stop", "")
     ];
 
     /// <summary>The language actions the editor's context menu offers, in its order, each with its keymap action; the macOS menu bar lists the same ones.</summary>
