@@ -45,14 +45,17 @@ public sealed partial class GitHubBrowser(ToolRunner run)
             var full = $"repo:{repo.Slug} is:{kind} {(user.Length == 0 ? "is:open" : user)}" + (user.Contains("sort:", StringComparison.Ordinal) ? "" : " sort:created-desc");
             var limit = Math.Clamp(p.Limit, 1, 100);
             using var json = await GraphQlAsync(directory, ListQuery, ct,
-                ("q", full), ("open", baseQuery + " is:open"), ("closed", baseQuery + " is:closed"), ("first", limit));
+                ("q", full), ("open", baseQuery + " is:open"), ("closed", baseQuery + " is:closed"), ("first", limit), ("owner", repo.Owner), ("name", repo.Name));
             var data = json.RootElement.GetProperty("data");
             var list = data.GetProperty("list");
             var items = list.GetProperty("nodes").EnumerateArray().Where(node => node.ValueKind == JsonValueKind.Object && node.TryGetProperty("number", out _))
                 .Select(Item).ToList();
             var key = $"list|{repo.Slug}|{kind}|{full}|{limit}";
             var result = new GitHubList(false, "", repo.Slug, items, data.GetProperty("open").GetProperty("issueCount").GetInt32(),
-                data.GetProperty("closed").GetProperty("issueCount").GetInt32(), list.GetProperty("pageInfo").GetProperty("hasNextPage").GetBoolean());
+                data.GetProperty("closed").GetProperty("issueCount").GetInt32(), list.GetProperty("pageInfo").GetProperty("hasNextPage").GetBoolean())
+            {
+                RepoLabels = data.TryGetProperty("labels", out var labels) && labels.ValueKind == JsonValueKind.Object ? Labels(labels) : []
+            };
             var revision = Revise(key, JsonSerializer.Serialize(result, GitHubJson.Default.GitHubList));
             return p.Revision == revision ? result with { Unchanged = true, Revision = revision, Items = [] } : result with { Revision = revision };
         }
@@ -287,8 +290,9 @@ public sealed partial class GitHubBrowser(ToolRunner run)
     private const string Common = "number title state url createdAt updatedAt closedAt author { login } labels(first: 10) { nodes { name color } } comments { totalCount }";
     private const string PullList = "isDraft reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }";
 
-    private const string ListQuery = "query($q: String!, $open: String!, $closed: String!, $first: Int!) { "
+    private const string ListQuery = "query($q: String!, $open: String!, $closed: String!, $first: Int!, $owner: String!, $name: String!) { "
         + "list: search(query: $q, type: ISSUE, first: $first) { pageInfo { hasNextPage } nodes { __typename ... on Issue { " + Common + " } ... on PullRequest { " + Common + " " + PullList + " } } } "
+        + "labels: repository(owner: $owner, name: $name) { labels(first: 100) { nodes { name color } } } "
         + "open: search(query: $open, type: ISSUE) { issueCount } closed: search(query: $closed, type: ISSUE) { issueCount } }";
 
     private const string Timeline = "timelineItems(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { __typename "

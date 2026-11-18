@@ -21,6 +21,12 @@ internal sealed class GitHubPane : StackPanel
         Margin = new Avalonia.Thickness(10);
         Children.Add(Open("Issues", "error-warning-line", GitHubTab.Issues));
         Children.Add(Open("Pull requests", "git-pull-request-line", GitHubTab.Pulls));
+        Children.Add(Open("Actions", "play-circle-line", "runs"));
+        Children.Add(Open("Discussions", "discuss-line", "discussions"));
+        Children.Add(Open("Releases", "price-tag-3-line", "releases"));
+        Children.Add(Open("Contributors", "group-line", "contributors"));
+        Children.Add(Open("Deployments", "rocket-line", "deployments"));
+        Children.Add(Open("Packages", "box-3-line", "packages"));
         Children.Add(Open("Settings", "settings-3-line", GitHubTab.Settings));
     }
 

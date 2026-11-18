@@ -52,6 +52,27 @@ internal static class GitHubBrowserChecks
             if (text.Contains("list: search", StringComparison.Ordinal)) return ValueTask.FromResult(new RepoHostToolResult(0, ListJson(), ""));
             if (text.Contains("issueOrPullRequest", StringComparison.Ordinal))
                 return ValueTask.FromResult(new RepoHostToolResult(0, DetailJson(detailCalls++ == 0 && comment == "first", comment ?? ""), ""));
+            static RepoHostToolResult Ok(string json) => new(0, json, "");
+            if (args[0] == "api" && args[1].StartsWith("repos/o/r/actions/runs/9/jobs", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"jobs":[{"id":1,"name":"build","status":"completed","conclusion":"failure","started_at":"2026-11-01T10:00:00Z","completed_at":"2026-11-01T10:02:05Z","html_url":"https://github.com/o/r/actions/runs/9/job/1","steps":[{"number":1,"name":"Checkout","status":"completed","conclusion":"success","started_at":"2026-11-01T10:00:00Z","completed_at":"2026-11-01T10:00:03Z"}]}]}"""));
+            if (args[0] == "api" && args[1].StartsWith("repos/o/r/actions/runs/9", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"id":9,"name":"CI","display_title":"Fix it","run_number":4,"event":"push","status":"in_progress","head_branch":"main","head_sha":"abcdef1234","actor":{"login":"ann"},"created_at":"2026-11-01T10:00:00Z","html_url":"https://github.com/o/r/actions/runs/9"}"""));
+            if (args[0] == "api" && args[1].StartsWith("repos/o/r/actions/runs?", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"total_count":2500,"workflow_runs":[{"id":9,"name":"CI","display_title":"Fix it","run_number":4,"event":"push","status":"completed","conclusion":"failure","head_branch":"main","head_sha":"abcdef1234","actor":{"login":"ann"},"run_started_at":"2026-11-01T10:00:00Z","created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:01:04Z","html_url":"https://github.com/o/r/actions/runs/9"}]}"""));
+            if (args[0] == "api" && args[1].StartsWith("repos/o/r/releases", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""[{"tag_name":"v2","name":"Two","draft":false,"prerelease":false,"published_at":"2026-11-01T10:00:00Z","author":{"login":"ann"},"body":"## Notes","html_url":"https://github.com/o/r/releases/tag/v2","assets":[{"name":"a.zip","size":2097152}]}]"""));
+            if (args[0] == "api" && args[1].StartsWith("repos/o/r/contributors", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""[{"login":"ann","contributions":12,"type":"User","html_url":"https://github.com/ann"}]"""));
+            if (args[0] == "api" && args[1].StartsWith("orgs/o/packages", StringComparison.Ordinal))
+                return ValueTask.FromResult(new RepoHostToolResult(1, "", "gh: You need at least read:packages scope to list packages. (HTTP 403)"));
+            if (text.Contains("discussionCategories", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"data":{"repository":{"discussionCategories":{"nodes":[{"id":"C1","name":"Q&A","emoji":":pray:"}]}}}}"""));
+            if (text.Contains("discussions(first", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"data":{"repository":{"discussions":{"totalCount":1,"pageInfo":{"hasNextPage":false},"nodes":[{"number":3,"title":"How?","url":"u","createdAt":"2026-11-01T10:00:00Z","author":{"login":"bob"},"category":{"name":"Q&A","emoji":":pray:"},"comments":{"totalCount":2},"answer":{"id":"A"},"closed":false,"upvoteCount":1}]}}}}"""));
+            if (text.Contains("discussion(number", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"data":{"repository":{"discussion":{"number":3,"title":"How?","body":"Q","url":"u","createdAt":"2026-11-01T10:00:00Z","author":{"login":"bob"},"category":{"name":"Q&A","emoji":":pray:"},"closed":false,"answer":{"id":"A"},"comments":{"nodes":[{"id":"A","author":{"login":"ann"},"createdAt":"2026-11-01T11:00:00Z","body":"Like this","replies":{"nodes":[{"author":{"login":"bob"},"createdAt":"2026-11-01T12:00:00Z","body":"Thanks"}]}}]}}}}}"""));
+            if (text.Contains("deployments(first", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"data":{"repository":{"deployments":{"totalCount":1,"pageInfo":{"hasNextPage":false},"nodes":[{"id":"D1","environment":"production","ref":{"name":"main"},"commit":{"abbreviatedOid":"abc1234"},"creator":{"login":"ann"},"createdAt":"2026-11-01T10:00:00Z","latestStatus":{"state":"SUCCESS"}}]}}}}"""));
             return ValueTask.FromResult(new RepoHostToolResult(1, "", "unexpected"));
         });
 
@@ -82,6 +103,27 @@ internal static class GitHubBrowserChecks
         var moved = await browser.DetailAsync("/w", new("w", "pulls", 7, revision), default);
         Require(!moved.Unchanged && moved.Timeline.Any(e => e.Body == "second") && moved.Revision != revision, "A new comment changes the revision and comes back in full");
         Require(browser.CachedRevisions == 2, "Only revisions are cached");
+
+        var runs = await browser.ViewAsync("/w", new("w", "runs", "", [new("status", "failure")]), default);
+        Require(runs.Problem is null && runs.Rows[0] is { State: "failure", Right: "1m 4s" } && runs.Rows[0].Meta == "CI #4: Commit abcdef1 pushed by ann" && runs.Rows[0].Chips[0].Name == "main", "A run row carries state, wording, branch and duration");
+        Require(runs.Summary == "2,500 workflow runs" && runs.Filters.Select(x => x.Key).SequenceEqual(["event", "status", "branch", "actor"]) && runs.Filters[1].Value == "failure", "Runs offer the event, status, branch and actor filters");
+        Require(calls.Any(call => call.Contains("status=failure", StringComparison.Ordinal)), "A chosen status goes to the runs call");
+        var runAgain = await browser.ViewAsync("/w", new("w", "runs", "", [new("status", "failure")], 30, runs.Revision), default);
+        Require(runAgain.Unchanged && runAgain.Rows.Count == 0, "An unchanged runs list answers Unchanged");
+        var run = await browser.ViewAsync("/w", new("w", "runs", "9", []), default);
+        Require(run.State == "running" && run.Rows.Select(r => (r.Title, r.Indent)).SequenceEqual([("build", 0), ("Checkout", 1)]) && run.Rows[0].Right == "2m 5s", "A run lists its jobs with their steps");
+        var discussions = await browser.ViewAsync("/w", new("w", "discussions", "", [new("category", "Q&A")]), default);
+        Require(discussions.Rows[0] is { State: "answered" } && discussions.Filters[0].Options.SequenceEqual(["Q&A"]) && calls.Any(call => call.Contains("category=C1", StringComparison.Ordinal)), "Discussions filter by category id");
+        var discussion = await browser.ViewAsync("/w", new("w", "discussions", "3", []), default);
+        Require(discussion.Cards.Select(card => (card.Author, card.Badge, card.Note)).SequenceEqual([("bob", "", ""), ("ann", "Answer", ""), ("bob", "", "replied")]), "A discussion shows the question, the answer and replies");
+        var releases = await browser.ViewAsync("/w", new("w", "releases", "", []), default);
+        Require(releases.Cards[0] is { Badge: "Latest", Title: "Two" } && releases.Cards[0].Body.Contains("a.zip (2.0 MB)", StringComparison.Ordinal), "A release is a card with its notes and assets");
+        var people = await browser.ViewAsync("/w", new("w", "contributors", "", []), default);
+        Require(people.Rows[0] is { Title: "ann", Right: "12 commits" }, "Contributors list their commits");
+        var deployments = await browser.ViewAsync("/w", new("w", "deployments", "", []), default);
+        Require(deployments.Rows[0] is { Title: "production", State: "success" }, "A deployment shows its environment and latest status");
+        var packages = await browser.ViewAsync("/w", new("w", "packages", "", []), default);
+        Require(packages.Problem is not null && packages.Problem.Contains("read:packages", StringComparison.Ordinal), "A missing packages scope is reported, not guessed");
 
         failing = true;
         var broken = await browser.ListAsync("/w", new("w", "issues", ""), default);

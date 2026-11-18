@@ -78,8 +78,9 @@ A second, read-only surface next to the repo hosting provider (host half `GitHub
 - Everything is `gh api graphql` and `gh repo view`; no OAuth, no token read. Methods `list`, `detail` and `info` take a workspace
   and run `gh` in its folder. A view stays reactive by polling (setting `pollSeconds`, 15 to 600, default 60, while the tab is shown);
   the host keeps a hash of the last answer per view and answers `Unchanged` without the payload. Nothing from GitHub is stored.
-- Not done: posting and any other write, Markdown rendering of bodies (shown as selectable text), conditional ETag requests (the poll
-  still costs one `gh` call), Discussions, Actions, Releases, Deployments, Packages and Contributors.
+- Bodies and comments render as Markdown through the Kit's `MarkdownPreview`. Issue and pull request lists have Author, Label and Sort chips that edit the query text.
+- More tabs, all from the generic `view` method (rows and Markdown cards): Actions (runs with Event, Status, Branch and Actor filters over `gh api`; a run opens to its jobs and steps; in-progress runs refresh by the same polling), Discussions (GraphQL, Category filter, question with answer and replies; needs Discussions turned on), Releases (cards with notes and assets), Contributors (commits on the default branch), Deployments (GraphQL, latest status) and Packages (REST per package type; `gh` needs the `read:packages` scope, and the tab says so instead of guessing).
+- gh cannot serve: posting, reactions, job logs (the run page links out), the Projects and Security tabs, conditional ETag requests through `gh api` (each poll is one call; the host answers Unchanged by hashing), the avatar images, and package versions.
 
 ## Failure and timeouts
 

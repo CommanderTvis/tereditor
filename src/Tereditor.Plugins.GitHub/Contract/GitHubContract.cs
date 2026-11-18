@@ -25,7 +25,28 @@ public sealed record GitHubItem(int Number, string Title, string State, bool Dra
 /// <summary>Kind is issues or pulls. Query is GitHub's search syntax without the repository and kind qualifiers. Revision is what the caller holds; the host answers Unchanged when it still matches.</summary>
 public sealed record GitHubListParams(string WorkspaceId, string Kind, string Query, int Limit = 25, string? Revision = null);
 
-public sealed record GitHubList(bool Unchanged, string Revision, string Repo, IReadOnlyList<GitHubItem> Items, int Open, int Closed, bool HasMore, string? Problem = null);
+public sealed record GitHubList(bool Unchanged, string Revision, string Repo, IReadOnlyList<GitHubItem> Items, int Open, int Closed, bool HasMore, string? Problem = null)
+{
+    /// <summary>The repository's labels, for the Label filter.</summary>
+    public IReadOnlyList<GitHubLabel> RepoLabels { get; init; } = [];
+}
+
+/// <summary>One filter chip a view offers; Value is what is chosen now ("" for none).</summary>
+public sealed record GitHubFilter(string Key, string Label, IReadOnlyList<string> Options, string Value = "");
+
+public sealed record GitHubFilterValue(string Key, string Value);
+
+/// <summary>One row of a generic view. State: open, closed, merged, success, failure, cancelled, skipped, running, queued, answered, none.</summary>
+public sealed record GitHubRow(string Id, string Title, string State, string Meta, IReadOnlyList<GitHubLabel> Chips, string Right, string Url, string At = "", int Indent = 0);
+
+/// <summary>A Markdown card: a release, a discussion post or a reply.</summary>
+public sealed record GitHubCard(string Title, string Author, string At, string Note, string Body, string Badge = "", string Url = "");
+
+/// <summary>Kind: runs, discussions, releases, contributors, deployments or packages. Id is empty for the list, else the run id or discussion number.</summary>
+public sealed record GitHubViewParams(string WorkspaceId, string Kind, string Id, IReadOnlyList<GitHubFilterValue> Filters, int Limit = 30, string? Revision = null);
+
+public sealed record GitHubView(bool Unchanged, string Revision, string Title, string Subtitle, string State, IReadOnlyList<GitHubRow> Rows, IReadOnlyList<GitHubCard> Cards,
+    IReadOnlyList<GitHubFilter> Filters, bool HasMore, string Summary = "", string? Problem = null);
 
 public sealed record GitHubReviewComment(string Path, string Body);
 
@@ -57,7 +78,8 @@ public static class GitHubContract
     public static readonly PluginMethod<GitHubListParams, GitHubList> List = new("list");
     public static readonly PluginMethod<GitHubDetailParams, GitHubDetail> Detail = new("detail");
     public static readonly PluginMethod<GitHubInfoParams, GitHubInfo> Info = new("info");
-    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info], [], GitHubJson.Default);
+    public static readonly PluginMethod<GitHubViewParams, GitHubView> View = new("view");
+    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View], [], GitHubJson.Default);
 
     public const string Tool = "github";
     public const string Scheme = "github";
@@ -85,4 +107,6 @@ public static class GitHubContract
 [JsonSerializable(typeof(GitHubDetail))]
 [JsonSerializable(typeof(GitHubInfoParams))]
 [JsonSerializable(typeof(GitHubInfo))]
+[JsonSerializable(typeof(GitHubViewParams))]
+[JsonSerializable(typeof(GitHubView))]
 public sealed partial class GitHubJson : JsonSerializerContext;

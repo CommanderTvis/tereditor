@@ -21,10 +21,10 @@ internal sealed class GitHubTab : Border
 {
     public const string Issues = "issues", Pulls = "pulls", Settings = "settings";
 
-    private static readonly IBrush Open = new SolidColorBrush(Color.Parse("#238636"));
-    private static readonly IBrush Done = new SolidColorBrush(Color.Parse("#8957e5"));
-    private static readonly IBrush Closed = new SolidColorBrush(Color.Parse("#da3633"));
-    private static readonly IBrush Neutral = new SolidColorBrush(Color.Parse("#6e7681"));
+    internal static readonly IBrush Open = new SolidColorBrush(Color.Parse("#238636"));
+    internal static readonly IBrush Done = new SolidColorBrush(Color.Parse("#8957e5"));
+    internal static readonly IBrush Closed = new SolidColorBrush(Color.Parse("#da3633"));
+    internal static readonly IBrush Neutral = new SolidColorBrush(Color.Parse("#6e7681"));
 
     private readonly IPluginUIContext context;
     private readonly string workspace;
@@ -32,12 +32,16 @@ internal sealed class GitHubTab : Border
     private readonly ScrollViewer scroll = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     private readonly DispatcherTimer poll = new();
     private readonly TextBox queryBox = new() { Name = "GitHubQuery", PlaceholderText = "Search all issues", MinWidth = 280, Text = "is:open" };
+    private IReadOnlyList<string> authors = [];
+    private IReadOnlyList<GitHubLabel> repoLabels = [];
     private string kind;
     private int? number;
     private int limit = 25;
     private string? revision;
     private int generation;
     private CancellationTokenSource? lifetime;
+
+    internal static bool Handles(string id) => id is Issues or Pulls or Settings || id.StartsWith("issue:", StringComparison.Ordinal) || id.StartsWith("pull:", StringComparison.Ordinal);
 
     public GitHubTab(IPluginUIContext context, string workspace, string id)
     {
@@ -101,6 +105,13 @@ internal sealed class GitHubTab : Border
         bar.Children.Add(queryBox);
         bar.Children.Add(Ui.Button("Search", () => { limit = 25; revision = null; Refresh(); }, "search-line"));
         root.Children.Add(bar);
+        authors = [.. list.Items.Select(item => item.Author).Distinct().Order()];
+        repoLabels = list.RepoLabels;
+        var chips = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
+        chips.Children.Add(Chip("Author", "author", [.. authors.Select(a => (a, a))]));
+        chips.Children.Add(Chip("Label", "label", [.. repoLabels.Select(l => (l.Name, l.Name.Contains(' ') ? "\"" + l.Name + "\"" : l.Name))]));
+        chips.Children.Add(Chip("Sort", "sort", [("Newest", "created-desc"), ("Oldest", "created-asc"), ("Most commented", "comments-desc"), ("Least commented", "comments-asc"), ("Recently updated", "updated-desc"), ("Least recently updated", "updated-asc")]));
+        root.Children.Add(chips);
         var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(12, 8) };
         head.Children.Add(Toggle($"{list.Open} Open", "is:open", Open));
         head.Children.Add(Toggle($"{list.Closed} Closed", "is:closed", Done));
@@ -118,6 +129,24 @@ internal sealed class GitHubTab : Border
         }
         Show(root);
         Dispatcher.UIThread.Post(() => scroll.Offset = offset, DispatcherPriority.Loaded);
+    }
+
+    private Control Chip(string label, string qualifier, IReadOnlyList<(string Label, string Value)> options)
+    {
+        var current = System.Text.RegularExpressions.Regex.Match(queryBox.Text ?? "", "(^|\\s)" + qualifier + ":(\"[^\"]*\"|\\S+)");
+        var button = new Button { Name = "GitHubChip" + label, Content = Ui.Text(label + (current.Success ? ": " + current.Groups[2].Value.Trim('"') : "") + " ▾", Ui.TextBrush, 13), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 0, 8, 0) };
+        var flyout = new MenuFlyout();
+        flyout.Items.Add(Ui.Menu("Clear " + label.ToLowerInvariant(), () => SetQualifier(qualifier, null)));
+        foreach (var option in options) flyout.Items.Add(Ui.Menu(option.Label, () => SetQualifier(qualifier, option.Value)));
+        button.Flyout = flyout;
+        return button;
+    }
+
+    private void SetQualifier(string qualifier, string? value)
+    {
+        var rest = System.Text.RegularExpressions.Regex.Replace(queryBox.Text ?? "", "(^|\\s)" + qualifier + ":(\"[^\"]*\"|\\S+)", "").Trim();
+        queryBox.Text = (rest + (value is null ? "" : " " + qualifier + ":" + value)).Trim();
+        limit = 25; revision = null; Refresh();
     }
 
     private Control Toggle(string label, string token, IBrush brush)
@@ -149,7 +178,7 @@ internal sealed class GitHubTab : Border
         if (item.Checks != "none") titleRow.Children.Add(Ui.Text(item.Checks switch { "passing" => "checks passing", "failing" => "checks failing", _ => "checks running" }, Muted(item.Checks), 12));
         text.Children.Add(titleRow);
         var verb = item.State == "merged" ? "merged" : item.State == "closed" ? "closed" : "opened";
-        text.Children.Add(Ui.Text($"#{item.Number} {verb} {Ago(item.ClosedAt ?? item.CreatedAt)} by {item.Author}" + (item.Review == "approved" ? " · Approved" : item.Review == "changes-requested" ? " · Changes requested" : ""), Ui.Muted, 12));
+        text.Children.Add(Ui.Text($"#{item.Number} · {item.Author} {verb} {Ago(item.ClosedAt ?? item.CreatedAt)}" + (item.Review == "approved" ? " · Approved" : item.Review == "changes-requested" ? " · Changes requested" : ""), Ui.Muted, 12));
         Grid.SetColumn(text, 1); grid.Children.Add(text);
         if (item.Comments > 0)
         {
@@ -200,7 +229,7 @@ internal sealed class GitHubTab : Border
         root.Children.Add(meta);
         if (detail.Pull is { } pull)
         {
-            root.Children.Add(Ui.Text($"{pull.HeadRef} into {pull.BaseRef} · +{pull.Additions} -{pull.Deletions} in {pull.ChangedFiles} files · merge: {pull.Mergeability} · reviews: {pull.Review}", Ui.Muted, 13));
+            root.Children.Add(Ui.Text($"{detail.Author} wants to merge {detail.Timeline.Count(e => e.Kind == "commit")} commits into {pull.BaseRef} from {pull.HeadRef} · +{pull.Additions} -{pull.Deletions} in {pull.ChangedFiles} files · merge: {pull.Mergeability} · reviews: {pull.Review}", Ui.Muted, 13));
             foreach (var check in pull.CheckRuns) root.Children.Add(Ui.Text((check.State == "passing" ? "✓ " : check.State == "failing" ? "✗ " : "● ") + check.Name, Muted(check.State), 12));
         }
         if (detail.Labels.Count > 0 || detail.Assignees.Count > 0 || detail.Milestone is not null)
@@ -259,7 +288,7 @@ internal sealed class GitHubTab : Border
         "labeled" or "unlabeled" => "price-tag-3-line", "referenced" => "links-line", _ => "dot-line"
     };
 
-    private Control Card(string author, string at, string note, string body, IReadOnlyList<GitHubReviewComment>? inline)
+    internal static Control Card(string author, string at, string note, string body, IReadOnlyList<GitHubReviewComment>? inline)
     {
         var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(12, 8) };
         var name = Ui.Text(author, Ui.TextBrush, 13); name.FontWeight = FontWeight.SemiBold;
@@ -279,7 +308,7 @@ internal sealed class GitHubTab : Border
         return new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), ClipToBounds = true, Child = frame };
     }
 
-    private static Control Body(string text) => new SelectableTextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Ui.TextBrush, FontSize = 14 };
+    internal static Control Body(string text) => GitHubMarkdown.Render(text);
 
     private static Control Badge(GitHubDetail detail)
     {
@@ -287,7 +316,7 @@ internal sealed class GitHubTab : Border
         return new Border { Background = brush, CornerRadius = new CornerRadius(12), Padding = new Thickness(10, 3), Child = Ui.Text(text, Brushes.White, 13) };
     }
 
-    private static Control LabelChip(GitHubLabel label)
+    internal static Control LabelChip(GitHubLabel label)
     {
         var color = label.Color.Length == 6 ? Color.Parse("#" + label.Color) : Colors.Gray;
         var luminance = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255;
@@ -307,9 +336,9 @@ internal sealed class GitHubTab : Border
         return control;
     }
 
-    private static IBrush Muted(string state) => state switch { "passing" => Open, "failing" => Closed, _ => Neutral };
+    internal static IBrush Muted(string state) => state switch { "passing" => Open, "failing" => Closed, _ => Neutral };
 
-    private static string Ago(string iso) => DateTimeOffset.TryParse(iso, out var time) ? Ui.RelativeTime(time, DateTimeOffset.UtcNow) : "";
+    internal static string Ago(string iso) => DateTimeOffset.TryParse(iso, out var time) ? Ui.RelativeTime(time, DateTimeOffset.UtcNow) : "";
 
     private void Show(Control content) => scroll.Content = content;
 
