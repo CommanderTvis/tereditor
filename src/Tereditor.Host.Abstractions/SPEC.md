@@ -52,6 +52,9 @@ interchangeable adapter choices. Wire DTOs live in `Tereditor.Host.Protocol`, im
   than using the session's root, so a client can list and change any open project's workspaces. Kinds are
   `default`, `managed` and `external`; a record's id never changes. Results also reach every client
   through `HostState.Workspaces`.
+- `GetWorkspaceSizeAsync(path)` returns the bytes removing a registered non-Default workspace would free, or null
+  for any other path or a host that predates it. Only bytes private to the workspace count, so blocks it shares with
+  clones of the Default workspace are left out (`Workspaces.SPEC.md`).
 - `IHostStateService.WatchLifecycleAsync` pushes `LifecycleEvent`s on a `project` channel (`opened`,
   `closed`) and a `workspace` channel (`created` and `updated` carrying the record, `removed` its id).
   It replays nothing; a client rehydrates from the state snapshot.

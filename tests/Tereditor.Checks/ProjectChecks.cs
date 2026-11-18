@@ -408,6 +408,7 @@ internal static class ProjectChecks
             }
             await Git(root, "symbolic-ref", "refs/remotes/origin/HEAD", originalRemoteHead);
             Require((await remote.ListEditorsAsync()).SequenceEqual(await host.ListEditorsAsync()), "Remote editor list differs.");
+            Require(await host.GetWorkspaceSizeAsync(Path.GetTempPath()) is null && await remote.GetWorkspaceSizeAsync(Path.GetTempPath()) is null, "A path that is no workspace has no size.");
             foreach (var service in new IProjectServices[] { host, remote })
             {
                 try

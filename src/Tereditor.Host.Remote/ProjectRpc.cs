@@ -240,6 +240,9 @@ public sealed partial class ProjectRpc(ProjectSessions sessions, IHostApplicatio
         return new WorkspaceActionReply { Workspace = result is null ? null : WorkspaceMessages.Map(result) };
     });
 
+    public ValueTask<WorkspaceSizeReply> GetWorkspaceSizeAsync(ProjectRequest request, CallContext context = default) => Execute(async () =>
+        await Host(context).GetWorkspaceSizeAsync(request.Path, context.CancellationToken) is { } bytes ? new WorkspaceSizeReply { Known = true, Bytes = bytes } : new WorkspaceSizeReply());
+
     public ValueTask<FileTransferReply> ImportFilesAsync(FileTransferUpload request, CallContext context = default) => Replayed(context, request, async (host, token) =>
         new FileTransferReply
         {

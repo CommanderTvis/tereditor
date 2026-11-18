@@ -233,4 +233,9 @@ public partial interface IProjectServices
     ValueTask<WorkspaceCatalog> ListWorkspacesAsync(string projectRoot, CancellationToken cancellationToken = default);
     /// <summary>Returns the workspace the action created, changed or dropped; null when there was none to drop.</summary>
     ValueTask<WorkspaceRecord?> ApplyWorkspaceActionAsync(WorkspaceAction action, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// The bytes removing a workspace would free: its files' private disk size, not blocks shared with clones of the
+    /// Default workspace. Null for an unknown path, the Default workspace, or a host that predates the operation.
+    /// </summary>
+    ValueTask<long?> GetWorkspaceSizeAsync(string path, CancellationToken cancellationToken = default) => ValueTask.FromResult<long?>(null);
 }

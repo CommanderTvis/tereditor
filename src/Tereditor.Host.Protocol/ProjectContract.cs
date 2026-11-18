@@ -279,6 +279,8 @@ public partial interface IProjectRpc
     ValueTask<TereditorDirectoryReply> ExcludeTereditorDirectoryAsync(ProjectRequest request, CallContext context = default);
     ValueTask<WorkspaceCatalogReply> ListWorkspacesAsync(WorkspaceCatalogRequest request, CallContext context = default);
     ValueTask<WorkspaceActionReply> ApplyWorkspaceActionAsync(WorkspaceActionRequest request, CallContext context = default);
+    /// <summary>The private disk size of the workspace at <see cref="ProjectRequest.Path"/>.</summary>
+    ValueTask<WorkspaceSizeReply> GetWorkspaceSizeAsync(ProjectRequest request, CallContext context = default);
 }
 
 [ProtoContract]
@@ -344,6 +346,13 @@ public sealed class BranchTipReply
     [ProtoMember(1)] public string Name { get; set; } = "";
     [ProtoMember(2)] public string Sha { get; set; } = "";
     [ProtoMember(3)] public int Unmerged { get; set; }
+}
+
+[ProtoContract]
+public sealed class WorkspaceSizeReply
+{
+    [ProtoMember(1)] public bool Known { get; set; }
+    [ProtoMember(2)] public long Bytes { get; set; }
 }
 
 [ProtoContract]

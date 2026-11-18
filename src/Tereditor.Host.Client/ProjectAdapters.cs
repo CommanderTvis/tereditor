@@ -51,6 +51,7 @@ public sealed partial class LocalProjectAdapter(IProjectServices host) : IProjec
     public ValueTask<IReadOnlyList<SpecDocument>> ListSpecsAsync(CancellationToken cancellationToken = default) => OffDispatcher.Run(() => host.ListSpecsAsync(cancellationToken));
     public ValueTask<WorkspaceCatalog> ListWorkspacesAsync(string projectRoot, CancellationToken cancellationToken = default) => OffDispatcher.Run(() => host.ListWorkspacesAsync(projectRoot, cancellationToken));
     public ValueTask<WorkspaceRecord?> ApplyWorkspaceActionAsync(WorkspaceAction action, CancellationToken cancellationToken = default) => OffDispatcher.Run(() => host.ApplyWorkspaceActionAsync(action, cancellationToken));
+    public ValueTask<long?> GetWorkspaceSizeAsync(string path, CancellationToken cancellationToken = default) => OffDispatcher.Run(() => host.GetWorkspaceSizeAsync(path, cancellationToken));
 }
 
 public sealed partial class RemoteProjectAdapter : IProjectServices, IDisposable
@@ -314,6 +315,9 @@ public sealed partial class RemoteProjectAdapter : IProjectServices, IDisposable
         }, Context(cancellationToken, deadline: TimeSpan.FromMinutes(5)));
         return reply.Workspace is { } workspace ? WorkspaceMessages.Map(workspace) : null;
     }
+
+    public async ValueTask<long?> GetWorkspaceSizeAsync(string path, CancellationToken cancellationToken = default)
+        => await service.GetWorkspaceSizeAsync(new() { Path = path }, Context(cancellationToken)) is { Known: true } reply ? reply.Bytes : null;
 
     private static GitSnapshot Map(GitReply reply) => new(reply.IsRepository, reply.Branch,
         reply.Changes.Select(change => new GitChange(change.Path, change.IndexStatus, change.WorktreeStatus, change.OriginalPath, change.Added, change.Removed)).ToArray(),

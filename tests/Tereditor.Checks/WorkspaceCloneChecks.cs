@@ -13,11 +13,60 @@ internal static class WorkspaceCloneChecks
         if (!condition) throw new InvalidOperationException(message);
     }
 
+    // The size a worktree menu shows is what deleting it frees: blocks cloned from another tree do not count, own files do.
+    private static async Task WorkspaceSize(string fixture)
+    {
+        const int Shared = 4 << 20, Own = 2 << 20;
+        var main = Path.Combine(fixture, "main");
+        var copy = Path.Combine(fixture, "copy");
+        Directory.CreateDirectory(Path.Combine(main, "cache"));
+        Directory.CreateDirectory(copy);
+        var bytes = new byte[Shared];
+        Random.Shared.NextBytes(bytes);
+        File.WriteAllBytes(Path.Combine(main, "cache", "shared.bin"), bytes);
+        Directory.CreateDirectory(Path.Combine(copy, "cache"));
+        // Sharing is a capability of the filesystem: it is decided by asking it for a clone that must share, never by retrying.
+        var shares = ProbeClone(Path.Combine(main, "cache", "shared.bin"), Path.Combine(copy, "cache", "shared.bin"));
+        if (!shares) File.Copy(Path.Combine(main, "cache", "shared.bin"), Path.Combine(copy, "cache", "shared.bin"));
+        Random.Shared.NextBytes(bytes.AsSpan(0, Own));
+        File.WriteAllBytes(Path.Combine(copy, "own.bin"), bytes.AsSpan(0, Own).ToArray());
+        var outside = Path.Combine(fixture, "outside");
+        Directory.CreateDirectory(outside);
+        File.WriteAllBytes(Path.Combine(outside, "big.bin"), bytes);
+        Directory.CreateSymbolicLink(Path.Combine(copy, "link"), outside);
+
+        var measured = WorkspaceDiskUsage.Measure(copy, CancellationToken.None);
+        Require(measured >= Own, $"A worktree's own files must count in full, got {measured}.");
+        if (shares) Require(measured < Own + (512 << 10), $"Blocks shared with another tree must not count, got {measured}.");
+        else Require(measured >= Own + Shared, $"Without sharing every byte is private, got {measured}.");
+        Require(measured < Own + Shared + (512 << 10), $"A symlink to a folder outside the worktree must not be followed, got {measured}.");
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        try { WorkspaceDiskUsage.Measure(copy, cancelled.Token); throw new InvalidOperationException("A cancelled measurement must stop."); }
+        catch (OperationCanceledException) { }
+        Require(Tereditor.UI.WorkbenchWindow.WorkspaceSizeText(0) == "<1 MiB" && Tereditor.UI.WorkbenchWindow.WorkspaceSizeText((1 << 20) - 1) == "<1 MiB" &&
+            Tereditor.UI.WorkbenchWindow.WorkspaceSizeText(1 << 20) == "1 MiB" && Tereditor.UI.WorkbenchWindow.WorkspaceSizeText((1L << 30) - 1) == "1023 MiB" &&
+            Tereditor.UI.WorkbenchWindow.WorkspaceSizeText(1L << 30) == "1.0 GiB" && Tereditor.UI.WorkbenchWindow.WorkspaceSizeText(3L << 29) == "1.5 GiB",
+            "The size text is GiB with one decimal, whole MiB, or <1 MiB.");
+    }
+
+    // True when the filesystem shared the blocks: clonefile on macOS, a reflink that must not fall back to a copy on Linux.
+    private static bool ProbeClone(string source, string destination)
+    {
+        if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return false;
+        var start = new ProcessStartInfo("cp") { UseShellExecute = false, RedirectStandardError = true, ArgumentList = { OperatingSystem.IsMacOS() ? "-c" : "--reflink=always", "--", source, destination } };
+        using var process = Process.Start(start)!;
+        process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        return process.ExitCode == 0;
+    }
+
     internal static async Task Run(string root)
     {
         IsolatedGit.ForProcess();
         await ClangdIndex(root);
         await IntelliJIndex(root);
+        await WorkspaceSize(Path.Combine(root, "workspace-size"));
         var fixture = Path.Combine(root, "workspace-clone");
         var source = IsolatedGit.Repository(Path.Combine(fixture, "main"), (".gitignore", "obj/\nbin/\n.tools/\nnode_modules/\n.venv/\n"));
         foreach (var (path, text) in new[] { ("src/App/App.cs", "class App {}\n"), ("tracked/bin/keep.txt", "tracked\n") })

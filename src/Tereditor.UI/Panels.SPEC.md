@@ -121,7 +121,7 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   found” rows), Open changes (switches to that workspace, sets its Changes scope to All changes and opens the
   scrolling all-files review; disabled while the rail's change totals show none, and, for the open workspace,
   Git lists no changed file), Copy name and Reveal in file manager (omitted for a remote host: the folder is on the other machine). A
-  managed worktree adds Rename and Remove worktree… (Delete icon); an external one only Remove from tereditor, whose
+  managed worktree adds Rename and Remove worktree… (Delete icon; while the menu is open it reads Remove worktree (1.2 GiB)… once the host reports the disk space removal would free: GiB with one decimal from 1 GiB, else whole MiB, `<1 MiB` below one; the plain label shows at once and again after the menu closes); an external one only Remove from tereditor, whose
   confirmation promises the checkout and its branch stay untouched. The Default workspace gets neither
   mutation. A locked worktree's Remove is disabled.
 - A plain folder has no workspace row: its tabs and terminal/agent actions sit directly beneath the

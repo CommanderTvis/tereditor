@@ -226,6 +226,14 @@ forgetting removes its row while leaving the checkout in place. The Default work
 - `remove-worktree` additionally refuses the main, the active and a locked worktree, and an external
   record. The UI asks for explicit confirmation first; removing the active workspace in a window returns
   it to the previously selected one.
+- `GetWorkspaceSizeAsync` measures what removing a managed or external workspace would free, off the UI thread and
+  cancellable. It walks the worktree's own files without following symlinks and counts only private bytes: macOS
+  asks APFS for each file's private size (`getattrlist`, `ATTR_CMNEXT_PRIVATESIZE`), so `clonefile` copies from the
+  Default workspace count zero; Linux reads FIEMAP extents and skips `FIEMAP_EXTENT_SHARED` ones (btrfs, xfs),
+  and counts the file's size rounded up to 4 KiB where the filesystem cannot tell; Windows counts allocated size.
+  The Git directory the `.git` file points to lies outside the worktree and is never counted. A result is cached per
+  path for 30 seconds. The context menu asks when it opens and drops the answer when it closes
+  (`--workspace-clone`; `--project` covers the wire).
 - A record that leaves the registry loses its label in the same publish, so every window's rail converges
   on the broadcast rather than on per-window optimism.
 ## Labels and external editors

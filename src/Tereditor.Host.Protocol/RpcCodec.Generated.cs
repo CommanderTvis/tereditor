@@ -147,6 +147,8 @@ internal static class RpcCodec
         RpcMessage<BranchesReply>.Read = static (ref ProtoReader reader) => ReadBranchesReply(ref reader, null);
         RpcMessage<BranchTipReply>.Write = WriteBranchTipReply;
         RpcMessage<BranchTipReply>.Read = static (ref ProtoReader reader) => ReadBranchTipReply(ref reader, null);
+        RpcMessage<WorkspaceSizeReply>.Write = WriteWorkspaceSizeReply;
+        RpcMessage<WorkspaceSizeReply>.Read = static (ref ProtoReader reader) => ReadWorkspaceSizeReply(ref reader, null);
         RpcMessage<EditorReply>.Write = WriteEditorReply;
         RpcMessage<EditorReply>.Read = static (ref ProtoReader reader) => ReadEditorReply(ref reader, null);
         RpcMessage<EditorsReply>.Write = WriteEditorsReply;
@@ -2740,6 +2742,27 @@ internal static class RpcCodec
                 case 1: value.Name = reader.String(); break;
                 case 2: value.Sha = reader.String(); break;
                 case 3: value.Unmerged = reader.Int32(); break;
+                default: reader.Skip(); break;
+            }
+        }
+        return value;
+    }
+
+    private static void WriteWorkspaceSizeReply(ProtoWriter writer, WorkspaceSizeReply value)
+    {
+        if (value.Known) writer.Bool(1, value.Known);
+        if (value.Bytes != 0) writer.Int64(2, value.Bytes);
+    }
+
+    private static WorkspaceSizeReply ReadWorkspaceSizeReply(ref ProtoReader reader, WorkspaceSizeReply? value)
+    {
+        value ??= new();
+        while (reader.Next())
+        {
+            switch (reader.Field)
+            {
+                case 1: value.Known = reader.Bool(); break;
+                case 2: value.Bytes = reader.Int64(); break;
                 default: reader.Skip(); break;
             }
         }

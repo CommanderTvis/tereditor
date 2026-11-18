@@ -562,6 +562,25 @@ public sealed partial class WorkbenchWindow
         catch (Exception error) when (error is not OperationCanceledException) { Report(new IOException("Couldn't reveal the workspace. " + error.Message)); }
     }
 
+    private const string RemoveWorktreeHeader = "Remove worktree…";
+
+    private async Task ShowRemoveSizeAsync(MenuItem remove, string path, CancellationToken token)
+    {
+        try
+        {
+            if (await host.GetWorkspaceSizeAsync(path, token) is { } bytes && !token.IsCancellationRequested)
+                remove.Header = $"Remove worktree ({WorkspaceSizeText(bytes)})…";
+        }
+        // The size only decorates the item: a failed or cancelled measurement leaves the plain label.
+        catch (Exception error) when (error is not OutOfMemoryException) { }
+    }
+
+    /// <summary>GiB with one decimal from 1 GiB, else whole MiB, and "&lt;1 MiB" below one.</summary>
+    internal static string WorkspaceSizeText(long bytes) =>
+        bytes >= 1L << 30 ? (bytes / (double)(1L << 30)).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " GiB"
+        : bytes >= 1L << 20 ? (bytes >> 20).ToString(System.Globalization.CultureInfo.InvariantCulture) + " MiB"
+        : "<1 MiB";
+
     private ContextMenu WorkspaceActions(WorkspaceRecord worktree, Control row)
     {
         var menu = new ContextMenu
@@ -622,10 +641,22 @@ public sealed partial class WorkbenchWindow
             menu.Items.Add(rename);
         }
         menu.Items.Add(new Separator());
-        var remove = Ui.IconMenu(worktree.Kind == WorkspaceKinds.External ? "Remove from tereditor" : "Remove worktree…", () => _ = RemoveWorkspaceAsync(worktree),
+        var remove = Ui.IconMenu(worktree.Kind == WorkspaceKinds.External ? "Remove from tereditor" : RemoveWorktreeHeader, () => _ = RemoveWorkspaceAsync(worktree),
             ActionIcon.Delete, !WorktreeLocked(worktree.Path));
         remove.Name = "WorkspaceRemove";
         menu.Items.Add(remove);
+        if (worktree.Kind == WorkspaceKinds.Managed)
+        {
+            // The label shows at once; the disk space it would free joins it when the host has measured it, and goes with the menu.
+            CancellationTokenSource? sizing = null;
+            menu.Opening += (_, _) =>
+            {
+                sizing?.Cancel();
+                sizing = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+                _ = ShowRemoveSizeAsync(remove, worktree.Path, sizing.Token);
+            };
+            menu.Closed += (_, _) => { sizing?.Cancel(); remove.Header = RemoveWorktreeHeader; };
+        }
         ScopeWorkspaceActions(menu, worktree);
         menu.Opening += (_, _) => ScopeWorkspaceActions(menu, worktree);
         return openIn;

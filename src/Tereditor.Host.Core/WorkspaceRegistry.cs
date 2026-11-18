@@ -230,6 +230,18 @@ public sealed partial class ProjectServices
         return workspaces.FirstOrDefault(workspace => workspace.Id == id) ?? throw new InvalidOperationException($"Unknown workspace: {id}");
     }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Bytes, long At)> WorkspaceSizes = new();
+    private const long WorkspaceSizeLifetime = 30_000;
+
+    public async ValueTask<long?> GetWorkspaceSizeAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (registry.Current.Workspaces.FirstOrDefault(known => known.Path == path) is not { Kind: not WorkspaceKinds.Default }) return null;
+        if (WorkspaceSizes.TryGetValue(path, out var cached) && Environment.TickCount64 - cached.At < WorkspaceSizeLifetime) return cached.Bytes;
+        var bytes = await Task.Run(() => WorkspaceDiskUsage.Measure(path, cancellationToken), cancellationToken);
+        WorkspaceSizes[path] = (bytes, Environment.TickCount64);
+        return bytes;
+    }
+
     private WorkspaceRecord Reveal(string path)
     {
         var workspace = registry.Current.Workspaces.FirstOrDefault(known => known.Path == path)
