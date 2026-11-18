@@ -22,7 +22,9 @@ public sealed partial class ProjectServices
         var target = Path.GetFullPath(workspacePath);
         // A worktree whose folder is gone has no totals; Git is not asked.
         if (!FolderProbe.Exists(target)) return null;
-        var worktrees = GitRepository.ParseWorktrees(await GitRepository.RunAsync(root, cancellationToken, "worktree", "list", "--porcelain", "-z"));
+        // A folder that is no repository has no totals.
+        if (await GitRepository.TryRunAsync(root, cancellationToken, "worktree", "list", "--porcelain", "-z") is not { } listing) return null;
+        var worktrees = GitRepository.ParseWorktrees(listing);
         if (!worktrees.Any(tree => tree.Path == target))
             throw new UnauthorizedAccessException("Only this project's workspaces have change totals.");
         var comparison = state?.Current.DiffBase(target) ?? "";

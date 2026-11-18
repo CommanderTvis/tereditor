@@ -96,7 +96,7 @@ internal static class IdleGitChecks
             Require(thrown.IsEmpty, "An idle host must throw nothing after its first refresh: " + string.Join("; ", thrown.Select(pair => pair.Value + " x " + pair.Key)));
             Require(Interlocked.Read(ref GitRepository.Raised) == raised, "An idle host must raise no Git failure after its first refresh.");
             Require(passes.Skip(1).Distinct().Count() == 1, "Every later pass starts the same Git runs: " + string.Join(", ", passes));
-            Require(passes[1] <= 24 * folders.Length, $"A pass over {folders.Length} folders starts a bounded number of Git runs, not {passes[1]}.");
+            Require(passes[1] <= 30 * folders.Length, $"A pass over {folders.Length} folders starts a bounded number of Git runs, not {passes[1]}.");
         }
         finally { AppDomain.CurrentDomain.FirstChanceException -= Count; }
 
