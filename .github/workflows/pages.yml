@@ -42,10 +42,15 @@ jobs:
           # Pages compresses on its own and does not honour the pre-compressed sidecars.
           find "$site" -type f \( -name '*.br' -o -name '*.gz' \) -delete
           touch "$site/.nojekyll"
-          cp src/Tereditor.Browser/pages/coi-sw.js src/Tereditor.Browser/pages/coi.js src/Tereditor.Browser/pages/404.html "$site/"
+          cp src/Tereditor.Browser/pages/coi-sw.js src/Tereditor.Browser/pages/coi.js src/Tereditor.Browser/pages/404.html src/Tereditor.Browser/pages/social.png "$site/"
           # Every URL in the client is relative, so the base path needs no rewrite; only the worker loads first.
           sed -i 's|<body>|<body><script src="coi.js"></script>|' "$site/index.html"
           grep -q 'coi.js' "$site/index.html"
+          # The same preview card as the repository's social preview. Link previews need absolute URLs.
+          url=https://commandertvis.github.io/tereditor
+          desc="Workbench where Claude Code and Codex manage worktrees that you can see and get worktree-aware LSP and IntelliJ navigation over MCP, in Ghostty terminals"
+          sed -i "s|<title>tereditor</title>|<title>tereditor</title><meta name=\"description\" content=\"$desc\"><meta property=\"og:type\" content=\"website\"><meta property=\"og:title\" content=\"tereditor\"><meta property=\"og:description\" content=\"$desc\"><meta property=\"og:url\" content=\"$url/\"><meta property=\"og:image\" content=\"$url/social.png\"><meta property=\"og:image:width\" content=\"1280\"><meta property=\"og:image:height\" content=\"640\"><meta name=\"twitter:card\" content=\"summary_large_image\"><meta name=\"twitter:image\" content=\"$url/social.png\">|" "$site/index.html"
+          grep -q 'og:image' "$site/index.html"
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
