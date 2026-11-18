@@ -140,7 +140,7 @@ internal sealed record ContextRunSpec(string WorkspaceId, string Binary, string 
 /// <summary>The launch flags of a running session that change what it starts with, read off its process command line.</summary>
 internal static class ContextLaunch
 {
-    private static readonly HashSet<string> ValueFlags = ["--plugin-dir", "--add-dir", "--model", "--effort", "--mcp-config", "--settings", "--setting-sources", "--system-prompt-file"];
+    private static readonly HashSet<string> ValueFlags = ["--plugin-dir", "--add-dir", "--model", "--effort", "--mcp-config", "--settings", "--setting-sources", "--system-prompt-file", "--disallowedTools", "--disallowed-tools"];
     private static readonly HashSet<string> SwitchFlags = ["--strict-mcp-config"];
 
     /// <summary>

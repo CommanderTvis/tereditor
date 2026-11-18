@@ -428,6 +428,7 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
                 flags.AddRange(["--append-system-prompt-file", promptFile]);
             }
             flags.AddRange(["--plugin-dir", HookPluginDirectory]);
+            if (ClaudeToolPolicy.FlagFor(ClaudeCommandLine.Parse(settings.Command).Arguments) is { } denial) flags.Add(denial);
             if (settings.Model is { Length: > 0 } model) flags.AddRange(["--model", model]);
             if (settings.Effort is { Length: > 0 } effort) flags.AddRange(["--effort", effort]);
         }

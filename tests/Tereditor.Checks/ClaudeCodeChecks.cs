@@ -1118,13 +1118,13 @@ internal static class ClaudeCodeChecks
             "With the agent-view switch off the line is the plain command: " + string.Join(" ", haiku));
         Settings(new { enabled = true, command = fake, disableAgentView = false, appendSystemPrompt = false });
         var sonnet = Launch("model-sonnet");
-        Require(sonnet.SequenceEqual(["agent-view=", "--plugin-dir", Path.Combine(AppContext.BaseDirectory, "plugins", ClaudeCodeContract.Id, "assets", "marketplace", "claude-plugin"), "--add-dir", ScratchProbe, "--model", "sonnet"]), "Disabling the prompt appendix retains the directly loaded plugin: " + string.Join(" ", sonnet));
+        Require(sonnet.SequenceEqual(["agent-view=", "--plugin-dir", Path.Combine(AppContext.BaseDirectory, "plugins", ClaudeCodeContract.Id, "assets", "marketplace", "claude-plugin"), "--add-dir", ScratchProbe, ClaudeToolPolicy.Flag, "--model", "sonnet"]), "Disabling the prompt appendix retains the directly loaded plugin: " + string.Join(" ", sonnet));
         Require(launchedId is { } assigned && AgentResume.IsSessionId(assigned), "A new conversation starts under a preassigned --session-id.");
         Require(Launch("continue")[^1] == "--continue" && launchedId is null, "Continue passes the per-run flag, and no preassigned id.");
         Settings(new { enabled = true, command = fake, disableAgentView = false, appendSystemPrompt = false, model = "opus", effort = "high" });
-        Require(Launch("continue").SequenceEqual(["agent-view=", "--plugin-dir", Path.Combine(AppContext.BaseDirectory, "plugins", ClaudeCodeContract.Id, "assets", "marketplace", "claude-plugin"), "--add-dir", ScratchProbe, "--model", "opus", "--effort", "high", "--continue"]),
+        Require(Launch("continue").SequenceEqual(["agent-view=", "--plugin-dir", Path.Combine(AppContext.BaseDirectory, "plugins", ClaudeCodeContract.Id, "assets", "marketplace", "claude-plugin"), "--add-dir", ScratchProbe, ClaudeToolPolicy.Flag, "--model", "opus", "--effort", "high", "--continue"]),
             "The tereditor defaults reach the shell for a new launch.");
-        Require(Launch("model-haiku").SequenceEqual(["agent-view=", "--plugin-dir", Path.Combine(AppContext.BaseDirectory, "plugins", ClaudeCodeContract.Id, "assets", "marketplace", "claude-plugin"), "--add-dir", ScratchProbe, "--effort", "high", "--model", "haiku"]),
+        Require(Launch("model-haiku").SequenceEqual(["agent-view=", "--plugin-dir", Path.Combine(AppContext.BaseDirectory, "plugins", ClaudeCodeContract.Id, "assets", "marketplace", "claude-plugin"), "--add-dir", ScratchProbe, ClaudeToolPolicy.Flag, "--effort", "high", "--model", "haiku"]),
             "A per-launch model replaces the saved model without duplicating flags.");
         // Any flags at all: typed into a dialog, they follow the prompt file like a preset's.
         var custom = Launch("custom", () =>

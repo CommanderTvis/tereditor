@@ -603,8 +603,8 @@ internal static class ClaudeChatChecks
                 "Init and the initialize answer fill the header: model, commands from skills, models, agents, MCP servers.");
             Require(Spawns().Last().Contains("--output-format stream-json", StringComparison.Ordinal) && Spawns().Last().Contains("--session-id " + chat, StringComparison.Ordinal) &&
                 Spawns().Last().Contains("--permission-mode acceptEdits", StringComparison.Ordinal) && Spawns().Last().Contains("--append-system-prompt-file", StringComparison.Ordinal) &&
-                Spawns().Last().Contains("--permission-prompt-tool=stdio", StringComparison.Ordinal),
-                "A new chat starts the CLI under its id with the stream-json flags, the chosen permission mode and the appended prompt.");
+                Spawns().Last().Contains("--permission-prompt-tool=stdio", StringComparison.Ordinal) && Spawns().Last().Contains(ClaudeToolPolicy.Flag, StringComparison.Ordinal),
+                "A new chat starts the CLI under its id with the stream-json flags, the chosen permission mode, the appended prompt and the built-in worktree tool denied.");
             var environment = File.ReadAllText(Path.Combine(directory, "fake", "env.log"));
             Require(environment.Contains("TEREDITOR_UI_LAUNCH=claude", StringComparison.Ordinal) && environment.Contains("THINKRAIL_MCP_URL=http://127.0.0.1:1", StringComparison.Ordinal) &&
                 environment.Contains("/mcp/chat-fixture-token", StringComparison.Ordinal) && environment.Contains("CLAUDE_CODE_SSE_PORT=", StringComparison.Ordinal),

@@ -123,6 +123,7 @@ internal static partial class ClaudeLaunch
         var promptFile = appendSystemPrompt ? $"--append-system-prompt-file {EnvironmentReference(ClaudeCodeContract.PromptFileVariable, platform, windowsShell)}" : "";
         var defaults = string.Join(' ', new[]
         {
+            ClaudeToolPolicy.FlagFor([ClaudeCommandLine.Parse(command).Rest, args]) ?? "",
             model is { Length: > 0 } && !HasOption(args, "--model") ? "--model " + ShellQuotePath(model) : "",
             effort is { Length: > 0 } && !HasOption(args, "--effort") ? "--effort " + ShellQuotePath(effort) : "",
             sessionId is { Length: > 0 } ? "--session-id " + ShellQuotePath(sessionId) : "",

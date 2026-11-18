@@ -7,6 +7,7 @@ using Avalonia.Media;
 
 using Tereditor.Checks.E2E;
 using Tereditor.Plugins.Agent.UI;
+using Tereditor.Plugins.Api;
 using Tereditor.Plugins.ClaudeCode;
 using Tereditor.Plugins.ClaudeCode.Host;
 using Tereditor.Plugins.ClaudeCode.Host.ClaudeConfig;
@@ -112,10 +113,35 @@ internal static class ClaudeContextChecks
         Require(flags.SequenceEqual(["--plugin-dir", "/p", "--add-dir", "/s", "--model", "opus", "--effort", "high", "--strict-mcp-config"]),
             "Only context-shaping launch flags carry over; resume and the prompt are dropped. Got: " + string.Join(' ', flags));
 
+        Require(ContextLaunch.Flags("claude --disallowedTools=EnterWorktree --model opus", directory).SequenceEqual(["--disallowedTools", "EnterWorktree", "--model", "opus"]),
+            "A measured baseline carries the worktree denial of the launch.");
+        ToolPolicy();
+
         // The fake CLI is a POSIX shell script.
         if (!OperatingSystem.IsWindows()) await Runner(directory, json);
         LiveUsage(directory);
         Console.WriteLine("PASS Claude Code context: /context parsing, background runner, appended prompt difference, debounced triggers and live usage");
+    }
+
+    // Every launch path asks the one policy: terminal lines (plain, resume, fork, continue, wrapped by a provider's settings), merged with the user's own flags.
+    private static void ToolPolicy()
+    {
+        var provider = new AgentLaunchContribution { Arguments = ["--settings", "/p.json"], ConflictingArguments = ["--settings"] };
+        foreach (var args in new[] { "", "--continue", "--resume abc", "--resume abc --fork-session", "'a prompt'" })
+        {
+            var line = ClaudeLaunch.SessionCommand("claude", args, contributions: [provider], sessionId: "s");
+            Require(line.Split(' ').Count(word => word == ClaudeToolPolicy.Flag) == 1, "A terminal line denies EnterWorktree once: " + line);
+        }
+        Require(ClaudeToolPolicy.FlagFor(["--disallowedTools=Bash"]) == ClaudeToolPolicy.Flag && ClaudeToolPolicy.FlagFor(["--disallowed-tools", "Bash,Read"]) == ClaudeToolPolicy.Flag,
+            "Another denial of the user's is merged: the flag repeats and the CLI joins them.");
+        Require(ClaudeToolPolicy.FlagFor(["--disallowedTools", "Bash", "EnterWorktree"]) is null && ClaudeToolPolicy.FlagFor(["--disallowedTools=Bash,EnterWorktree"]) is null,
+            "A user's own denial of the tool is not repeated.");
+        Require(ClaudeToolPolicy.FlagFor(["--tools", "Bash,Read"]) is null && ClaudeToolPolicy.FlagFor(["--tools=default"]) == ClaudeToolPolicy.Flag,
+            "An explicit tool list without the tool needs no denial; the default set does.");
+        var own = ClaudeLaunch.SessionCommand("claude --disallowedTools=Bash", "--disallowedTools EnterWorktree");
+        Require(!own.Contains(ClaudeToolPolicy.Flag, StringComparison.Ordinal), "A line that already denies the tool is left as it is: " + own);
+        var merged = ClaudeLaunch.SessionCommand("claude --disallowedTools=Bash", "");
+        Require(merged.Contains("--disallowedTools=Bash", StringComparison.Ordinal) && merged.Contains(ClaudeToolPolicy.Flag, StringComparison.Ordinal), "The denial merges with the setting's own: " + merged);
     }
 
     [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]

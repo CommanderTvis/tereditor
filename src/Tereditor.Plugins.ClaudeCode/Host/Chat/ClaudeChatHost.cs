@@ -381,6 +381,7 @@ internal sealed class ClaudeChatHost
             if (contributed.Add(name)) environment[name] = value;
         foreach (var (name, value) in own) environment[name] = value;
         arguments.AddRange(line.Arguments);
+        if (ClaudeToolPolicy.FlagFor([.. contributions.SelectMany(contribution => contribution.Arguments), .. line.Arguments]) is { } denial) arguments.Add(denial);
         arguments.AddRange(["-p", "--output-format", "stream-json", "--verbose", "--input-format", "stream-json", "--include-partial-messages", "--replay-user-messages", "--permission-prompt-tool=stdio"]);
         if (spawn.Resume is { } resume) arguments.AddRange(["--resume", resume]);
         if (spawn.Fork) arguments.Add("--fork-session");
