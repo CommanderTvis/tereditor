@@ -24,7 +24,11 @@ public sealed record RuntimesSettings
 /// <param name="DownloadBytes">The disk space of the downloaded copy and its caches.</param>
 /// <param name="Downloaded">Whether a downloaded copy exists.</param>
 /// <param name="Message">A plain sentence about the state.</param>
-public sealed record RuntimeRow(string Kind, string Name, string Source, string Path, string Version, string Pinned, long DownloadBytes, bool Downloaded, string Message);
+public sealed record RuntimeRow(string Kind, string Name, string Source, string Path, string Version, string Pinned, long DownloadBytes, bool Downloaded, string Message)
+{
+    /// <summary>The program of the downloaded copy, whichever source is in use; empty when none.</summary>
+    public string DownloadedPath { get; init; } = "";
+}
 
 /// <param name="Error">What went wrong with the last Download now or Remove download, in plain words; empty when nothing did.</param>
 public sealed record RuntimesState(IReadOnlyList<RuntimeRow> Runtimes, string Error = "");

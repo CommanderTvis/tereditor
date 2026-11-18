@@ -392,6 +392,8 @@ public sealed record ChatHeader(ChatStatus Status)
     public string? PermissionMode { get; init; }
     public string? Version { get; init; }
     public string? Error { get; init; }
+    /// <summary>For a failed start that needs a runtime while Runtimes is off: what to offer to turn on; null otherwise.</summary>
+    public ChatRuntimeOffer? RuntimeOffer { get; init; }
     /// <summary>A change that is under way and not yet in effect, such as <c>effort high</c> while the child restarts; null otherwise.</summary>
     public string? Pending { get; init; }
     /// <summary>What the CLI is doing besides a turn: "Compacting", "Running start-up hooks"; null otherwise.</summary>
@@ -419,6 +421,9 @@ public sealed record ChatHeader(ChatStatus Status)
     /// <summary>Whether the host serves <see cref="ChatContract.RunShell"/>; the composer offers bash mode (a leading <c>!</c>) only then.</summary>
     public bool CanRunShell { get; init; }
 }
+
+/// <summary>The runtime a failed start is missing: <paramref name="Kind"/> as the Runtimes page names it (<c>bun</c>, <c>uv</c>) and <paramref name="Name"/> for the user.</summary>
+public sealed record ChatRuntimeOffer(string Kind, string Name);
 
 /// <summary>One push on a chat's channel. Every payload carries the key fields the channel is scoped by.</summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]

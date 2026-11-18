@@ -53,7 +53,11 @@ public sealed record RuntimeResolution(RuntimeKind Kind, bool Available, string 
 /// <param name="DownloadBytes">The disk space of the downloaded copy and its caches.</param>
 /// <param name="Downloaded">Whether a downloaded copy exists.</param>
 /// <param name="Message">A plain sentence about the state, for example why nothing is available.</param>
-public sealed record RuntimeStatus(RuntimeKind Kind, string Name, RuntimeSource? Source, string Path, string Version, string Pinned, long DownloadBytes, bool Downloaded, string Message);
+public sealed record RuntimeStatus(RuntimeKind Kind, string Name, RuntimeSource? Source, string Path, string Version, string Pinned, long DownloadBytes, bool Downloaded, string Message)
+{
+    /// <summary>The program of the downloaded copy, whichever source is in use; empty when none is downloaded.</summary>
+    public string DownloadedPath { get; init; } = "";
+}
 
 /// <summary>Removes what a plugin downloaded. Every plugin that downloads something removes all of it, and only that, when the user turns the plugin off.</summary>
 public static class PluginDownloads

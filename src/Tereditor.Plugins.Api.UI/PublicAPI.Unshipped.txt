@@ -724,6 +724,7 @@ Tereditor.Plugins.Api.UI.LauncherCommandOptions.Images.init -> void
 Tereditor.Plugins.Api.UI.IPluginUIContext.AgentLaunch(System.Func<string!, Tereditor.Plugins.Api.AgentLaunchContribution?>! contributor) -> void
 Tereditor.Plugins.Api.UI.IPluginUIContext.AgentLaunchContributions(string! agentId) -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.AgentLaunchContribution!>!
 Tereditor.Plugins.Api.UI.IPluginUIContext.OpenSettings(string! page) -> void
+Tereditor.Plugins.Api.UI.IPluginUIContext.TurnOnRuntimeAsync(string! kind, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string!>
 Tereditor.Plugins.Api.UI.IPluginUIContext.SlotSection(Tereditor.Plugins.Api.UI.SlotSectionRegistration! section) -> void
 Tereditor.Plugins.Api.UI.SlotSectionRegistration
 Tereditor.Plugins.Api.UI.SlotSectionRegistration.<Clone>$() -> Tereditor.Plugins.Api.UI.SlotSectionRegistration!

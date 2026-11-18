@@ -138,6 +138,7 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
             {
                 if (needsSignIn) AddSignInNotice(found);
                 folder.SetStatus(ChatStatus.Failed, error is System.ComponentModel.Win32Exception ? "The agent program was not found." : error.Message);
+                if (error is AcpRuntimeOffException off) folder.Update(header => header with { RuntimeOffer = new(off.Kind, off.Runtime) });
                 FlushNow();
             }
         }

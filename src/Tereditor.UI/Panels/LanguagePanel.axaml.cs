@@ -148,6 +148,8 @@ internal sealed partial class LanguagePanel : UserControl
         };
         LanguageDependencyList.SetHostState(this, state);
         AddHandler(LanguageDependencyList.StatusEvent, (_, e) => SetStatus(e.Text));
+        // Turn it on switched Runtimes on: start the server again, which downloads the tool with the pane's install progress and Stop.
+        AddHandler(LanguageDependencyList.TurnedOnEvent, async (_, e) => { if ((e.Source as Control)?.DataContext is ServerRow row) await RunAsync("retry", row.Server); });
         this.FindControl<Tereditor.Plugins.UI.Kit.PathLine>("Workspace")!.Path = workspace;
         this.FindControl<TextBlock>("LifetimeNote")!.Text = LanguageNotes.Lifetime;
         if (plugins is not null) this.FindControl<StackPanel>("PaneBody")!.Children.Add(slot = new Tereditor.UI.Plugins.PluginSlot(plugins, Tereditor.Plugins.Api.UI.UiSlots.WorkspaceLanguages, workspace));

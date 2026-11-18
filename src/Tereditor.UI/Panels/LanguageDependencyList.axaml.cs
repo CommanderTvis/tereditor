@@ -33,6 +33,8 @@ internal sealed partial class LanguageDependencyList : UserControl
         public bool OmitMissing { get; init; }
         public string Hint => Dependency.InstallHint;
         public Avalonia.Media.IBrush Brush => Missing && Dependency.Required ? Ui.Danger : Ui.Muted;
+        /// <summary>Whether the tool is missing only because Runtimes is off: the host says so with a managed source on a missing tool.</summary>
+        public bool Offer => Dependency.State == "missing" && Dependency.Source == "managed" && CanChangePaths;
         public bool CanChange => CanChangePaths;
         public bool CanClear => CanChangePaths && Dependency.Override;
     }
@@ -56,6 +58,10 @@ internal sealed partial class LanguageDependencyList : UserControl
     /// <summary>Raised with a message for the hosting surface's status line.</summary>
     public static readonly RoutedEvent<StatusEventArgs> StatusEvent =
         RoutedEvent.Register<LanguageDependencyList, StatusEventArgs>(nameof(Status), RoutingStrategies.Bubble);
+
+    /// <summary>Raised after Turn it on switched Runtimes on, so the hosting row can start the server again.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> TurnedOnEvent =
+        RoutedEvent.Register<LanguageDependencyList, RoutedEventArgs>("TurnedOn", RoutingStrategies.Bubble);
 
     internal sealed class StatusEventArgs(string text) : RoutedEventArgs(StatusEvent) { public string Text { get; } = text; }
 
@@ -99,6 +105,19 @@ internal sealed partial class LanguageDependencyList : UserControl
             await SetToolAsync(row.Dependency.Executable, path);
         }
         catch (Exception error) { Report("Couldn't use that path: " + error.Message); }
+    }
+
+    private async void TurnOnRuntimesClicked(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is not Button { DataContext: DependencyRow row } || HostState is not { } state) return;
+        try
+        {
+            await Task.Run(async () => await state.ChangeAsync(HostStateChange.PluginEnabled("runtimes", true)));
+            Report($"Runtimes is on. {row.Dependency.Name} is downloaded when the server starts.");
+            RaiseEvent(new RoutedEventArgs(TurnedOnEvent));
+        }
+        catch (Exception error) { Report("Couldn't turn Runtimes on: " + error.Message); }
     }
 
     private async void ClearDependencyPathClicked(object? sender, RoutedEventArgs e)

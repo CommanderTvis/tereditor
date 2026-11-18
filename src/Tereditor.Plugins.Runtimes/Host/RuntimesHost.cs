@@ -45,5 +45,5 @@ public sealed class RuntimesHost : PluginHostModule
         // The embedded host runs a handler on the caller's thread, and the status walks the cache folders.
         new([.. (await Task.Run(() => context.RuntimeStatusAsync(token).AsTask(), token)).Select(status => new RuntimeRow(status.Kind == RuntimeKind.Bun ? "bun" : "uv", status.Name,
             status.Source switch { RuntimeSource.Pinned => "pinned", RuntimeSource.System => "system", RuntimeSource.Downloaded => "downloaded", _ => "" },
-            status.Path, status.Version, status.Pinned, status.DownloadBytes, status.Downloaded, status.Message))], error);
+            status.Path, status.Version, status.Pinned, status.DownloadBytes, status.Downloaded, status.Message) { DownloadedPath = status.DownloadedPath })], error);
 }

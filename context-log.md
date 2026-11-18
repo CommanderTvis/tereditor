@@ -102,6 +102,10 @@ checksums, Visual Studio's ARM64 C++ tools on `windows-11-arm` (probe log), the 
 `check:packaged -- --packaged` on macOS (and failing on a payload without a library, a plugin or terminfo), the
 payload rule on the cross-built Linux payload, a Debug browser build. Not run: Windows and Linux packages, Android.
 
+## 2026-11-18 — Runtimes follow-ups
+
+Settings › Runtimes shows download progress (bytes so far, Cancel), says when a download is outranked and offers Use the download / Use the one on my computer. Turn it on button in the chat banner (failed ACP start) and in language server dependency rows; `IPluginUIContext.TurnOnRuntimeAsync(kind)` is the new narrow API. `--runtimes-ui` renders the page headless. `WiredAgents` checked: it is Air Gateway's Claude Code, Codex, Pi list, matches its spec and check, unrelated to Runtimes. Not done: consent popup when the plugin is on, chat button render check.
+
 ## 2026-11-17 — Runtimes for tooling plugin
 
 The builtin `Runtimes for tooling` plugin ([spec](src/Tereditor.Plugins.Runtimes/SPEC.md)) is on by default and owns where Bun and uv come from: pinned path, then PATH, then its own pinned download (uv 0.13.9 added beside Bun, SHA-256 per platform), downloaded on the first request of a client plugin, never at startup. `IPluginHostContext.ResolveRuntimeAsync` is the API; `BunPathAsync` wraps it. Off, nothing downloads and language servers and ACP say so and offer to turn it on. `OnUserDisabled` (user switch only, not quit) deletes the downloads of Runtimes, ACP and every language server plugin. Verified with `--runtimes`, `--acp`, `--managed-runtimes`, `--plugins` (only the unrelated Providers JSON finding failed), `--conformance`. Not seen rendered: the settings page. Not covered: language-owned caches (NuGet, Go, gems, Coursier), a button in the chat to turn the plugin on.

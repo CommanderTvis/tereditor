@@ -1021,6 +1021,8 @@ Tereditor.Plugins.Api.Host.RuntimeResolution.OfferEnable.get -> bool
 Tereditor.Plugins.Api.Host.RuntimeResolution.Message.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeResolution.OfferEnable.init -> void
 Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeLanguageServerDownloadsAsync(string! serverId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedPath.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedPath.init -> void
 Tereditor.Plugins.Api.Host.RuntimeStatus.Name.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeStatus.Version.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeResolution.Message.init -> void

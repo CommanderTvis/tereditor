@@ -45,6 +45,8 @@ internal sealed record ChatEnvironment(IChatClient Client, ChatAgent Agent)
     public Action<string> SetTitle { get; init; } = _ => { };
     /// <summary>The environment chips (mise, direnv, JVM) of the chat's workspace, the same rows a terminal shows.</summary>
     public Func<IReadOnlyList<Control>> WorkspaceChips { get; init; } = () => [];
+    /// <summary>Turns on Runtimes and downloads one runtime (its kind), returning empty when done or what went wrong; null where the host cannot offer it.</summary>
+    public Func<string, CancellationToken, Task<string>>? TurnOnRuntime { get; init; }
 }
 
 internal sealed class EmptyWatch : IDisposable
@@ -177,6 +179,11 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         var bannerRow = new DockPanel();
         DockPanel.SetDock(restart, Dock.Right);
         bannerRow.Children.Add(restart);
+        turnOnRuntime = Ui.Button("Turn it on", () => _ = TurnOnRuntimeAsync());
+        turnOnRuntime.Name = "ChatTurnOnRuntime";
+        turnOnRuntime.IsVisible = false;
+        DockPanel.SetDock(turnOnRuntime, Dock.Right);
+        bannerRow.Children.Add(turnOnRuntime);
         bannerRow.Children.Add(bannerText);
         banner.Child = bannerRow;
         // The rate-limit or error banner the host formats: dismissed per key, and back when the key changes.
@@ -191,7 +198,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         noticeRow.Children.Add(dismiss);
         noticeRow.Children.Add(noticeText);
         notice.Child = noticeRow;
-        var banners = new StackPanel();
+        var banners = this.banners;
         banners.Children.Add(banner);
         banners.Children.Add(notice);
         Place(banners, 2);
@@ -271,6 +278,32 @@ internal sealed partial class ChatView : Grid, IChatRowActions
     {
         try { modes = await env.Agent.Modes(); }
         catch (Exception error) when (error is not OperationCanceledException) { }
+    }
+
+    private readonly StackPanel banners = new();
+    private readonly Button turnOnRuntime;
+    private CancellationTokenSource? runtimeJob;
+
+    /// <summary>The Turn it on button: the click is the consent. It turns on Runtimes, downloads the runtime with a Cancel button, then restarts the agent.</summary>
+    internal async Task TurnOnRuntimeAsync()
+    {
+        if (transcript.Header?.RuntimeOffer is not { } offer || env.TurnOnRuntime is not { } turnOn || runtimeJob is not null) return;
+        using var source = runtimeJob = new CancellationTokenSource();
+        var strip = new DownloadStrip($"Turning on Runtimes and downloading {offer.Name}…", source.Cancel);
+        banners.Children.Add(strip);
+        turnOnRuntime.IsVisible = false;
+        var problem = "";
+        try { problem = await turnOn(offer.Kind, source.Token); }
+        catch (OperationCanceledException) { problem = "The download was cancelled."; }
+        catch (Exception error) { problem = error.Message; }
+        finally
+        {
+            banners.Children.Remove(strip);
+            runtimeJob = null;
+        }
+        if (problem.Length == 0) { await Open(restartFrom: transcript.Header?.SessionId); return; }
+        turnOnRuntime.IsVisible = true;
+        env.Notify(PluginNotificationKind.Error, "Couldn't get " + offer.Name, problem);
     }
 
     private async Task Open(string? restartFrom = null)
@@ -395,6 +428,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
             _ => ""
         };
         if (banner.Child is DockPanel { Children: [Button restart, ..] }) restart.IsVisible = failed;
+        turnOnRuntime.IsVisible = failed && header.RuntimeOffer is not null && env.TurnOnRuntime is not null && runtimeJob is null;
         var extra = header.Banner is { } host && !dismissedBanners.Contains(host.Key) ? host : null;
         notice.IsVisible = extra is not null;
         if (extra is not null)

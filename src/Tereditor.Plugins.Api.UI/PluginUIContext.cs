@@ -252,6 +252,16 @@ public interface IPluginUIContext
     void OpenSettings(string page);
 
     /// <summary>
+    /// Turns on Runtimes for tooling when it is off and downloads one runtime now. The user asked for it by pressing a button, so this is the consent;
+    /// the call runs until the download ends and <paramref name="cancellationToken"/> stops it. A host without the plugin answers that it cannot.
+    /// </summary>
+    /// <param name="kind">The runtime, as the Runtimes page names it: <c>bun</c> or <c>uv</c>.</param>
+    /// <param name="cancellationToken">Cancels the download.</param>
+    /// <returns>Empty when the runtime is ready; otherwise a sentence that says what went wrong.</returns>
+    [PluginAmbient]
+    ValueTask<string> TurnOnRuntimeAsync(string kind, CancellationToken cancellationToken = default) => ValueTask.FromResult("Runtimes is not available here.");
+
+    /// <summary>
     /// Contributes a section to a named place in one of core's own pages (W23). The section exists only while the
     /// plugin is enabled: a disabled plugin leaves no section and no placeholder.
     /// </summary>

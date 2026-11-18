@@ -173,7 +173,7 @@ internal sealed partial class LanguageServers
             }
             catch (Exception error) when (error is TimeoutException or System.ComponentModel.Win32Exception or IOException) { }
         }
-        return new(kind, name, source, path, version, pinned, bytes, downloaded, message);
+        return new(kind, name, source, path, version, pinned, bytes, downloaded, message) { DownloadedPath = downloaded ? ManagedRuntimes.FindInstalled(directory, tool, platform, directory) ?? "" : "" };
     }
 
     /// <summary>Downloads the pinned copy now. Fails with an <see cref="IOException"/> in plain words when offline or when the download does not verify.</summary>

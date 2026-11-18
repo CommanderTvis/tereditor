@@ -92,6 +92,7 @@ M:Tereditor.Plugins.Api.UI.IPluginUIContext.OnWorkspaceRemoved(System.Action{Sys
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenCommitChanges(System.String,System.String)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenDocumentAsync(System.String,System.String,System.String,System.String)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenSettings(System.String)
+M:Tereditor.Plugins.Api.UI.IPluginUIContext.TurnOnRuntimeAsync(System.String,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenTerminalAsync(System.String,Tereditor.Plugins.Api.UI.TerminalOpenOptions)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenTextDiffAsync(System.String,System.String,System.String)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.PickFileAsync(Tereditor.Plugins.Api.UI.FilePickOptions)

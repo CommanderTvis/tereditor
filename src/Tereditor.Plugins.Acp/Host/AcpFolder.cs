@@ -45,7 +45,7 @@ internal sealed class AcpFolder
     }
 
     public void SetStatus(ChatStatus status, string? error = null) =>
-        Update(header => header with { Status = status, Error = error ?? (status is ChatStatus.Failed or ChatStatus.Exited ? header.Error : null) });
+        Update(header => header with { Status = status, Error = error ?? (status is ChatStatus.Failed or ChatStatus.Exited ? header.Error : null), RuntimeOffer = status == ChatStatus.Failed ? header.RuntimeOffer : null });
 
     /// <summary>Drops the conversation (a session/load replays it from the start).</summary>
     public void Clear()

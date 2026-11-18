@@ -94,6 +94,7 @@ internal static class ChatDocuments
         PickFile = async () => await context.PickFileAsync(new FilePickOptions(workspaceId)),
         PickFolder = async () => await context.PickFileAsync(new FilePickOptions(workspaceId, true)),
         Notify = context.Notify,
+        TurnOnRuntime = (kind, token) => context.TurnOnRuntimeAsync(kind, token).AsTask(),
         OpenChat = (chatId, title, open) => Open(context, agent, workspaceId, chatId, title, open)
     };
 

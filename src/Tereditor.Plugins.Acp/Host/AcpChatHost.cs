@@ -98,7 +98,8 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
                 env = new Dictionary<string, string>(runtime.Env).Concat(env).GroupBy(pair => pair.Key).ToDictionary(group => group.Key, group => group.Last().Value);
             }
             // npx from the user's own Node still starts the agent; uvx has no other way to run.
-            else if (command == "uvx" || !OnPath("npx")) throw new InvalidOperationException(runtime.Message);
+            else if (command == "uvx" || !OnPath("npx"))
+                throw runtime.OfferEnable ? new AcpRuntimeOffException(command == "npx" ? "bun" : "uv", command == "npx" ? "Bun" : "uv", runtime.Message) : new InvalidOperationException(runtime.Message);
         }
         var transport = await ProcessAcpTransport.StartAsync(new AcpLaunch(command, args, env, directory));
         if (runtime is { Available: true }) context.TrackRuntimeProcess(runtime, transport.ProcessId);

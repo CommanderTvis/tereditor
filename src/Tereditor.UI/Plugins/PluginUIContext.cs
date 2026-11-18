@@ -206,6 +206,23 @@ internal sealed class PluginUIContext : IPluginUIContext
 
     public void SettingsSection(SettingsSectionRegistration section) { Guard(); Registry.AddSettingsSection(Id, section); }
     public void OpenSettings(string page) => Workbench.ActiveWindow?.ShowSettings(page);
+
+    public async ValueTask<string> TurnOnRuntimeAsync(string kind, CancellationToken cancellationToken = default)
+    {
+        await Task.Run(() => Workbench.State.ChangeAsync(HostStateChange.PluginEnabled(Tereditor.Plugins.Runtimes.RuntimesPlugin.Id, true)), cancellationToken);
+        // The host half starts a moment after the switch; until then the call is refused as disabled.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                var state = PluginJson.Convert<Tereditor.Plugins.Runtimes.RuntimesState>(await Service.CallAsync(new(Tereditor.Plugins.Runtimes.RuntimesPlugin.Id,
+                    Tereditor.Plugins.Runtimes.RuntimesContract.Download.Name, new Tereditor.Plugins.Runtimes.RuntimeKindParams(kind), loader.ClientKey), cancellationToken));
+                return state.Error;
+            }
+            catch (PluginCallException failure) when (failure.Error is PluginCallError.Disabled or PluginCallError.Unknown && attempt < 40) { await Task.Delay(250, cancellationToken); }
+            catch (PluginCallException failure) { return failure.Message; }
+        }
+    }
     public void SlotSection(SlotSectionRegistration section) { Guard(); Registry.AddSlotSection(Id, section); }
     public Avalonia.Controls.Control SlotView(string slot, string? workspaceId = null, string? emptyHint = null) => new PluginSlot(Registry, slot, workspaceId, bare: true, emptyHint);
     public void HeaderItem(HeaderItemRegistration item) { Guard(); Registry.AddHeaderItem(Id, item); }

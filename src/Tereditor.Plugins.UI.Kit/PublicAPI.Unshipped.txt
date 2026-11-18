@@ -715,6 +715,10 @@ Tereditor.Plugins.UI.Kit.TerminalChipKind.Label.init -> void
 Tereditor.Plugins.UI.Kit.TerminalChipKind.TerminalChipKind(string! Id, string! Label) -> void
 static Tereditor.Plugins.UI.Kit.TerminalChipKind.operator !=(Tereditor.Plugins.UI.Kit.TerminalChipKind? left, Tereditor.Plugins.UI.Kit.TerminalChipKind? right) -> bool
 static Tereditor.Plugins.UI.Kit.TerminalChipKind.operator ==(Tereditor.Plugins.UI.Kit.TerminalChipKind? left, Tereditor.Plugins.UI.Kit.TerminalChipKind? right) -> bool
+Tereditor.Plugins.UI.Kit.DownloadStrip
+Tereditor.Plugins.UI.Kit.DownloadStrip.DownloadStrip(string! message, System.Action! cancel) -> void
+Tereditor.Plugins.UI.Kit.DownloadStrip.Message.get -> string!
+Tereditor.Plugins.UI.Kit.DownloadStrip.Message.set -> void
 Tereditor.Plugins.UI.Kit.TerminalChips
 static Tereditor.Plugins.UI.Kit.TerminalChips.Tag<T>(T! control, string! id) -> T!
 static readonly Tereditor.Plugins.UI.Kit.TerminalChips.IdProperty -> Avalonia.AttachedProperty<string?>!

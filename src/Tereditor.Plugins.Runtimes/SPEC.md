@@ -46,11 +46,11 @@ Go, gem and Coursier caches of the C#, Go, Ruby and Scala servers are the langua
 ## Settings page
 
 Settings › Runtimes for tooling shows each runtime (Bun, uv): the source in use (the program you chose, the one found on your computer, or the copy tereditor
-downloaded) with its version, a field for the path you want to use, Download now, Remove download, and the disk space of the downloaded files. Text is short and plain.
+downloaded) with its version, a field for the path you want to use, Download now, Remove download, and the disk space of the downloaded files. A download shows a strip with the bytes so far and Cancel; when another source is in use the row says the download is used only when none is found on your computer, and Use the download pins its path (the same setting as the path field), Use the one on my computer clears it. The order of precedence is unchanged. Where Runtimes is off and a runtime blocks something, a Turn it on button (chat banner of a failed ACP start; language server dependency row) turns the plugin on; the chat then downloads with Cancel and restarts the agent (`IPluginUIContext.TurnOnRuntimeAsync`), the server row starts the server again. Text is short and plain.
 The page asks the host (`status`, `download`, `remove`); starting a download is the only network use.
 
 ## Checks
 
 `--runtimes` (`tests/Tereditor.Checks/RuntimesChecks.cs`, fake downloads, no network, POSIX): the order pinned, PATH, downloaded; a broken pin; one download per runtime; the off-state message and no request;
 the Bun and uv guards; quitting deletes nothing; a language server plugin turned off removes only its downloads; Runtimes for tooling turned off stops the downloaded copy's processes (not a system one's), deletes everything and keeps the pin; ACP likewise.
-Not seen rendered: the settings page.
+`--runtimes-ui` (`RuntimesUiChecks.cs`, headless, fake host) renders the page: not installed, downloading (size so far, Cancel, buttons waiting), cancelled, failed, installed, and a download that a system install outranks (it says so and offers Use the download / Use the one on my computer). Off has no page: a plugin that is off registers no section. Not done: a consent popup for a plugin that is on and a runtime that is missing (today the first request downloads); real percent (the host reports no total, so the page shows bytes so far).
