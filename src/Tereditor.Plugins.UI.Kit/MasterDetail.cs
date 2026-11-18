@@ -100,8 +100,8 @@ public sealed class MasterDetail : Grid
     /// </summary>
     public static Control Row(string id, Control? icon, string name, string? note, string? description, string? problem, Control? action, string? badge = null, string? badgeTip = null)
     {
-        var title = new Grid { ColumnDefinitions = new ColumnDefinitions { new(GridLength.Star), new(GridLength.Auto), new(GridLength.Auto) } };
-        title.Children.Add(new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.TextBrush, HorizontalAlignment = HorizontalAlignment.Left });
+        var title = new Grid { ColumnDefinitions = new ColumnDefinitions { new(GridLength.Star) { MinWidth = 48 }, new(GridLength.Auto), new(GridLength.Auto) } };
+        title.Children.Add(new TextBlock { Text = name, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Ui.TextBrush, HorizontalAlignment = HorizontalAlignment.Left });
         if (!string.IsNullOrEmpty(note))
         {
             var version = new TextBlock { Name = "MasterNote_" + id, Text = note, FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
