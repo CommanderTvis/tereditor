@@ -22,11 +22,20 @@ public sealed record GitPatchParams(string ProjectId, string Sha);
 
 public sealed record GitPatch(string Patch);
 
+public sealed record GitGraphChecksParams(string ProjectId, IReadOnlyList<string> Shas);
+
+/// <summary>One commit's CI checks. State is success, failure, pending or neutral; Attention names the failing or running checks the host read.</summary>
+public sealed record GitGraphCheck(string Sha, string State, int Passed, int Total, IReadOnlyList<string> Attention, string Url);
+
+/// <summary>The checks of the commits that have any; empty when the repository has no supported host, or it is off, signed out or limited.</summary>
+public sealed record GitGraphChecks(IReadOnlyList<GitGraphCheck> Commits);
+
 public static class BranchGraphContract
 {
     public static readonly PluginMethod<GitGraphParams, GitGraph> Graph = new("graph");
     public static readonly PluginMethod<GitPatchParams, GitPatch> Patch = new("patch");
-    public static readonly PluginContract Contract = PluginContract.Create(BranchGraphPlugin.Id, 1, [Graph, Patch], [], BranchGraphJson.Default);
+    public static readonly PluginMethod<GitGraphChecksParams, GitGraphChecks> Checks = new("checks");
+    public static readonly PluginContract Contract = PluginContract.Create(BranchGraphPlugin.Id, 1, [Graph, Patch, Checks], [], BranchGraphJson.Default);
 }
 
 public static class BranchGraphPlugin
@@ -53,4 +62,6 @@ public static class BranchGraphPlugin
 [JsonSerializable(typeof(GitGraph))]
 [JsonSerializable(typeof(GitPatchParams))]
 [JsonSerializable(typeof(GitPatch))]
+[JsonSerializable(typeof(GitGraphChecksParams))]
+[JsonSerializable(typeof(GitGraphChecks))]
 internal sealed partial class BranchGraphJson : JsonSerializerContext;

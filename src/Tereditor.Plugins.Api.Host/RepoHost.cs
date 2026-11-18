@@ -81,7 +81,23 @@ public abstract class RepoHostProvider
 
     /// <summary>A link that opens the forge's compose page for the branch, for when the tool cannot be used.</summary>
     public abstract string CompareUrl(RepoHostBranch branch, RepoHostRequest request);
+
+    /// <summary>
+    /// The checks of these commits (at most 50 per call), for the Git Graph. A commit with no checks is left out; a provider that
+    /// cannot tell, or is rate limited, answers an empty list. The default knows nothing.
+    /// </summary>
+    public virtual ValueTask<IReadOnlyList<CommitChecks>> CommitChecksAsync(RepoHostBranch repository, IReadOnlyList<string> shas, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<IReadOnlyList<CommitChecks>>([]);
 }
+
+/// <summary>One commit's checks in the provider-neutral model, for the Git Graph.</summary>
+/// <param name="Sha">The full commit id the checks belong to.</param>
+/// <param name="State"><c>success</c>, <c>failure</c>, <c>pending</c> or <c>neutral</c> (cancelled, skipped or unknown); a commit without checks is left out.</param>
+/// <param name="Passed">How many checks passed.</param>
+/// <param name="Total">How many checks the commit has.</param>
+/// <param name="Attention">Names of failing or running checks, as many as the provider read.</param>
+/// <param name="Url">A plain https link to the commit's checks, empty for none.</param>
+public sealed record CommitChecks(string Sha, string State, int Passed, int Total, IReadOnlyList<string> Attention, string Url = "");
 
 /// <summary>One finished branch status, handed to <see cref="IPluginHostContext.OnBranchStatus"/> observers.</summary>
 /// <param name="WorkspaceId">The workspace's id, empty when the host cannot name it.</param>

@@ -23,8 +23,9 @@
     </ContextMenu>
     </DataTemplate>
   </Button.Resources>
-  <Grid ColumnDefinitions="Auto,*">
+  <Grid ColumnDefinitions="Auto,*,Auto">
     <ContentControl x:Name="GraphLaneHost" />
     <ContentControl x:Name="GraphLabelsHost" Grid.Column="1" Margin="8,0,0,0" />
+    <ContentControl x:Name="GraphChecksHost" Grid.Column="2" />
   </Grid>
 </Button>

@@ -434,6 +434,16 @@ public interface IPluginHostContext
     void OnBranchStatus(Action<BranchStatusEvent> handler);
 
     /// <summary>
+    /// Asks the repo hosting provider that owns the directory's <c>origin</c> (H24) for the checks of these commits, at most 50. It answers an
+    /// empty list when no provider recognizes the remote, the provider is off or signed out, or it has nothing; it never throws for those.
+    /// </summary>
+    /// <param name="directory">Any checkout of the repository.</param>
+    /// <param name="shas">Full commit ids.</param>
+    /// <param name="cancellationToken">Cancels the lookup.</param>
+    [PluginPermission("repo.host")]
+    ValueTask<IReadOnlyList<CommitChecks>> CommitChecksAsync(string directory, IReadOnlyList<string> shas, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Runs a provider's command-line tool with the host's bounded runner (H24): no console, prompts off, the process
     /// group killed on expiry. A non-zero exit is a result.
     /// </summary>

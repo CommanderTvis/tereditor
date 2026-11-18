@@ -11,6 +11,7 @@ namespace Tereditor.Plugins.BranchGraph.UI;
 internal sealed partial class GraphCommitRow : Button
 {
     private readonly GraphLabels labels = new();
+    private readonly GraphChecksBadge badge;
     private string? branchTarget;
     internal GraphRow Model { get; private set; }
     internal LaneArt Lanes { get; }
@@ -18,11 +19,14 @@ internal sealed partial class GraphCommitRow : Button
     internal string? LocalBranchAt(Avalonia.Point point) => labels.LocalBranchAt(point);
 
     internal GraphCommitRow(IPluginUIContext context, Func<string> workspace, GraphRow model, int drawn, int shown,
-        IReadOnlyList<string> marks, Action<string> copyHash, Action<string> copyPatch)
+        IReadOnlyList<string> marks, Action<string> copyHash, Action<string> copyPatch, Action<string> openChecks)
     {
         Model = model;
+        badge = new(openChecks);
         AvaloniaXamlLoader.Load(this);
         this.FindControl<ContentControl>("GraphLabelsHost")!.Content = labels;
+        this.FindControl<ContentControl>("GraphChecksHost")!.Content = badge;
+        badge.Update(null);
         Lanes = new(model, drawn, shown, marks.Count > 0);
         this.FindControl<ContentControl>("GraphLaneHost")!.Content = Lanes;
         ContextRequested += (_, e) =>
@@ -68,6 +72,10 @@ internal sealed partial class GraphCommitRow : Button
         Avalonia.Automation.AutomationProperties.SetHelpText(this, string.Join(", ", model.Commit.Refs.Concat(marks)));
         Lanes.Update(model, drawn, shown, marks.Count > 0);
     }
+
+    internal GraphChecksBadge Checks => badge;
+
+    internal void SetChecks(GitGraphCheck? checks) => badge.Update(checks);
 
     private static SvgAsset Icon(string name)
     {

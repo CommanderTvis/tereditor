@@ -266,6 +266,15 @@ internal sealed class PluginHostContext(PluginRuntime runtime, PluginEntry entry
         return new(result.ExitCode, result.Output, result.Error);
     }
 
+    public async ValueTask<IReadOnlyList<CommitChecks>> CommitChecksAsync(string directory, IReadOnlyList<string> shas, CancellationToken cancellationToken = default)
+    {
+        if (shas.Count == 0) return [];
+        var origin = await GitAsync(directory, ["remote", "get-url", "origin"], cancellationToken: cancellationToken);
+        if (!origin.Ok || origin.Out.Trim() is not { Length: > 0 } url || runtime.RepoHostFor(url) is not { } route) return [];
+        try { return await route.Provider.CommitChecksAsync(new(directory, url, "", ""), shas, cancellationToken); }
+        catch (Exception error) when (error is not OperationCanceledException) { Log.Warn("commit checks failed: " + error.Message); return []; }
+    }
+
     public async ValueTask<string?> BunPathAsync(string workspace, CancellationToken cancellationToken = default) =>
         await ResolveRuntimeAsync(RuntimeKind.Bun, workspace, cancellationToken) is { Available: true } bun ? bun.Command : null;
 

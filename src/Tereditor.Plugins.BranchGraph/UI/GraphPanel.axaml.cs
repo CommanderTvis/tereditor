@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
@@ -30,6 +31,13 @@ internal sealed partial class GraphPanel : UserControl
     private string? projectId;
     private int generation, drawnLanes = 1, shownLanes = 1;
     private bool reading;
+    // The checks per commit, null for a commit the host knows none for; answered holds what was asked, so a commit without checks is not asked again on every scroll.
+    private readonly Dictionary<string, GitGraphCheck?> checks = [];
+    private readonly HashSet<string> answered = [];
+    private readonly HashSet<string> asking = [];
+    private readonly DispatcherTimer settle = new() { Interval = TimeSpan.FromMilliseconds(300) };
+    private readonly DispatcherTimer poll = new() { Interval = TimeSpan.FromSeconds(30) };
+    private bool checksFailed;
 
     private sealed record History(IReadOnlyList<GraphRow> Rows, IReadOnlyList<string> Carry, IReadOnlyList<GitGraphWorktree> Worktrees, bool HasMore);
 
@@ -43,6 +51,8 @@ internal sealed partial class GraphPanel : UserControl
         body = this.FindControl<Border>("GraphBody")!;
         window = this.FindControl<StackPanel>("GraphWindow")!;
         scroll.ScrollChanged += (_, _) => { Window(); MaybePage(); };
+        settle.Tick += (_, _) => { settle.Stop(); _ = AskChecksAsync(refresh: false); };
+        poll.Tick += (_, _) => _ = AskChecksAsync(refresh: true);
         AttachedToVisualTree += (_, _) =>
         {
             if (observers.Count > 0) return;
@@ -56,7 +66,7 @@ internal sealed partial class GraphPanel : UserControl
             }));
             // A write in the worktree can move any ref, so the history is read again from its tip, in place, because
             // tearing the list down would throw the reader back to the top mid-scroll.
-            observers.Add(context.WatchHost(ProjectRevision, (_, _) => Read(null)));
+            observers.Add(context.WatchHost(ProjectRevision, (_, _) => { answered.Clear(); Read(null); }));
             projectId = OwnProject(context.Host());
             Read(null);
         };
@@ -64,6 +74,9 @@ internal sealed partial class GraphPanel : UserControl
         {
             generation++;
             reading = false;
+            settle.Stop();
+            poll.Stop();
+            asking.Clear();
             foreach (var observer in observers) observer.Dispose();
             observers.Clear();
         };
@@ -90,6 +103,7 @@ internal sealed partial class GraphPanel : UserControl
     internal int ShownLanes => shownLanes;
     internal int Built => built.Count;
     internal int Reads { get; private set; }
+    internal int CheckCalls { get; private set; }
     internal string? ProjectId => projectId;
     internal string? MessageText => message.IsVisible ? message.Text : null;
 
@@ -179,11 +193,60 @@ internal sealed partial class GraphPanel : UserControl
         }
         built.Clear();
         foreach (var item in next) built.Add(item.Key, item.Value);
+        foreach (var item in next.Values) item.SetChecks(checks.GetValueOrDefault(item.Model.Commit.Sha));
+        if (next.Values.Any(item => !answered.Contains(item.Model.Commit.Sha) && !asking.Contains(item.Model.Commit.Sha))) { settle.Stop(); settle.Start(); }
         window.Margin = new Thickness(0, first * LaneArt.RowHeight, 0, 0);
     }
 
-    private GraphCommitRow Row(GraphRow row) => new(context, () => workspaceId, row, drawnLanes, shownLanes,
-        marks.GetValueOrDefault(row.Commit.Sha) ?? [], sha => _ = CopyHashAsync(sha), sha => _ = CopyPatchAsync(sha));
+    private GraphCommitRow Row(GraphRow row)
+    {
+        var made = new GraphCommitRow(context, () => workspaceId, row, drawnLanes, shownLanes,
+            marks.GetValueOrDefault(row.Commit.Sha) ?? [], sha => _ = CopyHashAsync(sha), sha => _ = CopyPatchAsync(sha), Open);
+        made.SetChecks(checks.GetValueOrDefault(row.Commit.Sha));
+        return made;
+    }
+
+    private void Open(string url)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && TopLevel.GetTopLevel(this)?.Launcher is { } launcher) _ = launcher.LaunchUriAsync(uri);
+    }
+
+    // Only the commits on screen are asked about, after the scroll settles, at most 50 a call. The host remembers answers, so asking again is cheap.
+    private async Task AskChecksAsync(bool refresh)
+    {
+        if (projectId is not { } project || !IsEffectivelyVisible) { UpdatePoll(); return; }
+        var shown = built.Values.Select(item => item.Model.Commit.Sha).ToList();
+        var wanted = shown.Where(sha => !asking.Contains(sha) && (refresh ? checks.GetValueOrDefault(sha)?.State == "pending" : !answered.Contains(sha))).Take(50).ToList();
+        if (wanted.Count == 0) { UpdatePoll(); return; }
+        var ticket = generation;
+        CheckCalls++;
+        foreach (var sha in wanted) asking.Add(sha);
+        GitGraphChecks found;
+        try { found = await context.RequestAsync(BranchGraphContract.Checks, new GitGraphChecksParams(project, wanted)); }
+        catch (PluginCallException error)
+        {
+            if (ticket != generation) return;
+            foreach (var sha in wanted) { asking.Remove(sha); answered.Add(sha); }
+            if (!checksFailed) { checksFailed = true; context.Log.Warn("The commit checks could not be read: " + error.Message); }
+            return;
+        }
+        if (ticket != generation) return;
+        foreach (var sha in wanted)
+        {
+            asking.Remove(sha);
+            answered.Add(sha);
+            checks[sha] = found.Commits.FirstOrDefault(item => item.Sha == sha);
+        }
+        foreach (var item in built.Values) item.SetChecks(checks.GetValueOrDefault(item.Model.Commit.Sha));
+        UpdatePoll();
+    }
+
+    // Running checks are looked at again every 30 seconds while any is on screen; nothing polls otherwise.
+    private void UpdatePoll()
+    {
+        if (built.Values.Any(item => checks.GetValueOrDefault(item.Model.Commit.Sha)?.State == "pending")) { if (!poll.IsEnabled) poll.Start(); }
+        else poll.Stop();
+    }
 
     private async Task<bool> CopyAsync(string text)
     {

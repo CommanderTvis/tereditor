@@ -31,6 +31,13 @@ public sealed class BranchGraphHost : PluginHostModule
             if (patch.Failure is not null || !patch.Ok) throw new InvalidOperationException("Could not generate patch: " + (patch.Err.Length > 0 ? patch.Err : "git failed"));
             return new GitPatch(patch.Out);
         });
+        // The checks come from whichever repo host owns origin (GitHub, when it is on); none is a normal answer, never an error.
+        context.Method(BranchGraphContract.Checks, async (parameters, _, cancellationToken) =>
+        {
+            var project = Project(parameters.ProjectId);
+            var found = await context.CommitChecksAsync(project.Path, [.. parameters.Shas.Take(50)], cancellationToken);
+            return new GitGraphChecks([.. found.Select(item => new GitGraphCheck(item.Sha, item.State, item.Passed, item.Total, item.Attention, item.Url))]);
+        });
         return ValueTask.FromResult<PluginDisposer?>(null);
     }
 }

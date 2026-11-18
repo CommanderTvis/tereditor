@@ -25,6 +25,15 @@ public sealed class GitHubProvider(ToolRunner run) : RepoHostProvider
 
     public override bool Recognizes(string remoteUrl) => Repository(remoteUrl) is not null;
 
+    /// <summary>Told once when the Git Graph's check lookups pause.</summary>
+    public Action<string>? Log { get; init; }
+
+    private GitHubCommitChecks? commitChecks;
+
+    public override ValueTask<IReadOnlyList<CommitChecks>> CommitChecksAsync(RepoHostBranch repository, IReadOnlyList<string> shas, CancellationToken cancellationToken) =>
+        Offline || Repository(repository.RemoteUrl) is not { } slug ? ValueTask.FromResult<IReadOnlyList<CommitChecks>>([])
+            : (commitChecks ??= new(run, Log)).ReadAsync(slug, repository.Directory, shas, cancellationToken);
+
     public override async ValueTask<RepoHostSignIn> SignInAsync(CancellationToken cancellationToken)
     {
         try
