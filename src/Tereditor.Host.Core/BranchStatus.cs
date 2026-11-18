@@ -51,8 +51,7 @@ public sealed partial class ProjectServices
 
     private static async Task<bool> RefExistsAsync(string currentRoot, string reference, CancellationToken ct)
     {
-        try { await GitRepository.RunAsync(currentRoot, ct, "rev-parse", "--verify", "-q", "--end-of-options", reference); return true; }
-        catch (IOException) { return false; }
+        return await GitRepository.TryRunAsync(currentRoot, ct, "rev-parse", "--verify", "-q", "--end-of-options", reference) is not null;
     }
 
     public async ValueTask<BranchActionResult> ApplyBranchActionAsync(BranchAction action, CancellationToken cancellationToken = default)

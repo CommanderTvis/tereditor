@@ -44,6 +44,8 @@ public sealed class GitHubProvider(ToolRunner run) : RepoHostProvider
         var result = await run("gh", branch.Directory, ["pr", "list", "--head", branch.Branch, "--state", "all", "--limit", "20", "--json",
             "number,title,url,state,isDraft,statusCheckRollup,reviewDecision,mergeStateStatus,headRepositoryOwner,headRepository"], Query, GhEnvironment, cancellationToken);
         if (result.ExitCode != 0) throw new IOException("gh pr list failed.");
+        // No output at all is no request, the same as an empty list.
+        if (string.IsNullOrWhiteSpace(result.Output)) return null;
         using var json = JsonDocument.Parse(result.Output);
         if (json.RootElement.ValueKind != JsonValueKind.Array || json.RootElement.GetArrayLength() == 0) return null;
         var items = json.RootElement.EnumerateArray().ToArray();
@@ -115,6 +117,7 @@ public sealed class GitHubProvider(ToolRunner run) : RepoHostProvider
         var args = new List<string> { "pr", "list", "--head", branch.Branch, "--state", "open", "--json", "number,url", "--limit", "1", "--base", branch.BaseName };
         var result = await run("gh", branch.Directory, args, Query, GhEnvironment, ct);
         if (result.ExitCode != 0) throw new IOException("gh pr list failed.");
+        if (string.IsNullOrWhiteSpace(result.Output)) return null;
         using var json = JsonDocument.Parse(result.Output);
         if (json.RootElement.ValueKind != JsonValueKind.Array || json.RootElement.GetArrayLength() == 0) return null;
         var first = json.RootElement[0];
@@ -148,7 +151,7 @@ public sealed class GitHubProvider(ToolRunner run) : RepoHostProvider
         var origin = branch.RemoteUrl;
         if (MergeMethodCache.TryGetValue(origin, out var cached) && Environment.TickCount64 - cached.At < MergeMethodsTtl.TotalMilliseconds) return cached.Methods;
         var result = await run("gh", branch.Directory, ["repo", "view", "--json", "mergeCommitAllowed,squashMergeAllowed,rebaseMergeAllowed"], Query, GhEnvironment, ct);
-        if (result.ExitCode != 0) return [];
+        if (result.ExitCode != 0 || string.IsNullOrWhiteSpace(result.Output)) return [];
         using var json = JsonDocument.Parse(result.Output);
         bool Allowed(string name) => json.RootElement.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
         IReadOnlyList<string> methods = [.. new[] { ("merge", "mergeCommitAllowed"), ("squash", "squashMergeAllowed"), ("rebase", "rebaseMergeAllowed") }

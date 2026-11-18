@@ -40,7 +40,11 @@ and exit code on a nonzero exit, and kills the child's process group on cancella
 `timed out after Ns — ` followed by what Git had written, else `git did not exit`, or for `fetch`, `push`,
 `pull`, `clone` and `ls-remote` alone the hint that an unloaded SSH key is the usual cause. A timeout
 carries exit code -1, so no semantic probe mistakes it for an expected exit. Semantic probes distinguish an expected exit (for example exit 1 from
-`merge-base` or `symbolic-ref -q`) from any other failure by that exit code; nothing else is swallowed.
+`merge-base` or `symbolic-ref -q`) from any other failure by that exit code; nothing else is swallowed. An expected
+exit is a result, never an exception: `ProbeAsync` and `TryRunAsync` hand the exit code back, so a quiet probe that
+answers "no" (an absent ref, an unset `config --get`, a detached HEAD, a branch with no origin copy, a folder that is
+no repository, a bare repository) raises nothing on every refresh. Every non-zero exit is counted by command
+(`NonZeroExits`) and every raised failure in `Raised`, which `--case idle-git` reads.
 Every path argument is literal, never a pathspec, so a file named like pathspec magic or a glob matches
 only itself. Revisions go after `--end-of-options` and before a trailing `--`, so neither an option-shaped
 ref nor a ref that also names a path can be misread.

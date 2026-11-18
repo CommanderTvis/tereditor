@@ -510,6 +510,8 @@ public sealed partial class WorkbenchWindow
         foreach (var worktree in git.Worktrees.OrderBy(tree => tree.Path != workspaceRoot).ToArray())
         {
             DiffStats? stats;
+            // A superseded refresh starts no more reads.
+            if (token.IsCancellationRequested) return;
             try { stats = await Task.Run(async () => await host.GetDiffStatsAsync(worktree.Path, token), token); }
             // A superseded refresh cancels the call in flight, which a remote host reports as an RPC status, not as a cancellation.
             catch (Exception) when (token.IsCancellationRequested) { return; }

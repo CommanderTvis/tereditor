@@ -1598,6 +1598,7 @@ internal static class Program
         Gate.Case("terminal-memory-guard", () => TerminalMemoryGuardChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("terminal-hosts", () => TerminalHostChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("missing-projects", () => MissingProjectChecks.Run(root).GetAwaiter().GetResult());
+        Gate.Case("idle-git", () => IdleGitChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("deleted-folders", () => DeletedFolderChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("shell-integration", () => ShellIntegrationChecks.RunHost(root).GetAwaiter().GetResult());
         Gate.Case("windows-host", () => WindowsChecks.RunHost(root).GetAwaiter().GetResult());

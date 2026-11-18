@@ -85,11 +85,8 @@ public sealed partial class ProjectServices
     {
         var label = DisplayName(name);
         if (branch is not null && string.IsNullOrWhiteSpace(branch)) throw new ArgumentException("Enter a new branch name.");
-        try { await GitRepository.RunAsync(project, cancellationToken, "rev-parse", "--verify", "HEAD"); }
-        catch (IOException)
-        {
+        if (await GitRepository.TryRunAsync(project, cancellationToken, "rev-parse", "--verify", "--quiet", "HEAD") is null)
             throw new InvalidOperationException("This repository has no commits yet, so there is nothing to branch a workspace from. Make the first commit, then try again.");
-        }
         var chosen = string.IsNullOrWhiteSpace(baseBranch) ? "HEAD" : baseBranch.Trim();
         // The record names where the branch came from, so an unpicked base is the project's current branch.
         if (chosen == "HEAD" && await CheckoutBranchAsync(project, cancellationToken) is { } head && head != Detached) chosen = head;
@@ -138,11 +135,8 @@ public sealed partial class ProjectServices
         try { await FetchRemoteAsync(project, reference, cancellationToken); }
         catch (IOException error) { failure = error.Message; }
         // Checked after the fetch whatever its outcome, so a concurrent prefetch that landed the ref wins.
-        try { await GitRepository.RunAsync(project, cancellationToken, "rev-parse", "--verify", "--quiet", "--end-of-options", tracking); }
-        catch (IOException)
-        {
+        if (await GitRepository.TryRunAsync(project, cancellationToken, "rev-parse", "--verify", "--quiet", "--end-of-options", tracking) is null)
             throw new IOException(failure ?? $"Could not fetch {reference}: {remote} does not map it into refs/remotes — check remote.{remote}.fetch");
-        }
         if (failure is not null) Console.Error.WriteLine(failure);
         return tracking;
     }
@@ -282,17 +276,15 @@ public sealed partial class ProjectServices
     {
         var path = Path.Combine(WorktreesDirectory(project), branch);
         if (Directory.Exists(path) || File.Exists(path)) return true;
-        try { await GitRepository.RunAsync(project, cancellationToken, "show-ref", "--verify", "--quiet", "refs/heads/" + branch); return true; }
-        catch (IOException) { return false; }
+        return await GitRepository.TryRunAsync(project, cancellationToken, "show-ref", "--verify", "--quiet", "refs/heads/" + branch) is not null;
     }
 
     /// <summary>The linked worktrees still on disk, or null when the folder is not a repository's main worktree.</summary>
     private static async Task<IReadOnlyList<WorktreeInfo>?> LinkedWorktreesAsync(string project, CancellationToken cancellationToken)
     {
         if (!Directory.Exists(project)) return null;
-        List<WorktreeInfo> worktrees;
-        try { worktrees = GitRepository.ParseWorktrees(await GitRepository.RunAsync(project, cancellationToken, "worktree", "list", "--porcelain", "-z")); }
-        catch (IOException) { return null; }
+        if (await GitRepository.TryRunAsync(project, cancellationToken, "worktree", "list", "--porcelain", "-z") is not { } listing) return null;
+        var worktrees = GitRepository.ParseWorktrees(listing);
         if (worktrees.Count > 0 && worktrees[0].Path != project) throw new ArgumentException("Workspaces belong to a project's main folder.");
         return worktrees.Where(tree => !tree.IsMain && Directory.Exists(tree.Path)).ToArray();
     }
@@ -304,9 +296,10 @@ public sealed partial class ProjectServices
     private static async Task<string?> CheckoutBranchAsync(string path, CancellationToken cancellationToken)
     {
         if (!Directory.Exists(path)) return null;
-        try { return (await GitRepository.RunAsync(path, cancellationToken, "symbolic-ref", "--short", "-q", "HEAD")).Trim() is { Length: > 0 } branch ? branch : Detached; }
-        catch (IOException) { }
-        try { await GitRepository.RunAsync(path, cancellationToken, "rev-parse", "--git-dir"); return Detached; }
-        catch (IOException) { return null; }
+        // Exit 1 is a detached HEAD; any other failure sends the folder to the repository test below.
+        var head = await GitRepository.ProbeAsync(path, cancellationToken, "symbolic-ref", "--short", "-q", "HEAD");
+        if (head.Succeeded && head.Output.Trim() is { Length: > 0 } branch) return branch;
+        if (head.ExitCode == 1) return Detached;
+        return await GitRepository.TryRunAsync(path, cancellationToken, "rev-parse", "--git-dir") is null ? null : Detached;
     }
 }

@@ -113,6 +113,11 @@ presets belong to the UI.
   at once. Listing the workspaces of a missing project answers with none (one broadcast on first detection), and
   change totals for a missing worktree are none: neither starts Git. `--case missing-projects` counts Git runs,
   exceptions and folder looks over 300 reads.
+- An idle host asks Git only read-only questions and raises nothing. After its first refresh, the workspace listing, the
+  snapshot, the branch list, the branch status and the change totals over a normal repository, one without commits, a
+  plain folder, a bare repository, a detached HEAD and a linked worktree throw no exception and start the same bounded
+  number of Git runs on every pass; reading the state starts none. `--case idle-git` prints the commands and exit
+  codes it answered as results and each exception by call site. A superseded rail totals refresh starts no further read.
 - A plain folder opens as a project directly, with no Git required: it is its own root and its Default
   workspace is the only one it has. A folder that later gains a `.git` is a repository on its next open.
 

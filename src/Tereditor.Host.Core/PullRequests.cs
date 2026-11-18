@@ -186,23 +186,17 @@ public sealed partial class ProjectServices
 
     private static async Task<string> ConfigAsync(string currentRoot, string key, CancellationToken ct)
     {
-        try { return await GitRepository.RunAsync(currentRoot, ct, "config", "--get", key); }
-        catch (IOException) { return ""; }
+        return await GitRepository.TryRunAsync(currentRoot, ct, "config", "--get", key) ?? "";
     }
 
     private static async Task<string?> CurrentBranchAsync(string currentRoot, CancellationToken ct)
     {
-        try
-        {
-            var branch = (await GitRepository.RunAsync(currentRoot, ct, "symbolic-ref", "--short", "-q", "HEAD")).Trim();
-            return branch.Length == 0 ? null : branch;
-        }
-        catch (IOException) { return null; }
+        var branch = (await GitRepository.TryRunAsync(currentRoot, ct, "symbolic-ref", "--short", "-q", "HEAD"))?.Trim();
+        return string.IsNullOrEmpty(branch) ? null : branch;
     }
 
     private static async Task<string> OriginUrlAsync(string currentRoot, CancellationToken ct)
     {
-        try { return (await GitRepository.RunAsync(currentRoot, ct, "remote", "get-url", "origin")).Trim(); }
-        catch (IOException) { return ""; }
+        return (await GitRepository.TryRunAsync(currentRoot, ct, "remote", "get-url", "origin"))?.Trim() ?? "";
     }
 }

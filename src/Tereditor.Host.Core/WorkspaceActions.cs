@@ -27,12 +27,8 @@ public sealed partial class ProjectServices
         var preferred = "";
         if (remotes.Contains("origin"))
         {
-            try
-            {
-                var head = (await GitRepository.RunAsync(currentRoot, cancellationToken, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")).Trim();
-                if (head.StartsWith("refs/remotes/origin/", StringComparison.Ordinal)) preferred = head[13..];
-            }
-            catch (IOException) { }
+            var head = (await GitRepository.TryRunAsync(currentRoot, cancellationToken, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"))?.Trim();
+            if (head?.StartsWith("refs/remotes/origin/", StringComparison.Ordinal) == true) preferred = head[13..];
         }
         if (fetchDefault && preferred.Length > 0)
         {
@@ -55,17 +51,11 @@ public sealed partial class ProjectServices
         if (!remote.Any(branch => branch.Ref == defaultBase) && !local.Contains(defaultBase))
         {
             var main = await MainWorktreeAsync(currentRoot, cancellationToken);
-            try
-            {
-                var branch = (await GitRepository.RunAsync(main, cancellationToken, "symbolic-ref", "--short", "--quiet", "HEAD")).Trim();
-                defaultBase = local.Contains(branch) ? branch : "HEAD";
-            }
-            catch (IOException) { defaultBase = "HEAD"; }
+            var branch = (await GitRepository.TryRunAsync(main, cancellationToken, "symbolic-ref", "--short", "--quiet", "HEAD"))?.Trim();
+            defaultBase = branch is not null && local.Contains(branch) ? branch : "HEAD";
         }
         var (path, suggested) = await NextWorkspaceAsync(currentRoot, cancellationToken);
-        string current;
-        try { current = (await GitRepository.RunAsync(currentRoot, cancellationToken, "symbolic-ref", "--quiet", "--short", "HEAD")).Trim(); }
-        catch (IOException) { current = ""; }
+        var current = (await GitRepository.TryRunAsync(currentRoot, cancellationToken, "symbolic-ref", "--quiet", "--short", "HEAD"))?.Trim() ?? "";
         return new(local, remote, defaultBase) { SuggestedPath = path, SuggestedBranch = suggested, Current = current, Tips = await LocalTipsAsync(currentRoot, defaultBase, cancellationToken) };
     }
 
@@ -124,22 +114,18 @@ public sealed partial class ProjectServices
 
     private static async Task<string> DefaultBaseAsync(string currentRoot, CancellationToken cancellationToken)
     {
-        try
-        {
-            var head = (await GitRepository.RunAsync(currentRoot, cancellationToken, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")).Trim();
-            // A missing tracking ref is still the base while origin exists (creation fetches it, as the reference
-            // does), but removing the remote leaves origin/HEAD dangling with nothing to fetch it from.
-            // The repository's own answer is a ref like any other: a crafted origin/HEAD must not pass unchecked.
-            if (head.StartsWith("refs/remotes/", StringComparison.Ordinal) && GitRefs.IsSafe(head[13..]) &&
-                (await RemotesAsync(currentRoot, cancellationToken)).Contains("origin"))
-                return head[13..];
-        }
-        catch (IOException) { }
+        var head = (await GitRepository.TryRunAsync(currentRoot, cancellationToken, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"))?.Trim();
+        // A missing tracking ref is still the base while origin exists (creation fetches it, as the reference
+        // does), but removing the remote leaves origin/HEAD dangling with nothing to fetch it from.
+        // The repository's own answer is a ref like any other: a crafted origin/HEAD must not pass unchecked.
+        if (head is not null && head.StartsWith("refs/remotes/", StringComparison.Ordinal) && GitRefs.IsSafe(head[13..]) &&
+            (await RemotesAsync(currentRoot, cancellationToken)).Contains("origin"))
+            return head[13..];
         try
         {
             var main = await MainWorktreeAsync(currentRoot, cancellationToken);
-            var branch = (await GitRepository.RunAsync(main, cancellationToken, "symbolic-ref", "--short", "--quiet", "HEAD")).Trim();
-            if (GitRefs.IsSafe(branch)) return branch;
+            var branch = (await GitRepository.TryRunAsync(main, cancellationToken, "symbolic-ref", "--short", "--quiet", "HEAD"))?.Trim();
+            if (branch is not null && GitRefs.IsSafe(branch)) return branch;
         }
         catch (IOException) { }
         return "HEAD";
@@ -176,8 +162,7 @@ public sealed partial class ProjectServices
 
     private static async Task<string?> TrackingCommitAsync(string currentRoot, string reference, CancellationToken cancellationToken)
     {
-        try { return (await GitRepository.RunAsync(currentRoot, cancellationToken, "rev-parse", "--verify", "--quiet", "--end-of-options", "refs/remotes/" + reference)).Trim(); }
-        catch (IOException) when (!cancellationToken.IsCancellationRequested) { return null; }
+        return (await GitRepository.TryRunAsync(currentRoot, cancellationToken, "rev-parse", "--verify", "--quiet", "--end-of-options", "refs/remotes/" + reference))?.Trim();
     }
 
     private async Task<(string Path, string Branch)> NextWorkspaceAsync(string currentRoot, CancellationToken cancellationToken)
@@ -189,8 +174,7 @@ public sealed partial class ProjectServices
             var name = "workspace-" + number;
             var path = Path.Combine(parent, name);
             if (Directory.Exists(path) || File.Exists(path)) continue;
-            try { await GitRepository.RunAsync(currentRoot, cancellationToken, "rev-parse", "--verify", "--quiet", "refs/heads/" + name); }
-            catch (IOException) { return (path, name); }
+            if (await GitRepository.TryRunAsync(currentRoot, cancellationToken, "rev-parse", "--verify", "--quiet", "refs/heads/" + name) is null) return (path, name);
         }
     }
 }

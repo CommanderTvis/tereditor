@@ -24,6 +24,50 @@ internal static class GitRepository
     /// <summary>How many Git runs were started, for checks that assert a missing project is not polled.</summary>
     internal static long Invocations;
 
+    /// <summary>Non-zero Git exits by command, as results and as exceptions, for checks that name what an idle host asks Git.</summary>
+    internal static readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> NonZeroExits = new();
+
+    /// <summary>How many of those non-zero exits were raised as exceptions; a probe hands its exit back and raises nothing.</summary>
+    internal static long Raised;
+
+    private static void CountExit(string[] args, int exitCode)
+    {
+        var key = $"git {string.Join(' ', args.Take(4))} => {exitCode}";
+        NonZeroExits.AddOrUpdate(key, 1, (_, count) => count + 1);
+    }
+
+    /// <summary>A Git run whose non-zero exit is an answer the caller reads, not a failure.</summary>
+    internal readonly record struct Probe(int ExitCode, string Output, string Error)
+    {
+        internal bool Succeeded => ExitCode == 0;
+    }
+
+    /// <summary>
+    /// Runs Git and hands back its exit code. A quiet probe (<c>--quiet</c>, <c>config --get</c>, a ref that may be absent)
+    /// exits 1 as its normal "no"; that is a result here, not an exception. A run that timed out or never started still throws.
+    /// </summary>
+    internal static async Task<Probe> ProbeAsync(string root, CancellationToken ct, params string[] args)
+    {
+        var result = await RunCoreAsync(root, args, Budget, ct);
+        return new(result.ExitCode, result.Output, result.Error);
+    }
+
+    /// <summary>Standard output when Git exits 0, null on any other exit; for callers that treat every failure as "not there".</summary>
+    internal static async Task<string?> TryRunAsync(string root, CancellationToken ct, params string[] args)
+    {
+        var probe = await ProbeAsync(root, ct, args);
+        return probe.Succeeded ? probe.Output : null;
+    }
+
+    /// <summary>The exception a failed run raises, for callers that read a probe and find the exit is a real error.</summary>
+    internal static IOException Failure(Probe probe) => Raise(probe.ExitCode, Bounded(probe.Error));
+
+    private static IOException Raise(int exitCode, string message)
+    {
+        Interlocked.Increment(ref Raised);
+        return new GitException(exitCode, message);
+    }
+
     internal static async Task<string> RunAsync(string root, CancellationToken ct, params string[] args) =>
         (await ExecuteAsync(root, args, Budget, ct)).Output;
 
@@ -33,12 +77,19 @@ internal static class GitRepository
 
     internal static async Task<ChildProcess.Result> ExecuteAsync(string root, string[] args, TimeSpan budget, CancellationToken ct)
     {
+        var result = await RunCoreAsync(root, args, budget, ct);
+        if (result.ExitCode != 0) throw Raise(result.ExitCode, Bounded(result.Error));
+        return result;
+    }
+
+    private static async Task<ChildProcess.Result> RunCoreAsync(string root, string[] args, TimeSpan budget, CancellationToken ct)
+    {
         Interlocked.Increment(ref Invocations);
         string[] full = ["--literal-pathspecs", "-c", "core.quotepath=false", .. args];
         ChildProcess.Result result;
         try { result = await ChildProcess.RunAsync("git", root, full, budget, ct, Prompts); }
-        catch (ChildProcess.ExpiredException error) { throw new GitException(-1, TimeoutMessage(error, args)); }
-        if (result.ExitCode != 0) throw new GitException(result.ExitCode, Bounded(result.Error));
+        catch (ChildProcess.ExpiredException error) { throw Raise(-1, TimeoutMessage(error, args)); }
+        if (result.ExitCode != 0) CountExit(args, result.ExitCode);
         return result;
     }
 
@@ -68,8 +119,7 @@ internal static class GitRepository
     {
         async Task<string?> Head()
         {
-            try { return (await RunAsync(root, ct, "rev-parse", "--verify", "HEAD")).Trim(); }
-            catch (IOException) when (!ct.IsCancellationRequested) { return null; }
+            return (await TryRunAsync(root, ct, "rev-parse", "--verify", "--quiet", "HEAD"))?.Trim();
         }
         async Task<bool> Untracked() =>
             (await RunAsync(root, ct, "ls-files", "--others", "--exclude-standard", "-z", "--", path)).Length > 0;
@@ -205,12 +255,8 @@ internal static class GitRepository
     /// <summary>The repository's shared Git directory, which every linked worktree resolves to; null outside a repository.</summary>
     internal static async Task<string?> CommonDirectoryAsync(string root, CancellationToken ct)
     {
-        try
-        {
-            var path = (await RunAsync(root, ct, "rev-parse", "--git-common-dir")).TrimEnd('\r', '\n');
-            return path.Length == 0 ? null : Path.GetFullPath(path, root);
-        }
-        catch (GitException) { return null; }
+        var path = (await TryRunAsync(root, ct, "rev-parse", "--git-common-dir"))?.TrimEnd('\r', '\n');
+        return string.IsNullOrEmpty(path) ? null : Path.GetFullPath(path, root);
     }
 
     /// <summary>Whether Git tracks anything at or under <paramref name="path"/>, a root-relative file or directory.</summary>
@@ -231,8 +277,9 @@ internal static class GitRepository
     internal static async Task<string> ComparisonBaseAsync(string root, string comparison, CancellationToken ct)
     {
         var target = (await RunAsync(root, ct, "rev-parse", "--verify", "--end-of-options", GitRefs.Require(comparison) + "^{commit}")).Trim();
-        try { return (await RunAsync(root, ct, "merge-base", "--end-of-options", target, "HEAD")).Trim(); }
-        catch (GitException error) when (error.ExitCode == 1) { return target; }
+        // Exit 1 is "no common ancestor": the target itself is the base.
+        var probe = await ProbeAsync(root, ct, "merge-base", "--end-of-options", target, "HEAD");
+        return probe.ExitCode switch { 0 => probe.Output.Trim(), 1 => target, _ => throw Failure(probe) };
     }
 
     internal static async Task<List<string>> CommitDiffArgumentsAsync(string root, string commit, CancellationToken ct)
@@ -248,8 +295,13 @@ internal static class GitRepository
     internal static async Task<string> PinnedCommitAsync(string root, string commit, CancellationToken ct)
     {
         RequireCommitId(commit);
-        try { return (await RunAsync(root, ct, "rev-parse", "--verify", "--quiet", "--end-of-options", commit + "^{commit}")).Trim(); }
-        catch (GitException error) when (error.ExitCode == 1) { throw new HostException(HostErrorCode.UnknownCommit, $"Unknown commit: {commit}"); }
+        var probe = await ProbeAsync(root, ct, "rev-parse", "--verify", "--quiet", "--end-of-options", commit + "^{commit}");
+        return probe.ExitCode switch
+        {
+            0 => probe.Output.Trim(),
+            1 => throw new HostException(HostErrorCode.UnknownCommit, $"Unknown commit: {commit}"),
+            _ => throw Failure(probe)
+        };
     }
 
     private static void RequireCommitId(string commit)
@@ -262,21 +314,33 @@ internal static class GitRepository
     internal static async Task<(string? Parent, string Commit)> CommitRangeAsync(string root, string commit, CancellationToken ct)
     {
         var sha = await PinnedCommitAsync(root, commit, ct);
-        try { return ((await RunAsync(root, ct, "rev-parse", "--verify", "--quiet", "--end-of-options", sha + "^")).Trim(), sha); }
-        catch (GitException error) when (error.ExitCode == 1) { return (null, sha); }
+        var probe = await ProbeAsync(root, ct, "rev-parse", "--verify", "--quiet", "--end-of-options", sha + "^");
+        return probe.ExitCode switch { 0 => (probe.Output.Trim(), sha), 1 => (null, sha), _ => throw Failure(probe) };
     }
 
     internal static async Task<GitSnapshot> SnapshotAsync(string root, string comparison, CancellationToken ct, string scope = "all")
     {
         if (scope is not ("all" or "uncommitted" or "staged" or "commit" or "pinned")) throw new ArgumentException("Unknown change scope.");
-        try { await RunAsync(root, ct, "rev-parse", "--git-dir"); }
-        catch (GitException error) when (error.ExitCode == 128 && error.Message.StartsWith("fatal: not a git repository (or any", StringComparison.Ordinal))
-        { return new(false, "", [], [], []); }
-        string branch;
-        try { branch = (await RunAsync(root, ct, "symbolic-ref", "--short", "-q", "HEAD")).Trim(); }
-        catch (GitException error) when (error.ExitCode == 1) { branch = "detached HEAD"; }
+        var gitDir = await ProbeAsync(root, ct, "rev-parse", "--git-dir");
+        if (!gitDir.Succeeded)
+        {
+            if (gitDir.ExitCode == 128 && gitDir.Error.Trim().StartsWith("fatal: not a git repository (or any", StringComparison.Ordinal))
+                return new(false, "", [], [], []);
+            throw Failure(gitDir);
+        }
+        var head = await ProbeAsync(root, ct, "symbolic-ref", "--short", "-q", "HEAD");
+        if (head.ExitCode is not (0 or 1)) throw Failure(head);
+        var branch = head.Output.Trim();
         if (string.IsNullOrEmpty(branch)) branch = "detached HEAD";
-        var status = scope == "commit" ? "" : await RunAsync(root, ct, "status", "--porcelain=v1", "-z", "--untracked-files=all");
+        var status = "";
+        if (scope != "commit")
+        {
+            var run = await ProbeAsync(root, ct, "status", "--porcelain=v1", "-z", "--untracked-files=all");
+            // A bare repository has no files to show: it reads as no repository, not as an error on every refresh.
+            if (run.ExitCode == 128 && run.Error.Contains("work tree", StringComparison.Ordinal)) return new(false, "", [], [], []);
+            if (!run.Succeeded) throw Failure(run);
+            status = run.Output;
+        }
         var workingChanges = ParseStatus(status);
         var diff = scope == "commit" ? await CommitDiffArgumentsAsync(root, comparison, ct) : new List<string> { "diff", "--no-renames" };
         if (scope == "staged") diff.Add("--cached");
@@ -286,12 +350,9 @@ internal static class GitRepository
         else if (scope == "uncommitted") diff.Add("HEAD");
         else if (scope == "all")
         {
-            try
-            {
-                await RunAsync(root, ct, "rev-parse", "--verify", "--quiet", "HEAD");
-                diff.Add("HEAD");
-            }
-            catch (GitException error) when (error.ExitCode == 1) { diff.Add("--cached"); }
+            var born = await ProbeAsync(root, ct, "rev-parse", "--verify", "--quiet", "HEAD");
+            if (born.ExitCode is not (0 or 1)) throw Failure(born);
+            diff.Add(born.Succeeded ? "HEAD" : "--cached");
         }
         var names = await RunAsync(root, ct, diff.Concat(new[] { "--name-status", "-z", "--" }).ToArray());
         var statuses = workingChanges.ToDictionary(change => change.Path, StringComparer.Ordinal);
@@ -338,9 +399,10 @@ internal static class GitRepository
     {
         ct.ThrowIfCancellationRequested();
         if (sha.Length is < 4 or > 64 || !sha.All(char.IsAsciiHexDigit)) throw new ArgumentException("A commit lookup requires a hexadecimal id.");
-        string commit;
-        try { commit = (await RunAsync(root, ct, "rev-parse", "--verify", "--quiet", "--end-of-options", sha + "^{commit}")).Trim(); }
-        catch (GitException error) when (error.ExitCode == 1) { return null; }
+        var found = await ProbeAsync(root, ct, "rev-parse", "--verify", "--quiet", "--end-of-options", sha + "^{commit}");
+        if (found.ExitCode == 1) return null;
+        if (!found.Succeeded) throw Failure(found);
+        var commit = found.Output.Trim();
         var log = await RunAsync(root, ct, "show", "-s", "--format=%H%x00%h%x00%cI%x00%an%x00%s", "--end-of-options", commit, "--");
         var fields = log.TrimEnd('\r', '\n').Split('\0', 5);
         return fields.Length == 5 ? new(fields[0], fields[1], DisplayText(fields[4]), DisplayText(fields[3]), fields[2]) : null;
@@ -353,9 +415,10 @@ internal static class GitRepository
         if (comparison.Length > 0)
         {
             GitRefs.Require(comparison);
-            string log;
-            try { log = await RunAsync(root, ct, "log", "--max-count=200", "--format=%H%x00%h%x00%cI%x00%an%x00%s", "--end-of-options", comparison + "..HEAD", "--"); }
-            catch (GitException error) when (error.ExitCode == 128) { log = ""; }
+            // Exit 128 is a branch with no commits yet or a comparison that does not exist: no commits to list.
+            var listed = await ProbeAsync(root, ct, "log", "--max-count=200", "--format=%H%x00%h%x00%cI%x00%an%x00%s", "--end-of-options", comparison + "..HEAD", "--");
+            if (listed.ExitCode is not (0 or 128)) throw Failure(listed);
+            var log = listed.Succeeded ? listed.Output : "";
             foreach (var line in log.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
                 var fields = line.Split('\0', 5);
@@ -394,6 +457,11 @@ internal static class GitRepository
 
     internal static async Task<IReadOnlyList<WorktreeInfo>> ListWorktreesAsync(string root, CancellationToken ct) =>
         [.. ParseWorktrees(await RunAsync(root, ct, "worktree", "list", "--porcelain", "-z")).Where(tree => Directory.Exists(tree.Path))];
+
+    /// <summary>The worktrees still on disk, or null when the folder is no repository.</summary>
+    internal static async Task<IReadOnlyList<WorktreeInfo>?> TryListWorktreesAsync(string root, CancellationToken ct) =>
+        await TryRunAsync(root, ct, "worktree", "list", "--porcelain", "-z") is { } text
+            ? [.. ParseWorktrees(text).Where(tree => Directory.Exists(tree.Path))] : null;
 
     internal static List<WorktreeInfo> ParseWorktrees(string text)
     {

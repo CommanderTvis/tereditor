@@ -210,8 +210,7 @@ public sealed partial class ProjectServices(string initialRoot, HostStateStore? 
         else if (scope == "pinned") args.Add(await GitRepository.PinnedCommitAsync(currentRoot, comparisonBranch, cancellationToken));
         else if (scope == "all")
         {
-            try { await GitRepository.RunAsync(currentRoot, cancellationToken, "rev-parse", "--verify", "HEAD"); args.Add("HEAD"); }
-            catch (IOException) { args.Add("--cached"); }
+            args.Add(await GitRepository.TryRunAsync(currentRoot, cancellationToken, "rev-parse", "--verify", "--quiet", "HEAD") is null ? "--cached" : "HEAD");
         }
         else if (scope == "branch")
         {
@@ -384,8 +383,7 @@ public sealed partial class ProjectServices(string initialRoot, HostStateStore? 
 
     private static async Task<bool> HasConfigAsync(string currentRoot, string key, CancellationToken cancellationToken)
     {
-        try { return (await GitRepository.RunAsync(currentRoot, cancellationToken, "config", key)).Trim().Length > 0; }
-        catch (IOException) { return false; }
+        return (await GitRepository.TryRunAsync(currentRoot, cancellationToken, "config", key))?.Trim().Length > 0;
     }
 
     private static string Resolve(string currentRoot, string path) => Contain(currentRoot, path);
