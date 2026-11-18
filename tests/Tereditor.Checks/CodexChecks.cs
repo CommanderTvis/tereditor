@@ -375,21 +375,30 @@ internal static class CodexChecks
         Require(CodexDaemonProbe.Parse("not json") is { Attach: false }, "garbage is not");
 
         Directory.CreateDirectory(root);
-        var control = Path.Combine(root, "control.json");
         var log = Path.Combine(root, "log.txt");
-        var executable = FakeCodexExecutable(Path.Combine(root, "codex"), control, log);
+        // The probe's bound is wall clock including process start, so the cases that must answer use a script that does no work but print
+        // (no .NET start-up) and a bound far past any load; only the hanging case below exercises a short bound, which a slow start cannot fail.
+        string Script(string name, string body)
+        {
+            var path = Path.Combine(root, name);
+            File.WriteAllText(path, "#!/bin/sh\n" + body + "\n");
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            return path;
+        }
+        var running = Script("codex-running", $"echo daemon-version >> '{log}'\necho '{{\"status\":\"running\",\"cliVersion\":\"1\",\"appServerVersion\":\"1\"}}'");
+        var stopped = Script("codex-stopped", "exit 1");
+        var hung = Script("codex-hung", "sleep 60");
         int Probes() => File.Exists(log) ? File.ReadAllLines(log).Count(line => line == "daemon-version") : 0;
-        var probe = new CodexDaemonProbe(() => executable, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5));
-        WriteControl(control, new() { DaemonVersion = """{"status":"running","cliVersion":"1","appServerVersion":"1"}""" });
+        var daemon = running;
+        var probe = new CodexDaemonProbe(() => daemon, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
         var first = await probe.ReadAsync();
         Require(first.Attach, $"the fake daemon is attachable (reason: {first.Reason ?? "none"}; probes: {Probes()}; log: {(File.Exists(log) ? File.ReadAllText(log).Trim() : "missing")})");
         await probe.ReadAsync();
         Equal(Probes(), 1, "a second read within the lifetime is cached");
         probe.Invalidate();
-        WriteControl(control, new());
+        daemon = stopped;
         Require(await probe.ReadAsync() is { Attach: false }, "no daemon falls back");
-        var hanging = new CodexDaemonProbe(() => executable, TimeSpan.FromMilliseconds(300));
-        WriteControl(control, new() { DaemonHang = true });
+        var hanging = new CodexDaemonProbe(() => hung, TimeSpan.FromMilliseconds(300));
         Require(await hanging.ReadAsync() is { Attach: false, Reason: { } slow } && slow.Contains("in time"), "a hung probe times out");
         Require(await new CodexDaemonProbe(() => Path.Combine(root, "missing")).ReadAsync() is { Attach: false }, "a missing executable falls back");
     }
