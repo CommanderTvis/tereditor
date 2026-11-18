@@ -99,8 +99,8 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
             _ = WatchAsync(client, transport);
             agent = await client.InitializeAsync("tereditor", "0.1", lifetime.Token);
             answered?.Invoke(new AcpAnswer(agent.AuthMethods, await AccountsAsync(client, agent)));
-            link?.Seen(AcpSessionSetup.Support(agent));
             var setup = link?.Setup() ?? new AcpSessionSetup(null, null);
+            link?.Seen(setup.Support(agent));
             JsonObject session;
             if (resume is { Length: > 0 } && agent.LoadSession)
             {

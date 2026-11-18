@@ -187,6 +187,20 @@ internal static class AcpChecks
         }
         Require(withoutSetup.Last["session/new"]!["mcpServers"]!.AsArray().Count == 0 && withoutSetup.Last["session/new"]!["systemPrompt"] is null, "A chat the host gave no setup sends neither.");
 
+        // An agent without HTTP gets the stdio form through the bridge: the address is in the environment entry, never in the arguments.
+        var bridged = new AcpSessionSetup("http://127.0.0.1:1/mcp/token", "text", new AcpBridgeCommand("/app/tereditor", [AcpMcpBridge.Argument]));
+        var stdioAgent = new AcpFakeAgent { SystemPrompt = true };
+        await using (var viaBridge = new AcpChatSession("ws", "chat-stdio", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(stdioAgent)), _ => { }, _ => { }, link: new AcpSessionLink(() => bridged, _ => { })))
+        {
+            viaBridge.Begin();
+            await viaBridge.StartAsync(null);
+        }
+        Require(stdioAgent.Last["session/new"]!["mcpServers"]!.AsArray().Single() is JsonObject { } stdio && stdio["command"]!.GetValue<string>() == "/app/tereditor" && stdio["type"] is null
+            && stdio["args"]!.AsArray().Single()!.GetValue<string>() == AcpMcpBridge.Argument && stdio["env"]!.AsArray().Single() is JsonObject { } entry
+            && entry["name"]!.GetValue<string>() == AcpMcpBridge.UrlVariable && entry["value"]!.GetValue<string>() == "http://127.0.0.1:1/mcp/token", "An agent without HTTP gets a stdio server that runs the bridge with the address in its environment.");
+        Require(bridged.Support(new AcpAgentInfo(1, false, false, false, false, [], null, null, false, new JsonObject())) == "tools", "Through the bridge every agent gets the tools.");
+        await Bridge();
+
         var text = AcpSystemPrompt.Compose(["Use set_title."], ["## Section"]);
         Require(text.StartsWith("# You are running inside tereditor", StringComparison.Ordinal) && text.Contains("- Use set_title.", StringComparison.Ordinal) && text.Contains("## Section", StringComparison.Ordinal), "The text names tereditor, then the tool list, then the sections.");
 
@@ -194,6 +208,53 @@ internal static class AcpChecks
             && AcpEntryText.SupportLine("").Contains("first chat", StringComparison.Ordinal), "The settings line says what the agent gets, and that it is not known before the first chat.");
         var json = System.Text.Json.JsonSerializer.Serialize(new AcpAgentEntry("a", "A", "a") { TereditorSupport = "tools" }, AcpHostJson.Default.AcpAgentEntry);
         Require(System.Text.Json.JsonSerializer.Deserialize(json, AcpHostJson.Default.AcpAgentEntry)!.TereditorSupport == "tools", "The recorded support survives the host's saved state.");
+    }
+
+    private sealed class StubHandler(Func<string, HttpResponseMessage> answer) : HttpMessageHandler
+    {
+        public readonly List<string> Bodies = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            lock (Bodies) Bodies.Add(body);
+            return answer(body);
+        }
+    }
+
+    private static async Task<(string[] Lines, StubHandler Handler)> Relay(string input, Func<string, HttpResponseMessage> answer)
+    {
+        var handler = new StubHandler(answer);
+        using var client = new HttpClient(handler);
+        using var output = new MemoryStream();
+        await AcpMcpBridge.RelayAsync(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(input)), output, new Uri("http://127.0.0.1:1/mcp/token"), client);
+        return (System.Text.Encoding.UTF8.GetString(output.ToArray()).Split('\n', StringSplitOptions.RemoveEmptyEntries), handler);
+    }
+
+    private static HttpResponseMessage Json(string body, int status = 200) => new((System.Net.HttpStatusCode)status) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
+
+    // The stdio bridge: one JSON-RPC message per line in, one line out per request, nothing for a notification.
+    private static async Task Bridge()
+    {
+        var (lines, handler) = await Relay("""{"jsonrpc":"2.0","id":7,"method":"tools/list"}""" + "\n", body => Json("""{"jsonrpc":"2.0","id":7,"result":{"tools":[]}}"""));
+        Require(lines.Length == 1 && JsonNode.Parse(lines[0])!["id"]!.GetValue<int>() == 7 && handler.Bodies.Single().Contains("tools/list", StringComparison.Ordinal), "The bridge posts a request and writes its answer as one line.");
+
+        (lines, handler) = await Relay("""{"jsonrpc":"2.0","method":"notifications/initialized"}""" + "\n", _ => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.Accepted));
+        Require(lines.Length == 0 && handler.Bodies.Count == 1, "A notification is posted and nothing is written back.");
+
+        (lines, _) = await Relay("""{"jsonrpc":"2.0","id":"a","method":"tools/call"}""" + "\n" + """{"jsonrpc":"2.0","method":"x"}""" + "\n", _ => new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        Require(lines.Length == 1 && JsonNode.Parse(lines[0]) is JsonObject { } failed && failed["id"]!.GetValue<string>() == "a" && failed["error"]!["message"]!.GetValue<string>().Contains("404", StringComparison.Ordinal), "An error status answers the request with an error for its id, and a notification with an error status gets nothing.");
+
+        var large = new string('x', 2_000_000);
+        (lines, _) = await Relay(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = 1, ["method"] = "echo", ["params"] = large }.ToJsonString() + "\n",
+            body => Json(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = 1, ["result"] = JsonNode.Parse(body)!["params"]!.GetValue<string>() }.ToJsonString()));
+        Require(lines.Length == 1 && JsonNode.Parse(lines[0])!["result"]!.GetValue<string>().Length == large.Length, "A message of two million characters goes through whole.");
+
+        (lines, handler) = await Relay("", _ => Json("{}"));
+        Require(lines.Length == 0 && handler.Bodies.Count == 0, "When stdin is closed the bridge ends having sent nothing.");
+
+        (lines, _) = await Relay("""{"jsonrpc":"2.0","id":1,"method":"a"}""" + "\n" + """{"jsonrpc":"2.0","id":2,"method":"b"}""" + "\n", body => Json(body.Replace("\"method\"", "\"result\"", StringComparison.Ordinal)));
+        Require(lines.Length == 2 && lines.All(line => !line.Contains('\n')), "Several requests each get their own answer line.");
     }
 
     internal static void Logo()

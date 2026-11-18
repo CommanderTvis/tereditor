@@ -214,7 +214,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
             text = AcpSystemPrompt.Compose(context.PromptTexts(AcpManifest.Id, PromptPlacement.ToolList, workspaceId), context.PromptTexts(AcpManifest.Id, PromptPlacement.Section, workspaceId));
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException) { context.Log.Warn("the chat gets no tereditor instructions: " + error.Message); }
-        return new(url, text);
+        return new(url, text, AcpBridgeCommand.Current());
     }
 
     public AcpAgentList RemoveAgent(string id)

@@ -10,6 +10,7 @@ internal static class Program
         StartupPhases.Mark("managed-entry");
         UiErrorGuard.Shared.InstallProcessHooks();
         if (args is [Terminal.TerminalRelay.Argument]) Environment.Exit(Terminal.TerminalRelay.Run());
+        if (args is [Tereditor.Plugins.Acp.AcpMcpBridge.Argument]) Environment.Exit(Tereditor.Plugins.Acp.AcpMcpBridge.Run());
         Console.WriteLine($"TEREDITOR_MAIN {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
         var builder = AppBuilder.Configure<App>().UsePlatformDetect()
             .With(new AvaloniaNativePlatformOptions { RenderingMode = [AvaloniaNativeRenderingMode.Metal, AvaloniaNativeRenderingMode.OpenGl, AvaloniaNativeRenderingMode.Software] })
