@@ -16,12 +16,11 @@ namespace Tereditor.Plugins.AirGateway.UI;
 /// sign-in is awaited, only while the pane is attached and visible); every other action is a button. The AI access
 /// sources are listed automatically (on the host, never on the UI thread) while Central governs an agent and is
 /// signed in: on open, when an agent starts using Central, after sign-in, after a switch and on the throttled
-/// activation check. The pane shows the exact command shape new launches will get.
-/// </summary>
+/// activation check./// </summary>
 internal sealed partial class AirSettingsView : UserControl
 {
     private readonly IPluginUIContext context;
-    private readonly TextBlock centralLine, credits, launches, launchNote, result, accessNote;
+    private readonly TextBlock centralLine, credits, launchNote, result, accessNote;
     private readonly StackPanel install, access;
     private readonly TextBox installCommand;
     private readonly Button signIn, signOut, startProxy, update;
@@ -50,7 +49,7 @@ internal sealed partial class AirSettingsView : UserControl
         this.context = context;
         AvaloniaXamlLoader.Load(this);
         T Get<T>(string name) where T : Control => this.FindControl<T>(name)!;
-        centralLine = Get<TextBlock>("AirCentralLine"); credits = Get<TextBlock>("AirCredits"); launches = Get<TextBlock>("AirLaunches"); launchNote = Get<TextBlock>("AirLaunchNote");
+        centralLine = Get<TextBlock>("AirCentralLine"); credits = Get<TextBlock>("AirCredits"); launchNote = Get<TextBlock>("AirLaunchNote");
         result = Get<TextBlock>("AirResult"); accessNote = Get<TextBlock>("AirAccessNote");
         install = Get<StackPanel>("AirInstall"); access = Get<StackPanel>("AirAccessSources");
         installCommand = Get<TextBox>("AirInstallCommand");
@@ -273,7 +272,6 @@ internal sealed partial class AirSettingsView : UserControl
         installCommand.Text = current.Central.InstallCommand;
         startProxy.IsVisible = current.Central.Proxy == "stopped";
         update.IsVisible = current.Central.State == "outdated";
-        launches.Text = string.Join("\n", current.Agents.Select(agent => $"{agent.Label}: {agent.Launch ?? "unchanged (its own provider)"}"));
         launchNote.Text = !Governed ? "" :
             current.Central.State is "absent" or "malformed-version" or "probe-failed" ? "Central was not found or could not be verified: governed launches will fail in the terminal rather than start without governance." :
             current.Central.State == "outdated" ? "This Central is older than the minimum supported; update it before launching." :

@@ -43,8 +43,7 @@ starts, resumes and the host's revive offer, so the agent's usual arguments foll
 environment prefixes stay outermost. A custom command in the agent's settings (not the default `claude` or `codex`)
 is never rewritten and so is not governed; the pane says so. Running terminals keep the command they started with.
 `<central>` is the path the host found, else the bare name: if Central is missing the launch fails in the shell
-rather than silently starting an ungoverned agent. The pane shows the exact command shape each agent will get.
-
+rather than silently starting an ungoverned agent.
 Central chooses its own AI access source and proxy; `central access <id>` (switch, then `central proxy restart`)
 stays the way to change it, as in the fork. The pane states persistently that switching affects every app using the
 host OS user's Central.

@@ -737,14 +737,13 @@ internal static partial class AirGatewayChecks
 
             fake.Push("air-gateway", "status", Status("supported", "unknown"));
             E2eWorkspace.Until(() => Find<TextBlock>("AirCentralLine").Text?.Contains("1.13.0", StringComparison.Ordinal) == true);
-            Require(workbench.PluginRegistry.LaunchContributions("claude").Count == 0 &&
-                Find<TextBlock>("AirLaunches").Text!.Contains("claude: unchanged", StringComparison.OrdinalIgnoreCase) == false && Find<TextBlock>("AirLaunches").Text!.Contains("unchanged", StringComparison.Ordinal),
+            Require(workbench.PluginRegistry.LaunchContributions("claude").Count == 0 && workbench.PluginRegistry.LaunchContributions("codex").Count == 0 && workbench.PluginRegistry.LaunchContributions("pi").Count == 0,
                 "With no agent on Central nothing is contributed to launches.");
 
             Choose("supported", "unknown", "claude-code", "codex");
-            E2eWorkspace.Until(() => Find<TextBlock>("AirLaunches").Text!.Contains("run claude-code --", StringComparison.Ordinal) && workbench.PluginRegistry.LaunchContributions("claude").Count == 1);
-            Require(Find<TextBlock>("AirLaunches").Text!.Contains("/usr/local/bin/central run codex -- <codex arguments>", StringComparison.Ordinal) && fake.Calls.All(call => call.Method is "status" or "models"),
-                "An agent's Model source shows the exact command shape, running nothing.");
+            E2eWorkspace.Until(() => workbench.PluginRegistry.LaunchContributions("claude").Count == 1 && workbench.PluginRegistry.LaunchContributions("codex").Count == 1);
+            Require(workbench.PluginRegistry.LaunchContributions("codex").Single().Wrapper.SequenceEqual(["/usr/local/bin/central", "run", "codex", "--"]) && fake.Calls.All(call => call.Method is "status" or "models"),
+                "An agent's Model source contributes the exact command shape, running nothing.");
             Require(workbench.PluginRegistry.LaunchContributions("claude").Single().Wrapper.SequenceEqual(["/usr/local/bin/central", "run", "claude-code", "--"]), "The UI half contributes the wrapper with the detected path.");
             Choose("supported", "unknown", "claude-code", "pi");
             E2eWorkspace.Until(() => workbench.PluginRegistry.LaunchContributions("codex").Count == 0 && workbench.PluginRegistry.LaunchContributions("pi").Count == 1);

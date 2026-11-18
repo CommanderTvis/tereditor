@@ -27,8 +27,6 @@
       <Button x:Name="AirUpdate" Content="Update Central" Margin="0,0,8,8" IsVisible="False" />
     </WrapPanel>
     <StackPanel Spacing="6">
-      <TextBlock Text="What new launches will run" Foreground="{x:Static kit:Ui.TextBrush}" />
-      <TextBlock x:Name="AirLaunches" TextWrapping="Wrap" FontFamily="{x:Static kit:Ui.CodeFont}" Foreground="{x:Static kit:Ui.TextBrush}" />
       <TextBlock x:Name="AirLaunchNote" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />
       <TextBlock x:Name="AirResult" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />
     </StackPanel>
