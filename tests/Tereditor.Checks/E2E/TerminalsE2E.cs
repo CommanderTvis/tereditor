@@ -143,7 +143,9 @@ internal static class TerminalsE2E
         var retry = view.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "TerminalStartRetry");
         Require(view.GetLogicalDescendants().OfType<SelectableTextBlock>().Single(text => text.Name == "TerminalStartFailureText").Text == failure &&
             view.Backend is null, "A failed start must explain its reason and leave no terminal surface.");
-        Require(focused.IsFocused, "A start failure must not steal focus.");
+        // A deferred dock rebuild may replace the Review tab with a new control that keeps the focus, so the held
+        // instance is not the thing to test: the failing terminal must simply not hold the keyboard.
+        Require(!view.IsKeyboardFocusWithin, "A start failure must not steal focus.");
 
         held = app.Terminals.Hold();
         app.Click(retry);
