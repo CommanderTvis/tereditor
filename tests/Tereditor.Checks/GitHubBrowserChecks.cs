@@ -97,12 +97,45 @@ internal static class GitHubBrowserChecks
         Console.WriteLine("PASS GitHub pane, rows, conversation and views render with every icon resolved");
     }
 
+    /// <summary>Every type spread at the top of a timeline query must be a pinned member of that kind's GitHub union.</summary>
+    private static void RequireTimelineSpreads()
+    {
+        static List<string> Spreads(string events)
+        {
+            var found = new List<string>();
+            var depth = 0;
+            for (var i = 0; i < events.Length; i++)
+            {
+                if (events[i] == '{') depth++;
+                else if (events[i] == '}') depth--;
+                else if (depth == 0 && string.CompareOrdinal(events, i, "... on ", 0, 7) == 0)
+                {
+                    var start = i + 7;
+                    var end = start;
+                    while (char.IsLetterOrDigit(events[end])) end++;
+                    found.Add(events[start..end]);
+                }
+            }
+            return found;
+        }
+
+        var issue = Spreads(GitHubBrowser.IssueEvents);
+        var pull = Spreads(GitHubBrowser.SharedEvents + GitHubBrowser.PullEvents);
+        Require(issue.Count > 5 && pull.Count > issue.Count, "The timeline queries spread their events");
+        var wrongIssue = issue.Where(t => !GitHubTimelineSchema.IssueTimelineItems.Contains(t)).ToList();
+        var wrongPull = pull.Where(t => !GitHubTimelineSchema.PullRequestTimelineItems.Contains(t)).ToList();
+        Require(wrongIssue.Count == 0, "The issue timeline spreads only IssueTimelineItems members, not " + string.Join(", ", wrongIssue));
+        Require(wrongPull.Count == 0, "The pull request timeline spreads only PullRequestTimelineItems members, not " + string.Join(", ", wrongPull));
+        Require(GitHubBrowser.IssueTimelineQuery.Contains(GitHubBrowser.IssueEvents, StringComparison.Ordinal) && GitHubBrowser.PullTimelineQuery.Contains(GitHubBrowser.PullEvents, StringComparison.Ordinal), "Each kind queries its own event list");
+    }
+
     public static async Task Run()
     {
         var calls = new List<string>();
         string? comment = "first";
         var failing = false;
         var detailCalls = 0;
+        var timelineFails = false;
         var posting = false;
         var jobDone = false;
         var browser = new GitHubBrowser((tool, directory, args, timeout, environment, ct) =>
@@ -113,7 +146,11 @@ internal static class GitHubBrowserChecks
             if (args[0] == "repo") return ValueTask.FromResult(new RepoHostToolResult(0, Repo, ""));
             if (text.Contains("list: search", StringComparison.Ordinal)) return ValueTask.FromResult(new RepoHostToolResult(0, ListJson(), ""));
             if (text.Contains("issueOrPullRequest", StringComparison.Ordinal))
-                return ValueTask.FromResult(new RepoHostToolResult(0, DetailJson(detailCalls++ == 0 && comment == "first", comment ?? ""), ""));
+            {
+                var timeline = text.Contains("timelineItems", StringComparison.Ordinal);
+                if (timeline && timelineFails) return ValueTask.FromResult(new RepoHostToolResult(1, "", "gh: Fragment on ReviewRequestedEvent can't be spread inside IssueTimelineItems"));
+                return ValueTask.FromResult(new RepoHostToolResult(0, DetailJson(timeline && detailCalls++ == 0 && comment == "first", comment ?? ""), ""));
+            }
             static RepoHostToolResult Ok(string json) => new(0, json, "");
             if (args[0] == "api" && args[1].StartsWith("repos/o/r/actions/runs/9/jobs", StringComparison.Ordinal))
                 return ValueTask.FromResult(Ok("""{"jobs":[{"id":1,"name":"build","status":"completed","conclusion":"failure","started_at":"2026-11-01T10:00:00Z","completed_at":"2026-11-01T10:02:05Z","html_url":"https://github.com/o/r/actions/runs/9/job/1","steps":[{"number":1,"name":"Checkout","status":"completed","conclusion":"success","started_at":"2026-11-01T10:00:00Z","completed_at":"2026-11-01T10:00:03Z"}]}]}"""));
@@ -172,6 +209,13 @@ internal static class GitHubBrowserChecks
         var moved = await browser.DetailAsync("/w", new("w", "pulls", 7, revision), default);
         Require(!moved.Unchanged && moved.Timeline.Any(e => e.Body == "second") && moved.Revision != revision, "A new comment changes the revision and comes back in full");
         Require(browser.CachedRevisions == 2, "Only revisions are cached");
+
+        timelineFails = true;
+        var halfLoaded = await browser.DetailAsync("/w", new("w", "pulls", 7), default);
+        Require(halfLoaded.Problem is null && halfLoaded.Body == "Body text" && halfLoaded.Timeline.Count == 0 && halfLoaded.TimelineProblem!.Contains("ReviewRequestedEvent", StringComparison.Ordinal),
+            "A timeline error keeps the header and body and reports the error");
+        timelineFails = false;
+        RequireTimelineSpreads();
 
         var runs = await browser.ViewAsync("/w", new("w", "runs", "", [new("status", "failure")]), default);
         Require(runs.Problem is null && runs.Rows[0] is { State: "failure", Right: "1m 4s" } && runs.Rows[0].Meta == "CI #4: Commit abcdef1 pushed by ann" && runs.Rows[0].Chips[0].Name == "main", "A run row carries state, wording, branch and duration");

@@ -72,29 +72,34 @@ public sealed partial class GitHubBrowser(ToolRunner run)
             var documents = new List<JsonDocument>();
             string? after = null;
             var truncated = false;
-            JsonElement head = default;
+            string? timelineProblem = null;
             try
             {
-                for (var page = 0; page < TimelinePages; page++)
-                {
-                    var json = await GraphQlAsync(directory, DetailQuery, ct, ("owner", repo.Owner), ("name", repo.Name), ("number", p.Number), ("after", after ?? ""));
-                    documents.Add(json);
-                    var node = json.RootElement.GetProperty("data").GetProperty("repository").GetProperty("issueOrPullRequest");
-                    if (node.ValueKind != JsonValueKind.Object) return Failed(p, "That number is not an issue or pull request here.");
-                    if (page == 0) head = node;
-                    var timeline = node.GetProperty("timelineItems");
-                    nodes.AddRange(timeline.GetProperty("nodes").EnumerateArray());
-                    var info = timeline.GetProperty("pageInfo");
-                    if (!info.GetProperty("hasNextPage").GetBoolean()) break;
-                    after = info.GetProperty("endCursor").GetString();
-                    truncated = page == TimelinePages - 1;
-                }
+                var first = await GraphQlAsync(directory, HeadQuery, ct, ("owner", repo.Owner), ("name", repo.Name), ("number", p.Number));
+                documents.Add(first);
+                var head = first.RootElement.GetProperty("data").GetProperty("repository").GetProperty("issueOrPullRequest");
+                if (head.ValueKind != JsonValueKind.Object) return Failed(p, "That number is not an issue or pull request here.");
                 var pull = Text(head, "__typename") == "PullRequest";
+                try
+                {
+                    for (var page = 0; page < TimelinePages; page++)
+                    {
+                        var json = await GraphQlAsync(directory, pull ? PullTimelineQuery : IssueTimelineQuery, ct, ("owner", repo.Owner), ("name", repo.Name), ("number", p.Number), ("after", after ?? ""));
+                        documents.Add(json);
+                        var timeline = json.RootElement.GetProperty("data").GetProperty("repository").GetProperty("issueOrPullRequest").GetProperty("timelineItems");
+                        nodes.AddRange(timeline.GetProperty("nodes").EnumerateArray());
+                        var info = timeline.GetProperty("pageInfo");
+                        if (!info.GetProperty("hasNextPage").GetBoolean()) break;
+                        after = info.GetProperty("endCursor").GetString();
+                        truncated = page == TimelinePages - 1;
+                    }
+                }
+                catch (Exception error) when (IsExpected(error)) { timelineProblem = "The conversation could not be loaded. " + Describe(error); }
                 var author = Text(head.GetProperty("author"), "login");
                 var detail = new GitHubDetail(false, "", repo.Slug, pull ? "pulls" : "issues", p.Number, Text(head, "title"), State(head), pull && Bool(head, "isDraft"), author,
                     Text(head, "createdAt"), Text(head, "url"), Text(head, "body"), Labels(head), Names(head, "assignees", "login"),
                     head.TryGetProperty("milestone", out var milestone) && milestone.ValueKind == JsonValueKind.Object ? Text(milestone, "title") : null,
-                    [.. nodes.Select(Event).OfType<GitHubEvent>()], truncated, pull ? Pull(head) : null);
+                    [.. nodes.Select(Event).OfType<GitHubEvent>()], truncated, pull ? Pull(head) : null) { TimelineProblem = timelineProblem };
                 var revision = Revise($"detail|{repo.Slug}|{p.Number}", JsonSerializer.Serialize(detail, GitHubJson.Default.GitHubDetail));
                 return p.Revision == revision ? detail with { Unchanged = true, Revision = revision, Body = "", Timeline = [] } : detail with { Revision = revision };
             }
@@ -301,21 +306,33 @@ public sealed partial class GitHubBrowser(ToolRunner run)
         + "labels: repository(owner: $owner, name: $name) { labels(first: 100) { nodes { name color } } } "
         + "open: search(query: $open, type: ISSUE) { issueCount } closed: search(query: $closed, type: ISSUE) { issueCount } }";
 
-    private const string Timeline = "timelineItems(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { __typename "
-        + "... on IssueComment { databaseId author { login } createdAt body authorAssociation } "
+    /// <summary>Events both timelines have. Every spread here must be a member of both IssueTimelineItems and PullRequestTimelineItems (checked against GitHubTimelineSchema).</summary>
+    internal const string SharedEvents = "... on IssueComment { databaseId author { login } createdAt body authorAssociation } "
         + "... on LabeledEvent { actor { login } createdAt label { name color } } ... on UnlabeledEvent { actor { login } createdAt label { name color } } "
         + "... on ClosedEvent { actor { login } createdAt } ... on ReopenedEvent { actor { login } createdAt } "
         + "... on AssignedEvent { actor { login } createdAt assignee { ... on User { login } } } ... on UnassignedEvent { actor { login } createdAt assignee { ... on User { login } } } "
         + "... on RenamedTitleEvent { actor { login } createdAt previousTitle currentTitle } ... on MilestonedEvent { actor { login } createdAt milestoneTitle } "
-        + "... on CrossReferencedEvent { actor { login } createdAt source { ... on Issue { number title } ... on PullRequest { number title } } } "
-        + "... on ReviewRequestedEvent { actor { login } createdAt requestedReviewer { ... on User { login } } } "
+        + "... on CrossReferencedEvent { actor { login } createdAt source { ... on Issue { number title } ... on PullRequest { number title } } } ";
+
+    /// <summary>Events only a pull request timeline has (PullRequestTimelineItems, not IssueTimelineItems).</summary>
+    internal const string PullEvents = "... on ReviewRequestedEvent { actor { login } createdAt requestedReviewer { ... on User { login } } } "
         + "... on MergedEvent { actor { login } createdAt mergeRefName } ... on ReadyForReviewEvent { actor { login } createdAt } ... on ConvertToDraftEvent { actor { login } createdAt } "
         + "... on HeadRefForcePushedEvent { actor { login } createdAt } ... on HeadRefDeletedEvent { actor { login } createdAt headRefName } "
         + "... on PullRequestReview { author { login } createdAt state body comments(first: 50) { nodes { path body } } } "
-        + "... on PullRequestCommit { commit { oid messageHeadline authoredDate author { name user { login } } } } } }";
+        + "... on PullRequestCommit { commit { oid messageHeadline authoredDate author { name user { login } } } } ";
 
-    private const string DetailQuery = "query($owner: String!, $name: String!, $number: Int!, $after: String) { repository(owner: $owner, name: $name) { issueOrPullRequest(number: $number) { __typename "
-        + "... on Issue { " + Common + " body assignees(first: 10) { nodes { login } } milestone { title } " + Timeline + " } "
+    internal const string IssueEvents = SharedEvents;
+
+    private const string TimelineHead = "timelineItems(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { __typename ";
+
+    internal const string IssueTimelineQuery = "query($owner: String!, $name: String!, $number: Int!, $after: String) { repository(owner: $owner, name: $name) { issueOrPullRequest(number: $number) { __typename "
+        + "... on Issue { " + TimelineHead + IssueEvents + "} } } } } }";
+
+    internal const string PullTimelineQuery = "query($owner: String!, $name: String!, $number: Int!, $after: String) { repository(owner: $owner, name: $name) { issueOrPullRequest(number: $number) { __typename "
+        + "... on PullRequest { " + TimelineHead + SharedEvents + PullEvents + "} } } } } }";
+
+    private const string HeadQuery = "query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issueOrPullRequest(number: $number) { __typename "
+        + "... on Issue { " + Common + " body assignees(first: 10) { nodes { login } } milestone { title } } "
         + "... on PullRequest { " + Common + " " + PullList + " body assignees(first: 10) { nodes { login } } milestone { title } baseRefName headRefName additions deletions changedFiles mergeStateStatus "
-        + "commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 50) { nodes { __typename ... on CheckRun { name conclusion status } ... on StatusContext { context state } } } } } } } " + Timeline + " } } } }";
+        + "commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 50) { nodes { __typename ... on CheckRun { name conclusion status } ... on StatusContext { context state } } } } } } } } } } }";
 }

@@ -280,6 +280,7 @@ internal sealed class GitHubTab : Border
             root.Children.Add(side);
         }
         root.Children.Add(Card(detail.Author, detail.CreatedAt, "", detail.Body.Length == 0 ? "No description provided." : detail.Body, null, linker));
+        if (detail.TimelineProblem is { } timelineProblem) root.Children.Add(Message(timelineProblem));
         foreach (var e in detail.Timeline.Concat(pending)) root.Children.Add(Event(e));
         if (detail.Truncated) root.Children.Add(Ui.Text("The conversation is longer than this tab loads. The rest is on GitHub.", Ui.Muted, 12));
         var id = detail.Number;
@@ -420,12 +421,18 @@ internal sealed class GitHubTab : Border
 
     private void Show(Control content) => scroll.Content = content;
 
-    private Control Message(string text, bool back = false)
+    private Control Message(string text, bool back = false, bool retry = true)
     {
         var panel = new StackPanel { Spacing = 8, Margin = new Thickness(24) };
         var line = Ui.Text(text, Ui.Muted, 14); line.TextWrapping = TextWrapping.Wrap; line.TextTrimming = TextTrimming.None;
         panel.Children.Add(line);
-        if (back) panel.Children.Add(Ui.Button("Back", () => { number = null; revision = null; Refresh(); }));
+        if (back || retry)
+        {
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            if (back) buttons.Children.Add(Ui.Button("Back", () => { number = null; revision = null; Refresh(); }));
+            if (retry) buttons.Children.Add(Ui.Button("Retry", () => { revision = null; Refresh(); }));
+            panel.Children.Add(buttons);
+        }
         return panel;
     }
 

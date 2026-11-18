@@ -109,7 +109,11 @@ public sealed record GitHubDetailParams(string WorkspaceId, string Kind, int Num
 
 public sealed record GitHubDetail(bool Unchanged, string Revision, string Repo, string Kind, int Number, string Title, string State, bool Draft, string Author,
     string CreatedAt, string Url, string Body, IReadOnlyList<GitHubLabel> Labels, IReadOnlyList<string> Assignees, string? Milestone,
-    IReadOnlyList<GitHubEvent> Timeline, bool Truncated, GitHubPullFacts? Pull, string? Problem = null);
+    IReadOnlyList<GitHubEvent> Timeline, bool Truncated, GitHubPullFacts? Pull, string? Problem = null)
+{
+    /// <summary>Set when the header and body loaded but the timeline did not.</summary>
+    public string? TimelineProblem { get; init; }
+}
 
 public sealed record GitHubInfoParams(string WorkspaceId);
 
