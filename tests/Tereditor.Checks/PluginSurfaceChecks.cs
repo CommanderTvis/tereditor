@@ -27,7 +27,7 @@ namespace Tereditor.Checks;
 
 /// <summary>
 /// <c>--plugin-surface</c>: an external plugin's views rendered in its process and shown as pixels in the app
-/// (src/Tereditor.Plugins.Api/Security.SPEC.md, UI halves). The tile codec and the host's relay on their own, then the
+/// (src/Tereditor.Plugins.Api/Plugin API spec, UI halves). The tile codec and the host's relay on their own, then the
 /// outsider fixture in a headless workbench: its side tool, settings section and file viewer show exactly what the
 /// plugin's process renders, a click and a key press on its button change its settings and the view, typed text
 /// reaches its note, Tab leaves the surface, a wheel scrolls its list with a move, a theme change re-renders it, its

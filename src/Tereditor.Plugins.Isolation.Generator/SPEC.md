@@ -14,7 +14,7 @@ tags: [plugins, security]
 
 A Roslyn incremental generator that reads the plugin API's symbols, its `[PluginAmbient]`, `[PluginPermission]` and
 `[PluginCrossing]` attributes and `src/Tereditor.Plugins.Api/isolation-pending.txt`, and writes the code that
-carries the API across the plugin channel. [Security.SPEC.md](../Tereditor.Plugins.Api/Security.SPEC.md) under
+carries the API across the plugin channel. [the Plugin API spec](../Tereditor.Plugins.Api/SPEC.md#classified-in-source) under
 "Classified in source" states what is classified and the rules SRI001 to SRI006; this project applies them and
 reports each as a build error.
 

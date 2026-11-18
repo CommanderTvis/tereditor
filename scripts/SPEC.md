@@ -139,6 +139,54 @@ night's package installs over the last. Replacing that key breaks updating from 
 The benchmark refuses to run off AC power and measures process-tree memory and
 readiness markers, not synthetic timers; it is never part of the check gate.
 
+### NativeAOT packages
+
+The desktop app and the remote host import `NativeAot.props`, which turns `PublishAot` on and keeps symbol, PDB, XML
+and runtimeconfig files out of the publish. NativeAOT replaced the composite ReadyToRun publish they had. Headless
+tereditor imports it too, but ships in an image, not a package. The checks stay a JIT program, and so does everything
+else.
+
+- macOS links with Xcode's clang, then signs the bundle as before.
+- Windows links with Visual Studio's C++ linker (`link.exe` and the Windows SDK). Both runner images carry it:
+  `windows-2025`, and `windows-11-arm`, whose Visual Studio has the ARM64 C++ tools. The zip still holds a `client`
+  and a `host` payload.
+- Linux links with the system clang on the Ubuntu 22.04 runners, so the build host's glibc is the floor the packages promise:
+  2.35, the oldest glibc of the Ubuntu releases .NET 10 supports. The packaged gate fails any ELF file in a Linux payload
+  that needs a glibc symbol newer than 2.35. Measured once on linux-x64 with the pinned Zig against glibc 2.31: the app
+  binary needed `GLIBC_2.29`, SkiaSharp `GLIBC_2.27`, the rest less.
+
+Native libraries sit beside the binary, which finds them through its base directory as before: Ghostty, SkiaSharp,
+HarfBuzzSharp and Oniguruma everywhere, PDFium on macOS and Linux, and on macOS Avalonia's library, Merman and the
+notification library. So do the process-group helpers (macOS, Linux) and the `plugins` and `shell-integration`
+directories. Ghostty's `terminfo` ships on macOS only, in the bundle's `Contents/Resources`, where `plugins` also
+lives behind a link. The runtimeconfig options (`DesktopGc.props`) are compiled into the binary.
+
+The packaged gate checks the binaries themselves, since the in-process checks cannot load them:
+
+- each payload is NativeAOT: the executable is there, and no managed assembly, runtimeconfig, deps file or runtime
+  library ships; on macOS and Linux the binary carries `System.GC.ConserveMemory`, and on Linux no ELF file needs a
+  glibc newer than 2.35;
+- each payload carries what the checks' own publish of the same sources has for it: the `plugins` and
+  `shell-integration` trees and the helpers, and for the app every native library but the JIT runtime's and the
+  `terminfo` tree. The checks' staging would otherwise fill a gap with their own copy, so a dropped library or
+  plugin directory would pass;
+- the shipped remote host (macOS, Windows) starts, answers RPC and refuses a wrong token;
+- on Linux the shipped app runs as a terminal tab's relay against a host terminal. Nothing else of the app runs
+  without a window, so on macOS and Windows the app binary is checked only for its shape.
+
+CI runs these in its Linux and Windows package gates (`--linux`, `--windows`) and in a macOS job (`--packaged`), which
+the nightly macOS job runs too.
+
+Measured once, osx-arm64: the app binary is 77 MiB and the bundle 141 MiB; the disk image fell from 123 MiB (composite
+ReadyToRun) to 61 MiB. The remote host is one 37 MiB binary. linux-x64's payload is 108 MiB.
+
+What has run: the macOS remote host (RPC and its MCP tool list, locally and in the packaged gate); a linux-arm64
+remote host and the linux-arm64 app's terminal relay in an Ubuntu 20.04 container (glibc 2.31). The desktop app's
+window under NativeAOT has not been started by any check; nothing in CI opens it. No Windows package has been built
+since the switch, so the MSVC link and the Windows gate are first proven by CI. On the new SDK the browser client
+builds (Debug) with `Microsoft.NET.WebAssembly.Threading` pinned to the SDK's runtime (10.0.14, the version its
+WebAssembly workload installs); the Android build is first proven by the nightly.
+
 ## Conformance gates
 
 The dependency-boundary check and the public-surface check are repository gates rather than product

@@ -20,7 +20,7 @@ using UIMembers = Tereditor.Plugins.Isolation.UI.PluginUIContextMembers;
 namespace Tereditor.Checks;
 
 /// <summary>
-/// <c>--plugin-crossing</c>: the generated member tables and the crossing rules (Security.SPEC.md, Calls across the
+/// <c>--plugin-crossing</c>: the generated member tables and the crossing rules (Plugin API spec, Calls across the
 /// boundary). The tables' hashes are pinned, so a change to what crosses is a deliberate edit here; each rule SRI001 to
 /// SRI006 fails an in-memory snippet that breaks it, and a clean snippet generates code that compiles.
 /// </summary>

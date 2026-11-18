@@ -111,7 +111,7 @@ Built from `docker/headless/Dockerfile` by `.github/workflows/container.yml`, pu
 This is the third host composition, beside the app's own host and the remote host, and the
 [plugin security spec](../Tereditor.Plugins.Api/Security.SPEC.md#headless-tereditor) covers it.
 
-- It is published as NativeAOT and loads no plugin code of its own: builtin plugins are compiled in.
+- It is published as NativeAOT and loads no plugin code of its own: builtin plugins are compiled in. Its image is not a package, so the packaged gate does not check it. One osx-arm64 publish has run: a 27 MiB binary that answered `check-config`, initialize, tools/list and three tool calls. No Linux binary has been built yet.
 - External plugins in `<stateDir>/plugins` are listed and refused: the isolation seam is null here. Once the isolated host half
   exists, only those whose manifest says `Headless = Yes` run, isolated as on other hosts, host half only. No UI half activates
   and no surface opens.

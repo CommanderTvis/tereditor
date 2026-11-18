@@ -1,6 +1,6 @@
 namespace Tereditor.Plugins.Isolation;
 
-/// <summary>One entry of a generated member table (Security.SPEC.md, Calls across the boundary).</summary>
+/// <summary>One entry of a generated member table (Plugin API spec, Calls across the boundary).</summary>
 /// <param name="Id">FNV-1a 32 of <paramref name="DocId"/>, the member id frames carry.</param>
 /// <param name="DocId">The member's documentation-comment id; a callback parameter adds <c>#</c> and its name.</param>
 /// <param name="Permission">The permission it needs, or empty.</param>

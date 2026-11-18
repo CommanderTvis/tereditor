@@ -7,7 +7,7 @@ namespace Tereditor.Plugins.Isolation;
 /// <summary>A received frame broke the channel protocol; the host kills the runner that sent it.</summary>
 public sealed class IsolationProtocolException(string message, Exception? inner = null) : IOException(message, inner);
 
-/// <summary>The channel's framing and limits (Security.SPEC.md, "Calls across the boundary").</summary>
+/// <summary>The channel's framing and limits (Plugin API spec, "Calls across the boundary").</summary>
 public static class IsoWire
 {
     /// <summary>The largest frame body. Bigger data travels by descriptor.</summary>

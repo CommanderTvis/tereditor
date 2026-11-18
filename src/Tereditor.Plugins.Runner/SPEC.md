@@ -80,7 +80,7 @@ process never reconnects) except `WatchHost`, which throws until the host projec
 - The one `src` project that is not NativeAOT-analyzed: it is the JIT process, and plugin loading
   (`AssemblyLoadContext`) will live here and nowhere else.
 - The only project that compiles against Avalonia's private and unstable API (`AvaloniaAccessUnstablePrivateApis`,
-  AVA3001 suppressed), for the remote platform backend (Security.SPEC.md, UI halves).
+  AVA3001 suppressed), for the remote platform backend (Plugin API spec, UI halves).
 - References `Tereditor.Plugins.Isolation`, `Tereditor.Plugins.Isolation.UI`, Avalonia, and the kit and the chat
   contract (`Tereditor.Plugins.Chat`, `Tereditor.Plugins.Chat.UI`), which it shares with the plugins it loads. The
   checks copy its framework-dependent build into `plugin-runner/` of their own build output; packages do not ship it

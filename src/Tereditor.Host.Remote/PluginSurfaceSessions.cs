@@ -8,7 +8,7 @@ using Tereditor.Plugins.Isolation;
 namespace Tereditor.Host.Remote;
 
 /// <summary>
-/// The sessions remote clients hold with external plugins' processes on this host (Security.SPEC.md, UI halves), one
+/// The sessions remote clients hold with external plugins' processes on this host (Plugin API spec, UI halves), one
 /// per client and plugin, each carried by one surface call. A session outlives a dropped call by <see cref="Grace"/>,
 /// so a client that reconnects in time resumes it with the plugin's state intact.
 /// </summary>

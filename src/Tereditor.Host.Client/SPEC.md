@@ -36,7 +36,7 @@ what makes remoteness an adapter choice rather than a mandatory daemon.
 
 ## Behavior
 
-- `RemoteIsolatedUIHost` opens one `SurfaceAsync` call per session (Security.SPEC.md, UI halves). Everything a caller
+- `RemoteIsolatedUIHost` opens one `SurfaceAsync` call per session (Plugin API spec, UI halves). Everything a caller
   does on a session or surface only queues a message, so the UI thread never waits on the network. Results of the
   calls it makes into the plugin come back by call id. Every frame, popup, dialog, cursor and caret is held to the
   surface protocol's caps again (`SurfaceState`) before the client's control sees it; one that breaks them closes that surface with the reason. The same holds for the accessibility tree.

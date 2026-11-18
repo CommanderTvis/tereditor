@@ -18,7 +18,7 @@ using Avalonia.Threading;
 namespace Tereditor.Plugins.Runner;
 
 /// <summary>
-/// tereditor's remote platform backend (Security.SPEC.md, UI halves): every top-level the plugin's process opens (a
+/// tereditor's remote platform backend (Plugin API spec, UI halves): every top-level the plugin's process opens (a
 /// surface, a popup, a window) is a <see cref="RemoteTopLevel"/> that Skia's CPU raster draws into memory, which the
 /// renderer diffs and sends. Rendering runs on the UI thread, ticked on demand; nothing touches a GPU, a screen or a
 /// window system.

@@ -12,7 +12,7 @@ using Tereditor.Plugins.Isolation;
 namespace Tereditor.Checks;
 
 /// <summary>
-/// The plugin channel and the runner process (src/Tereditor.Plugins.Api/Security.SPEC.md): the frame codec; protocol
+/// The plugin channel and the runner process (src/Tereditor.Plugins.Api/SPEC.md, Isolated runtime): the frame codec; protocol
 /// violations against a raw in-process end; then the real runner's <c>probe echo</c> for calls, cancellation, deadlines,
 /// handles and tombstones, stream credits, one-way order, descriptor passing, refused descriptors, kills, exit codes,
 /// reaping and what the runner inherits; and <c>probe avalonia-private</c>.

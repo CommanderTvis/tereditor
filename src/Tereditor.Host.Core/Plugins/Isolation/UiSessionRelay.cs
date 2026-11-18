@@ -7,7 +7,7 @@ using Tereditor.Plugins.Isolation;
 namespace Tereditor.Host.Core.Plugins.Isolation;
 
 /// <summary>
-/// One client's surfaces in an external plugin's process (Security.SPEC.md, UI halves). The host numbers each surface,
+/// One client's surfaces in an external plugin's process (Plugin API spec, UI halves). The host numbers each surface,
 /// and every frame the plugin sends is held to the surface protocol's caps before the client sees it; a frame that
 /// breaks them ends that surface with the reason.
 /// </summary>

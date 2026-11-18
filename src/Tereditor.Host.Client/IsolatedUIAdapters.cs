@@ -7,7 +7,7 @@ using Tereditor.Plugins.Isolation;
 namespace Tereditor.Host.Client;
 
 /// <summary>
-/// External plugins' UI halves on a remote host (Security.SPEC.md, UI halves): each session is one surface call
+/// External plugins' UI halves on a remote host (Plugin API spec, UI halves): each session is one surface call
 /// (<c>IPluginRpc.SurfaceAsync</c>) that carries the plugin's calls on this client's context and every surface it shows.
 /// A dropped connection is resumed for up to <see cref="Grace"/>, and the session goes on where it was: numbered
 /// messages either side missed are sent again, and every surface repaints from a keyframe.

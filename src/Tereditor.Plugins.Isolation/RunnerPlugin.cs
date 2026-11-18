@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace Tereditor.Plugins.Isolation;
 
 /// <summary>
-/// The runner's <c>plugin</c> mode: one external plugin's process (Security.SPEC.md, one process per plugin). The host
+/// The runner's <c>plugin</c> mode: one external plugin's process (Plugin API spec, isolated runtime). The host
 /// starts it with the plugin in <see cref="RunnerInit"/>; the runner loads the UI half before it answers <c>Ready</c>.
 /// Each client's UI context is a handle the host lends, and these members act on it.
 /// </summary>

@@ -24,7 +24,7 @@ namespace Tereditor.Checks;
 
 /// <summary>
 /// <c>--plugin-surface-remote</c>: an external plugin's views on remote clients over WebSocket RPC
-/// (src/Tereditor.Plugins.Api/Security.SPEC.md, UI halves). A frame larger than a surface message is split under the
+/// (src/Tereditor.Plugins.Api/Plugin API spec, UI halves). A frame larger than a surface message is split under the
 /// 1 MiB cap, and a client that leaves 1,024 of the plugin's calls unread loses its session at the next. Then two
 /// headless workbenches, each behind its own relay, on one remote host with the isolation seam: both show the outsider
 /// fixture's side tool with the plugin's own pixels from one runner process; one client's popups show and take input

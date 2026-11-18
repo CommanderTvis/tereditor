@@ -17,7 +17,7 @@ using Tereditor.Plugins.Isolation;
 namespace Tereditor.UI.Plugins;
 
 /// <summary>
-/// The client's control for one surface of an external plugin (Security.SPEC.md, UI halves): the plugin's control
+/// The client's control for one surface of an external plugin (Plugin API spec, UI halves): the plugin's control
 /// renders in its process on the host, and this shows its pixels. Frames are decoded off the UI thread and drawn 1:1 at
 /// device pixels; the surface's size, scale and the kit theme go to the plugin, and pointer, wheel, key, text and
 /// focus come back in. The plugin's popups (menus, flyouts, tooltips) show in a layer of their own over the cell of the

@@ -26,7 +26,7 @@ internal static class BoundaryChecks
         [Protocol] = [Wire],
         // The host runs an external plugin's runner through the plugin channel (Security.SPEC.md).
         [Core] = [Abstractions, Api, ApiHost, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
-        // The remote adapter of an external plugin's UI session speaks the channel's surface protocol (Security.SPEC.md, UI halves).
+        // The remote adapter of an external plugin's UI session speaks the channel's surface protocol (Plugin API spec, UI halves).
         [Client] = [Abstractions, Protocol, Api, Isolation],
         // The headless host is a console program over the core: no web server, no UI.
         [Headless] = [Abstractions, Core, Api, ApiHost, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
@@ -34,7 +34,7 @@ internal static class BoundaryChecks
         [Remote] = [Abstractions, Protocol, Core, Api, ApiHost, Isolation, "Tereditor.Plugins.Tailscale"],
         [Scintilla] = [],
         [Ghostty] = [],
-        // The UI draws an external plugin's surfaces (Security.SPEC.md, UI halves) from the channel's surface protocol.
+        // The UI draws an external plugin's surfaces (Plugin API spec, UI halves) from the channel's surface protocol.
         [UI] = [Abstractions, Core, Client, Remote, Scintilla, Ghostty, Api, ApiUi, Kit, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
         // The Android client compiles the UI's sources and reaches what they do, except the serving half.
         [Android] = [Abstractions, Core, Client, Scintilla, Ghostty, UI, Api, ApiUi, Kit, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
@@ -54,7 +54,7 @@ internal static class BoundaryChecks
         // An external plugin with only a UI half, installed from disk by the checks, and its private dependency.
         ["Tereditor.PluginFixture.Outsider.UI"] = [Api, ApiUi, Kit, "Tereditor.PluginFixture.Outsider.Words"],
         ["Tereditor.PluginFixture.Outsider.Words"] = [],
-        // The plugin channel and the process that runs an external plugin (src/Tereditor.Plugins.Api/Security.SPEC.md).
+        // The plugin channel and the process that runs an external plugin (src/Tereditor.Plugins.Api/SPEC.md, Isolated runtime).
         [Isolation] = [Wire, Api, ApiHost],
         [IsolationUi] = [Isolation, Api, ApiUi],
         [IsolationGenerator] = [],

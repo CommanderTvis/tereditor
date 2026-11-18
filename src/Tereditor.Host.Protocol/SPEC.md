@@ -87,7 +87,7 @@ project: local adapters call Core directly, with no serialization.
   `InvalidParams` is `InvalidArgument` and `Failed` is `Unknown`, the message riding
   the status detail.
 - Plugin surfaces (protocol 19, `HostProtocol.IsolatedSurfaces`): `SurfaceAsync` is one bidirectional call per client
-  and external plugin, carrying the client's session with the plugin's process ([Security.SPEC.md](../Tereditor.Plugins.Api/Security.SPEC.md),
+  and external plugin, carrying the client's session with the plugin's process ([Plugin API spec](../Tereditor.Plugins.Api/SPEC.md#ui-halves),
   UI halves). The first up message opens (plugin id, client key) or resumes (session token, last message received);
   the first down message answers with the token, the member tables' hash and the registrations, or with the last
   message the host received. Later up messages answer the plugin's calls, call and mirror into the plugin, and open,

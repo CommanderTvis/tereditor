@@ -113,7 +113,7 @@ public sealed class PluginFileReply
     [ProtoMember(2)] public byte[] Data { get; set; } = [];
 }
 
-// One client's session with an external plugin's process and the surfaces it shows (Security.SPEC.md, UI halves).
+// One client's session with an external plugin's process and the surfaces it shows (Plugin API spec, UI halves).
 // A message with a Seq above 0 is reliable: each side numbers its own from 1, acknowledges the other's in Ack, and
 // after a resume sends again every message the other has not acknowledged. Frames and frame acknowledgements are not
 // numbered; a resumed client asks for a keyframe instead. Payload and Json are the plugin channel's JSON; Error is its

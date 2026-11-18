@@ -5,7 +5,7 @@ using System.Threading.Channels;
 namespace Tereditor.Plugins.Isolation;
 
 /// <summary>
-/// The surface protocol's caps (Security.SPEC.md, UI halves). The host's relay holds a plugin's frames to them before
+/// The surface protocol's caps (Plugin API spec, UI halves). The host's relay holds a plugin's frames to them before
 /// any reaches a client.
 /// </summary>
 public static class SurfaceLimits
@@ -303,7 +303,7 @@ public sealed record SurfaceCaptureRequest(int Surface, List<string> Names, int 
 internal sealed partial class SurfaceJsonContext : JsonSerializerContext;
 
 /// <summary>
-/// The caps a frame message is held to before a client applies it (Security.SPEC.md, UI halves): the host's relay holds
+/// The caps a frame message is held to before a client applies it (Plugin API spec, UI halves): the host's relay holds
 /// the plugin's frames to them, and a remote client the host's again.
 /// </summary>
 public static class SurfaceFrames

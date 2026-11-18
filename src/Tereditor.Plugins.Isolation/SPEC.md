@@ -13,7 +13,7 @@ tags: [plugins, security]
 ## Responsibility
 
 The trusted side's half of the isolated runtime that does not depend on what a plugin is: the channel, the handles
-lent across it, and the process at its other end. [Security.SPEC.md](../Tereditor.Plugins.Api/Security.SPEC.md) under
+lent across it, and the process at its other end. [the Plugin API spec](../Tereditor.Plugins.Api/SPEC.md#the-channel-and-the-runner-process) under
 "The channel and the runner process" states the protocol and the process rules; this project implements them.
 
 - `IsoFrame` and `IsoCodec.Generated.cs` (from `scripts/generate-rpc.cs`), `IsoWire` (framing and limits).
@@ -29,7 +29,7 @@ lent across it, and the process at its other end. [Security.SPEC.md](../Teredito
 - `IsolatedUI.cs`: `IIsolatedUIHost`, which the host implements, opens a client's `IIsolatedUISession` with an
   external plugin's process: what the activation registered, the later calls on the context in arrival order
   (`IsoUICall`, answered or one-way), the plugin's callbacks and the mirror.
-- `Surfaces.cs`: the surface protocol (Security.SPEC.md, UI halves): the messages that open, size, feed input to,
+- `Surfaces.cs`: the surface protocol (Plugin API spec, UI halves): the messages that open, size, feed input to,
   acknowledge and close a surface, dismiss its popups and push the kit theme, a popup's or dialog's place
   (`SurfacePopup`, a dialog with its plain title), the cursor over a top-level (`SurfaceCursor`), a focused text
   field's caret (`SurfaceIme`), a top-level's accessibility tree (`SurfaceAutomation`, whole or as changes) and the

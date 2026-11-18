@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 
 namespace Tereditor.Plugins.Isolation.Generator;
 
-/// <summary>The crossing rules, SRI001 to SRI006 (Security.SPEC.md, Calls across the boundary).</summary>
+/// <summary>The crossing rules, SRI001 to SRI006 (Plugin API spec, Calls across the boundary).</summary>
 internal static class Rules
 {
     private const string Category = "Isolation";
