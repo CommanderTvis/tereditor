@@ -48,6 +48,7 @@ internal sealed class GitHubActionsTab : Border
     private readonly StackPanel chips = new() { Orientation = Orientation.Horizontal, Name = "GitHubRunFilters" };
     private readonly TextBox search = new() { Name = "GitHubRunSearch", PlaceholderText = "Search runs" };
     private readonly TextBlock centre = Ui.Text("Loading…", Ui.Muted, 14);
+    private readonly ScrollViewer sidebarScroll;
     private IReadOnlyList<GitHubWorkflow> workflows = [];
     private string repoUrl = "";
     private int total;
@@ -71,6 +72,7 @@ internal sealed class GitHubActionsTab : Border
         Name = "GitHubActionsTab";
         title.FontWeight = FontWeight.SemiBold; title.TextWrapping = TextWrapping.Wrap;
         centre.HorizontalAlignment = HorizontalAlignment.Center; centre.VerticalAlignment = VerticalAlignment.Center; centre.Name = "GitHubRunsCentre";
+        sidebarScroll = new ScrollViewer { Content = sidebarItems, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Name = "GitHubSidebarScroll" };
         BuildSidebar();
 
         var newWorkflow = Ui.Button("New workflow", () => GitHubRuns.Open(repoUrl + "/actions/new"));
@@ -352,7 +354,7 @@ internal sealed class GitHubActionsTab : Border
         collapse.Name = "GitHubCollapseSidebar"; collapse.Margin = new Thickness(8); collapse.HorizontalAlignment = HorizontalAlignment.Stretch;
         var bottom = new StackPanel { Margin = new Thickness(8, 0), Children = { new Border { Height = 1, Background = Ui.BorderBrush }, managementHead, management, collapse } };
         var grid = new Grid { RowDefinitions = new("*,Auto") };
-        grid.Children.Add(new ScrollViewer { Content = sidebarItems, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Name = "GitHubSidebarScroll" });
+        grid.Children.Add(sidebarScroll);
         Grid.SetRow(bottom, 1); grid.Children.Add(bottom);
         sidebar.Child = grid;
         collapsed.Child = new Border { Margin = new Thickness(4), VerticalAlignment = VerticalAlignment.Top, Child = Ui.IconButton(GitHubIcons.LayoutLeft, "Expand sidebar", () => SetSidebar(true)) };
