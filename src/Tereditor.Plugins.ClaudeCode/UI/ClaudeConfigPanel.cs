@@ -588,12 +588,14 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => Edit(action.Edit)));
             line.ContextMenu = menu;
             // Right-click is not something a row hints at: a small button shows while the pointer is over it and opens the same menu.
-            var more = new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), Margin = new Thickness(0, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, IsVisible = false };
+            var more = new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), Margin = new Thickness(0, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
+            // The button always takes its space and only fades in, so a row never changes height when the pointer enters it.
+            void ShowMore(bool shown) { more.Opacity = shown ? 1 : 0; more.IsHitTestVisible = shown; }
             ToolTip.SetTip(more, actions[0].Label);
             more.Click += (_, _) => menu.Open(line); // Avalonia opens a context menu only on the control it is attached to
-            line.PointerEntered += (_, _) => more.IsVisible = true;
-            line.PointerExited += (_, _) => more.IsVisible = more.IsPressed || menu.IsOpen;
-            menu.Closed += (_, _) => more.IsVisible = line.IsPointerOver;
+            line.PointerEntered += (_, _) => ShowMore(true);
+            line.PointerExited += (_, _) => ShowMore(more.IsPressed || menu.IsOpen);
+            menu.Closed += (_, _) => ShowMore(line.IsPointerOver);
             SetDock(more, Dock.Right);
             line.Children.Insert(1, more);
         }
