@@ -1506,7 +1506,8 @@ internal static class ClaudeCodeChecks
             "Claude Code is disabled by default and starts no IDE bridge.");
         await state.ChangeAsync([HostStateChange.PluginSettings("claude-code", JsonSerializer.Serialize(new { enabled = true, command = "/usr/bin/false" }))]);
         await runtime.Schedule();
-        Require((await runtime.ListAsync()).Single().Status == PluginStatus.Active, "A bare enable activates the Claude Code host.");
+        var enabled = (await runtime.ListAsync()).Single();
+        Require(enabled.Status == PluginStatus.Active, $"A bare enable activates the Claude Code host (status {enabled.Status}, reason: {enabled.Reason}).");
         async Task<T> Call<P, T>(PluginMethod<P, T> method, P parameters) =>
             PluginJson.Convert<T>(await runtime.CallAsync(new("claude-code", method.Name, parameters, "claude-client")));
         var config = await Call(ClaudeCodeContract.ConfigGet, new WorkspaceParams(project));
