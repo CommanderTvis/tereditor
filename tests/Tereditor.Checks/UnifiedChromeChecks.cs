@@ -204,6 +204,11 @@ internal static class UnifiedChromeChecks
         app.Window.UpdateLayout();
         double Left(Control control) => control.TranslatePoint(default, header)!.Value.X;
         double Right(Control control) => Left(control) + control.Bounds.Width;
+        // The status area never clips: the project, the branch chip, Push (when shown) and the add button sit whole inside the rail.
+        foreach (var part in new Control?[] { app.Find<Button>("ScopeProject"), app.Window.GetLogicalDescendants().OfType<Button>().FirstOrDefault(b => b.IsVisible && b.Name == "AddProjectMenu"),
+            app.Find<Button>("ScopeBranch").IsVisible ? app.Find<Button>("ScopeBranch") : null,
+            app.Window.GetLogicalDescendants().OfType<Button>().FirstOrDefault(b => b.IsVisible && b.Name == "RemotePush") }.OfType<Control>())
+            Require(part.Bounds.Width > 8 && Left(part) >= -.5 && Right(part) <= header.Bounds.Width + .5, $"{part.Name} is shown whole inside the rail header ({Left(part):0.#}..{Right(part):0.#} of {header.Bounds.Width:0.#}).");
         var project = app.Find<Button>("ScopeProject");
         var branch = app.Find<Button>("ScopeBranch");
         var initial = project.GetLogicalDescendants().OfType<Border>().Single(border => border.Classes.Contains("location-initial"));
@@ -260,12 +265,12 @@ internal static class UnifiedChromeChecks
                 var right = app.Find<Border>("AuxiliaryRegion_right");
                 var shell = surface.Bounds.Width - DockSurface.RailWidth;
                 var step = $"at {zoom:0.##}x ({shell:0} wide: rail {rail.Bounds.Width:0.#}, centre {centre.Bounds.Width:0.#}, right {right.Bounds.Width:0.#})";
-                var minimum = Math.Min(.4 * shell, SideGeometry.MinPaneWidth);
+                var minimum = Math.Min(.7 * shell, SideGeometry.RailMinimumWidth);
                 Require(rail.IsVisible && rail.Bounds.Width >= minimum - 1, $"The Projects rail keeps its minimum {step}.");
                 Require(rail.Bounds.Width * zoom >= 80 - 1, $"The rail holds the traffic lights' inset {step}.");
                 var inset = centre.TranslatePoint(default, surface)!.Value.X;
                 Require(inset >= rail.Bounds.Width - 1, $"Nothing of the main column starts inside the rail's strip {step}.");
-                Require(centre.Bounds.Width >= Math.Min(320, shell - 2 * SideGeometry.MinPaneWidth) - 1, $"The main column keeps 320 unless both sides are at their minimum {step}.");
+                Require(centre.Bounds.Width >= Math.Min(320, shell - SideGeometry.RailMinimumWidth - SideGeometry.MinPaneWidth) - 1, $"The main column keeps 320 unless both sides are at their minimum {step}.");
                 var side = right.IsVisible ? right.Bounds.Width : 0;
                 Require(!right.IsVisible || side >= Math.Min(.35 * shell, SideGeometry.MinPaneWidth) - 1, $"The right side keeps its minimum, never a sliver or nothing {step}.");
                 Require(side <= previous + 1, $"The right side does not grow as the zoom rises {step}.");

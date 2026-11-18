@@ -107,7 +107,7 @@ rail, and Mod+1 does nothing. Android desktop windows are unified too. `DockSurf
 - Tools and terminals never share a pane ([Panes](#tool-and-terminal-panes)).
 - Left/right: ordered vertical stacks beside persistent 40px edge rails ([Rails](#edge-rails)). Expanded
   bodies keep a 120px minimum; a folded pane occupies nothing inside the stack, keeps its weight and lives
-  only on its rail. A side with no expanded pane takes no width. A side is at least 220px wide (at most 35% of the frame, `SideGeometry.MinPaneWidth`)
+  only on its rail. A side with no expanded pane takes no width. The fixed Projects rail is at least 280px wide (`SideGeometry.RailMinimumWidth`, at most 70% of the frame) so its header never clips. A side is at least 220px wide (at most 35% of the frame, `SideGeometry.MinPaneWidth`)
   while the frame fits two such sides and the 320px centre, else the 8% floor applies, by the separator and on restoring saved widths.
   Dragging, arrow keys and a narrow window never take a side (the Projects rail, Project Home's Projects pane or a tool side) below that minimum or to nothing; only Hide and the rail's entries hide a side. A saved width below it is raised when applied, not rewritten. Saved widths stay
   ratios of the frame between the rails.

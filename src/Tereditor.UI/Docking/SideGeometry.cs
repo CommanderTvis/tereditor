@@ -21,11 +21,14 @@ internal sealed class SideGeometry
 
     private const double CenterMinimumPixels = 320;
 
+    /// <summary>The narrowest the Projects rail gets, in pixels: its header holds the project, the branch chip, Push and the add button unclipped.</summary>
+    public const double RailMinimumWidth = 280;
+
     /// <summary>
-    /// The narrowest the fixed Projects rail gets: <see cref="MinPaneWidth"/>, at most 40% of the frame. Like every side pane it never
+    /// The narrowest the fixed Projects rail gets: <see cref="RailMinimumWidth"/>, at most 70% of the frame. Like every side pane it never
     /// folds to nothing, and the window's header and its traffic-light inset live in it.
     /// </summary>
-    public static double FixedLeftMinimum(double width) => width > 0 ? Math.Min(.4, MinPaneWidth / width) : .08;
+    public static double FixedLeftMinimum(double width) => width > 0 ? Math.Min(.7, RailMinimumWidth / width) : .08;
 
     public SideGeometry(DockState state, double width, bool fixedLeft = false)
     {
