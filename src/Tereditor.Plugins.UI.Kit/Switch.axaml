@@ -23,7 +23,7 @@
       <Setter Property="Background" Value="{x:Static kit:Ui.Accent}" />
     </Style>
     <Style Selector="kit|Switch:checked /template/ Border#Thumb">
-      <Setter Property="Background" Value="{x:Static kit:Ui.OnPrimary}" />
+      <Setter Property="Background" Value="White" />
     </Style>
     <Style Selector="kit|Switch:disabled /template/ Border#Target">
       <Setter Property="Background" Value="Transparent" />
