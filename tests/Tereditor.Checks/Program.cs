@@ -1110,6 +1110,13 @@ internal static class Program
             Console.WriteLine("PASS closed chat views are collectable");
             return;
         }
+        if (args.SequenceEqual(["--ui-errors"]))
+        {
+            AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
+            UiErrorChecks.Run(root);
+            return;
+        }
         if (args.SequenceEqual(["--claude-chat-ui"]))
         {
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
@@ -1698,6 +1705,7 @@ internal static class Program
         Gate.Case("claude-chat-ui", () => { ClaudeChatUiChecks.Run(); ClaudeChatUiChecks.ResumeOfferDismiss(); ClaudeChatUiChecks.Launcher(root); });
         Gate.Case("DiscordChecks-RunUi", () => DiscordChecks.RunUi(root));
         Gate.Case("PdfPreviewChecks-Run", () => PdfPreviewChecks.Run(root));
+        Gate.Case("ui-errors", () => UiErrorChecks.Run(root));
         Gate.Case("epub-reader", () => EpubChecks.Run(root));
         Gate.Case("environment", () => EnvironmentChecks.RunBlocking(root));
         Gate.Case("BranchGraphChecks-RunUi", () => BranchGraphChecks.RunUi(root));

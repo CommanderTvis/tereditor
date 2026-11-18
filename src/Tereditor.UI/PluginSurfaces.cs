@@ -869,7 +869,7 @@ public sealed partial class WorkbenchWindow
             var item = Ui.Menu(offer.Label, () =>
             {
                 try { offer.Action.Run(terminal); }
-                catch (Exception error) { Console.Error.WriteLine($"Plugin {offer.PluginId} terminal tab action failed: {error.Message}"); }
+                catch (Exception error) { UiErrorGuard.Shared.Plugin(offer.PluginId, error); }
             });
             item.Name = $"TerminalTabAction_{offer.PluginId}_{offer.Action.Id}";
             if (offer.Action.Icon is { } icon) item.Icon = PluginIcons.Resolve(icon, Plugins.Entry(offer.PluginId), null, 14);
@@ -895,7 +895,7 @@ public sealed partial class WorkbenchWindow
         var item = Ui.Menu(offer.Label, () =>
         {
             try { offer.Action.Run(target); }
-            catch (Exception error) { Console.Error.WriteLine($"Plugin {offer.PluginId} file action failed: {error.Message}"); }
+            catch (Exception error) { UiErrorGuard.Shared.Plugin(offer.PluginId, error); }
         });
         item.Name = $"FileAction_{offer.PluginId}_{offer.Action.Id}";
         if (offer.Action.Icon is { } icon) item.Icon = PluginIcons.Resolve(icon, Plugins.Entry(offer.PluginId), null, 14);

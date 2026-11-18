@@ -8,6 +8,7 @@ internal static class Program
     public static void Main(string[] args)
     {
         StartupPhases.Mark("managed-entry");
+        UiErrorGuard.Shared.InstallProcessHooks();
         if (args is [Terminal.TerminalRelay.Argument]) Environment.Exit(Terminal.TerminalRelay.Run());
         Console.WriteLine($"TEREDITOR_MAIN {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
         var builder = AppBuilder.Configure<App>().UsePlatformDetect()

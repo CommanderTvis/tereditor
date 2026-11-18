@@ -109,6 +109,7 @@ Run: `dotnet run --project tests/Tereditor.Checks -c Release -- <mode>`. Modes a
 
 | Mode | Covers |
 | --- | --- |
+| `--ui-errors` | The UI error guard: a throwing click is logged and noticed once, the dispatcher keeps running, repeats are logged but not noticed again, a looping exception, out of memory and startup failures are not handled. |
 | `--plugins-settings` | Settings › Plugins with a long roster: virtualized, recycled cards; broadcasts update in place; toggles; every builtin plugin draws its icon. |
 | `--plugin-json` | Every builtin plugin's declared types, contexts and tool parameters have source-generated JSON metadata, enums as camelCase strings, no initializer lost (also run by `--plugins`). |
 | `--plugins`, `--codex`, `--codex-terminals`, `--omp`, `--pi`, `--acp`, `--providers`, `--providers-ui`, `--cloud-platforms`, `--openai`, `--claude-code`, `--claude-chat-ui`, `--closed-chat-views`, `--claude-chat-host`, `--claude-chat-e2e`, `--specs`, `--branch-graph`, `--processes`, `--runtimes` | Plugin runtime and each builtin plugin. |

@@ -23,6 +23,20 @@ public sealed partial class WorkbenchWindow
         notificationTimer.Stop(); toast.IsVisible = true; notificationTimer.Start();
     }
 
+    /// <summary>Shows a guarded UI failure as one toast with the log and a copy of the details.</summary>
+    internal void ShowUiError(UiErrorNotice notice)
+    {
+        var message = notice.Many ? "Many errors happened. The app kept running. Details are in the log."
+            : $"Something went wrong in {notice.Area}. The app kept running. Details are in the log.";
+        Toasts.Push(ToastVariant.Error, message, "Something went wrong", TimeSpan.FromSeconds(15),
+            actions: [new ToastAction("Copy details", () => CopyText(notice.Details, "Details copied.")),
+                new ToastAction("Open log", () => _ = Task.Run(() =>
+                {
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(UiErrorGuard.Shared.LogPath) { UseShellExecute = true }); }
+                    catch (Exception error) { UiErrorGuard.Shared.Plugin("log opener", error); }
+                }))]);
+    }
+
     private void WireGestureNotification()
     {
         var toast = this.FindControl<Border>("GestureToast")!;

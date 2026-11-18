@@ -125,6 +125,7 @@ public sealed partial class App : Application
                 };
             }
             else StartDesktop(desktop, null);
+            UiErrorGuard.Shared.InstallDispatcherHook();
             IdleMemoryTrim.Start();
             ScrollTooltipGate.Start();
             UiLagWatchdog.Start();
@@ -356,6 +357,9 @@ public sealed partial class App : Application
         }
         // Serving on launch starts after the windows exist and off the UI thread; a failure shows on the Host page.
         if (listener is not null) _ = Task.Run(() => listener.StartOnLaunchAsync());
+        UiErrorGuard.Shared.Notify = notice => workbench.ActiveWindow?.ShowUiError(notice);
+        UiErrorGuard.Shared.ActiveWindow = () => workbench.ActiveWindow?.Title;
+        UiErrorGuard.Shared.Running = desktop.MainWindow is not null;
         workbench.Commands.Shutdown = () => desktop.TryShutdown();
         desktop.ShutdownRequested += (_, _) => workbench.ShuttingDown = true;
         desktop.Exit += (_, _) =>

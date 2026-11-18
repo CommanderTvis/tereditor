@@ -64,6 +64,17 @@ The docking model has no dependency on panels, host services or persistence; the
 its content. Persistence knows only the layout data it saves. Application composition and checks
 are the only external consumers of the window implementation.
 
+## Failing handlers
+
+A failing UI handler must not end the app. `UiErrorGuard` hooks `Dispatcher.UIThread.UnhandledException` once the desktop lifetime has started (this covers every
+exception that reaches the dispatcher: clicks, key and pointer routing, timers and posted jobs). It logs the exception (type, message, full stack, active window, plugin when
+known) to `~/.tereditor/logs/ui-errors.log` (2 MB, one `.1` copy, a background thread writes) and shows one error toast ("Something went wrong in <area>. The app kept running.
+Details are in the log.") with Copy details and Open log. The same exception type and stack notifies at most once per 10 s; more than 5 notices in a minute become one
+"Many errors" notice. A plugin callback that fails (terminal tab and file actions) is attributed to its plugin by name. Never handled, so the process still fails: out of memory,
+access violations, stack exhaustion, bad images, any exception before the main window exists, and the same exception more than 25 times within 2 s (a broken frame or timer loop).
+Off the UI thread, `AppDomain.UnhandledException` writes `~/.tereditor/logs/crash.log` synchronously before the process dies, and unobserved task exceptions are logged and observed.
+Exceptions that native callbacks raise outside any dispatcher job are not reached by the dispatcher hook; they end the process and appear in `crash.log`. `--ui-errors` checks the guard.
+
 ## Startup
 
 Startup restores a usable window before expensive panel reads finish. It resolves the remote
