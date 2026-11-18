@@ -55,7 +55,7 @@ internal static partial class ClaudeEdits
 
     private static string SkillBody(string name, string description)
     {
-        if (description.Trim().Length == 0) throw new InvalidOperationException("A skill needs a description — it is how Claude finds it");
+        if (description.Trim().Length == 0) throw new InvalidOperationException("A skill needs a description. It is how Claude finds it");
         return $"---\nname: {SkillDirectoryName(name)}\ndescription: {description.Trim()}\n---\n\n# {name.Trim()}\n\nWhat to do, step by step.\n";
     }
 
@@ -222,18 +222,18 @@ internal static partial class ClaudeEdits
         var who = ClaudeValues.ScopeWording(scope);
         return edit switch
         {
-            McpEdit mcp => mcp.Allowed ? $"Stop denying the MCP server \"{mcp.Server}\" — affects {who}." : $"Deny the MCP server \"{mcp.Server}\" — affects {who}.",
-            McpAddEdit add => $"Add the MCP server \"{add.Server}\" — affects {who}.",
-            PluginEdit plugin => plugin.Enabled ? $"Turn on the plugin \"{plugin.Name}\" — affects {who}." : $"Turn off the plugin \"{plugin.Name}\" — affects {who}.",
-            PluginAddEdit add => $"Add the plugin \"{add.Plugin}\" from \"{add.Marketplace}\" — affects {who}.",
-            HookEdit hook => $"Run `{hook.Command}` on {HookEventName(hook.Event)}{(hook.Matcher.Length > 0 ? $" for {hook.Matcher}" : "")} — affects {who}.",
-            SkillCreateEdit create => $"Create the skill \"{create.Name}\" — affects {who}.",
-            DenyToolEdit deny => deny.Denied ? $"Hide \"{deny.Rule}\" from Claude with a deny rule — affects {who}." : $"Stop hiding \"{deny.Rule}\" from Claude — affects {who}.",
-            SkillEdit skill => skill.Enabled ? $"Stop overriding the skill \"{skill.Name}\" — affects {who}." : $"Turn off the skill \"{skill.Name}\" — affects {who}.",
+            McpEdit mcp => mcp.Allowed ? $"Stop denying the MCP server \"{mcp.Server}\". It affects {who}." : $"Deny the MCP server \"{mcp.Server}\". It affects {who}.",
+            McpAddEdit add => $"Add the MCP server \"{add.Server}\". It affects {who}.",
+            PluginEdit plugin => plugin.Enabled ? $"Turn on the plugin \"{plugin.Name}\". It affects {who}." : $"Turn off the plugin \"{plugin.Name}\". It affects {who}.",
+            PluginAddEdit add => $"Add the plugin \"{add.Plugin}\" from \"{add.Marketplace}\". It affects {who}.",
+            HookEdit hook => $"Run `{hook.Command}` on {HookEventName(hook.Event)}{(hook.Matcher.Length > 0 ? $" for {hook.Matcher}" : "")}. It affects {who}.",
+            SkillCreateEdit create => $"Create the skill \"{create.Name}\". It affects {who}.",
+            DenyToolEdit deny => deny.Denied ? $"Hide \"{deny.Rule}\" from Claude with a deny rule. It affects {who}." : $"Stop hiding \"{deny.Rule}\" from Claude. It affects {who}.",
+            SkillEdit skill => skill.Enabled ? $"Stop overriding the skill \"{skill.Name}\". It affects {who}." : $"Turn off the skill \"{skill.Name}\". It affects {who}.",
             SettingEdit setting => setting.Value is not { ValueKind: not JsonValueKind.Null } value
-                ? $"Remove \"{setting.Key}\" — affects {who}."
-                : $"Set \"{setting.Key}\" to {Json.Compact(value)} — affects {who}.",
-            FileEdit file => $"Create {Template(file.Template, root).What} — affects {who}.",
+                ? $"Remove \"{setting.Key}\". It affects {who}."
+                : $"Set \"{setting.Key}\" to {Json.Compact(value)}. It affects {who}.",
+            FileEdit file => $"Create {Template(file.Template, root).What}. It affects {who}.",
             _ => ""
         };
     }
@@ -257,14 +257,14 @@ internal static partial class ClaudeEdits
         var snapshot = ClaudeResolver.Resolve(workspaceId, root);
         if (edit is McpAddEdit add)
             return snapshot.Capabilities.FirstOrDefault(item => item.Kind == ClaudeCapabilityKind.Mcp && item.Name == add.Server) is { } clash
-                ? [$"A server called \"{add.Server}\" is already declared in {clash.Origin.Scope.Name()} scope — Claude Code will use one of the two, and which one is not something this pane can promise."]
+                ? [$"A server called \"{add.Server}\" is already declared in {clash.Origin.Scope.Name()} scope. Claude Code will use one of the two, and which one is not something this pane can promise."]
                 : [];
         if (ContestedKey(edit) is not { } key) return [];
         var resolved = snapshot.Settings.FirstOrDefault(entry => entry.Key == key);
         if (resolved is null || resolved.Origin.Scope.Name() == scope.Name()) return [];
         var wins = Array.IndexOf(Order, resolved.Origin.Scope) < Array.IndexOf(Order, Enum.Parse<ClaudeConfigScope>(scope.ToString()));
         return wins
-            ? [$"\"{key}\" is already set in {resolved.Origin.Scope.Name()} settings, which wins over {scope.Name()} — this change will have no effect until that one changes."]
+            ? [$"\"{key}\" is already set in {resolved.Origin.Scope.Name()} settings, which wins over {scope.Name()}. This change will have no effect until that one changes."]
             : [];
     }
 
@@ -291,7 +291,7 @@ internal static partial class ClaudeEdits
         var existing = ReadIfPresent(path);
         // The approval was given for a diff against this exact content; if the file moved since, the diff the user
         // approved is not the change that would land.
-        if (TextFile.ContentHash(existing) != baseHash) throw new InvalidOperationException("That file changed since the diff was shown — review it again");
+        if (TextFile.ContentHash(existing) != baseHash) throw new InvalidOperationException("That file changed since the diff was shown. Review it again");
         var updated = NextContent(existing, edit, scope, root);
         if (updated != existing)
         {
