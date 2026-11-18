@@ -1,5 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
+using Avalonia.Threading;
 
 using Tereditor.Plugins.Api.Host;
 using Tereditor.Plugins.GitHub;
@@ -95,6 +99,93 @@ internal static class GitHubBrowserChecks
             tab.Render(new(false, "r", "Run", "Sub", state, rows, [], [], false));
         }
         Console.WriteLine("PASS GitHub pane, rows, conversation and views render with every icon resolved");
+        LinkHoverAndAvatars();
+        PlaceholdersAreCentred();
+    }
+
+    private static Window Show(Control content, double width = 800, double height = 600)
+    {
+        var window = new Window { Width = width, Height = height, Content = content };
+        window.Show();
+        Frame(window);
+        return window;
+    }
+
+    private static void Frame(Window window)
+    {
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+    }
+
+    /// <summary>A tab's scroller, taken out of the tab so a window can host it without the tab's refresh timer or host connection.</summary>
+    private static GitHubPage Scroller(Border tab)
+    {
+        var page = (GitHubPage)tab.Child!;
+        tab.Child = null;
+        return page;
+    }
+
+    private static void LinkHoverAndAvatars()
+    {
+        var people = (int count) => (IReadOnlyList<GitHubPerson>)[.. Enumerable.Range(0, count).Select(i => new GitHubPerson("user" + i, ""))];
+        GitHubItem Make(int number, int assignees, string color) =>
+            new(number, "Title " + number, "open", false, "ann", [new("l", color)], 0, "2026-11-01T10:00:00Z", "2026-11-02T10:00:00Z", null, "https://github.com/o/r/issues/" + number, "none", "none") { Assignees = people(assignees) };
+        var tab = new GitHubTab(null!, "w", GitHubTab.Issues);
+        tab.RenderList(new(false, "r", "o/r", [Make(1, 2, "ffffff"), Make(2, 0, "000000"), Make(3, 4, "d73a4a")], 3, 0, false));
+        var window = Show(Scroller(tab));
+
+        var title = (TextBlock)Named(window, "GitHubTitle1")!;
+        var row = Named(window, "GitHubRow1")!;
+        Require(title.TextDecorations is null && ReferenceEquals(title.Foreground, Ui.TextBrush), "A row title is plain text colour at rest");
+        var inside = row.TranslatePoint(new Point(row.Bounds.Width / 2, row.Bounds.Height / 2), window)!.Value;
+        window.MouseMove(new Point(0, 0)); Frame(window);
+        window.MouseMove(inside); Frame(window);
+        Require(title.TextDecorations is { Count: > 0 } && ReferenceEquals(title.Foreground, Ui.Accent), "Hovering a row underlines its title and turns it accent");
+        Require(row is Border { Background: var fill } && ReferenceEquals(fill, Ui.Hover), "Hovering a row also fills the row");
+        window.MouseMove(new Point(0, 0)); Frame(window);
+        Require(title.TextDecorations is null && ReferenceEquals(title.Foreground, Ui.TextBrush), "Leaving the row restores the title");
+
+        Require(Named(window, "GitHubRow1")!.GetLogicalDescendants().OfType<Panel>().FirstOrDefault(p => p.Name == "GitHubAssignees") is { Children.Count: 2 }, "Two assignees show two avatars");
+        Require(Named(window, "GitHubRow2")!.GetLogicalDescendants().All(c => c is not Control { Name: "GitHubAssignees" }), "No assignees show no avatars");
+        var four = Named(window, "GitHubRow3")!.GetLogicalDescendants().OfType<Panel>().First(p => p.Name == "GitHubAssignees");
+        Require(four.Children.Count == 4 && four.Children[3].GetLogicalDescendants().OfType<TextBlock>().Any(t => t.Text == "+1"), "Four assignees show three avatars and +1");
+        Require(Named(window, "GitHubAvataruser0") is { } avatar && ToolTip.GetTip(avatar) as string == "user0", "An avatar's tooltip is the login");
+        static IBrush? Ink(GitHubLabel label) => ((TextBlock)((Border)GitHubTab.LabelChip(label)).Child!).Foreground;
+        Require(ReferenceEquals(Ink(new("l", "ffffff")), Brushes.Black) && ReferenceEquals(Ink(new("l", "000000")), Brushes.White), "A light label has dark text and a dark label has light text");
+        window.Close();
+        Console.WriteLine("PASS GitHub row titles hover to accent and underline; assignee avatars and label chips render");
+    }
+
+    private static void PlaceholdersAreCentred()
+    {
+        foreach (var tab in new Border[] { new GitHubTab(null!, "w", GitHubTab.Issues), new GitHubViewTab(null!, "w", "runs") })
+        {
+            var scroll = Scroller(tab);
+            var window = Show(scroll);
+            var text = scroll.Scroll.GetLogicalDescendants().OfType<TextBlock>().First();
+            var centre = text.TranslatePoint(new Point(text.Bounds.Width / 2, text.Bounds.Height / 2), window)!.Value;
+            Require(Math.Abs(centre.X - window.Bounds.Width / 2) <= 1 && Math.Abs(centre.Y - window.Bounds.Height / 2) <= 1, tab.GetType().Name + " centres its loading text both ways, got " + centre);
+            window.Close();
+        }
+        Console.WriteLine("PASS GitHub tabs centre their loading text");
+        PinnedHeader();
+    }
+
+    private static void PinnedHeader()
+    {
+        var items = Enumerable.Range(1, 40).Select(i => new GitHubItem(i, "Title " + i, "open", false, "ann", [], 0, "2026-11-01T10:00:00Z", "2026-11-02T10:00:00Z", null, "u", "none", "none")).ToList();
+        var tab = new GitHubTab(null!, "w", GitHubTab.Issues);
+        tab.RenderList(new(false, "r", "o/r", items, 40, 0, false));
+        var page = Scroller(tab);
+        var window = Show(page, 800, 400);
+        var header = Named(window, GitHubPage.HeaderName)!;
+        Require(page.Scroll.Extent.Height > page.Scroll.Viewport.Height, "The list is longer than its viewport");
+        Require(header.Bounds.Height > 0 && header.Bounds.Top == 0, "The header sits at the top");
+        page.Scroll.Offset = new Vector(0, page.Scroll.Extent.Height); Frame(window);
+        Require(page.Scroll.Offset.Y > 0 && header.TranslatePoint(new Point(0, 0), window)!.Value.Y == 0, "The header stays at the top after the list scrolls to the end");
+        window.Close();
+        Console.WriteLine("PASS GitHub list header stays pinned while the list scrolls");
     }
 
     /// <summary>Every type spread at the top of a timeline query must be a pinned member of that kind's GitHub union.</summary>

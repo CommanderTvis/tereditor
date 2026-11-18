@@ -721,3 +721,7 @@ static readonly Tereditor.Plugins.UI.Kit.TerminalChips.IdProperty -> Avalonia.At
 static readonly Tereditor.Plugins.UI.Kit.TerminalChips.KindsProperty -> Avalonia.AttachedProperty<System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.UI.Kit.TerminalChipKind!>?>!
 Tereditor.Plugins.UI.Kit.Markdown.MarkdownContext.OpenLink.get -> System.Func<string!, bool>?
 Tereditor.Plugins.UI.Kit.Markdown.MarkdownContext.OpenLink.init -> void
+static readonly Tereditor.Plugins.UI.Kit.HoverLink.Decoration -> Avalonia.Media.TextDecorationCollection!
+static Tereditor.Plugins.UI.Kit.HoverLink.Apply<T>(T! text, Avalonia.Controls.Control? trigger = null, System.Action? activate = null) -> T!
+Tereditor.Plugins.UI.Kit.HoverLink
+static Tereditor.Plugins.UI.Kit.Ui.Status(string! text, Avalonia.Media.IBrush? color = null, double? size = null) -> Avalonia.Controls.TextBlock!

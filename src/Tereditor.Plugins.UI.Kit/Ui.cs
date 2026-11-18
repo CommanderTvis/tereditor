@@ -184,6 +184,16 @@ public static partial class Ui
         TextTrimming = TextTrimming.CharacterEllipsis
     };
 
+    /// <summary>A status line (loading, empty, failed) that sits in the middle of the space it is given, both ways.</summary>
+    public static TextBlock Status(string text, IBrush? color = null, double? size = null)
+    {
+        var status = Text(text, color, size);
+        status.HorizontalAlignment = HorizontalAlignment.Center; status.VerticalAlignment = VerticalAlignment.Center;
+        status.TextAlignment = TextAlignment.Center; status.TextWrapping = TextWrapping.Wrap; status.TextTrimming = TextTrimming.None;
+        status.Margin = new Thickness(24);
+        return status;
+    }
+
     public static StackPanel Row(string icon, string text, IBrush? color = null)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };

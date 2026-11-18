@@ -21,7 +21,8 @@ internal sealed class GitHubViewTab : Border
     private readonly string workspace;
     private readonly bool standalone;
     private readonly string kind;
-    private readonly ScrollViewer scroll = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+    private readonly GitHubPage page = new();
+    private ScrollViewer scroll => page.Scroll;
     private readonly DispatcherTimer poll = new();
     private readonly Dictionary<string, string> filters = [];
     private readonly GitHubLinker linker;
@@ -48,8 +49,8 @@ internal sealed class GitHubViewTab : Border
         kind = parts[0] switch { "run" => "runs", "discussion" => "discussions", var other => other };
         if (parts.Length == 2) { itemId = parts[1]; standalone = true; }
         linker = new(() => repoSlug, HandleLink);
-        Child = scroll;
-        scroll.Content = Ui.Text("Loading…");
+        Child = page;
+        page.Show(null, Ui.Status("Loading…"));
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) => { lifetime = new(); poll.Interval = TimeSpan.FromSeconds(Math.Clamp(context.Settings<GitHubSettings>().PollSeconds, 15, 600)); poll.Start(); revision = null; Refresh(); };
         DetachedFromVisualTree += (_, _) => { poll.Stop(); lifetime?.Cancel(); generation++; };
@@ -86,9 +87,9 @@ internal sealed class GitHubViewTab : Border
         GitHubView view;
         try { view = await Task.Run(async () => await context.RequestAsync(GitHubContract.View, request, token).AsTask(), token); }
         catch (OperationCanceledException) { return; }
-        catch (Exception error) { if (mine == generation) scroll.Content = Message(error.Message); return; }
+        catch (Exception error) { if (mine == generation) page.Show(null, Message(error.Message)); return; }
         if (mine != generation || token.IsCancellationRequested) return;
-        if (view.Problem is not null) { scroll.Content = Message(view.Problem); return; }
+        if (view.Problem is not null) { page.Show(null, Message(view.Problem)); return; }
         if (view.Unchanged) return;
         revision = view.Revision;
         shown = view;
@@ -106,7 +107,8 @@ internal sealed class GitHubViewTab : Border
     internal void Render(GitHubView view)
     {
         var offset = scroll.Offset;
-        scroll.Content = Build(view);
+        var body = Build(view, out var top);
+        page.Show(top, body);
         Dispatcher.UIThread.Post(() => scroll.Offset = offset, DispatcherPriority.Loaded);
     }
 
@@ -132,27 +134,29 @@ internal sealed class GitHubViewTab : Border
         if (shown is not null) Render(shown);
     }
 
-    private Control Build(GitHubView view)
+    private Control Build(GitHubView view, out Control top)
     {
-        var root = new StackPanel { Spacing = 12, Margin = new Thickness(24, 16), MaxWidth = 1012, Name = "GitHubView" };
+        var root = new StackPanel { Spacing = 12, Margin = new Thickness(24, 0, 24, 16), MaxWidth = 1012, Name = "GitHubView" };
+        var header = new StackPanel { Spacing = 12, Margin = new Thickness(24, 16, 24, 12), MaxWidth = 1012 };
+        top = header;
         if (itemId.Length > 0 && !standalone)
-            root.Children.Add(Ui.Button(kind == "runs" ? "Actions" : "Discussions", () => { itemId = ""; revision = null; Refresh(); }, GitHubIcons.ArrowLeft));
+            header.Children.Add(Ui.Button(kind == "runs" ? "Actions" : "Discussions", () => { itemId = ""; revision = null; Refresh(); }, GitHubIcons.ArrowLeft));
         var title = Ui.Text(view.Title, Ui.TextBrush, 22);
         title.FontWeight = FontWeight.SemiBold; title.TextWrapping = TextWrapping.Wrap;
-        root.Children.Add(title);
+        header.Children.Add(title);
         if (view.Subtitle.Length > 0)
         {
             var sub = Ui.Text(view.Subtitle, Ui.Muted, 13); sub.TextWrapping = TextWrapping.Wrap; sub.TextTrimming = TextTrimming.None;
-            root.Children.Add(sub);
+            header.Children.Add(sub);
         }
-        if (view.State is not "none" && itemId.Length > 0) root.Children.Add(Ui.Text(StateText(view.State), GitHubTab.Muted(StateTone(view.State)), 14));
+        if (view.State is not "none" && itemId.Length > 0) header.Children.Add(Ui.Text(StateText(view.State), GitHubTab.Muted(StateTone(view.State)), 14));
         if (view.Filters.Count > 0)
         {
             var chips = new WrapPanel();
             foreach (var filter in view.Filters) chips.Children.Add(Chip(filter));
-            root.Children.Add(chips);
+            header.Children.Add(chips);
         }
-        if (view.Summary.Length > 0 && itemId.Length == 0) root.Children.Add(Ui.Text(view.Summary + (kind == "runs" ? "   Auto-refresh: " + (int)poll.Interval.TotalSeconds + "s" : ""), Ui.Muted, 13));
+        if (view.Summary.Length > 0 && itemId.Length == 0) header.Children.Add(Ui.Text(view.Summary + (kind == "runs" ? "   Auto-refresh: " + (int)poll.Interval.TotalSeconds + "s" : ""), Ui.Muted, 13));
         if (view.Rows.Count > 0 || (view.Cards.Count == 0 && itemId.Length == 0))
         {
             var frame = new StackPanel { Name = "GitHubRows" };
@@ -218,11 +222,13 @@ internal sealed class GitHubViewTab : Border
             }
             if (group.Name.Length > 0)
             {
-                var header = new Button { Content = Ui.Text((lines.IsVisible ? "▾ " : "▸ ") + group.Name, Ui.TextBrush, 12), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0, 2) };
+                var header = new Button { Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0, 2) };
+                void Label() => header.Content = HoverLink.Apply(Ui.Text((lines.IsVisible ? "▾ " : "▸ ") + group.Name, Ui.TextBrush, 12), header);
+                Label();
                 header.Click += (_, _) =>
                 {
                     lines.IsVisible = !lines.IsVisible;
-                    header.Content = Ui.Text((lines.IsVisible ? "▾ " : "▸ ") + group.Name, Ui.TextBrush, 12);
+                    Label();
                 };
                 panel.Children.Add(header);
             }
@@ -235,7 +241,9 @@ internal sealed class GitHubViewTab : Border
 
     private Control Chip(GitHubFilter filter)
     {
-        var button = new Button { Name = "GitHubChip" + filter.Label, Content = Ui.Text(filter.Label + (filter.Value.Length > 0 ? ": " + filter.Value : "") + " ▾", Ui.TextBrush, 13), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 0, 8, 0) };
+        var chipText = Ui.Text(filter.Label + (filter.Value.Length > 0 ? ": " + filter.Value : "") + " ▾", Ui.TextBrush, 13);
+        var button = new Button { Name = "GitHubChip" + filter.Label, Content = chipText, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 0, 8, 0) };
+        HoverLink.Apply(chipText, button);
         var flyout = new MenuFlyout();
         flyout.Items.Add(Ui.Menu("Clear " + filter.Label.ToLowerInvariant(), () => Choose(filter.Key, "")));
         foreach (var option in filter.Options) flyout.Items.Add(Ui.Menu(option, () => Choose(filter.Key, option)));
@@ -258,6 +266,7 @@ internal sealed class GitHubViewTab : Border
         var text = new StackPanel { Spacing = 2, Margin = new Thickness(row.State == "none" ? 0 : 10, 0, 0, 0) };
         var titleRow = new WrapPanel();
         var title = Ui.Text(row.Title, Ui.TextBrush, 14);
+        title.Name = "GitHubTitle" + row.Id;
         title.FontWeight = row.Indent == 0 ? FontWeight.SemiBold : FontWeight.Normal;
         title.Margin = new Thickness(0, 0, 8, 0);
         titleRow.Children.Add(title);
@@ -270,16 +279,15 @@ internal sealed class GitHubViewTab : Border
         var border = new Border { Name = "GitHubRow" + row.Id, Child = grid, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1) };
         if (kind == "runs" && itemId.Length > 0 && row.Indent == 0)
         {
-            border.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
-            border.PointerPressed += (_, _) =>
-            {
-                if (!expanded.Remove(row.Id)) expanded.Add(row.Id);
-                if (shown is not null) Render(shown);
-            };
+            void Toggle() { if (!expanded.Remove(row.Id)) expanded.Add(row.Id); if (shown is not null) Render(shown); }
+            border.Background = Brushes.Transparent;
+            HoverLink.Apply(title, border, Toggle);
+            border.PointerPressed += (_, _) => Toggle();
         }
         if (itemId.Length == 0 && kind is "runs" or "discussions")
         {
-            border.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            border.Background = Brushes.Transparent;
+            HoverLink.Apply(title, border, () => { itemId = row.Id; revision = null; Refresh(); });
             border.PointerPressed += (_, e) =>
             {
                 var point = e.GetCurrentPoint(border).Properties;
@@ -340,7 +348,8 @@ internal sealed class GitHubViewTab : Border
 
     private static Control Message(string text)
     {
-        var line = Ui.Text(text, Ui.Muted, 14); line.TextWrapping = TextWrapping.Wrap; line.TextTrimming = TextTrimming.None; line.Margin = new Thickness(24);
+        var line = Ui.Status(text, Ui.Muted, 14);
+        line.Name = "GitHubMessage";
         return line;
     }
 }

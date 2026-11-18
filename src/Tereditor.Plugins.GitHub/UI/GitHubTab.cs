@@ -29,7 +29,8 @@ internal sealed class GitHubTab : Border
     private readonly IPluginUIContext context;
     private readonly string workspace;
     private readonly bool standalone;
-    private readonly ScrollViewer scroll = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+    private readonly GitHubPage page = new();
+    private ScrollViewer scroll => page.Scroll;
     private readonly DispatcherTimer poll = new();
     private readonly TextBox queryBox = new() { Name = "GitHubQuery", PlaceholderText = "Search all issues", MinWidth = 280, Text = "is:open" };
     private IReadOnlyList<string> authors = [];
@@ -59,11 +60,11 @@ internal sealed class GitHubTab : Border
         if (standalone) number = int.Parse(parts[1]);
         queryBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { limit = 25; revision = null; Refresh(); } };
         linker = new(() => repoSlug, HandleLink);
-        Child = scroll;
+        Child = page;
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) => { lifetime = new(); Interval(); poll.Start(); revision = null; Refresh(); };
         DetachedFromVisualTree += (_, _) => { poll.Stop(); lifetime?.Cancel(); generation++; };
-        scroll.Content = Ui.Text("Loading…");
+        page.Show(null, Ui.Status("Loading…"));
     }
 
     private bool HandleLink(string url)
@@ -126,22 +127,23 @@ internal sealed class GitHubTab : Border
     internal void RenderList(GitHubList list)
     {
         var offset = scroll.Offset;
-        var root = new StackPanel { Spacing = 0, Margin = new Thickness(24, 16), MaxWidth = 1012 };
+        var root = new StackPanel { Spacing = 0, Margin = new Thickness(24, 0, 24, 16), MaxWidth = 1012 };
+        var header = new StackPanel { Spacing = 0, Margin = new Thickness(24, 16, 24, 0), MaxWidth = 1012 };
         var title = Ui.Text(kind == Pulls ? "Pull requests" : "Issues", Ui.TextBrush, 22);
         title.FontWeight = FontWeight.SemiBold;
         title.Margin = new Thickness(0, 0, 0, 12);
-        root.Children.Add(title);
+        header.Children.Add(title);
         var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 0, 0, 12) };
         bar.Children.Add(queryBox);
         bar.Children.Add(Ui.Button("Search", () => { limit = 25; revision = null; Refresh(); }, GitHubIcons.Search));
-        root.Children.Add(bar);
+        header.Children.Add(bar);
         authors = [.. list.Items.Select(item => item.Author).Distinct().Order()];
         repoLabels = list.RepoLabels;
         var chips = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
         chips.Children.Add(Chip("Author", "author", [.. authors.Select(a => (a, a))]));
         chips.Children.Add(Chip("Label", "label", [.. repoLabels.Select(l => (l.Name, l.Name.Contains(' ') ? "\"" + l.Name + "\"" : l.Name))]));
         chips.Children.Add(Chip("Sort", "sort", [("Newest", "created-desc"), ("Oldest", "created-asc"), ("Most commented", "comments-desc"), ("Least commented", "comments-asc"), ("Recently updated", "updated-desc"), ("Least recently updated", "updated-asc")]));
-        root.Children.Add(chips);
+        header.Children.Add(chips);
         var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(12, 8) };
         head.Children.Add(Toggle($"{list.Open} Open", "is:open", Open));
         head.Children.Add(Toggle($"{list.Closed} Closed", "is:closed", Done));
@@ -157,14 +159,16 @@ internal sealed class GitHubTab : Border
             more.HorizontalAlignment = HorizontalAlignment.Center;
             root.Children.Add(more);
         }
-        Show(root);
+        page.Show(header, root);
         Dispatcher.UIThread.Post(() => scroll.Offset = offset, DispatcherPriority.Loaded);
     }
 
     private Control Chip(string label, string qualifier, IReadOnlyList<(string Label, string Value)> options)
     {
         var current = System.Text.RegularExpressions.Regex.Match(queryBox.Text ?? "", "(^|\\s)" + qualifier + ":(\"[^\"]*\"|\\S+)");
-        var button = new Button { Name = "GitHubChip" + label, Content = Ui.Text(label + (current.Success ? ": " + current.Groups[2].Value.Trim('"') : "") + " ▾", Ui.TextBrush, 13), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 0, 8, 0) };
+        var chipText = Ui.Text(label + (current.Success ? ": " + current.Groups[2].Value.Trim('"') : "") + " ▾", Ui.TextBrush, 13);
+        var button = new Button { Name = "GitHubChip" + label, Content = chipText, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 0, 8, 0) };
+        HoverLink.Apply(chipText, button);
         var flyout = new MenuFlyout();
         flyout.Items.Add(Ui.Menu("Clear " + label.ToLowerInvariant(), () => SetQualifier(qualifier, null)));
         foreach (var option in options) flyout.Items.Add(Ui.Menu(option.Label, () => SetQualifier(qualifier, option.Value)));
@@ -184,7 +188,8 @@ internal sealed class GitHubTab : Border
         var active = (queryBox.Text ?? "").Contains(token, StringComparison.Ordinal);
         var text = Ui.Text(label, active ? Ui.TextBrush : Ui.Muted, 14);
         if (active) text.FontWeight = FontWeight.SemiBold;
-        var button = new Button { Content = text, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0) };
+        var button = new Button { Name = "GitHubToggle" + token.Replace(':', '-'), Content = text, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0) };
+        HoverLink.Apply(text, button);
         button.Click += (_, _) =>
         {
             var rest = System.Text.RegularExpressions.Regex.Replace(queryBox.Text ?? "", @"(^|\s)is:(open|closed|merged)(?=\s|$)", "").Trim();
@@ -201,6 +206,7 @@ internal sealed class GitHubTab : Border
         var text = new StackPanel { Spacing = 2, Margin = new Thickness(10, 0, 0, 0) };
         var titleRow = new WrapPanel { Orientation = Orientation.Horizontal };
         var title = Ui.Text(item.Title, Ui.TextBrush, 14);
+        title.Name = "GitHubTitle" + item.Number;
         title.FontWeight = FontWeight.SemiBold;
         title.Margin = new Thickness(0, 0, 8, 0);
         titleRow.Children.Add(title);
@@ -210,12 +216,17 @@ internal sealed class GitHubTab : Border
         var verb = item.State == "merged" ? "merged" : item.State == "closed" ? "closed" : "opened";
         text.Children.Add(Ui.Text($"#{item.Number} · {item.Author} {verb} {Ago(item.ClosedAt ?? item.CreatedAt)}" + (item.Review == "approved" ? " · Approved" : item.Review == "changes-requested" ? " · Changes requested" : ""), Ui.Muted, 12));
         Grid.SetColumn(text, 1); grid.Children.Add(text);
+        var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Top };
+        if (item.Assignees.Count > 0) right.Children.Add(GitHubAvatars.Stack(item.Assignees));
         if (item.Comments > 0)
         {
             var comments = Ui.Row(GitHubIcons.Chat, item.Comments.ToString());
-            Grid.SetColumn(comments, 2); grid.Children.Add(comments);
+            comments.VerticalAlignment = VerticalAlignment.Center;
+            right.Children.Add(comments);
         }
-        var row = new Border { Name = "GitHubRow" + item.Number, Child = grid, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.Hand) };
+        if (right.Children.Count > 0) { Grid.SetColumn(right, 2); grid.Children.Add(right); }
+        var row = new Border { Name = "GitHubRow" + item.Number, Child = grid, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Background = Brushes.Transparent };
+        HoverLink.Apply(title, row, () => { number = item.Number; revision = null; Refresh(); });
         row.PointerPressed += (_, e) =>
         {
             var point = e.GetCurrentPoint(row).Properties;
@@ -276,6 +287,7 @@ internal sealed class GitHubTab : Border
             var side = new WrapPanel();
             foreach (var label in detail.Labels) side.Children.Add(LabelChip(label));
             if (detail.Assignees.Count > 0) side.Children.Add(Ui.Text("Assigned to " + string.Join(", ", detail.Assignees), Ui.Muted, 12));
+            if (detail.People.Count > 0) { var people = GitHubAvatars.Stack(detail.People); people.Margin = new Thickness(8, 0); side.Children.Add(people); }
             if (detail.Milestone is not null) side.Children.Add(Ui.Text("  Milestone " + detail.Milestone, Ui.Muted, 12));
             root.Children.Add(side);
         }
@@ -419,16 +431,15 @@ internal sealed class GitHubTab : Border
 
     internal static string Ago(string iso) => DateTimeOffset.TryParse(iso, out var time) ? Ui.RelativeTime(time, DateTimeOffset.UtcNow) : "";
 
-    private void Show(Control content) => scroll.Content = content;
+    private void Show(Control content) => page.Show(null, content);
 
     private Control Message(string text, bool back = false, bool retry = true)
     {
-        var panel = new StackPanel { Spacing = 8, Margin = new Thickness(24) };
-        var line = Ui.Text(text, Ui.Muted, 14); line.TextWrapping = TextWrapping.Wrap; line.TextTrimming = TextTrimming.None;
-        panel.Children.Add(line);
+        var panel = new StackPanel { Name = "GitHubMessage", Spacing = 8, Margin = new Thickness(24), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        panel.Children.Add(Ui.Status(text, Ui.Muted, 14));
         if (back || retry)
         {
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
             if (back) buttons.Children.Add(Ui.Button("Back", () => { number = null; revision = null; Refresh(); }));
             if (retry) buttons.Children.Add(Ui.Button("Retry", () => { revision = null; Refresh(); }));
             panel.Children.Add(buttons);
