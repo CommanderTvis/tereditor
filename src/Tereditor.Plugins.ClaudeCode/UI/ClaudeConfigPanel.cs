@@ -457,12 +457,11 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     /// </summary>
     internal static List<RowAction> RowActions(BaselineEntry entry, IReadOnlySet<string> denied, IReadOnlySet<string> skillsOff)
     {
-        var saves = entry.Tokens > 0 ? $" (saves {(entry.Suffix.Length > 0 ? "up to " : "")}{ClaudeContextUsageView.Tokens(entry.Tokens)} tokens)" : "";
         RowAction Toggle(string noun, string rule, string name, string detail)
         {
             var off = denied.Contains(rule);
             return off ? new($"Turn {noun} back on", new(new DenyToolEdit(rule, false), $"Turn \"{name}\" back on", detail))
-                : new($"Turn off this {noun}{saves}", new(new DenyToolEdit(rule, true), $"Turn off \"{name}\"", detail));
+                : new($"Turn off this {noun}", new(new DenyToolEdit(rule, true), $"Turn off \"{name}\"", detail));
         }
         if (entry.Key.StartsWith("skills/", StringComparison.Ordinal))
         {
@@ -470,7 +469,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             if (entry.Tip?.StartsWith("Plugin", StringComparison.OrdinalIgnoreCase) == true) return [Toggle("skill", $"Skill({name})", name, RestartNote)];
             return skillsOff.Contains(name)
                 ? [new("Turn skill back on", new(new SkillEdit(name, true), $"Turn \"{name}\" back on", RestartNote))]
-                : [new("Turn off this skill" + saves, new(new SkillEdit(name, false), $"Turn off \"{name}\"", RestartNote))];
+                : [new("Turn off this skill", new(new SkillEdit(name, false), $"Turn off \"{name}\"", RestartNote))];
         }
         if (entry.Key.StartsWith("mcp-tools/", StringComparison.Ordinal))
         {
@@ -572,6 +571,15 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             var menu = new ContextMenu { Name = "ClaudeContextRowMenu" };
             foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => Edit(action.Edit)));
             line.ContextMenu = menu;
+            // Right-click is not something a row hints at: a small button shows while the pointer is over it and opens the same menu.
+            var more = new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), Margin = new Thickness(0, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, IsVisible = false };
+            ToolTip.SetTip(more, actions[0].Label);
+            more.Click += (_, _) => menu.Open(more);
+            line.PointerEntered += (_, _) => more.IsVisible = true;
+            line.PointerExited += (_, _) => more.IsVisible = more.IsPressed || menu.IsOpen;
+            menu.Closed += (_, _) => more.IsVisible = line.IsPointerOver;
+            SetDock(more, Dock.Right);
+            line.Children.Insert(1, more);
         }
         if (entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && rowSkillFiles.TryGetValue(entry.Key["skills/".Length..], out var skillFile))
         {

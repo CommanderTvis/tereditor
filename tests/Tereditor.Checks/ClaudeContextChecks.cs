@@ -251,9 +251,9 @@ internal static class ClaudeContextChecks
         Require(ClaudeConfigPanel.RowActions(rows[0], none, none).Count == 0 && ClaudeConfigPanel.RowActions(rows.Single(row => row.Key == "skills"), none, none).Count == 0 &&
             builtIn.Count > 0 && builtIn.All(tool => tool.Tokens < 0) && !builtIn.Any(tool => tool.Label is "EndConversation" or "ToolSearch"),
             "The system prompt and the group rows have no actions; built-in tools list one row each, with no size /context does not give.");
-        Require(dataviz.Edit.Edit is SkillEdit { Name: "dataviz", Enabled: false } && dataviz.Label.Contains("saves 480 tokens", StringComparison.Ordinal) &&
+        Require(dataviz.Edit.Edit is SkillEdit { Name: "dataviz", Enabled: false } && dataviz.Label == "Turn off this skill" &&
             reviewing.Edit.Edit is DenyToolEdit { Rule: "Skill(example:review)", Denied: true } &&
-            docs.Edit.Edit is DenyToolEdit { Rule: "mcp__docs__*", Denied: true } && docs.Label.Contains("saves up to", StringComparison.Ordinal) &&
+            docs.Edit.Edit is DenyToolEdit { Rule: "mcp__docs__*", Denied: true } && docs.Label == "Turn off this MCP server" &&
             docsTool.Edit.Edit is DenyToolEdit { Rule: "mcp__docs__update", Denied: true } &&
             ClaudeConfigPanel.RowActions(builtIn.Single(tool => tool.Label == "WebSearch"), none, none).Single().Edit.Edit is DenyToolEdit { Rule: "WebSearch", Denied: true },
             "A skill goes through skillOverrides, a plugin skill through a Skill() deny rule, an MCP server or tool and a built-in tool through permissions.deny.");
