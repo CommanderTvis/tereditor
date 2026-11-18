@@ -21,6 +21,15 @@ internal sealed class LanguageLog
         }
     }
 
+    /// <summary>The last <paramref name="lines"/> lines the server itself wrote (stderr and window messages), each cut to 300 characters.</summary>
+    internal string ServerTail(int lines)
+    {
+        lock (gate)
+            return string.Join("\n", string.Concat(chunks).Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Where(line => line.Contains("] stderr: ", StringComparison.Ordinal) || line.Contains("] window/", StringComparison.Ordinal))
+                .TakeLast(lines).Select(line => line.Length > 300 ? line[..300] + "…" : line));
+    }
+
     internal LanguageResult Read(string server)
     {
         lock (gate)

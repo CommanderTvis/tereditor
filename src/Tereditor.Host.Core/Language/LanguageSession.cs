@@ -33,7 +33,28 @@ internal sealed partial class LanguageSession : IAsyncDisposable, ILanguageServe
     private long progressChanged = Stopwatch.GetTimestamp();
     /// <summary>How long the open progress line may stay the same before the status says the server looks stuck.</summary>
     internal static readonly TimeSpan StallAfter = TimeSpan.FromMinutes(5);
-    private string StallNote() => indexing.IsEmpty ? "" : StallText(detail, Stopwatch.GetElapsedTime(progressChanged));
+    private bool stallLogged;
+    private string StallNote()
+    {
+        if (indexing.IsEmpty) return "";
+        var unchanged = Stopwatch.GetElapsedTime(progressChanged);
+        var note = StallText(detail, unchanged);
+        if (note.Length == 0) return "";
+        var block = StallLogs(log.ServerTail(StallLogLines), ownedCache);
+        if (!stallLogged) { stallLogged = true; log.Add("stall", note.Trim() + block.Replace("\n", "\n  ")); }
+        return note + block;
+    }
+
+    internal const int StallLogLines = 20;
+
+    /// <summary>The logs an agent needs to debug a stall: where the server's own files are, then its last output lines, as one block.</summary>
+    internal static string StallLogs(string tail, string? serverDirectory)
+    {
+        var folder = serverDirectory is { Length: > 0 } ? Path.GetFullPath(serverDirectory) : "";
+        var logs = folder.Length > 0 && Directory.Exists(Path.Combine(folder, "log")) ? Path.Combine(folder, "log") : "";
+        return "\nServer log directory: " + (folder.Length > 0 ? folder : "none") + (logs.Length > 0 ? " (logs in " + logs + ")" : "") +
+            ". The host language log (read it with the logs operation) holds the lines below, which are in memory only:\n" + (tail.Length > 0 ? tail : "(the server wrote nothing yet)");
+    }
 
     /// <summary>The warning a status carries when the progress line has not changed for <see cref="StallAfter"/>, or empty; a Gradle line gets the usual causes of a stuck import.</summary>
     internal static string StallText(string progress, TimeSpan unchanged) => unchanged < StallAfter ? "" :
