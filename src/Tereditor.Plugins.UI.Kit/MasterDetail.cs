@@ -131,7 +131,7 @@ public sealed class MasterDetail : Grid
         }
         if (problem is not null)
         {
-            var dot = new Avalonia.Controls.Shapes.Ellipse { Name = "MasterProblem_" + id, Width = 6, Height = 6, Fill = Ui.Danger, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
+            var dot = new Avalonia.Controls.Shapes.Ellipse { Name = "MasterProblem_" + id, Width = 6, Height = 6, Fill = Ui.Danger, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 8, 0) };
             ToolTip.SetTip(dot, problem);
             SetColumn(dot, 3);
             row.Children.Add(dot);
