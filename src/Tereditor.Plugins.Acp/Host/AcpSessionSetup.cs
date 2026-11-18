@@ -19,8 +19,8 @@ internal sealed record AcpSessionSetup(string? McpUrl, string? Instructions)
     /// <summary>The <c>mcpServers</c> of <c>session/new</c> and <c>session/load</c>: tereditor's server over HTTP, or none.</summary>
     public JsonArray McpServers(AcpAgentInfo agent) =>
         McpUrl is { Length: > 0 } url && agent.McpHttp
-            ? [new JsonObject { ["type"] = "http", ["name"] = ServerName, ["url"] = url, ["headers"] = new JsonArray() }]
-            : [];
+            ? new JsonArray(new JsonObject { ["type"] = "http", ["name"] = ServerName, ["url"] = url, ["headers"] = new JsonArray() })
+            : new JsonArray();
 
     /// <summary>The <c>systemPrompt</c> in append mode, or null when there is no text or the agent takes none.</summary>
     public JsonObject? SystemPrompt(AcpAgentInfo agent) =>
