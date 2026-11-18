@@ -17,7 +17,7 @@ public sealed class JavaPlugin() : LanguageServerPlugin(Id)
         UnavailableOn = [HostKind.PureWeb],
         Description = "Provides the Java (Eclipse JDT) language server to code intelligence.",
         EnabledByDefault = true,
-        Headless = HeadlessSupport.No,
+        Headless = HeadlessSupport.Yes,
         DependsOn = [new("code-intelligence", 1)],
         Assets = "assets",
         Host = "Tereditor.Plugins.Lsp.Java.dll"

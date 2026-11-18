@@ -44,7 +44,7 @@ A cold cache downloads the pinned runtime and the language server of each langua
 container run --rm -v ~/.cache/tereditor:/cache ghcr.io/commandertvis/tereditor:nightly warm
 ```
 
-`warm` takes server ids (`csharp`, `typescript`, `python`, `css`, `shell`, `php`, `clangd`, `kotlin`; default `csharp`), installs the runtimes and servers into `/cache` and exits. A second run returns at once. Progress is in `/cache/home/.tereditor/logs/code-intelligence.log` (`host.runtime-install`, `host.server-install`, `host.install-command`).
+`warm` takes server ids (`csharp`, `typescript`, `python`, `css`, `shell`, `php`, `clangd`, `kotlin`, `java`; default `csharp`), installs the runtimes and servers into `/cache` and exits. A second run returns at once. Progress is in `/cache/home/.tereditor/logs/code-intelligence.log` (`host.runtime-install`, `host.server-install`, `host.install-command`).
 
 Use `-i` so stdin stays open, and `--init` so SIGTERM and child processes are handled. The image is for linux/amd64 and linux/arm64 under one tag.
 
@@ -155,6 +155,7 @@ Headless serves the language servers whose runtime is a pinned, checksummed down
 | PHP | Intelephense, on the pinned Bun | github.com (Bun), registry.npmjs.org |
 | C, C++ | clangd, a self-contained archive. On linux/arm64 clangd/clangd publishes no build, so the image carries clangd from LLVM 23.1.5 instead (see below); the other platforms get 23.1.0 | github.com (not needed on linux/arm64) |
 | Kotlin | JetBrains Kotlin LS, a self-contained archive | download.jetbrains.com |
+| Java | Eclipse JDT LS 1.61.0, on a pinned Eclipse Temurin JDK 21 (the server needs JDK 21 or newer) | download.eclipse.org, github.com (the JDK) |
 | Java, Kotlin | IntelliJ server by JetBrains, only when you ask for it with `TEREDITOR_PREFETCH=intellij` (see below): a self-contained archive with its own Java runtime, about 380 MB | download.jetbrains.com |
 
 On linux/arm64 the pinned clangd is LLVM's `LLVM-23.1.5-Linux-ARM64.tar.zst`, a 1.1 GB toolchain archive that is too big to download on first use. The image build downloads it once, checks the pinned SHA-256, and keeps only `bin/clangd` and the builtin headers (`lib/clang/23/include`), about 124 MB. The host copies that into the cache on the first C or C++ call, so no network is needed for it.
@@ -165,7 +166,6 @@ Not headless, because the server needs a toolchain that has no pinned download h
 
 | Language | Why |
 | --- | --- |
-| Java (Eclipse JDT) | needs a JDK 21 or newer; no JDK is pinned. Java files are served by the IntelliJ server if you asked for it and agreed to its terms |
 | Go | gopls is built with the Go toolchain; Go is not pinned |
 | Rust | rust-analyzer needs cargo and rustc to load a project; no Rust toolchain is pinned |
 | Scala | Metals is installed with Coursier, which is not pinned |
@@ -174,13 +174,15 @@ Not headless, because the server needs a toolchain that has no pinned download h
 | PowerShell | needs PowerShell 7; not pinned |
 | Swift, Dart | no managed installation: they run the machine's own SDK |
 
-They stay desktop-only until a runtime with a checksum is pinned for them. Air Context is not headless. Kotlin analyses a single file without a JDK; importing a Gradle or Maven project needs a JDK on the machine.
+They stay desktop-only until a runtime with a checksum is pinned for them. Air Context is not headless. Kotlin analyses a single file without a JDK; importing a Gradle or Maven project with Kotlin needs a JDK on the machine. Java needs none: the host downloads a Temurin JDK 21 into the cache and starts the server with `JAVA_HOME` and `PATH` pointing at it, so a Maven or Gradle import uses that JDK too. Java needs no window and no JDK in the image.
 
 With `TEREDITOR_TOOLCHAINS=managed` (the image sets it) the servers use only the pinned runtimes. Outside the image the default is the machine's PATH for .NET, so set it to `managed` there too. The JavaScript-based servers need no Node or npm: they use a pinned Bun, downloaded from GitHub releases into the cache and checked against its SHA-256, and install their packages from registry.npmjs.org.
 
 ## The IntelliJ server (opt-in)
 
-The IntelliJ server for Java and Kotlin is not part of the default headless roster. Without the flag below it does not exist: it is not in `languages`, the initialize text, the server list or the tool list (there is no `accept_terms` tool), no file is downloaded or written for it, `.kt` files go to the Kotlin server and `.java` files have no server. The desktop app is unaffected.
+The IntelliJ server for Java and Kotlin is not part of the default headless roster. Without the flag below it does not exist: it is not in `languages`, the initialize text, the server list or the tool list (there is no `accept_terms` tool), no file is downloaded or written for it, `.kt` files go to the Kotlin server and `.java` files go to the Eclipse JDT server. The desktop app is unaffected.
+
+Java has two servers here, and IntelliJ has priority, as it has for Kotlin. Until you accept its terms (with `accept_terms` after reading them, or `TEREDITOR_ACCEPT_TERMS=intellij`), the Eclipse JDT server answers Java files and the answer carries a hint saying why IntelliJ is not in use. Once the terms are accepted and IntelliJ works, it answers Java and Kotlin and the Eclipse JDT server is not started at all: no process and no JDK use. `warm java` only installs the JDT server and the JDK; it starts nothing.
 
 Ask for it with an environment variable passed into the container:
 
@@ -188,11 +190,11 @@ Ask for it with an environment variable passed into the container:
 "args": ["run", "-i", "--rm", "--init", "-v", "${PWD}:/workspace", "-v", "tereditor-cache:/cache", "-e", "TEREDITOR_PREFETCH=intellij", "ghcr.io/commandertvis/tereditor:nightly"]
 ```
 
-`TEREDITOR_PREFETCH=intellij` (a comma list for other servers with terms) makes the host download the server in the background at start. The download fetches the pinned archive from JetBrains and checks its SHA-256; nothing in it is executed before you agreed. A Java call that arrives earlier starts the same download and answers that it is downloading and to call again. Naming `intellij` in `TEREDITOR_ACCEPT_TERMS` also asks for the server.
+`TEREDITOR_PREFETCH=intellij` (a comma list for other servers with terms) makes the host download the server in the background at start. The download fetches the pinned archive from JetBrains and checks its SHA-256; nothing in it is executed before you agreed. Naming `intellij` in `TEREDITOR_ACCEPT_TERMS` also asks for the server.
 
 It is a JetBrains product with its own terms (the JetBrains User Agreement, version 2.0) and its own licence. tereditor never accepts for you, and the image holds no acceptance.
 
-1. After the download, the first Java call, or `accept_terms` with only the server, shows the FULL text of the terms from the file inside the download, with its hash and version, in pages if it is long. Before the download has finished only a summary is shown, and nothing can be accepted.
+1. After the download, `accept_terms` with only the server shows the FULL text of the terms from the file inside the download, with its hash and version, in pages if it is long. Before the download has finished only a summary is shown, and nothing can be accepted.
 2. The agent asks you in chat. After your yes it calls `accept_terms` with the hash and your answers to two questions JetBrains asks: your region, and whether usage statistics go to JetBrains. The tool only works with the exact hash of the downloaded text. Nothing technical stops an agent from calling it without asking you, so read what it reports.
 3. If your MCP client supports elicitation, the host asks you directly and shows the terms with Accept and Decline; a client that cannot show a long text gets the first pages and the instruction to read the rest through `accept_terms`. A Decline, a failure or no elicitation falls back to the text, and a declined prompt is not repeated in the same run.
 4. To accept without a question, also set `TEREDITOR_ACCEPT_TERMS=intellij` and your answers: `INTELLIJ_REGION` (`europe`, `africa`, `americas`, `apac`, `china`, `middle_east`, `oceania`) and `INTELLIJ_DATA_SHARING` (`full`, `anonymous`, `none`). `intellij:<hash>` accepts only the exact text that hash names. With both `TEREDITOR_PREFETCH=intellij` and `TEREDITOR_ACCEPT_TERMS=intellij` the host downloads and then starts the server. A missing or unknown answer means no acceptance, and stderr says why.

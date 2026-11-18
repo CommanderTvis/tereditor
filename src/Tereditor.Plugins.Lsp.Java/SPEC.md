@@ -18,4 +18,6 @@ the catalog, its sessions stop and its saved settings are kept. Implementation: 
 The spec declares the pinned version, owned files, pinning and its pins, configuration controls, project manifests
 and scope, and any install and launch steps; the shared behaviour is the host's ([language services](../Tereditor.Host.Core/Language/SPEC.md)).
 
+Headless: declared `Yes`. A headless host downloads the pinned Eclipse Temurin JDK 21 (SHA-256 checked, in the host cache) and starts the server with it, `JAVA_HOME` and `PATH` included, so no JDK need exist on the machine. Nothing else in the plugin needs a window.
+
 It reports JDT's source roots (`java.project.listSourcePaths`) for directory marks.

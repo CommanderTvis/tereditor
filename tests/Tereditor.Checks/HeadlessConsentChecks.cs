@@ -17,7 +17,8 @@ internal static partial class HeadlessChecks
     private const string Answers = """{"region":"europe","dataSharing":"none"}""";
 
     private static LanguageServer[] Catalog() =>
-        [.. LanguageServers.Wrap(HeadlessLanguages.Servers(HeadlessLanguages.Roster(BuiltinPlugins.Headless, ManagedArtifacts.Platform(), OptIn)))];
+        [.. LanguageServers.Wrap(HeadlessLanguages.Servers(HeadlessLanguages.Roster(BuiltinPlugins.Headless, ManagedArtifacts.Platform(), OptIn)).Where(spec => spec.Id != "java").ToArray())];
+    // The consent rules are checked as on a host with no Java server of its own, where the server with terms alone serves Java; with the Eclipse server present Java is served like Kotlin.
 
     private const string Fixture = "FIXTURE TERMS: the user may use the server under these words only.\n";
 
@@ -115,6 +116,12 @@ internal static partial class HeadlessChecks
             && NewConsent(environmentDirectory, With("nosuch")).EnvironmentWarnings().Any(text => text.Contains("nosuch", StringComparison.Ordinal)), "A bad answer or an unknown server was not refused.");
         Require(NewConsent(environmentDirectory, answers).GrantFor(server) is null && !Directory.Exists(environmentDirectory), "Without the variable there must be no consent, and the variable must write nothing.");
 
+        // With the Eclipse Java server present, Java is served like Kotlin: the previous server answers and the hint says why IntelliJ is not in use.
+        var withJava = new LanguageConsent(Path.Combine(root, "with-java"), () => [.. LanguageServers.Wrap(HeadlessLanguages.Servers(HeadlessLanguages.Roster(BuiltinPlugins.Headless, ManagedArtifacts.Platform(), OptIn)))], _ => null, Instant());
+        Require(withJava.NeededBy(Args("""{"path":"src/Main.java"}""")) is null && withJava.WaitingFor(Args("""{"path":"src/Main.java"}""")) is { Id: "intellij" }, "With the Java server present, Java must wait for IntelliJ like Kotlin, not be refused.");
+        var javaHint = await new LanguageConsentTools(withJava, null, null).Guard(new McpServer.McpTool("lsp_navigate", "t", "d", [], (_, _) => Task.FromResult(("""{"state":"ready"}""", false)))).Call(Args("""{"path":"src/Main.java"}"""), default);
+        Require(!javaHint.Error && javaHint.Text.Contains("not in use", StringComparison.Ordinal), "A Java answer must say why IntelliJ is not in use: " + javaHint.Text);
+
         // Not accepted, Kotlin files get a hint saying why IntelliJ is not in use; Java files get the terms. Accepted, nothing of the sort.
         var waiting = NewConsent(Path.Combine(root, "waiting"));
         Require(waiting.WaitingFor(Args("""{"path":"src/Main.kt"}""")) is { Id: "intellij" } && waiting.WaitingFor(Args("""{"path":"src/Main.java"}""")) is null && waiting.WaitingFor(Args("""{"path":"a.cs"}""")) is null, "The files served by the previous server are not recognised.");
@@ -133,11 +140,43 @@ internal static partial class HeadlessChecks
             Require(!File.ReadAllText(Path.Combine(source, "src", "Tereditor.Host.Headless", "Program.cs")).Contains("\"trial\"", StringComparison.Ordinal), "The headless host must never invoke the trial action.");
         }
         await Supersession(root, server);
+        await JavaPriority(root, server);
         await Prompts(root, server);
         await Elicitation(root, server);
         await Absent(root, server);
         await ChildProcesses(root, server);
         Console.WriteLine("PASS headless consent: refusal text with the hash, accept_terms refuses a wrong hash, version or answer and records the right one, TEREDITOR_ACCEPT_TERMS plain and strict, elicitation accept, decline, unsupported and failed, state kept with a volume and not without, nothing accepted by default");
+    }
+
+    /// <summary>
+    /// Java has two servers on a headless host, the Eclipse one and IntelliJ, and the provider mechanism Kotlin uses decides between them: without accepted terms the Eclipse server is the one
+    /// (idle until a call starts it); with accepted terms IntelliJ replaces it, and the Eclipse server is disabled, so it never launches (no process, no JDK).
+    /// </summary>
+    private static async Task JavaPriority(string root, LanguageServer server)
+    {
+        var directory = Path.Combine(root, "java-priority");
+        var workspace = Path.Combine(directory, "workspace");
+        Directory.CreateDirectory(workspace);
+        await File.WriteAllTextAsync(Path.Combine(workspace, "Main.java"), "class Main {}");
+        var disabled = Environment.GetEnvironmentVariable("TEREDITOR_LSP_DISABLE");
+        Environment.SetEnvironmentVariable("TEREDITOR_LSP_DISABLE", "0");
+        try
+        {
+            var state = new HostStateStore(directory) { LanguageServerSource = () => [.. LanguageServers.Wrap(HeadlessLanguages.Servers(HeadlessLanguages.Roster(BuiltinPlugins.Headless, ManagedArtifacts.Platform(), OptIn))).Select(item => item.Spec)] };
+            var before = state.EnableLanguageConsent(name => null, workspace);
+            Require(before.GrantFor(server) is null && before.Provider() == "standard", "Without accepted terms the standard servers must be the provider.");
+            var open = await state.Languages.ExecuteAsync(new(workspace, Operation: "servers"));
+            Require(open.Servers.Single(item => item.Id == "java").State != "disabled" && open.Servers.Single(item => item.Id == "kotlin").State != "disabled", "Without accepted terms the Eclipse and Kotlin servers must stay available.");
+            Directory.CreateDirectory(Path.Combine(directory, "language", "consents"));
+            await File.WriteAllTextAsync(Path.Combine(directory, "language", "consents", "intellij.json"), $$$"""{"Version":"{{{server.Spec.Version}}}","TextSha256":"{{{server.Spec.TermsSha256}}}","Answers":{"region":"europe","dataSharing":"none"},"AcceptedAtUtc":"2026-01-01T00:00:00Z","Via":"tool"}""");
+            var accepted = state.EnableLanguageConsent(name => null, workspace);
+            Require(accepted.Provider() == "intellij", "Accepted terms must make IntelliJ the provider.");
+            var taken = await state.Languages.ExecuteAsync(new(workspace, Operation: "servers"));
+            Require(taken.Servers.Single(item => item.Id == "java").State == "disabled" && taken.Servers.Single(item => item.Id == "kotlin").State == "disabled" && taken.Servers.Single(item => item.Id == "intellij").State != "disabled",
+                "With accepted terms IntelliJ must replace the Eclipse and Kotlin servers, which must not start: " + string.Join(", ", taken.Servers.Select(item => item.Id + "=" + item.State)));
+            await state.StopLanguagesAsync();
+        }
+        finally { Environment.SetEnvironmentVariable("TEREDITOR_LSP_DISABLE", disabled); }
     }
 
     /// <summary>A chosen IntelliJ that fails to start or is unlicensed stops serving: the previous server answers, and the answer says why. No server is started.</summary>
@@ -391,11 +430,10 @@ internal static partial class HeadlessChecks
         host.Send("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
         var tools = (await host.ReplyAsync([2], TimeSpan.FromSeconds(60)))[2]["result"]!["tools"]!.AsArray().Select(item => item!["name"]!.GetValue<string>()).ToArray();
         var status = await CallAsync(host, 3, "lsp_status", """{"operation":"servers"}""");
-        var java = await CallAsync(host, 4, "lsp_diagnostics", """{"paths":["Main.java"]}""");
         var kotlin = await CallAsync(host, 5, "lsp_status", """{"operation":"servers"}""");
         Require(!initialize.Contains("IntelliJ", StringComparison.OrdinalIgnoreCase) && !initialize.Contains("accept_terms", StringComparison.Ordinal) && tools.Length == 14 && !tools.Contains("accept_terms"), "Without the flag the initialize text or the tool list knows IntelliJ.");
         Require(!TextOf(status).Contains("intellij", StringComparison.OrdinalIgnoreCase) && TextOf(status).Contains("kotlin", StringComparison.Ordinal), "Without the flag the server list shows IntelliJ or lost Kotlin: " + TextOf(status));
-        Require(!TextOf(java).Contains("terms", StringComparison.OrdinalIgnoreCase) && !TextOf(java).Contains("intellij", StringComparison.OrdinalIgnoreCase), "Without the flag a Java file must get the ordinary answer: " + TextOf(java));
+        Require(TextOf(status).Contains("\"java\"", StringComparison.Ordinal) && !TextOf(status).Contains("terms", StringComparison.OrdinalIgnoreCase), "Without the flag Java must stay with the Eclipse server and say nothing of terms: " + TextOf(status));
         Require(!Directory.Exists(Path.Combine(state, "language", "consents")) && !Directory.Exists(Path.Combine(state, "language", "agreements")) && !Directory.Exists(Path.Combine(state, "language", "servers", "intellij")), "Without the flag nothing about IntelliJ may be written.");
         host.CloseInput();
         await host.ExitAsync(TimeSpan.FromSeconds(30));
@@ -432,8 +470,8 @@ internal static partial class HeadlessChecks
             host.Send("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
             var listed = (await host.ReplyAsync([2], TimeSpan.FromSeconds(60)))[2]["result"]!["tools"]!.AsArray().Select(item => item!["name"]!.GetValue<string>()).ToArray();
             Require(listed.Contains("accept_terms"), "accept_terms is not offered: " + string.Join(", ", listed));
-            var refused = await CallAsync(host, 3, "lsp_diagnostics", """{"paths":["Main.java"]}""");
-            Require(refused["result"]!["isError"]?.GetValue<bool>() == true && TextOf(refused).Contains(hash, StringComparison.Ordinal) && TextOf(refused).Contains("not the pinned text", StringComparison.Ordinal), "A Java call must answer with the terms state: " + refused.ToJsonString());
+            var refused = await CallAsync(host, 3, "lsp_diagnostics", """{"operation":"retry","server":"intellij"}""");
+            Require(refused["result"]!["isError"]?.GetValue<bool>() == true && TextOf(refused).Contains(hash, StringComparison.Ordinal) && TextOf(refused).Contains("not the pinned text", StringComparison.Ordinal), "A call that needs the terms must answer with the terms state: " + refused.ToJsonString());
             Require(!Directory.Exists(consents) && !Directory.Exists(agreements), "A default run must record no acceptance.");
             // The installed terms file is not the pinned text, so no hash can be accepted: nothing is recorded and nothing runs.
             var wrong = await CallAsync(host, 4, "accept_terms", $$$"""{"server":"intellij","hash":"{{{new string('1', 64)}}}","answers":{{{Answers}}}}""");
@@ -466,7 +504,7 @@ internal static partial class HeadlessChecks
             Initialize(host, "{}");
             await host.ReplyAsync([1], TimeSpan.FromSeconds(60));
             var shown = await CallAsync(host, 2, "accept_terms", """{"server":"intellij"}""");
-            var refused = await CallAsync(host, 3, "lsp_diagnostics", """{"paths":["Main.java"]}""");
+            var refused = await CallAsync(host, 3, "lsp_diagnostics", """{"operation":"retry","server":"intellij"}""");
             Require(TextOf(shown).StartsWith("Not accepted.", StringComparison.Ordinal) && TextOf(refused).Contains(hash, StringComparison.Ordinal), "A restart without the state volume must start with no consent.");
             host.CloseInput();
             await host.ExitAsync(TimeSpan.FromSeconds(30));
@@ -490,7 +528,7 @@ internal static partial class HeadlessChecks
         {
             Initialize(host, "{}");
             await host.ReplyAsync([1], TimeSpan.FromSeconds(60));
-            var refused = await CallAsync(host, 2, "lsp_diagnostics", """{"paths":["Main.java"]}""");
+            var refused = await CallAsync(host, 2, "lsp_diagnostics", """{"operation":"retry","server":"intellij"}""");
             Require(TextOf(refused).Contains(hash, StringComparison.Ordinal) && host.Errors.Contains("another terms hash", StringComparison.Ordinal), "Strict mode accepted another hash, or did not say why on stderr:\n" + host.Errors);
             host.CloseInput();
             await host.ExitAsync(TimeSpan.FromSeconds(30));
@@ -517,7 +555,7 @@ internal static partial class HeadlessChecks
         {
             Initialize(host, "{}");
             await host.ReplyAsync([1], TimeSpan.FromSeconds(60));
-            var refused = await CallAsync(host, 2, "lsp_diagnostics", """{"paths":["Main.java"]}""");
+            var refused = await CallAsync(host, 2, "lsp_diagnostics", """{"operation":"retry","server":"intellij"}""");
             Require(TextOf(refused).Contains(hash, StringComparison.Ordinal) && !host.Lines.Any(line => line.Contains("elicitation/create", StringComparison.Ordinal)), "A client without elicitation was asked.");
             host.CloseInput();
             await host.ExitAsync(TimeSpan.FromSeconds(30));

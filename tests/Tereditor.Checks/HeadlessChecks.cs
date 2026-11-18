@@ -125,10 +125,10 @@ internal static partial class HeadlessChecks
     {
         var declared = BuiltinPlugins.Headless;
         string Served(string platform, bool intellij = false) => string.Join(' ', HeadlessLanguages.Servers(HeadlessLanguages.Roster(declared, platform, intellij ? OptIn : null)).Select(spec => spec.Id).Order());
-        Require(Served("linux-x86_64") == "clangd csharp css kotlin php python shell typescript", "The headless languages on linux-x86_64 changed: " + Served("linux-x86_64"));
-        Require(Served("macos-aarch64") == "clangd csharp css kotlin php python shell typescript", "The headless languages on macos-aarch64 changed: " + Served("macos-aarch64"));
+        Require(Served("linux-x86_64") == "clangd csharp css java kotlin php python shell typescript", "The headless languages on linux-x86_64 changed: " + Served("linux-x86_64"));
+        Require(Served("macos-aarch64") == "clangd csharp css java kotlin php python shell typescript", "The headless languages on macos-aarch64 changed: " + Served("macos-aarch64"));
         // clangd/clangd publishes no linux-arm64 build; the image provides LLVM's (see the Dockerfile), so every platform serves the same roster.
-        Require(Served("linux-aarch64") == "clangd csharp css kotlin php python shell typescript", "The headless languages on linux-aarch64 changed: " + Served("linux-aarch64"));
+        Require(Served("linux-aarch64") == "clangd csharp css java kotlin php python shell typescript", "The headless languages on linux-aarch64 changed: " + Served("linux-aarch64"));
 
         // IntelliJ is opt-in: not in the roster unless the environment names it, then served on every platform that pins its archive.
         Require(HeadlessLanguages.OptedIn(name => null).Count == 0 && HeadlessLanguages.OptedIn(name => name == "TEREDITOR_PREFETCH" ? "intellij" : null).SequenceEqual(["lsp-intellij"])
@@ -155,10 +155,10 @@ internal static partial class HeadlessChecks
         }
         // Every language server that declares No still needs a toolchain without a pin, so flipping it requires the pin first.
         var desktop = BuiltinPlugins.Create(null).Where(plugin => plugin.Manifest.Headless == HeadlessSupport.No).Select(plugin => plugin.Host).OfType<LanguageServerPlugin>().Where(plugin => plugin.Spec.Id != "intellij").ToArray();
-        Require(desktop.Select(plugin => plugin.Spec.Id).Order().SequenceEqual(["dart", "go", "java", "powershell", "r", "ruby", "rust", "scala", "swift"]), "The language servers declared desktop-only changed: " + string.Join(", ", desktop.Select(plugin => plugin.Spec.Id)));
+        Require(desktop.Select(plugin => plugin.Spec.Id).Order().SequenceEqual(["dart", "go", "powershell", "r", "ruby", "rust", "scala", "swift"]), "The language servers declared desktop-only changed: " + string.Join(", ", desktop.Select(plugin => plugin.Spec.Id)));
         var reasons = desktop.ToDictionary(plugin => plugin.Spec.Id, plugin => HeadlessLanguages.Refusal(plugin.Spec, "linux-x86_64"));
         Require(reasons.Values.All(reason => reason is { Length: > 10 }), "A server declared desktop-only could now be served headless; declare it Yes: " + string.Join(", ", reasons.Where(item => item.Value is null).Select(item => item.Key)));
-        Require(reasons["java"]!.Contains("JDK", StringComparison.Ordinal) && reasons["swift"]!.Contains("toolchain", StringComparison.Ordinal) && reasons["rust"]!.Contains("cargo", StringComparison.Ordinal), "A reason does not name the missing toolchain.");
+        Require(reasons["swift"]!.Contains("toolchain", StringComparison.Ordinal) && reasons["rust"]!.Contains("cargo", StringComparison.Ordinal), "A reason does not name the missing toolchain.");
 
         foreach (var platform in new[] { "linux-x86_64", "linux-aarch64", "macos-aarch64" })
             foreach (var spec in HeadlessLanguages.Servers(HeadlessLanguages.Roster(declared, platform, OptIn)))
@@ -234,7 +234,7 @@ internal static partial class HeadlessChecks
         Require(initialize["protocolVersion"]!.GetValue<string>() == "2025-06-18" && !instructions.Contains("set_title", StringComparison.Ordinal) && !instructions.Contains("workspace_delete", StringComparison.Ordinal),
             "The headless initialize text mentions terminal-only tools.");
         Require(instructions.Contains("Language servers here:", StringComparison.Ordinal) && instructions.Contains("TypeScript", StringComparison.Ordinal) && instructions.Contains("Python", StringComparison.Ordinal)
-            && instructions.Contains("downloads on first use", StringComparison.Ordinal) && !instructions.Contains("Java (", StringComparison.Ordinal), "The headless initialize text does not list the served languages: " + instructions);
+            && instructions.Contains("downloads on first use", StringComparison.Ordinal) && instructions.Contains("Java (", StringComparison.Ordinal), "The headless initialize text does not list the served languages: " + instructions);
         Require(replies[2]["result"] is JsonObject { Count: 0 }, "ping did not answer an empty result.");
         Require(replies[4]["error"]?["code"]?.GetValue<int>() == -32601, "An unknown method must answer -32601.");
         Require(replies[5]["result"] is JsonObject, "A 2 MB request line was not answered.");
