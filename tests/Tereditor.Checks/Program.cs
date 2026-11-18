@@ -743,6 +743,11 @@ internal static class Program
             PullRequestChecks.Run(root).GetAwaiter().GetResult();
             return;
         }
+        if (args.SequenceEqual(["--github-browser"]))
+        {
+            GitHubBrowserChecks.Run().GetAwaiter().GetResult();
+            return;
+        }
         if (args.SequenceEqual(["--content"]))
         {
             ContentChecks.Run(root).GetAwaiter().GetResult();

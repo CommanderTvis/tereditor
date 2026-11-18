@@ -63,6 +63,24 @@ The host sees only the neutral `PullRequest`; GitHub's own strings never cross t
 
 The lookup returns the open pull request of the branch, else the newest in any state, else `null`.
 
+## Browsing issues and pull requests
+
+A second, read-only surface next to the repo hosting provider (host half `GitHubBrowser`, UI half `GitHubPane` and `GitHubTab`):
+
+- A side tool `github` is only buttons: Issues, Pull requests, Settings. Each opens a tab of the plugin's document scheme `github`
+  (ids `issues`, `pulls`, `settings`, `issue:N`, `pull:N`).
+- The list tabs show GitHub's layout: Open and Closed counts, a query box that takes GitHub's own search syntax (the host adds
+  `repo:` and `is:issue|pr`), rows with state icon, labels, checks, author, age and comment count. A plain click opens the
+  conversation in the same tab; right click or Command/Control click opens it in a tab of its own.
+- The conversation shows the description, comments, reviews with their inline comments, commits, labels, assignment, close,
+  reopen, merge, rename, milestone, reference, review-request, ready, draft, force-push and branch-deleted events, plus a pull
+  request's branches, size, merge state and check runs. Up to 500 timeline events load (five pages of 100); the tab says when more exist.
+- Everything is `gh api graphql` and `gh repo view`; no OAuth, no token read. Methods `list`, `detail` and `info` take a workspace
+  and run `gh` in its folder. A view stays reactive by polling (setting `pollSeconds`, 15 to 600, default 60, while the tab is shown);
+  the host keeps a hash of the last answer per view and answers `Unchanged` without the payload. Nothing from GitHub is stored.
+- Not done: posting and any other write, Markdown rendering of bodies (shown as selectable text), conditional ETag requests (the poll
+  still costs one `gh` call), Discussions, Actions, Releases, Deployments, Packages and Contributors.
+
 ## Failure and timeouts
 
 Everything runs on pool threads; the UI thread only applies results after checking the workspace and branch still
@@ -97,7 +115,7 @@ Implemented in strangler slices (host seam, plugin projects, UI half, wire): `Gi
 the host's bounded runner; the Review section is the W28 registration (`RepoHostUI`, over the
 window's `IRepoHostSurface`; the section is not a W23 slot because it needs the window surface); the Settings page is a W4
 section reading sign-in through the plugin's `signIn` method when shown and every 30 s; the wire is protocol 15 (neutral
-`PullRequest` in field 14, provider = plugin id). Category is Version Control. Checks: `--github` (provider, cache, failures, plugin off = plain remote), `--branch-status`, `--review`,
+`PullRequest` in field 14, provider = plugin id). Category is Version Control. Checks: `--github-browser` (list, counts, query, conversation, unchanged polling, failures, over canned gh output), `--github` (provider, cache, failures, plugin off = plain remote), `--branch-status`, `--review`,
 `--settings`, `--shell`. Open: the merge dialog's remembered choice still lives in the UI profile (`MergePreferences`,
 `method|delete` or `method|keep`) behind the surface rather than in plugin state (H14); the Settings page does not follow a host
 broadcast; no `--plugins` case switches the plugin off through the registry.

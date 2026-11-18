@@ -17,6 +17,13 @@ public sealed class GitHubHost : PluginHostModule
             var status = await provider.SignInAsync(cancellationToken);
             return new GitHubSignIn(status.Connected, status.Detail);
         });
+        var browser = new GitHubBrowser(context.RunToolAsync);
+        async ValueTask<string> Directory(string workspaceId, CancellationToken cancellationToken) =>
+            (await context.WorkspaceAsync(workspaceId, cancellationToken))?.Path ?? throw new InvalidOperationException("Unknown workspace: " + workspaceId);
+        context.Method(GitHubContract.List, async (p, _, ct) => await browser.ListAsync(await Directory(p.WorkspaceId, ct), p, ct));
+        context.Method(GitHubContract.Detail, async (p, _, ct) => await browser.DetailAsync(await Directory(p.WorkspaceId, ct), p, ct));
+        context.Method(GitHubContract.Info, async (p, _, ct) =>
+            await browser.InfoAsync(await Directory(p.WorkspaceId, ct), Math.Clamp(context.Settings<GitHubSettings>().PollSeconds, 15, 600), ct));
         return ValueTask.FromResult<PluginDisposer?>(null);
     }
 }

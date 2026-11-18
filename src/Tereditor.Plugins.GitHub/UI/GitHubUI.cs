@@ -10,6 +10,8 @@ public sealed class GitHubUI : PluginUIModule
 
     public override PluginDisposer? Activate(IPluginUIContext context)
     {
+        context.SideTool(new(GitHubContract.Tool, workspace => new GitHubPane(context, workspace)) { Retarget = (control, workspace) => ((GitHubPane)control).Retarget(workspace) });
+        context.Document(new PluginDocumentRegistration(GitHubContract.Scheme, props => new GitHubTab(context, props.WorkspaceId, props.Id)) { Icon = "asset:github.svg" });
         context.RepoHostUI(new(surface => new GitHubReviewSection(surface)));
         context.SettingsSection(new("GitHub", "asset:github.svg", () => new GitHubSettingsPage(context)));
         context.KeymapAction(new("OpenSettings", "Open GitHub settings", "GitHub", () => context.OpenSettings(UiPages.PluginSection(context.Id))));
