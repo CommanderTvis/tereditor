@@ -550,12 +550,28 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
                     "/context reports one total for these. Turning a tool off removes its definition from Claude's context."),
                 "MCP tools" => McpRow(category.Tokens),
                 "MCP server instructions" => new("mcp-instructions", "MCP server instructions", "book", category.Tokens, []),
-                "Skills" => new("skills", "Skills", "sparkling", category.Tokens,
-                    [.. breakdown.Skills.OrderByDescending(skill => skill.Tokens).Select(skill => new BaselineEntry("skills/" + skill.Name, skill.Name, "sparkling", skill.Tokens, [], skill.Source))]),
+                "Skills" => new("skills", "Skills", "sparkling", category.Tokens, SkillRows(breakdown.Skills)),
                 _ => new(name, name, "box", category.Tokens, [])
             });
         }
         return rows;
+    }
+
+    // A plugin's skills are named "plugin:skill": they sit together under one row for the plugin, the rest (user and project skills) stay loose.
+    // The order is by size, a plugin by what all its skills take.
+    private static BaselineEntry[] SkillRows(IEnumerable<ClaudeContextItem> skills)
+    {
+        var entries = new List<BaselineEntry>();
+        foreach (var plugin in skills.GroupBy(skill => skill.Name.Contains(':') ? skill.Name[..skill.Name.IndexOf(':')] : ""))
+        {
+            if (plugin.Key.Length == 0)
+                entries.AddRange(plugin.Select(skill => new BaselineEntry("skills/" + skill.Name, skill.Name, "sparkling", skill.Tokens, [], skill.Source)));
+            else
+                entries.Add(new("skills-plugin/" + plugin.Key, plugin.Key, "puzzle", plugin.Sum(skill => skill.Tokens),
+                    [.. plugin.OrderByDescending(skill => skill.Tokens).Select(skill => new BaselineEntry("skills/" + skill.Name, skill.Name[(plugin.Key.Length + 1)..], "sparkling", skill.Tokens, [], skill.Source))],
+                    "Skills from the plugin " + plugin.Key));
+        }
+        return [.. entries.OrderByDescending(entry => entry.Tokens)];
     }
 
     // The same row as a file's: tokens docked right, a glyph, the name. A row with parts keeps its glyph, adds a
