@@ -66,7 +66,7 @@ public sealed partial class HostStateStore
                 var project = current.Projects.Contains(root);
                 if (!project && !current.Workspaces.Any(workspace => workspace.Path == root && current.Projects.Contains(workspace.ProjectRoot)))
                     deletedFolders.Remove(root);
-                else if (FolderExists(root))
+                else if (FolderProbe.Exists(root, fresh: true))
                 {
                     deletedFolders.Remove(root);
                     if (languages is { } reopened)
@@ -81,7 +81,7 @@ public sealed partial class HostStateStore
             // Workspaces are watched only while their project's folder is there; a missing project covers them.
             var watched = current.Projects.Where(project => !deletedFolders.ContainsKey(project)).ToList();
             foreach (var project in watched.ToArray())
-                if (FolderExists(project))
+                if (FolderProbe.Exists(project, fresh: true))
                     watched.AddRange(current.WorkspacesOf(project).Select(workspace => workspace.Path)
                         .Where(path => path != project && !deletedFolders.ContainsKey(path)));
             foreach (var path in missingSince.Keys.Except(watched).ToArray()) missingSince.Remove(path);
@@ -90,7 +90,7 @@ public sealed partial class HostStateStore
             var gone = new List<string>();
             foreach (var path in watched)
             {
-                if (FolderExists(path))
+                if (FolderProbe.Exists(path, fresh: true))
                 {
                     missingSince.Remove(path);
                     if (!mountOf.ContainsKey(path) && MountOf(path, Mounts()) is { } mount) mountOf[path] = mount;
@@ -135,7 +135,7 @@ public sealed partial class HostStateStore
     private bool Unmounted(string path, string[] mounts)
     {
         if (mountOf.TryGetValue(path, out var mount)) return !mounts.Contains(mount, StringComparer.Ordinal);
-        return Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(path)) is not { Length: > 0 } parent || !FolderExists(parent);
+        return Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(path)) is not { Length: > 0 } parent || !FolderProbe.Exists(parent, fresh: true);
     }
 
     private static string? MountOf(string path, string[] mounts) =>

@@ -309,12 +309,8 @@ public sealed partial class HostStateStore : IHostStateService
             : current with { Projects = projects, RecentProjects = recents, Workspaces = workspaces };
     }
 
-    private static bool FolderExists(string path)
-    {
-        try { return File.GetAttributes(path).HasFlag(FileAttributes.Directory); }
-        catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException) { return false; }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return true; }
-    }
+    // A missing folder is a known state, not an error: no exception, and one look per FolderProbe.Remember.
+    private static bool FolderExists(string path) => FolderProbe.Exists(path);
 
     /// <summary>Sends every client a fresh snapshot without changing the state, so a folder found gone leaves their rails.</summary>
     internal void Republish()

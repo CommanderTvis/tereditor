@@ -107,6 +107,12 @@ presets belong to the UI.
   the mount each folder was last seen on and waits while that mount is gone; a folder it never saw counts
   only when its parent folder still exists. A folder deleted together with its parent before the host saw
   it is therefore left alone.
+- A missing folder is a known state, never an exception. The projection that hides missing projects, recents and
+  workspaces looks at each folder without throwing and remembers a missing one for 5 seconds, so reads of the
+  state cost it no file system call. The 3-second look, opening the folder and listing its workspaces look again
+  at once. Listing the workspaces of a missing project answers with none (one broadcast on first detection), and
+  change totals for a missing worktree are none: neither starts Git. `--case missing-projects` counts Git runs,
+  exceptions and folder looks over 300 reads.
 - A plain folder opens as a project directly, with no Git required: it is its own root and its Default
   workspace is the only one it has. A folder that later gains a `.git` is a repository on its next open.
 

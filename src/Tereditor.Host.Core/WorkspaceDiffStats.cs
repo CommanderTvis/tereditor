@@ -20,6 +20,8 @@ public sealed partial class ProjectServices
     public async ValueTask<DiffStats?> GetDiffStatsAsync(string workspacePath, CancellationToken cancellationToken = default)
     {
         var target = Path.GetFullPath(workspacePath);
+        // A worktree whose folder is gone has no totals; Git is not asked.
+        if (!FolderProbe.Exists(target)) return null;
         var worktrees = GitRepository.ParseWorktrees(await GitRepository.RunAsync(root, cancellationToken, "worktree", "list", "--porcelain", "-z"));
         if (!worktrees.Any(tree => tree.Path == target))
             throw new UnauthorizedAccessException("Only this project's workspaces have change totals.");

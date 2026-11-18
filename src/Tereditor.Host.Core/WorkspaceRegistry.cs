@@ -18,10 +18,12 @@ public sealed partial class ProjectServices
     {
         var project = Path.TrimEndingDirectorySeparator(ProjectPath(projectRoot));
         // A rail re-syncs its projects on focus; one whose folder went away takes the snapshot that no longer shows it.
-        if (!Directory.Exists(project))
+        // A missing folder is a known state: an empty answer, one broadcast when first seen, and no Git.
+        var seen = FolderProbe.KnownMissing(project);
+        if (!FolderProbe.Exists(project))
         {
-            state?.Republish();
-            throw new DirectoryNotFoundException($"Directory does not exist: {project}");
+            if (!seen) state?.Republish();
+            return new([], []);
         }
         var current = state?.Current;
         if (current is not null && !current.Projects.Concat(current.RecentProjects).Concat(current.Workspaces.Select(workspace => workspace.ProjectRoot))

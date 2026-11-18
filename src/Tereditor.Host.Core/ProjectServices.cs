@@ -26,6 +26,7 @@ public sealed partial class ProjectServices(string initialRoot, HostStateStore? 
         try
         {
             var candidate = Path.TrimEndingDirectorySeparator(ProjectPaths.Resolve(path));
+            FolderProbe.Forget(candidate);
             if (!Directory.Exists(candidate)) throw new DirectoryNotFoundException($"Directory does not exist: {candidate}");
             // Switching to a repository or worktree root resolves from its .git files, without starting Git.
             if (KnownCheckout(candidate) is { } known)

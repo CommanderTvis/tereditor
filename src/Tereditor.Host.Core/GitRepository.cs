@@ -21,6 +21,9 @@ internal static class GitRepository
         ["GIT_TERMINAL_PROMPT"] = "0"
     };
 
+    /// <summary>How many Git runs were started, for checks that assert a missing project is not polled.</summary>
+    internal static long Invocations;
+
     internal static async Task<string> RunAsync(string root, CancellationToken ct, params string[] args) =>
         (await ExecuteAsync(root, args, Budget, ct)).Output;
 
@@ -30,6 +33,7 @@ internal static class GitRepository
 
     internal static async Task<ChildProcess.Result> ExecuteAsync(string root, string[] args, TimeSpan budget, CancellationToken ct)
     {
+        Interlocked.Increment(ref Invocations);
         string[] full = ["--literal-pathspecs", "-c", "core.quotepath=false", .. args];
         ChildProcess.Result result;
         try { result = await ChildProcess.RunAsync("git", root, full, budget, ct, Prompts); }
@@ -93,6 +97,7 @@ internal static class GitRepository
 
     internal static async Task<GitRunResult> RunBoundedAsync(string cwd, IReadOnlyList<string> args, GitRunOptions? options, CancellationToken ct, string? input)
     {
+        Interlocked.Increment(ref Invocations);
         if (GitBackends.Current is { } backend)
         {
             using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
