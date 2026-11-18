@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -11,22 +12,28 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.Providers.UI;
 
 /// <summary>
-/// Settings › Plugins › Model providers: one list of providers in ProviderOrder, with the blocks other plugins fill
-/// (OpenAI sign-in, JetBrains AI, Bedrock, Vertex) at their place in it, and an action to add a custom provider. Keys are typed into masked fields, sent once and never shown again.
+/// Settings › Plugins › Model providers: a list of providers on the left (<see cref="MasterDetail"/>, in ProviderOrder, under Set up and Not set up) and the selected
+/// provider's pane on the right: what it works with, the key buttons, and the blocks other plugins fill (OpenAI sign-in, JetBrains AI, Bedrock, Vertex) for the
+/// provider they name. An Add a custom provider button under the list opens the form in the pane. Keys are typed into masked fields, sent once and never shown again.
 /// </summary>
 internal sealed class ProvidersPage : StackPanel
 {
     private readonly IPluginUIContext context;
     private readonly ModelSourceLaunch launch;
-    private readonly StackPanel groups = new() { Spacing = 20, Name = "ModelProviderGroups" };
-    private readonly StackPanel listing = new() { Spacing = 8, Name = "ModelProviderList" };
-    private readonly List<(string Id, string Name, Control Row)> rows = [];
+    private readonly MasterDetail master = new("ModelProviders");
+    private readonly ContentControl catalog = new() { Name = "ModelProviderPane" };
+    private readonly StackPanel blockHost = new() { Name = "ModelProviderBlocks" };
     private readonly List<(string Slot, Control View)> slots = [];
-    private bool arranging, rearrange;
     private ModelProvidersReport? report;
+    private string? selectedId;
+    private string? paneId;
+    private bool paneIsBlock;
     private string? adding;
-    private bool custom;
+    private bool custom, focusNew;
     private int generation;
+
+    // One entry of the list: a provider of the report, a plugin block that names one, or a plugin block on its own.
+    private sealed record Entry(string Id, string Name, int Rank, ModelProviderRow? Row, Control? Block);
 
     public ProvidersPage(IPluginUIContext context, ModelSourceLaunch launch)
     {
@@ -37,13 +44,16 @@ internal sealed class ProvidersPage : StackPanel
         var intro = Ui.Text("Add the providers you use. Each agent's own settings page chooses which one it takes. An agent only sees a provider that speaks an API it accepts.", Ui.Muted, 12);
         intro.TextWrapping = TextWrapping.Wrap;
         Children.Add(new StackPanel { Spacing = 4, Children = { Ui.Text("Model providers", Ui.TextBrush, 15), intro } });
-        Children.Add(groups);
-        // The slot views live as long as the page. A plugin fills or empties one while the page is open, which reorders the list.
+        Children.Add(master);
+        master.Selected += id => { selectedId = id; custom = false; adding = null; RenderList(); };
+        master.Detail.Content = new StackPanel { Spacing = 8, Children = { catalog, blockHost } };
+        // The slot views live as long as the page, hidden inside the pane. A plugin fills or empties one while the page is open, which changes the list.
         foreach (var slot in new[] { ProvidersSlots.JetBrainsAi, ProvidersSlots.Hyperscalers, ProvidersSlots.Other })
         {
             var view = context.SlotView(slot);
-            if (view is Panel panel) panel.Children.CollectionChanged += (_, _) => Arrange();
+            if (view is Panel panel) panel.Children.CollectionChanged += (_, _) => RenderList();
             slots.Add((slot, view));
+            blockHost.Children.Add(view);
         }
         AttachedToVisualTree += (_, _) => Load(() => context.RequestAsync(ProvidersContract.Models, new ModelProvidersParams()).AsTask());
         Render();
@@ -78,6 +88,12 @@ internal sealed class ProvidersPage : StackPanel
             {
                 var next = await request();
                 if (mine != generation) return;
+                if (focusNew)
+                {
+                    focusNew = false;
+                    var known = (report?.Providers ?? []).Select(row => row.Provider.Id).ToHashSet();
+                    if (next.Providers.FirstOrDefault(row => !known.Contains(row.Provider.Id)) is { } added) selectedId = added.Provider.Id;
+                }
                 report = next;
                 launch.Update(next);
                 Render();
@@ -91,53 +107,107 @@ internal sealed class ProvidersPage : StackPanel
 
     private void Render()
     {
-        groups.Children.Clear();
-        listing.Children.Clear();
-        rows.Clear();
-        foreach (var row in report?.Providers ?? []) rows.Add((row.Provider.Id, row.Provider.Name, Row(row)));
-        Arrange();
-        groups.Children.Add(listing);
-        groups.Children.Add(CustomForm());
-    }
-
-    // The one list: catalog rows and plugin blocks together, in ProviderOrder, by name within a rank. A plugin block that names a provider
-    // ("ModelProvider-<id>") takes that provider's rank and replaces its catalog row, so the page lists the provider once.
-    private void Arrange()
-    {
-        // Adding a slot view to the list can fill it at once, which asks to arrange again: run the pass again after this one, never inside it.
-        if (arranging) { rearrange = true; return; }
-        arranging = true;
-        try { do { rearrange = false; ArrangeOnce(); } while (rearrange); }
-        finally { arranging = false; }
-    }
-
-    private void ArrangeOnce()
-    {
-        var claimed = slots.SelectMany(slot => slot.View.GetLogicalDescendants().OfType<Control>()).Select(control => control.Name)
-            .Where(name => name?.StartsWith("ModelProvider-", StringComparison.Ordinal) == true).Select(name => name![14..]).ToHashSet();
-        var entries = new List<(int Rank, string Name, Control Control)>();
-        foreach (var (id, name, control) in rows)
+        master.Footer.Children.Clear();
+        master.Footer.Children.Add(Ui.Button(custom ? "Hide the custom provider form" : "Add a custom provider", () =>
         {
-            control.IsVisible = !claimed.Contains(id);
-            entries.Add((ProviderOrder.Rank(id), name, control));
-        }
+            custom = !custom;
+            adding = null;
+            if (custom) selectedId = null;
+            RenderList(true);
+        }));
+        RenderList(true);
+    }
+
+    // The provider a plugin block stands for: the provider it names ("ModelProvider-<id>", or "<Id>Component"), else the block alone.
+    private static string BlockId(Control block, string slot, int index)
+    {
+        var named = block.GetLogicalDescendants().Prepend(block).OfType<Control>().Select(control => control.Name).FirstOrDefault(name => name?.StartsWith("ModelProvider-", StringComparison.Ordinal) == true);
+        if (named is not null) return named[14..];
+        if (block.Name is { Length: > 0 } own) return own.EndsWith("Component", StringComparison.Ordinal) ? own[..^9].ToLowerInvariant() : own;
+        return "slot:" + slot + ":" + index;
+    }
+
+    private List<Entry> Entries()
+    {
+        var blocks = new Dictionary<string, (string Slot, Control Block)>();
         foreach (var (slot, view) in slots)
+            if (view is Panel panel)
+                for (var at = 0; at < panel.Children.Count; at++) blocks[BlockId(panel.Children[at], slot, at)] = (slot, panel.Children[at]);
+        var entries = new List<Entry>();
+        foreach (var row in report?.Providers ?? [])
         {
-            var own = view.GetLogicalDescendants().OfType<Control>().Select(control => control.Name).Where(name => name?.StartsWith("ModelProvider-", StringComparison.Ordinal) == true)
-                .Select(name => ProviderOrder.Rank(name![14..])).DefaultIfEmpty(ProviderOrder.SlotRank(slot)).Min();
-            view.IsVisible = view is not Panel panel || panel.Children.Count > 0;
-            entries.Add((own, "", view));
+            var id = row.Provider.Id;
+            entries.Add(new(id, row.Provider.Name, ProviderOrder.Rank(id), row, blocks.GetValueOrDefault(id).Block));
+            blocks.Remove(id);
         }
-        // Leave the list alone when it already reads right: moving a slot view out and in makes it fill again, which would ask for another pass without end.
-        var ordered = entries.OrderBy(entry => entry.Rank).ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase).Select(entry => entry.Control).ToList();
-        if (listing.Children.SequenceEqual(ordered)) return;
-        listing.Children.Clear();
-        foreach (var control in ordered) listing.Children.Add(control);
+        foreach (var (id, (slot, block)) in blocks)
+        {
+            var name = block.Name is { Length: > 0 } own && own.EndsWith("Component", StringComparison.Ordinal) ? own[..^9] : id.StartsWith("slot:", StringComparison.Ordinal) ? "Provider component" : id;
+            entries.Add(new(id, name, Math.Min(ProviderOrder.Rank(id), ProviderOrder.SlotRank(slot)), null, block));
+        }
+        return [.. entries.OrderBy(entry => entry.Rank).ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    private Control Row(ModelProviderRow row)
+    /// <summary>Fills the list and shows the selected provider's pane. <paramref name="rebuild"/> builds the pane again; a plugin block that fills in or empties leaves the pane being typed in alone.</summary>
+    private void RenderList(bool rebuild = false)
+    {
+        var entries = Entries();
+        var rows = new List<Control>();
+        foreach (var (title, ready) in new[] { ("Set up", true), ("Not set up", false) })
+        {
+            var group = entries.Where(entry => (entry.Row?.Ready ?? false) == ready).ToList();
+            if (group.Count == 0) continue;
+            rows.Add(MasterDetail.Group(ready ? "SetUp" : "NotSetUp", title));
+            rows.AddRange(group.Select(ListRow));
+        }
+        master.SetRows(rows, selectedId, none: custom);
+        var previous = selectedId;
+        selectedId = custom ? null : master.SelectedId;
+        ShowPane(entries, rebuild || previous != selectedId || paneId != selectedId);
+    }
+
+    private Control ListRow(Entry entry)
+    {
+        Control? mark = null;
+        if (entry.Row is { } row)
+        {
+            if (row.Ready)
+            {
+                mark = Ui.Icon("check", Ui.Success);
+                ToolTip.SetTip(mark, row.Provider.NeedsKey ? "Key set" : "Ready");
+                AutomationProperties.SetName(mark, row.Provider.NeedsKey ? "key set" : "ready");
+            }
+            else mark = new TextBlock { Text = "Not set up", FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
+        }
+        return MasterDetail.Row(entry.Id, Ui.Icon("lock", Ui.Muted), entry.Name, null, entry.Row is null ? null : WorksWith(entry.Row.Provider), null, mark);
+    }
+
+    private void ShowPane(List<Entry> entries, bool rebuild)
+    {
+        var entry = custom ? null : entries.FirstOrDefault(candidate => candidate.Id == selectedId);
+        // A plugin block shows through its own slot view: only the block of the selected provider is visible.
+        foreach (var (_, view) in slots)
+        {
+            if (view is not Panel panel) continue;
+            foreach (var block in panel.Children) block.IsVisible = entry?.Block == block;
+            view.IsVisible = entry?.Block is not null && panel.Children.Contains(entry.Block);
+        }
+        var showBlock = entry?.Block is not null;
+        if (!rebuild && paneId == selectedId && paneIsBlock == showBlock && (custom || catalog.Content is not null || showBlock)) return;
+        (paneId, paneIsBlock) = (selectedId, showBlock);
+        catalog.Content = custom ? CustomForm() : entry is { Block: null, Row: { } row } ? new Border { Name = "ModelProviderDetail_" + entry.Id, Padding = new Thickness(8, 4, 8, 12), Child = Detail(row) }
+            : entry is null ? Ui.Text("Choose a provider in the list.", Ui.Muted, 12) : null;
+    }
+
+    /// <summary>The pane of a provider that has no block of its own: its name, the agents it works with, why a sign-in is not offered, and the key buttons.</summary>
+    private Control Detail(ModelProviderRow row)
     {
         var provider = row.Provider;
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(new TextBlock { Text = provider.Name, FontSize = 16, FontWeight = FontWeight.SemiBold, Foreground = Ui.TextBrush });
+        var works = Ui.Text(WorksWith(provider), Ui.Muted, 12);
+        works.Name = "ModelProviderWorksWith";
+        panel.Children.Add(works);
         var column = new ApiKeyRow(provider.Name,
             secret => Load(() => context.RequestAsync(ProvidersContract.SaveModelKey, new SaveModelKeyParams(provider.Id, secret)).AsTask()),
             () => Load(() => context.RequestAsync(ProvidersContract.RemoveModelKey, new ModelProviderParams(provider.Id)).AsTask()))
@@ -145,10 +215,12 @@ internal sealed class ProvidersPage : StackPanel
         if (provider.Custom && provider.Contributor is null) column.ExtraActions.Add(("Remove provider", () => Load(() => context.RequestAsync(ProvidersContract.RemoveCustomProvider, new ModelProviderParams(provider.Id)).AsTask())));
         if (provider.Note is { } note) column.Hints.Add(note);
         if (provider.OAuth is { Allowed: false, ReasonIfNot: { } reason }) column.Hints.Add(reason);
-        column.Show(provider.Name + (row.Ready ? "  (ready)" : "") + "  ·  " + WorksWith(provider), row.Ready && provider.NeedsKey);
+        var stored = row.Ready && provider.NeedsKey;
+        column.Show(row.Ready ? provider.NeedsKey ? "Key stored" : "Ready" : provider.NeedsKey ? "No key yet" : "Not ready", stored);
         column.Open = adding == provider.Id;
-        column.OpenChanged = open => { adding = open ? provider.Id : null; custom = false; Render(); };
-        return column;
+        column.OpenChanged = open => adding = open ? provider.Id : null;
+        panel.Children.Add(column);
+        return panel;
     }
 
     private static readonly string[] CustomKinds = [ModelApiKinds.AnthropicMessages, ModelApiKinds.OpenAiResponses, ModelApiKinds.OpenAiChat, ModelApiKinds.GoogleGenerative];
@@ -156,8 +228,6 @@ internal sealed class ProvidersPage : StackPanel
     private Control CustomForm()
     {
         var panel = new StackPanel { Spacing = 6, Name = "ModelProviderCustom" };
-        panel.Children.Add(Ui.Button(custom ? "Hide the custom provider form" : "Add a custom provider", () => { custom = !custom; adding = null; Render(); }));
-        if (!custom) return panel;
         var name = new TextBox { PlaceholderText = "name, such as My gateway", Name = "CustomProviderName" };
         var url = new TextBox { PlaceholderText = "base URL, such as https://llm.example.com/v1", Name = "CustomProviderUrl" };
         var key = new TextBox { PasswordChar = '•', PlaceholderText = "API key (leave empty if none)", Name = "CustomProviderKey" };
@@ -174,6 +244,7 @@ internal sealed class ProvidersPage : StackPanel
             key.Text = "";
             var kinds = boxes.Where(box => box.IsChecked == true).Select(box => (string)box.Tag!).ToList();
             custom = false;
+            focusNew = true;
             Load(() => context.RequestAsync(ProvidersContract.AddCustomProvider, new AddCustomProviderParams(name.Text ?? "", url.Text ?? "", kinds) { Key = secret.Length > 0 ? secret : null }).AsTask());
         }
         panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { Ui.Button("Add provider", Add) } });

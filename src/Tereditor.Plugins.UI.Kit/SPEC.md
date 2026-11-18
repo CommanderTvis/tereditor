@@ -18,7 +18,7 @@ the project is created empty with this spec, and the controls move into it as li
 
 ## List and pane
 
-`MasterDetail` is a list on the left and the selected item's pane on the right. The list is 280 px wide by default (`RailWidth`) and the user drags the divider to resize it. Rows come from `Row`: icon, name, a small note after the name (a version), one trimmed line of description, an optional trailing action (an Install button, a check mark) and an optional red problem dot. `Group` adds a heading between groups of rows; a heading is never selected and never reported. The list takes the height it is given and scrolls on its own, and the pane scrolls on its own when it is taller; the header above the list and the footer under it stay put. `SetRows` keeps the selection and does not raise `Selected`. Settings › ACP uses it.
+`MasterDetail` is a list on the left and the selected item's pane on the right. The list is 280 px wide by default (`RailWidth`) and the user drags the divider to resize it. Rows come from `Row`: icon, name, a small note after the name (a version), one trimmed line of description, an optional trailing action (an Install button, a check mark) and an optional red problem dot. `Group` adds a heading between groups of rows; a heading is never selected and never reported. The list takes the height it is given and scrolls on its own, and the pane scrolls on its own when it is taller; the header above the list and the footer under it stay put. `SetRows` keeps the selection and does not raise `Selected`. Settings › ACP and Settings › Plugins › Model providers use it.
 
 ## Provider key row
 
