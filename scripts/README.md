@@ -38,7 +38,7 @@ Publishes the desktop app as NativeAOT for this machine (OS, architecture and CP
 scripts/mise run instrumented-native [--no-run] [--print] [--malloc-stack-logging]
 ```
 
-Same as `native`, for looking into the memory of the running app. It publishes into `artifacts/instrumented-native` (on macOS the bundle `tereditor.app` there) with the same app identifier, so settings and state stay shared. It keeps the symbol table in the binary, writes `tereditor.dSYM` beside the bundle on macOS, and links the EventPipe runtime so the diagnostics socket exists. `--malloc-stack-logging` starts the app with `MallocStackLogging=1`, which costs memory and speed, so leave it off unless you hunt small native allocations. Agents never run it.
+Same as `native`, for looking into the memory of the running app. It publishes into `artifacts/instrumented-native` (on macOS the bundle `tereditor.app` there) with the same app identifier, so settings and state stay shared. It keeps the symbol table in the binary, writes `tereditor.dSYM` beside the bundle on macOS, and links the EventPipe runtime so the diagnostics socket exists. `--malloc-stack-logging` starts the app with `MallocStackLogging=1`, which costs memory and speed, so leave it off unless you hunt small native allocations. The app strips `MallocStackLogging` and the other `MallocStack*` variables from the environment of its terminals and every other process it starts, so those processes print no stack-logging notices and run at normal speed. Agents never run it.
 
 Attach from another terminal. Install the tools once into a private path:
 
@@ -48,7 +48,7 @@ dotnet tool install dotnet-trace --tool-path ~/.tereditor/diag-tools
 dotnet tool install dotnet-gcdump --tool-path ~/.tereditor/diag-tools
 ```
 
-The app opens a socket named `dotnet-diagnostic-<pid>-<key>-socket` in `$TMPDIR`. Find it with `ls "$TMPDIR" | grep dotnet-diagnostic`, or list the processes with `~/.tereditor/diag-tools/dotnet-counters ps`. Then:
+The app opens a socket named `dotnet-diagnostic-<pid>-<n>-socket` in `$TMPDIR`. `dotnet-counters`, `dotnet-trace` and `dotnet-gcdump` all attach to the NativeAOT binary through it (checked on the instrumented build). Find it with `ls "$TMPDIR" | grep dotnet-diagnostic`, or list the processes with `~/.tereditor/diag-tools/dotnet-counters ps`, which shows the app. Then:
 
 ```sh
 ~/.tereditor/diag-tools/dotnet-counters monitor --process-id <pid> System.Runtime
@@ -56,7 +56,7 @@ The app opens a socket named `dotnet-diagnostic-<pid>-<key>-socket` in `$TMPDIR`
 ~/.tereditor/diag-tools/dotnet-gcdump collect --process-id <pid> -o heap.gcdump
 ```
 
-The trace provider line samples allocations by type (`GCSampledObjectAllocationHigh`) and logs GCs. `dotnet-gcdump` asks the runtime for a heap dump through EventPipe. Try it; NativeAOT does not officially support it, and it may return nothing. For the native side:
+The trace provider line samples allocations by type (`GCSampledObjectAllocationHigh`) and logs GCs. `dotnet-gcdump` asks the runtime for a heap dump through EventPipe. It works on the NativeAOT binary but gives only the total heap bytes and object counts, with no type names. `dotnet-counters collect --process-id <pid> --duration 00:00:10 --format json -o counters.json` records counters for a fixed time. To see exceptions, trace the runtime exception keyword: `dotnet-trace collect --process-id <pid> --duration 00:00:10 --providers Microsoft-Windows-DotNETRuntime:0x8000:5`. For the native side:
 
 ```sh
 footprint <pid>        # dirty memory by category
@@ -66,7 +66,7 @@ leaks <pid>            # unreferenced blocks; with --malloc-stack-logging it sho
 malloc_history <pid> -callTree -allBySize
 ```
 
-Limits: `dotnet-dump` does not work on NativeAOT, because there is no CoreCLR dump support to read. A live-object type histogram of the GC heap is not guaranteed; if `dotnet-gcdump` fails, use the allocation sampling from `dotnet-trace` and the counters instead. The instrumented build is its own publish with its own output folder.
+Limits: `dotnet-dump` does not work on NativeAOT, because there is no CoreCLR dump support to read. There is no per-type live-object histogram: for types, use the allocation sampling from `dotnet-trace`. The instrumented build is its own publish with its own output folder.
 
 ### Browser
 

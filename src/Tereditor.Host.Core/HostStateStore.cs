@@ -171,6 +171,8 @@ public sealed partial class HostStateStore : IHostStateService
     /// <param name="groupWorkspacesUnderCreator">The embedded desktop profile's value of the grouping under creators, which seeds the host's shared value once, while it is unset.</param>
     public HostStateStore(string? directory, Func<HostState>? seed = null, bool? verticalCenterTabs = null, bool? verticalTabsInProjects = null, bool? groupWorkspacesUnderCreator = null)
     {
+        // The app may run with allocator stack logging for memory work; the processes it starts must not inherit it.
+        ChildProcess.StripMallocDiagnostics();
         path = directory is null ? null : Path.Combine(directory, FileName);
         HostState initial;
         var fileIconsConfigured = false;

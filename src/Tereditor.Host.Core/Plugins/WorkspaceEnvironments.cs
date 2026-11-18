@@ -275,7 +275,8 @@ public sealed partial class PluginRuntime
     internal async Task<ResolvedEnvironment> ResolveEnvironmentAsync(string directory, string? origin, CancellationToken cancellationToken)
     {
         var host = new Dictionary<string, string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        foreach (DictionaryEntry entry in System.Environment.GetEnvironmentVariables()) host[(string)entry.Key] = (string?)entry.Value ?? "";
+        foreach (DictionaryEntry entry in System.Environment.GetEnvironmentVariables())
+            if (!ChildProcess.IsMallocDiagnostics((string)entry.Key)) host[(string)entry.Key] = (string?)entry.Value ?? "";
         var edit = new WorkspaceEnvironmentEdit(directory, origin, host, new HostLog(this, ""));
         foreach (var (plugin, provider) in EnvironmentProviders())
         {

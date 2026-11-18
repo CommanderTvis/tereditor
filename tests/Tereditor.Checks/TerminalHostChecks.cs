@@ -61,6 +61,23 @@ internal static partial class TerminalHostChecks
                 "An outer terminal's status URLs must not reach an inner host's terminals, while configuration variables stay.");
             var own = PtyTerminalService.ShellEnvironment(null, new Dictionary<string, string> { ["TEREDITOR_AGENT_STATUS_URL"] = "inner" }).OfType<string>();
             Require(own.Contains("TEREDITOR_AGENT_STATUS_URL=inner"), "The inner host's own contribution is applied after the strip.");
+            // The instrumented native build starts the app with allocator stack logging; no terminal or child may inherit it.
+            string[] malloc = ["MallocStackLogging", "MallocStackLoggingNoCompact"];
+            var savedMalloc = malloc.Select(Environment.GetEnvironmentVariable).ToArray();
+            try
+            {
+                foreach (var name in malloc) Environment.SetEnvironmentVariable(name, "1");
+                Require(!PtyTerminalService.ShellEnvironment().OfType<string>().Any(line => line.StartsWith("MallocStack", StringComparison.Ordinal)),
+                    "Allocator stack logging must not reach the app's terminals.");
+                if (!OperatingSystem.IsWindows())
+                {
+                    var child = ChildProcess.RunAsync("/usr/bin/env", Environment.CurrentDirectory, [], TimeSpan.FromSeconds(10), CancellationToken.None).GetAwaiter().GetResult();
+                    Require(!child.Output.Contains("MallocStack", StringComparison.Ordinal), "Allocator stack logging must not reach other child processes.");
+                }
+                _ = new HostStateStore(null);
+                Require(Environment.GetEnvironmentVariable("MallocStackLogging") is null, "The host takes the stack-logging switches out of the process environment its children copy.");
+            }
+            finally { for (var i = 0; i < malloc.Length; i++) Environment.SetEnvironmentVariable(malloc[i], savedMalloc[i]); }
         }
         finally { for (var i = 0; i < names.Length; i++) Environment.SetEnvironmentVariable(names[i], saved[i]); }
     }

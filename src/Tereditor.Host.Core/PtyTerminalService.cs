@@ -706,6 +706,8 @@ public sealed class PtyTerminalService : ITerminalService, ITerminalCatalogServi
             variables[(string)entry.Key] = (string?)entry.Value ?? "";
         // The host's session token authorizes this process; it must not reach user shells.
         variables.Remove("TEREDITOR_TOKEN");
+        // The instrumented native build runs the app with allocator stack logging; its terminals and their children must not inherit it.
+        foreach (var key in variables.Keys.Where(ChildProcess.IsMallocDiagnostics).ToArray()) variables.Remove(key);
         // An app launched from inside a Claude Code session inherits that session's identity; a Claude started in a
         // new terminal would take itself for its child and stop saving transcripts. Configuration variables stay.
         foreach (var marker in ClaudeSessionMarkers) variables.Remove(marker);

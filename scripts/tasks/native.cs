@@ -7,6 +7,7 @@
 // --instrumented (the `instrumented-native` task) publishes into artifacts/instrumented-native for looking into the running app's memory: native
 // symbols stay in the binary (plus a dSYM on macOS), and EventSource and EventPipe are linked in so dotnet-counters and dotnet-trace can attach.
 // --malloc-stack-logging (with --instrumented) starts the app with MallocStackLogging=1 so leaks and heap can attribute small allocations.
+// The app removes the MallocStack* variables from the environment of every process it starts, so only the app itself runs with them.
 // This is the user's own build: it does not go through the agent compile queue, and agents never run it.
 #:include ../lib/Tasks.cs
 using System.Diagnostics;

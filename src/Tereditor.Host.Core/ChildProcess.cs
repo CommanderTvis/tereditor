@@ -64,10 +64,24 @@ internal static class ChildProcess
         return new(done.ExitCode, done.Output, done.Error);
     }
 
+    /// <summary>
+    /// The macOS allocator's stack-logging switches (`MallocStackLogging` and its relatives). The instrumented native task sets them
+    /// for the app alone; a child that inherited them would print their notices and run slower, so no child environment keeps them.
+    /// </summary>
+    internal static bool IsMallocDiagnostics(string name) => name.StartsWith("MallocStack", StringComparison.Ordinal);
+
+    /// <summary>Removes the stack-logging switches from this process's environment, which every child it starts copies. The app itself keeps logging: the allocator read them at launch.</summary>
+    internal static void StripMallocDiagnostics()
+    {
+        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+            if (IsMallocDiagnostics((string)entry.Key)) Environment.SetEnvironmentVariable((string)entry.Key, null);
+    }
+
     private static Dictionary<string, string> LiveEnvironment(IReadOnlyDictionary<string, string?>? overrides)
     {
         var variables = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables()) variables[(string)entry.Key] = (string?)entry.Value ?? "";
+        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+            if (!IsMallocDiagnostics((string)entry.Key)) variables[(string)entry.Key] = (string?)entry.Value ?? "";
         if (overrides is not null)
             foreach (var (name, value) in overrides)
             {
