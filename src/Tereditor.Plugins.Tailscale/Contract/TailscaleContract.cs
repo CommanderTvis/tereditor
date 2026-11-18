@@ -33,7 +33,7 @@ public static class TailscaleContract
         Category = PluginCategories.Integrations,
         // Runs the tailscale command line on the host's operating system, which a browser tab does not have.
         UnavailableOn = [HostKind.PureWeb],
-        Description = "Pairs clients on your tailnet without copying IP addresses, ports or session tokens.",
+        Description = "Pairs clients on your tailnet.",
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
         Assets = "assets",
