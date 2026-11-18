@@ -34,7 +34,12 @@ internal sealed class GitHubTab : Border
     private readonly TextBox queryBox = new() { Name = "GitHubQuery", PlaceholderText = "Search all issues", MinWidth = 280, Text = "is:open" };
     private IReadOnlyList<string> authors = [];
     private IReadOnlyList<GitHubLabel> repoLabels = [];
-    private string kind;
+    private readonly GitHubLinker linker;
+    private readonly List<GitHubEvent> pending = [];
+    private GitHubComposer? composer;
+    private GitHubDetail? shown;
+    private string repoSlug = "";
+    private readonly string kind;
     private int? number;
     private int limit = 25;
     private string? revision;
@@ -53,11 +58,30 @@ internal sealed class GitHubTab : Border
         kind = parts[0] switch { "pull" or Pulls => Pulls, Settings => Settings, _ => Issues };
         if (standalone) number = int.Parse(parts[1]);
         queryBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { limit = 25; revision = null; Refresh(); } };
+        linker = new(() => repoSlug, HandleLink);
         Child = scroll;
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) => { lifetime = new(); Interval(); poll.Start(); revision = null; Refresh(); };
         DetachedFromVisualTree += (_, _) => { poll.Stop(); lifetime?.Cancel(); generation++; };
         scroll.Content = Ui.Text("Loading…");
+    }
+
+    private bool HandleLink(string url)
+    {
+        if (GitHubLinks.Parse(url, repoSlug) is not { } target) return false;
+        var parts = target.Id.Split(':', 2);
+        if (!standalone && parts.Length == 2 && (parts[0] == "issue" && kind == Issues || parts[0] == "pull" && kind == Pulls))
+        {
+            number = int.Parse(parts[1]); revision = null; pending.Clear(); Refresh();
+        }
+        else _ = OpenLinkedAsync(target.Id, target.Title);
+        return true;
+    }
+
+    private async Task OpenLinkedAsync(string id, string title)
+    {
+        try { await context.OpenDocumentAsync(workspace, GitHubContract.Scheme, id, title); }
+        catch (Exception error) when (error is not OperationCanceledException) { context.Notify(PluginNotificationKind.Error, "Couldn't open GitHub", error.Message); }
     }
 
     private void Interval() => poll.Interval = TimeSpan.FromSeconds(Math.Clamp(context.Settings<GitHubSettings>().PollSeconds, 15, 600));
@@ -94,6 +118,7 @@ internal sealed class GitHubTab : Border
         if (list is null) return;
         if (list.Problem is not null) { Show(Message(list.Problem)); return; }
         if (list.Unchanged) return;
+        repoSlug = list.Repo;
         revision = list.Revision;
         var offset = scroll.Offset;
         var root = new StackPanel { Spacing = 0, Margin = new Thickness(24, 16), MaxWidth = 1012 };
@@ -210,7 +235,16 @@ internal sealed class GitHubTab : Border
         if (detail.Problem is not null) { Show(Message(detail.Problem, back: !standalone)); return; }
         if (detail.Unchanged) return;
         revision = detail.Revision;
+        repoSlug = detail.Repo;
+        shown = detail;
+        RenderDetail(detail);
+    }
+
+    private void RenderDetail(GitHubDetail detail)
+    {
         var offset = scroll.Offset;
+        var remaining = GitHubPending.Remaining(pending, detail.Timeline);
+        pending.Clear(); pending.AddRange(remaining);
         var root = new StackPanel { Spacing = 12, Margin = new Thickness(24, 16), MaxWidth = 1012, Name = "GitHubConversation" };
         if (!standalone)
         {
@@ -240,18 +274,43 @@ internal sealed class GitHubTab : Border
             if (detail.Milestone is not null) side.Children.Add(Ui.Text("  Milestone " + detail.Milestone, Ui.Muted, 12));
             root.Children.Add(side);
         }
-        root.Children.Add(Card(detail.Author, detail.CreatedAt, "", detail.Body.Length == 0 ? "No description provided." : detail.Body, null));
-        foreach (var e in detail.Timeline) root.Children.Add(Event(e));
+        root.Children.Add(Card(detail.Author, detail.CreatedAt, "", detail.Body.Length == 0 ? "No description provided." : detail.Body, null, linker));
+        foreach (var e in detail.Timeline.Concat(pending)) root.Children.Add(Event(e));
         if (detail.Truncated) root.Children.Add(Ui.Text("The conversation is longer than this tab loads. The rest is on GitHub.", Ui.Muted, 12));
+        var id = detail.Number;
+        if (composer is null || composerNumber != id)
+        {
+            composer = new GitHubComposer($"{workspace}|{detail.Kind}|{id}", detail.State != "merged", async (action, body) =>
+                await Task.Run(async () => await context.RequestAsync(GitHubContract.Post, new GitHubPostParams(workspace, detail.Kind, id, action, body), lifetime?.Token ?? default).AsTask()),
+                Posted, linker);
+            composerNumber = id;
+        }
+        composer.Detach();
+        composer.SetState(detail.State);
+        root.Children.Add(composer);
         Show(root);
         Dispatcher.UIThread.Post(() => scroll.Offset = offset, DispatcherPriority.Loaded);
     }
 
+    private int composerNumber;
+
+    private void Posted(GitHubEvent? posted, string? state)
+    {
+        if (posted is not null) pending.Add(posted);
+        if (shown is not null)
+        {
+            if (state is not null) shown = shown with { State = state == "open" ? "open" : "closed" };
+            RenderDetail(shown);
+        }
+        revision = null;
+        Refresh();
+    }
+
     private Control Event(GitHubEvent e)
     {
-        if (e.Kind == "comment") return Card(e.Author, e.At, e.Detail is "" or "NONE" ? "" : e.Detail.ToLowerInvariant(), e.Body, null);
+        if (e.Kind == "comment") return Card(e.Author, e.At, e.Detail is "" or "NONE" ? "" : e.Detail.ToLowerInvariant(), e.Body, null, linker);
         if (e.Kind == "review")
-            return Card(e.Author, e.At, e.Detail switch { "approved" => "approved these changes", "changes-requested" => "requested changes", "dismissed" => "review dismissed", _ => "reviewed" }, e.Body, e.Comments);
+            return Card(e.Author, e.At, e.Detail switch { "approved" => "approved these changes", "changes-requested" => "requested changes", "dismissed" => "review dismissed", _ => "reviewed" }, e.Body, e.Comments, linker);
         var line = new WrapPanel { Margin = new Thickness(16, 0, 0, 0) };
         line.Children.Add(Ui.Icon(Glyph(e.Kind), Ui.Muted, 14));
         var phrase = e.Kind switch
@@ -284,23 +343,28 @@ internal sealed class GitHubTab : Border
 
     private static string Glyph(string kind) => kind switch
     {
-        "commit" => "git-commit-line", "merged" => "git-merge-line", "closed" => "checkbox-circle-line", "reopened" => "record-circle-line",
-        "labeled" or "unlabeled" => "price-tag-3-line", "referenced" => "links-line", _ => "dot-line"
+        "commit" => "git-commit-line",
+        "merged" => "git-merge-line",
+        "closed" => "checkbox-circle-line",
+        "reopened" => "record-circle-line",
+        "labeled" or "unlabeled" => "price-tag-3-line",
+        "referenced" => "links-line",
+        _ => "dot-line"
     };
 
-    internal static Control Card(string author, string at, string note, string body, IReadOnlyList<GitHubReviewComment>? inline)
+    internal static Control Card(string author, string at, string note, string body, IReadOnlyList<GitHubReviewComment>? inline, GitHubLinker? linker = null)
     {
         var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(12, 8) };
         var name = Ui.Text(author, Ui.TextBrush, 13); name.FontWeight = FontWeight.SemiBold;
         header.Children.Add(name);
         header.Children.Add(Ui.Text((note.Length > 0 ? note + " " : "commented ") + Ago(at), Ui.Muted, 13));
         var content = new StackPanel { Spacing = 8, Margin = new Thickness(12) };
-        if (body.Length > 0) content.Children.Add(Body(body));
+        if (body.Length > 0) content.Children.Add(Body(body, linker));
         if (inline is not null)
             foreach (var comment in inline)
             {
                 content.Children.Add(Ui.Text(comment.Path, Ui.Muted, 12));
-                content.Children.Add(Body(comment.Body));
+                content.Children.Add(Body(comment.Body, linker));
             }
         var frame = new StackPanel();
         frame.Children.Add(new Border { Background = Ui.Elevated, Child = header, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1) });
@@ -308,7 +372,7 @@ internal sealed class GitHubTab : Border
         return new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), ClipToBounds = true, Child = frame };
     }
 
-    internal static Control Body(string text) => GitHubMarkdown.Render(text);
+    internal static Control Body(string text, GitHubLinker? linker = null) => GitHubMarkdown.Render(text, linker);
 
     private static Control Badge(GitHubDetail detail)
     {
@@ -320,16 +384,25 @@ internal sealed class GitHubTab : Border
     {
         var color = label.Color.Length == 6 ? Color.Parse("#" + label.Color) : Colors.Gray;
         var luminance = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255;
-        return new Border { Background = new SolidColorBrush(color), CornerRadius = new CornerRadius(10), Padding = new Thickness(7, 1), Margin = new Thickness(0, 0, 4, 0),
-            Child = Ui.Text(label.Name, luminance > 0.55 ? Brushes.Black : Brushes.White, 12) };
+        return new Border
+        {
+            Background = new SolidColorBrush(color),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(7, 1),
+            Margin = new Thickness(0, 0, 4, 0),
+            Child = Ui.Text(label.Name, luminance > 0.55 ? Brushes.Black : Brushes.White, 12)
+        };
     }
 
     private static Control StateIcon(string state, bool draft, bool pull)
     {
         var (icon, brush) = (pull, state) switch
         {
-            (true, "merged") => ("git-merge-line", Done), (true, "closed") => ("git-pull-request-line", Closed),
-            (true, _) => ("git-pull-request-line", draft ? Neutral : Open), (false, "open") => ("record-circle-line", Open), _ => ("checkbox-circle-line", Done)
+            (true, "merged") => ("git-merge-line", Done),
+            (true, "closed") => ("git-pull-request-line", Closed),
+            (true, _) => ("git-pull-request-line", draft ? Neutral : Open),
+            (false, "open") => ("record-circle-line", Open),
+            _ => ("checkbox-circle-line", Done)
         };
         var control = Ui.Icon(icon, brush, 16);
         control.VerticalAlignment = VerticalAlignment.Top; control.Margin = new Thickness(0, 2, 0, 0);

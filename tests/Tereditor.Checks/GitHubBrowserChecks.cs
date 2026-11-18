@@ -32,6 +32,13 @@ internal static class GitHubBrowserChecks
          {"__typename":"SomethingNew","createdAt":"2026-11-01T14:00:00Z"}]}}}}}
         """;
 
+    private static readonly string JobLog = string.Join('\n',
+        "2026-11-01T10:00:00.1234567Z ##[group]Run build",
+        "2026-11-01T10:00:01.0000000Z \x1b[36;1mmake\x1b[0m",
+        "2026-11-01T10:00:02.0000000Z ##[error]Process completed with exit code 2.",
+        "2026-11-01T10:00:02.5000000Z ##[endgroup]",
+        "2026-11-01T10:00:03.0000000Z Post job cleanup.");
+
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
@@ -43,6 +50,8 @@ internal static class GitHubBrowserChecks
         string? comment = "first";
         var failing = false;
         var detailCalls = 0;
+        var posting = false;
+        var jobDone = false;
         var browser = new GitHubBrowser((tool, directory, args, timeout, environment, ct) =>
         {
             calls.Add(string.Join(' ', args));
@@ -65,6 +74,13 @@ internal static class GitHubBrowserChecks
                 return ValueTask.FromResult(Ok("""[{"login":"ann","contributions":12,"type":"User","html_url":"https://github.com/ann"}]"""));
             if (args[0] == "api" && args[1].StartsWith("orgs/o/packages", StringComparison.Ordinal))
                 return ValueTask.FromResult(new RepoHostToolResult(1, "", "gh: You need at least read:packages scope to list packages. (HTTP 403)"));
+            if (args[0] == "api" && args.Contains("repos/o/r/issues/7/comments"))
+                return ValueTask.FromResult(posting ? new RepoHostToolResult(1, "", "gh: Resource not accessible by personal access token (HTTP 403)") : Ok("""{"id":555,"user":{"login":"me"},"created_at":"2026-11-02T10:00:00Z","body":"Thanks"}"""));
+            if (args[0] == "api" && args.Contains("repos/o/r/issues/7") && args.Contains("PATCH")) return ValueTask.FromResult(Ok("""{"state":"closed"}"""));
+            if (text.Contains("mutation(", StringComparison.Ordinal)) return ValueTask.FromResult(Ok("""{"data":{"addDiscussionComment":{"comment":{"databaseId":901,"createdAt":"2026-11-02T10:00:00Z","body":"Hi","author":{"login":"me"}}}}}"""));
+            if (text.Contains("discussion(number: $number) { id }", StringComparison.Ordinal)) return ValueTask.FromResult(Ok("""{"data":{"repository":{"discussion":{"id":"D_1"}}}}"""));
+            if (args[0] == "api" && args[1] == "repos/o/r/actions/jobs/5") return ValueTask.FromResult(Ok(jobDone ? """{"status":"completed","html_url":"https://github.com/o/r/actions/runs/9/job/5"}""" : """{"status":"in_progress","html_url":"https://github.com/o/r/actions/runs/9/job/5"}"""));
+            if (args[0] == "api" && args[1] == "repos/o/r/actions/jobs/5/logs") return ValueTask.FromResult(Ok(JobLog));
             if (text.Contains("discussionCategories", StringComparison.Ordinal))
                 return ValueTask.FromResult(Ok("""{"data":{"repository":{"discussionCategories":{"nodes":[{"id":"C1","name":"Q&A","emoji":":pray:"}]}}}}"""));
             if (text.Contains("discussions(first", StringComparison.Ordinal))
@@ -124,6 +140,38 @@ internal static class GitHubBrowserChecks
         Require(deployments.Rows[0] is { Title: "production", State: "success" }, "A deployment shows its environment and latest status");
         var packages = await browser.ViewAsync("/w", new("w", "packages", "", []), default);
         Require(packages.Problem is not null && packages.Problem.Contains("read:packages", StringComparison.Ordinal), "A missing packages scope is reported, not guessed");
+
+        var ok = await browser.PostAsync("/w", new("w", "pulls", 7, "comment", " Thanks "), default);
+        Require(ok.Ok && ok.Event is { Id: "555", Author: "me", Body: "Thanks" } && calls.Last().Contains("body=Thanks", StringComparison.Ordinal), "A comment posts through gh api and comes back with its id");
+        Require(!(await browser.PostAsync("/w", new("w", "pulls", 7, "comment", "   "), default)).Ok, "An empty comment is refused before any call");
+        var closed = await browser.PostAsync("/w", new("w", "issues", 7, "close", "Done"), default);
+        Require(closed is { Ok: true, State: "closed" } && calls.Any(call => call.Contains("-X PATCH repos/o/r/issues/7 -f state=closed", StringComparison.Ordinal)), "Close posts the comment first, then sets the state");
+        posting = true;
+        var denied = await browser.PostAsync("/w", new("w", "pulls", 7, "comment", "Hi"), default);
+        Require(!denied.Ok && denied.Event is null && denied.Problem!.Contains("gh auth refresh -s repo", StringComparison.Ordinal), "A missing write scope names the fix");
+        posting = false;
+        var reply = await browser.PostAsync("/w", new("w", "discussions", 3, "comment", "Hi"), default);
+        Require(reply.Ok && reply.Event is { Id: "901" }, "A discussion comment goes through the GraphQL mutation");
+        var timeline = new GitHubEvent[] { new("comment", "me", "t", "Thanks", "") { Id = "555" } };
+        Require(GitHubPending.Remaining([ok.Event!], timeline).Count == 0 && GitHubPending.Remaining([ok.Event!], []).Count == 1, "A posted comment is shown until the poll returns it, then once");
+        GitHubDrafts.Set("w|pulls|7", "half a thought");
+        Require(GitHubDrafts.Get("w|pulls|7") == "half a thought" && GitHubDrafts.Get("w|pulls|8") == "", "A draft is kept per tab across rebuilds");
+        Require(GitHubLinks.Parse("https://github.com/o/r/pull/12#issuecomment-1", "o/r") is ("pull:12", _) && GitHubLinks.Parse("https://github.com/o/r/actions/runs/99", "o/r") is ("run:99", _)
+            && GitHubLinks.Parse("https://github.com/o/r/discussions/4", "o/r") is ("discussion:4", _) && GitHubLinks.Parse("https://github.com/o/r/releases/tag/v1", "o/r") is ("releases", _), "Links to this repository map to tabs");
+        Require(GitHubLinks.Parse("https://github.com/x/y/issues/1", "o/r") is null && GitHubLinks.Parse("http://github.com/o/r/issues/1", "o/r") is null && GitHubLinks.Parse("javascript:alert(1)", "o/r") is null, "Other repositories, http and other schemes are not ours to open");
+        Require(GitHubLinks.Rewrite("See #12 and `#13` but not a#14\n```\n#15\n```", "o/r") == "See [#12](https://github.com/o/r/issues/12) and `#13` but not a#14\n```\n#15\n```", "Bare #N becomes a link outside code");
+        var running = await browser.LogAsync("/w", new("w", "5"), default);
+        Require(running is { InProgress: true } && running.Problem!.Contains("still running", StringComparison.Ordinal), "A running job says its log is not ready");
+        jobDone = true;
+        var log = await browser.LogAsync("/w", new("w", "5"), default);
+        Require(log.Problem is null && log.Groups[0].Name == "Run build" && log.Groups[0].HasError && log.Groups[0].Lines[0] == new GitHubLogLine("10:00:01", "make") && log.Groups[0].Lines[1].Text == "Process completed with exit code 2.", "A log is split into groups with stamps and colour codes removed");
+        var before = calls.Count;
+        await browser.LogAsync("/w", new("w", "5"), default);
+        Require(calls.Count == before, "A finished job's log is cached");
+        var huge = GitHubBrowser.ParseLog(string.Join('\n', Enumerable.Range(0, 20000).Select(i => "2026-11-01T10:00:00.0000000Z line " + i)), "");
+        Require(huge.Groups.Sum(g => g.Lines.Count) <= 500 && huge.Cut == 19500 && huge.Groups[0].Lines[^1].Text == "line 19999", "A huge log keeps its tail and counts what it cut");
+        var many = GitHubBrowser.ParseLog(string.Join('\n', Enumerable.Range(0, 20).SelectMany(g => new[] { "##[group]G" + g }.Concat(Enumerable.Range(0, 400).Select(i => "x")))), "");
+        Require(many.Groups.Sum(g => g.Lines.Count) <= 4000 && many.Cut == 4000, "Many groups stay under the total cap");
 
         failing = true;
         var broken = await browser.ListAsync("/w", new("w", "issues", ""), default);

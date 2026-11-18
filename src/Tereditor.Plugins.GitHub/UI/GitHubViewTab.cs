@@ -24,6 +24,15 @@ internal sealed class GitHubViewTab : Border
     private readonly ScrollViewer scroll = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     private readonly DispatcherTimer poll = new();
     private readonly Dictionary<string, string> filters = [];
+    private readonly GitHubLinker linker;
+    private readonly List<GitHubCard> pendingCards = [];
+    private readonly HashSet<string> expanded = [];
+    private readonly Dictionary<string, GitHubLog> logs = [];
+    private readonly HashSet<string> loading = [];
+    private readonly HashSet<string> autoOpened = [];
+    private GitHubComposer? composer;
+    private GitHubView? shown;
+    private string repoSlug = "";
     private string itemId = "";
     private int limit = 30;
     private string? revision;
@@ -38,11 +47,30 @@ internal sealed class GitHubViewTab : Border
         var parts = id.Split(':', 2);
         kind = parts[0] switch { "run" => "runs", "discussion" => "discussions", var other => other };
         if (parts.Length == 2) { itemId = parts[1]; standalone = true; }
+        linker = new(() => repoSlug, HandleLink);
         Child = scroll;
         scroll.Content = Ui.Text("Loading…");
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) => { lifetime = new(); poll.Interval = TimeSpan.FromSeconds(Math.Clamp(context.Settings<GitHubSettings>().PollSeconds, 15, 600)); poll.Start(); revision = null; Refresh(); };
         DetachedFromVisualTree += (_, _) => { poll.Stop(); lifetime?.Cancel(); generation++; };
+    }
+
+    private bool HandleLink(string url)
+    {
+        if (GitHubLinks.Parse(url, repoSlug) is not { } target) return false;
+        var parts = target.Id.Split(':', 2);
+        if (!standalone && itemId.Length == 0 && parts.Length == 2 && (parts[0] == "run" && kind == "runs" || parts[0] == "discussion" && kind == "discussions"))
+        {
+            itemId = parts[1]; revision = null; Refresh();
+        }
+        else _ = OpenLinkedAsync(target.Id, target.Title);
+        return true;
+    }
+
+    private async Task OpenLinkedAsync(string id, string title)
+    {
+        try { await context.OpenDocumentAsync(workspace, GitHubContract.Scheme, id, title); }
+        catch (Exception error) when (error is not OperationCanceledException) { context.Notify(PluginNotificationKind.Error, "Couldn't open GitHub", error.Message); }
     }
 
     private void Refresh()
@@ -63,9 +91,45 @@ internal sealed class GitHubViewTab : Border
         if (view.Problem is not null) { scroll.Content = Message(view.Problem); return; }
         if (view.Unchanged) return;
         revision = view.Revision;
+        shown = view;
+        repoSlug = RepoFrom(view);
+        Render(view);
+    }
+
+    private static string RepoFrom(GitHubView view)
+    {
+        var url = view.Rows.Select(r => r.Url).Concat([view.Summary]).FirstOrDefault(u => u.StartsWith("https://github.com/", StringComparison.Ordinal)) ?? "";
+        var parts = url.Split('/');
+        return parts.Length > 4 ? parts[3] + "/" + parts[4] : "";
+    }
+
+    private void Render(GitHubView view)
+    {
         var offset = scroll.Offset;
         scroll.Content = Build(view);
         Dispatcher.UIThread.Post(() => scroll.Offset = offset, DispatcherPriority.Loaded);
+    }
+
+    private void Posted(GitHubEvent? posted, string? state)
+    {
+        if (posted is not null) pendingCards.Add(new("", posted.Author, posted.At, "", posted.Body) { Id = posted.Id });
+        if (shown is not null) Render(shown);
+        revision = null;
+        Refresh();
+    }
+
+    private async Task LoadLogAsync(string jobId)
+    {
+        if (!loading.Add(jobId)) return;
+        var token = lifetime?.Token ?? CancellationToken.None;
+        GitHubLog log;
+        try { log = await Task.Run(async () => await context.RequestAsync(GitHubContract.Log, new GitHubLogParams(workspace, jobId), token).AsTask(), token); }
+        catch (OperationCanceledException) { loading.Remove(jobId); return; }
+        catch (Exception error) { log = new([], 0, "", error.Message); }
+        loading.Remove(jobId);
+        if (token.IsCancellationRequested) return;
+        logs[jobId] = log;
+        if (shown is not null) Render(shown);
     }
 
     private Control Build(GitHubView view)
@@ -92,11 +156,39 @@ internal sealed class GitHubViewTab : Border
         if (view.Rows.Count > 0 || (view.Cards.Count == 0 && itemId.Length == 0))
         {
             var frame = new StackPanel { Name = "GitHubRows" };
-            foreach (var row in view.Rows) frame.Children.Add(Row(row));
+            foreach (var row in view.Rows)
+            {
+                if (!(kind == "runs" && itemId.Length > 0 && row.Indent == 0)) { frame.Children.Add(Row(row)); continue; }
+                if (row.State == "failure" && autoOpened.Add(row.Id)) expanded.Add(row.Id);
+                if (logs.TryGetValue(row.Id, out var old) && old.InProgress && row.State is not ("running" or "queued")) logs.Remove(row.Id);
+                var block = new StackPanel();
+                block.Children.Add(Row(row));
+                if (expanded.Contains(row.Id))
+                {
+                    if (!logs.ContainsKey(row.Id)) _ = LoadLogAsync(row.Id);
+                    block.Children.Add(logs.TryGetValue(row.Id, out var log) ? LogView(log) : new Border { Padding = new Thickness(40, 8), Child = Ui.Text("Loading the log…") });
+                }
+                frame.Children.Add(block);
+            }
             if (view.Rows.Count == 0) frame.Children.Add(new Border { Padding = new Thickness(24), Child = Ui.Text("No results matched your search.") });
             root.Children.Add(new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), ClipToBounds = true, Child = frame });
         }
-        foreach (var card in view.Cards) root.Children.Add(Card(card));
+        var remaining = GitHubPending.Remaining(pendingCards, view.Cards);
+        pendingCards.Clear(); pendingCards.AddRange(remaining);
+        foreach (var card in view.Cards.Concat(pendingCards)) root.Children.Add(Card(card));
+        if (kind == "discussions" && itemId.Length > 0 && view.Cards.Count > 0)
+        {
+            var number = itemId;
+            if (composer is null || composerKey != number)
+            {
+                composer = new GitHubComposer($"{workspace}|discussions|{number}", false, async (action, body) =>
+                    await Task.Run(async () => await context.RequestAsync(GitHubContract.Post, new GitHubPostParams(workspace, "discussions", int.Parse(number), action, body), lifetime?.Token ?? default).AsTask()),
+                    Posted, linker);
+                composerKey = number;
+            }
+            composer.Detach();
+            root.Children.Add(composer);
+        }
         if (view.HasMore)
         {
             var more = Ui.Button("Show more", () => { limit += 30; revision = null; Refresh(); });
@@ -104,6 +196,41 @@ internal sealed class GitHubViewTab : Border
             root.Children.Add(more);
         }
         return root;
+    }
+
+    private string composerKey = "";
+
+    private Control LogView(GitHubLog log)
+    {
+        var panel = new StackPanel { Name = "GitHubLog", Margin = new Thickness(40, 0, 12, 8), Spacing = 2 };
+        if (log.Problem is not null) { panel.Children.Add(Message(log.Problem)); return panel; }
+        if (log.Cut > 0) panel.Children.Add(Ui.Text($"{log.Cut} lines were left out to keep this short.", Ui.Muted, 12));
+        var number = 0;
+        foreach (var group in log.Groups)
+        {
+            var lines = new SelectableTextBlock { FontFamily = Ui.CodeFont, FontSize = 12, TextWrapping = TextWrapping.NoWrap, IsVisible = group.Name.Length == 0 || group.HasError };
+            foreach (var line in group.Lines)
+            {
+                number++;
+                lines.Inlines!.Add(new Avalonia.Controls.Documents.Run(number.ToString().PadLeft(5) + "  ") { Foreground = Ui.Muted });
+                if (line.Time.Length > 0) lines.Inlines.Add(new Avalonia.Controls.Documents.Run(line.Time + "  ") { Foreground = Ui.Muted, FontStyle = FontStyle.Italic });
+                lines.Inlines.Add(new Avalonia.Controls.Documents.Run(line.Text + "\n") { Foreground = group.HasError && line.Text.Contains("rror", StringComparison.Ordinal) ? GitHubTab.Closed : Ui.TextBrush });
+            }
+            if (group.Name.Length > 0)
+            {
+                var header = new Button { Content = Ui.Text((lines.IsVisible ? "▾ " : "▸ ") + group.Name, Ui.TextBrush, 12), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0, 2) };
+                header.Click += (_, _) =>
+                {
+                    lines.IsVisible = !lines.IsVisible;
+                    header.Content = Ui.Text((lines.IsVisible ? "▾ " : "▸ ") + group.Name, Ui.TextBrush, 12);
+                };
+                panel.Children.Add(header);
+            }
+            panel.Children.Add(lines);
+        }
+        if (log.Url.StartsWith("https://github.com/", StringComparison.Ordinal))
+            panel.Children.Add(Ui.Button("Open full log on GitHub", () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(log.Url) { UseShellExecute = true }), "external-link-line"));
+        return panel;
     }
 
     private Control Chip(GitHubFilter filter)
@@ -141,6 +268,15 @@ internal sealed class GitHubViewTab : Border
         Grid.SetColumn(text, 1); grid.Children.Add(text);
         if (row.Right.Length > 0) { var right = Ui.Text(row.Right, Ui.Muted, 12); Grid.SetColumn(right, 2); grid.Children.Add(right); }
         var border = new Border { Name = "GitHubRow" + row.Id, Child = grid, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1) };
+        if (kind == "runs" && itemId.Length > 0 && row.Indent == 0)
+        {
+            border.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+            border.PointerPressed += (_, _) =>
+            {
+                if (!expanded.Remove(row.Id)) expanded.Add(row.Id);
+                if (shown is not null) Render(shown);
+            };
+        }
         if (itemId.Length == 0 && kind is "runs" or "discussions")
         {
             border.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
@@ -161,11 +297,11 @@ internal sealed class GitHubViewTab : Border
         catch (Exception error) when (error is not OperationCanceledException) { context.Notify(PluginNotificationKind.Error, "Couldn't open GitHub", error.Message); }
     }
 
-    private static Control Card(GitHubCard card)
+    private Control Card(GitHubCard card)
     {
         var header = card.Title.Length > 0 ? card.Title : "";
         var body = card.Body.Length == 0 ? "No description provided." : card.Body;
-        var shell = GitHubTab.Card(card.Author, card.At, (card.Note + (card.Badge.Length > 0 ? " · " + card.Badge : "")).Trim(), body, null);
+        var shell = GitHubTab.Card(card.Author, card.At, (card.Note + (card.Badge.Length > 0 ? " · " + card.Badge : "")).Trim(), body, null, linker);
         if (header.Length == 0) return shell;
         var panel = new StackPanel { Spacing = 6 };
         var heading = Ui.Text(header + (card.Badge.Length > 0 ? "  [" + card.Badge + "]" : ""), Ui.TextBrush, 18);
@@ -179,14 +315,27 @@ internal sealed class GitHubViewTab : Border
 
     private static string StateText(string state) => state switch
     {
-        "success" => "Success", "failure" => "Failed", "cancelled" => "Cancelled", "skipped" => "Skipped", "running" => "In progress", "queued" => "Queued",
-        "answered" => "Answered", "closed" => "Closed", _ => "Open"
+        "success" => "Success",
+        "failure" => "Failed",
+        "cancelled" => "Cancelled",
+        "skipped" => "Skipped",
+        "running" => "In progress",
+        "queued" => "Queued",
+        "answered" => "Answered",
+        "closed" => "Closed",
+        _ => "Open"
     };
 
     private static string StateGlyph(string state) => state switch
     {
-        "success" or "answered" => "checkbox-circle-fill", "failure" => "close-circle-fill", "cancelled" => "stop-circle-line", "skipped" => "skip-forward-line",
-        "running" => "loader-4-line", "queued" => "time-line", "closed" => "checkbox-circle-line", _ => "record-circle-line"
+        "success" or "answered" => "checkbox-circle-fill",
+        "failure" => "close-circle-fill",
+        "cancelled" => "stop-circle-line",
+        "skipped" => "skip-forward-line",
+        "running" => "loader-4-line",
+        "queued" => "time-line",
+        "closed" => "checkbox-circle-line",
+        _ => "record-circle-line"
     };
 
     private static Control Message(string text)

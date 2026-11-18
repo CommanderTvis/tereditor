@@ -201,7 +201,10 @@ public sealed partial class GitHubBrowser(ToolRunner run)
 
     private static string ReviewState(JsonElement node) => Text(node, "reviewDecision") switch
     {
-        "APPROVED" => "approved", "CHANGES_REQUESTED" => "changes-requested", "REVIEW_REQUIRED" => "required", _ => "none"
+        "APPROVED" => "approved",
+        "CHANGES_REQUESTED" => "changes-requested",
+        "REVIEW_REQUIRED" => "required",
+        _ => "none"
     };
 
     private static string CheckState(string conclusion, string status) =>
@@ -215,7 +218,7 @@ public sealed partial class GitHubBrowser(ToolRunner run)
         GitHubEvent Simple(string kind, string detail = "", string color = "") => new(kind, actor, at, "", detail, color);
         switch (Text(node, "__typename"))
         {
-            case "IssueComment": return new("comment", Author(node), at, Text(node, "body"), Text(node, "authorAssociation"));
+            case "IssueComment": return new("comment", Author(node), at, Text(node, "body"), Text(node, "authorAssociation")) { Id = node.TryGetProperty("databaseId", out var dbid) && dbid.ValueKind == JsonValueKind.Number ? dbid.GetInt64().ToString(CultureInfo.InvariantCulture) : "" };
             case "LabeledEvent": return Simple("labeled", Text(node.GetProperty("label"), "name"), Text(node.GetProperty("label"), "color"));
             case "UnlabeledEvent": return Simple("unlabeled", Text(node.GetProperty("label"), "name"), Text(node.GetProperty("label"), "color"));
             case "ClosedEvent": return Simple("closed");
@@ -237,7 +240,10 @@ public sealed partial class GitHubBrowser(ToolRunner run)
                 var comments = node.GetProperty("comments").GetProperty("nodes").EnumerateArray().Select(c => new GitHubReviewComment(Text(c, "path"), Text(c, "body"))).ToList();
                 return new("review", Author(node), at, Text(node, "body"), Text(node, "state") switch
                 {
-                    "APPROVED" => "approved", "CHANGES_REQUESTED" => "changes-requested", "DISMISSED" => "dismissed", _ => "commented"
+                    "APPROVED" => "approved",
+                    "CHANGES_REQUESTED" => "changes-requested",
+                    "DISMISSED" => "dismissed",
+                    _ => "commented"
                 }, "", comments);
             case "PullRequestCommit":
                 var commit = node.GetProperty("commit");
@@ -296,7 +302,7 @@ public sealed partial class GitHubBrowser(ToolRunner run)
         + "open: search(query: $open, type: ISSUE) { issueCount } closed: search(query: $closed, type: ISSUE) { issueCount } }";
 
     private const string Timeline = "timelineItems(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { __typename "
-        + "... on IssueComment { author { login } createdAt body authorAssociation } "
+        + "... on IssueComment { databaseId author { login } createdAt body authorAssociation } "
         + "... on LabeledEvent { actor { login } createdAt label { name color } } ... on UnlabeledEvent { actor { login } createdAt label { name color } } "
         + "... on ClosedEvent { actor { login } createdAt } ... on ReopenedEvent { actor { login } createdAt } "
         + "... on AssignedEvent { actor { login } createdAt assignee { ... on User { login } } } ... on UnassignedEvent { actor { login } createdAt assignee { ... on User { login } } } "

@@ -40,7 +40,11 @@ public sealed record GitHubFilterValue(string Key, string Value);
 public sealed record GitHubRow(string Id, string Title, string State, string Meta, IReadOnlyList<GitHubLabel> Chips, string Right, string Url, string At = "", int Indent = 0);
 
 /// <summary>A Markdown card: a release, a discussion post or a reply.</summary>
-public sealed record GitHubCard(string Title, string Author, string At, string Note, string Body, string Badge = "", string Url = "");
+public sealed record GitHubCard(string Title, string Author, string At, string Note, string Body, string Badge = "", string Url = "")
+{
+    /// <summary>The comment's numeric id, when it is one; lets a comment posted from here be told apart from the one a refresh brings back.</summary>
+    public string Id { get; init; } = "";
+}
 
 /// <summary>Kind: runs, discussions, releases, contributors, deployments or packages. Id is empty for the list, else the run id or discussion number.</summary>
 public sealed record GitHubViewParams(string WorkspaceId, string Kind, string Id, IReadOnlyList<GitHubFilterValue> Filters, int Limit = 30, string? Revision = null);
@@ -51,7 +55,49 @@ public sealed record GitHubView(bool Unchanged, string Revision, string Title, s
 public sealed record GitHubReviewComment(string Path, string Body);
 
 /// <summary>One timeline entry. Kind: comment, review, commit, labeled, unlabeled, closed, reopened, merged, assigned, unassigned, renamed, milestoned, referenced, review-requested, ready, draft, force-pushed, branch-deleted.</summary>
-public sealed record GitHubEvent(string Kind, string Author, string At, string Body, string Detail, string Color = "", IReadOnlyList<GitHubReviewComment>? Comments = null);
+public sealed record GitHubEvent(string Kind, string Author, string At, string Body, string Detail, string Color = "", IReadOnlyList<GitHubReviewComment>? Comments = null)
+{
+    /// <summary>The comment's numeric id (comments only).</summary>
+    public string Id { get; init; } = "";
+}
+
+/// <summary>Action: comment, close or reopen (the last two take an optional comment first). Kind is issues, pulls or discussions.</summary>
+public sealed record GitHubPostParams(string WorkspaceId, string Kind, int Number, string Action, string Body);
+
+/// <summary>Ok is false when nothing was posted; Problem is gh's own text plus the fix for a missing scope. Event is the new comment, when one was made.</summary>
+public sealed record GitHubPostResult(bool Ok, string? Problem, GitHubEvent? Event = null, string? State = null);
+
+public sealed record GitHubLogParams(string WorkspaceId, string JobId);
+
+public sealed record GitHubLogLine(string Time, string Text);
+
+public sealed record GitHubLogGroup(string Name, bool HasError, IReadOnlyList<GitHubLogLine> Lines);
+
+/// <summary>One job's log in GitHub's groups; Cut counts the lines left out to keep it bounded; Url is the job's page.</summary>
+public sealed record GitHubLog(IReadOnlyList<GitHubLogGroup> Groups, int Cut, string Url, string? Problem = null, bool InProgress = false);
+
+/// <summary>Draft comment text per tab, kept in memory so a refresh or a rebuilt view never loses what was typed.</summary>
+public static class GitHubDrafts
+{
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Texts = new();
+
+    public static string Get(string key) => Texts.GetValueOrDefault(key, "");
+
+    public static void Set(string key, string text)
+    {
+        if (text.Length == 0) Texts.TryRemove(key, out _); else Texts[key] = text;
+    }
+}
+
+/// <summary>Comments posted from the app and not yet seen in a refresh: shown at once, dropped when the refresh returns them.</summary>
+public static class GitHubPending
+{
+    public static IReadOnlyList<GitHubEvent> Remaining(IReadOnlyList<GitHubEvent> pending, IReadOnlyList<GitHubEvent> timeline) =>
+        [.. pending.Where(item => item.Id.Length == 0 || !timeline.Any(seen => seen.Kind == "comment" && seen.Id == item.Id))];
+
+    public static IReadOnlyList<GitHubCard> Remaining(IReadOnlyList<GitHubCard> pending, IReadOnlyList<GitHubCard> cards) =>
+        [.. pending.Where(item => item.Id.Length == 0 || !cards.Any(seen => seen.Id == item.Id))];
+}
 
 public sealed record GitHubCheck(string Name, string State);
 
@@ -79,7 +125,9 @@ public static class GitHubContract
     public static readonly PluginMethod<GitHubDetailParams, GitHubDetail> Detail = new("detail");
     public static readonly PluginMethod<GitHubInfoParams, GitHubInfo> Info = new("info");
     public static readonly PluginMethod<GitHubViewParams, GitHubView> View = new("view");
-    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View], [], GitHubJson.Default);
+    public static readonly PluginMethod<GitHubPostParams, GitHubPostResult> Post = new("post");
+    public static readonly PluginMethod<GitHubLogParams, GitHubLog> Log = new("log");
+    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View, Post, Log], [], GitHubJson.Default);
 
     public const string Tool = "github";
     public const string Scheme = "github";
@@ -109,4 +157,50 @@ public static class GitHubContract
 [JsonSerializable(typeof(GitHubInfo))]
 [JsonSerializable(typeof(GitHubViewParams))]
 [JsonSerializable(typeof(GitHubView))]
+[JsonSerializable(typeof(GitHubPostParams))]
+[JsonSerializable(typeof(GitHubPostResult))]
+[JsonSerializable(typeof(GitHubLogParams))]
+[JsonSerializable(typeof(GitHubLog))]
 public sealed partial class GitHubJson : JsonSerializerContext;
+
+/// <summary>Where a GitHub link points inside this repository; everything else is not ours to open.</summary>
+public static partial class GitHubLinks
+{
+    /// <summary>The plugin document id and tab title for a link to this repository's issue, pull request, discussion, run or releases; null for any other link.</summary>
+    public static (string Id, string Title)? Parse(string url, string repo)
+    {
+        if (repo.Length == 0 || !Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || !uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)) return null;
+        var parts = uri.AbsolutePath.Trim('/').Split('/');
+        if (parts.Length < 3 || !string.Equals(parts[0] + "/" + parts[1], repo, StringComparison.OrdinalIgnoreCase)) return null;
+        var number = parts.Length > 3 && int.TryParse(parts[3], out var n) && n > 0 ? n : 0;
+        return (parts[2], number, parts.Length > 4 ? parts[4] : "") switch
+        {
+            ("issues", > 0, _) => ($"issue:{number}", $"Issue #{number}"),
+            ("pull", > 0, _) => ($"pull:{number}", $"PR #{number}"),
+            ("discussions", > 0, _) => ($"discussion:{number}", $"Discussion #{number}"),
+            ("actions", _, _) when parts.Length > 4 && parts[3] == "runs" && long.TryParse(parts[4], out var run) => ($"run:{run}", $"Run {run}"),
+            ("releases", _, _) => ("releases", "Releases"),
+            _ => null
+        };
+    }
+
+    /// <summary>Turns bare #N references into links to this repository's issues, outside code.</summary>
+    public static string Rewrite(string text, string repo)
+    {
+        if (repo.Length == 0) return text;
+        var fenced = false;
+        var lines = text.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal)) { fenced = !fenced; continue; }
+            if (fenced) continue;
+            var spans = lines[i].Split('`');
+            for (var j = 0; j < spans.Length; j += 2) spans[j] = Reference().Replace(spans[j], m => $"[#{m.Groups[1].Value}](https://github.com/{repo}/issues/{m.Groups[1].Value})");
+            lines[i] = string.Join('`', spans);
+        }
+        return string.Join('\n', lines);
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?<![\w&/#\[(])#(\d+)\b(?!\])")]
+    private static partial System.Text.RegularExpressions.Regex Reference();
+}

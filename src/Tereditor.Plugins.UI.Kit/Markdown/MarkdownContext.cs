@@ -18,6 +18,12 @@ public sealed record MarkdownContext(
     int LineWidth,
     bool LineWidthBounded)
 {
+    /// <summary>
+    /// Offered every link before the preview follows it itself; return true when the owner handled it (for example by opening an
+    /// in-app tab). Only http and https links are ever opened by the preview when this returns false.
+    /// </summary>
+    public Func<string, bool>? OpenLink { get; init; }
+
     /// <summary>The source editor's wrapping width in logical pixels.</summary>
     public double SourceWrapWidth { get; init; } = LineWidths.File(LineWidths.FileDefault, true);
 }

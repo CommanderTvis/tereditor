@@ -482,6 +482,7 @@ public sealed partial class MarkdownPreview : ScrollViewer, IDisposable
     private void Follow(string url)
     {
         if (url.StartsWith('#')) { ScrollToAnchor(url); return; }
+        if (context.OpenLink?.Invoke(url) == true) return;
         // A leading slash is the worktree root, not a file URI.
         if (!url.StartsWith('/') && Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {

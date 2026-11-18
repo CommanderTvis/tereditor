@@ -154,14 +154,14 @@ public sealed partial class GitHubBrowser
     {
         if (!int.TryParse(id, CultureInfo.InvariantCulture, out var number)) return Problem("Not a discussion number: " + id);
         using var json = await GraphQlAsync(directory, "query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { discussion(number: $number) { number title body url createdAt author { login } category { name emoji } closed answer { id } "
-            + "comments(first: 50) { nodes { id author { login } createdAt body replies(first: 30) { nodes { author { login } createdAt body } } } } } } }", ct, ("owner", repo.Owner), ("name", repo.Name), ("number", number));
+            + "comments(first: 50) { nodes { id databaseId author { login } createdAt body replies(first: 30) { nodes { author { login } createdAt body } } } } } } }", ct, ("owner", repo.Owner), ("name", repo.Name), ("number", number));
         var d = json.RootElement.GetProperty("data").GetProperty("repository").GetProperty("discussion");
         if (d.ValueKind != JsonValueKind.Object) return Problem("That discussion does not exist.");
         var answerId = d.TryGetProperty("answer", out var answer) && answer.ValueKind == JsonValueKind.Object ? Text(answer, "id") : "";
         var cards = new List<GitHubCard> { new("", Author(d), Text(d, "createdAt"), "", Text(d, "body")) };
         foreach (var comment in d.GetProperty("comments").GetProperty("nodes").EnumerateArray())
         {
-            cards.Add(new("", Author(comment), Text(comment, "createdAt"), "", Text(comment, "body"), Text(comment, "id") == answerId ? "Answer" : ""));
+            cards.Add(new("", Author(comment), Text(comment, "createdAt"), "", Text(comment, "body"), Text(comment, "id") == answerId ? "Answer" : "") { Id = comment.TryGetProperty("databaseId", out var dbid) && dbid.ValueKind == JsonValueKind.Number ? dbid.GetInt64().ToString(CultureInfo.InvariantCulture) : "" });
             foreach (var reply in comment.GetProperty("replies").GetProperty("nodes").EnumerateArray()) cards.Add(new("", Author(reply), Text(reply, "createdAt"), "replied", Text(reply, "body")));
         }
         return new(false, "", Text(d, "title") + " #" + number, $"{Author(d)} started this discussion in {Text(d.GetProperty("category"), "emoji")} {Text(d.GetProperty("category"), "name")}", answerId.Length > 0 ? "answered" : Bool(d, "closed") ? "closed" : "open", [], cards, [], false, Text(d, "url"));
