@@ -353,6 +353,7 @@ internal sealed class GitHubActionsTab : Border
         var collapse = Ui.Button("Collapse sidebar", () => SetSidebar(false), GitHubIcons.LayoutLeft);
         collapse.Name = "GitHubCollapseSidebar"; collapse.Margin = new Thickness(8); collapse.HorizontalAlignment = HorizontalAlignment.Stretch;
         var bottom = new StackPanel { Margin = new Thickness(8, 0), Children = { new Border { Height = 1, Background = Ui.BorderBrush }, managementHead, management, collapse } };
+        if (sidebar.Child is Grid old) old.Children.Clear();
         var grid = new Grid { RowDefinitions = new("*,Auto") };
         grid.Children.Add(sidebarScroll);
         Grid.SetRow(bottom, 1); grid.Children.Add(bottom);
