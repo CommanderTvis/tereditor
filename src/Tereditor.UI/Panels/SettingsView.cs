@@ -85,7 +85,7 @@ public sealed partial class SettingsView : UserControl
         close.Content = Ui.Icon("close");
         close.Click += (_, _) => Close();
         navigationList = this.FindControl<StackPanel>("SettingsNavigation")!;
-        foreach (var item in new[] { ("Appearance", "palette"), ("Highlighting", ""), ("Code Intelligence", "code"), ("Editor", ""), ("Layout", "layout"), ("Keymap", "code"), ("Projects", "folderTab"), ("Terminal", "terminal"), ("Notifications", "alertInfo"), ("Host", "server"), ("Plugins", "puzzle"), ("About", "alertInfo") })
+        foreach (var item in new[] { ("Appearance", "palette"), ("Highlighting", "sparkling"), ("Code Intelligence", "code"), ("Editor", "pencil"), ("Layout", "layout"), ("Keymap", "code"), ("Projects", "folderTab"), ("Terminal", "terminal"), ("Notifications", "alertInfo"), ("Host", "server"), ("Plugins", "puzzle"), ("About", "alertInfo") })
             Navigation(this.FindControl<Button>("Settings_" + item.Item1.Replace(' ', '_'))!, item.Item1, item.Item2.Length == 0 ? IndentedLabel(item.Item1) : Ui.Row(item.Item2, item.Item1));
         SyncPluginSections();
         navigation["Code Intelligence"].IsVisible = LanguageSupport.Available;
