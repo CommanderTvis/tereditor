@@ -99,7 +99,8 @@ public sealed partial class GitHubBrowser(ToolRunner run)
                 var detail = new GitHubDetail(false, "", repo.Slug, pull ? "pulls" : "issues", p.Number, Text(head, "title"), State(head), pull && Bool(head, "isDraft"), author,
                     Text(head, "createdAt"), Text(head, "url"), Text(head, "body"), Labels(head), Names(head, "assignees", "login"),
                     head.TryGetProperty("milestone", out var milestone) && milestone.ValueKind == JsonValueKind.Object ? Text(milestone, "title") : null,
-                    [.. nodes.Select(Event).OfType<GitHubEvent>()], truncated, pull ? Pull(head) : null) { TimelineProblem = timelineProblem };
+                    [.. nodes.Select(Event).OfType<GitHubEvent>()], truncated, pull ? Pull(head) : null)
+                { TimelineProblem = timelineProblem };
                 var revision = Revise($"detail|{repo.Slug}|{p.Number}", JsonSerializer.Serialize(detail, GitHubJson.Default.GitHubDetail));
                 return p.Revision == revision ? detail with { Unchanged = true, Revision = revision, Body = "", Timeline = [] } : detail with { Revision = revision };
             }
