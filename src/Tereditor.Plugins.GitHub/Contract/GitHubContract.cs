@@ -85,4 +85,4 @@ public static class GitHubContract
 [JsonSerializable(typeof(GitHubDetail))]
 [JsonSerializable(typeof(GitHubInfoParams))]
 [JsonSerializable(typeof(GitHubInfo))]
-internal sealed partial class GitHubJson : JsonSerializerContext;
+public sealed partial class GitHubJson : JsonSerializerContext;

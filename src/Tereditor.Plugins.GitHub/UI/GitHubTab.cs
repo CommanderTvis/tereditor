@@ -31,7 +31,7 @@ internal sealed class GitHubTab : Border
     private readonly bool standalone;
     private readonly ScrollViewer scroll = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     private readonly DispatcherTimer poll = new();
-    private readonly TextBox queryBox = new() { Name = "GitHubQuery", Watermark = "Search all issues", MinWidth = 280, Text = "is:open" };
+    private readonly TextBox queryBox = new() { Name = "GitHubQuery", PlaceholderText = "Search all issues", MinWidth = 280, Text = "is:open" };
     private string kind;
     private int? number;
     private int limit = 25;

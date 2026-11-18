@@ -1,3 +1,4 @@
+using Tereditor.Plugins.Api.Host;
 using Tereditor.Plugins.GitHub;
 using Tereditor.Plugins.GitHub.Host;
 
@@ -16,16 +17,16 @@ internal static class GitHubBrowserChecks
 
     private static string ListJson(string extra = "") => """{"data":{"list":{"pageInfo":{"hasNextPage":true},"nodes":[""" + Item + extra + """]},"open":{"issueCount":4},"closed":{"issueCount":9}}}""";
 
-    private static string DetailJson(bool more, string comment) => """
+    private static string DetailJson(bool more, string comment) => DetailTemplate.Replace("@MORE@", more ? "true" : "false").Replace("@COMMENT@", comment);
+
+    private const string DetailTemplate = """
         {"data":{"repository":{"issueOrPullRequest":{"__typename":"PullRequest","number":7,"title":"Add b","state":"OPEN","url":"https://github.com/o/r/pull/7","createdAt":"2026-11-01T10:00:00Z",
          "author":{"login":"ann"},"labels":{"nodes":[]},"comments":{"totalCount":1},"body":"Body text","assignees":{"nodes":[{"login":"bob"}]},"milestone":null,
          "baseRefName":"main","headRefName":"feature","additions":5,"deletions":2,"changedFiles":1,"mergeStateStatus":"BLOCKED","isDraft":true,"reviewDecision":"REVIEW_REQUIRED",
          "commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE","contexts":{"nodes":[{"__typename":"CheckRun","name":"build","conclusion":"FAILURE","status":"COMPLETED"},{"__typename":"StatusContext","context":"ci","state":"SUCCESS"}]}}}}]},
-         "timelineItems":{"pageInfo":{"hasNextPage":
-        """.Trim() + (more ? "true" : "false") + ""","endCursor":"c1"},"nodes":[
+         "timelineItems":{"pageInfo":{"hasNextPage":@MORE@,"endCursor":"c1"},"nodes":[
          {"__typename":"PullRequestCommit","commit":{"oid":"abcdef123456","messageHeadline":"Add b","authoredDate":"2026-11-01T10:01:00Z","author":{"name":"Ann","user":{"login":"ann"}}}},
-         {"__typename":"IssueComment","author":{"login":"bob"},"createdAt":"2026-11-01T11:00:00Z","body":"
-        """.Trim() + comment + """","authorAssociation":"MEMBER"},
+         {"__typename":"IssueComment","author":{"login":"bob"},"createdAt":"2026-11-01T11:00:00Z","body":"@COMMENT@","authorAssociation":"MEMBER"},
          {"__typename":"PullRequestReview","author":{"login":"bob"},"createdAt":"2026-11-01T12:00:00Z","state":"CHANGES_REQUESTED","body":"Fix","comments":{"nodes":[{"path":"b.txt","body":"Rename"}]}},
          {"__typename":"LabeledEvent","actor":{"login":"ann"},"createdAt":"2026-11-01T13:00:00Z","label":{"name":"bug","color":"d73a4a"}},
          {"__typename":"SomethingNew","createdAt":"2026-11-01T14:00:00Z"}]}}}}}
@@ -74,7 +75,7 @@ internal static class GitHubBrowserChecks
         Require(!detail.Truncated, "Two pages are not truncated");
         var revision = detail.Revision;
         comment = "first";
-        detailCalls = 1;
+        detailCalls = 0;
         var same = await browser.DetailAsync("/w", new("w", "pulls", 7, revision), default);
         Require(same.Unchanged && same.Timeline.Count == 0, "An unchanged conversation answers Unchanged");
         comment = "second";
