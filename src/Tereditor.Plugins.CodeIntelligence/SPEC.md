@@ -28,6 +28,11 @@ to switch the base on with it. A cycle is refused. This is the host's general de
 
 ## When the plugin is disabled
 
+The host follows the same rule without any UI: with the plugin off every dependent language server plugin is off, so the
+language catalog is empty, running servers stop, nothing starts or downloads, and no `lsp_*` tool is served. Saved
+settings, installed servers and caches stay. At startup, before the first reconcile, a builtin server whose required
+plugin is off is not offered either.
+
 There is no Code Intelligence settings section, no Language tool tab, strip entry or catalog entry, no language keymap
 group, and in the editor no hover, go to definition, usages, diagnostics decorations, quick info or status chip. A saved
 layout that names the Language tool restores without it and keeps its slot. Enabling the plugin brings all of it back.

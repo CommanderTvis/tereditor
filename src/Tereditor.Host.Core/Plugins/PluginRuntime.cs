@@ -953,7 +953,8 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
         // startup is not refused as naming an unknown server.
         if (!started.IsCompleted)
             lock (gate)
-                return [.. registry.All.Where(entry => entry.Origin == PluginOrigin.Builtin && Enabled(entry, Seams.State.Current.PluginSettings, Seams.Kind))
+                return [.. registry.All.Where(entry => entry.Origin == PluginOrigin.Builtin && Enabled(entry, Seams.State.Current.PluginSettings, Seams.Kind)
+                        && entry.Manifest.DependsOn.All(dependency => registry.Get(dependency.Id) is { } required && Enabled(required, Seams.State.Current.PluginSettings, Seams.Kind)))
                     .Select(entry => entry.Module).OfType<LanguageServerPlugin>().Select(plugin => plugin.Spec)];
         return ActiveLanguageServerSpecs();
     }

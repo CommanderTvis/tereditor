@@ -1,3 +1,4 @@
+using Tereditor.Host.Core;
 using Tereditor.Host.Core.Plugins;
 using Tereditor.Plugins.Api;
 using Tereditor.UI;
@@ -60,6 +61,8 @@ internal static partial class PluginHostChecks
         session.SetLanguageAvailable(LanguageSupport.Available);
         Require(!LanguageSupport.Available && !LanguageSupport.Serves("site.css") && !LanguageSupport.Serves("Program.cs") && !session.IsToolAvailable("lsp") && session.Tools.All(tool => tool.Id != "lsp"),
             "Off: no language feature, no Language tool and no catalog entry; the layout still names the tool and stays valid.");
+        Require(composed.State.LanguageCatalog.Count == 0 && LanguageMcpTools.Create(composed.State, directory).Count == 0,
+            "Off: the host catalog is empty, so no language server can start or download and no lsp_* MCP tool is served.");
         Require(LayoutSession.IsValid(saved), "A saved layout naming the Language tool stays valid with the plugin off.");
 
         await composed.Enable(CodeIntelligence);
@@ -70,6 +73,7 @@ internal static partial class PluginHostChecks
         Require(again.Where(entry => entry.DependsOn.Contains(CodeIntelligence)).All(entry => entry.Status == PluginStatus.Active),
             "Back on: the dependents the switch-off turned off return with it, and the one enabled meanwhile stays on.");
         Require(Tereditor.UI.Plugins.PluginRegistry.ToEnable("lsp-css", off).SequenceEqual([CodeIntelligence]), "Enabling a plugin that requires a disabled one turns the base on with it.");
+        Require(composed.State.LanguageCatalog.Count > 0 && LanguageMcpTools.Create(composed.State, directory).Count == 6, "Back on: the catalog and the lsp_* MCP tools return.");
         LanguageSupport.Update(again);
         session.SetLanguageAvailable(LanguageSupport.Available);
         Require(LanguageSupport.Available && LanguageSupport.Serves("site.css") && session.IsToolAvailable("lsp"), "Back on: the language features and the Language tool return.");
