@@ -108,7 +108,7 @@ internal static class RoleChecks
         Avalonia.Headless.HeadlessWindowExtensions.MouseDown(window, point, Avalonia.Input.MouseButton.Left);
         Avalonia.Headless.HeadlessWindowExtensions.MouseUp(window, point, Avalonia.Input.MouseButton.Left); Settle();
         Require(toggle.IsChecked == true && ReferenceEquals(Part("Track").Background, Ui.Accent) &&
-            Part("Thumb").TranslatePoint(default, Part("Track"))!.Value.X == 18 && ReferenceEquals(Part("Thumb").Background, Ui.OnPrimary) &&
+            Part("Thumb").TranslatePoint(default, Part("Track"))!.Value.X == 18 && ReferenceEquals(Part("Thumb").Background, Ui.TextBrush) &&
             state().ToggleState == Avalonia.Automation.Provider.ToggleState.On,
             "Clicking the track checks the switch: primary track, thumb at the right, On for assistive technology.");
         Require(toggle.GetVisualDescendants().OfType<TextBlock>().All(text => text.Text is not ("On" or "Off")),
