@@ -748,9 +748,11 @@ internal static class Program
             GitHubBrowserChecks.Run().GetAwaiter().GetResult();
             CommitChecksChecks.RunAsync().GetAwaiter().GetResult();
             GitHubBrowserChecks.RunCache().GetAwaiter().GetResult();
+            GitHubContributorsChecks.Run().GetAwaiter().GetResult();
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
             GitHubBrowserChecks.RunUi();
             CommitChecksChecks.RunUi();
+            GitHubContributorsChecks.RunUi();
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
             GitHubBrowserChecks.RunTabIcon(root);
             return;

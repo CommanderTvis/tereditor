@@ -95,6 +95,14 @@ public sealed record GitHubView(bool Unchanged, string Revision, string Title, s
     public int Total { get; init; }
 }
 
+public sealed record GitHubContributorsParams(string WorkspaceId, string? Revision = null);
+
+/// <summary>One author's weekly numbers, aligned with <see cref="GitHubContributors.Weeks"/>.</summary>
+public sealed record GitHubContributor(string Login, string AvatarUrl, string Url, IReadOnlyList<int> Commits, IReadOnlyList<int> Additions, IReadOnlyList<int> Deletions);
+
+/// <summary>GitHub's contributor statistics. Weeks are the Unix times of each week's start. Computing is true while GitHub still builds them (the caller asks again); an empty author list with no problem means GitHub has none to give.</summary>
+public sealed record GitHubContributors(bool Unchanged, string Revision, string Branch, bool Computing, IReadOnlyList<long> Weeks, IReadOnlyList<GitHubContributor> Authors, string? Problem = null);
+
 public sealed record GitHubReviewComment(string Path, string Body);
 
 /// <summary>One timeline entry. Kind: comment, review, commit, labeled, unlabeled, closed, reopened, merged, assigned, unassigned, renamed, milestoned, referenced, review-requested, ready, draft, force-pushed, branch-deleted.</summary>
@@ -195,7 +203,8 @@ public static class GitHubContract
     public static readonly PluginMethod<GitHubPostParams, GitHubPostResult> Post = new("post");
     public static readonly PluginMethod<GitHubLogParams, GitHubLog> Log = new("log");
     public static readonly PluginMethod<GitHubCacheQuery, GitHubCacheSize> Cache = new("cache");
-    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View, Post, Log, Cache], [], GitHubJson.Default);
+    public static readonly PluginMethod<GitHubContributorsParams, GitHubContributors> ContributorStats = new("contributors");
+    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View, Post, Log, Cache, ContributorStats], [], GitHubJson.Default);
 
     public const string Tool = "github";
     public const string Scheme = "github";
@@ -232,6 +241,8 @@ public static class GitHubContract
 [JsonSerializable(typeof(GitHubLog))]
 [JsonSerializable(typeof(GitHubCacheQuery))]
 [JsonSerializable(typeof(GitHubCacheSize))]
+[JsonSerializable(typeof(GitHubContributorsParams))]
+[JsonSerializable(typeof(GitHubContributors))]
 public sealed partial class GitHubJson : JsonSerializerContext;
 
 /// <summary>Where a GitHub link points inside this repository; everything else is not ours to open.</summary>

@@ -24,6 +24,7 @@ public sealed class GitHubHost : PluginHostModule
         context.Method(GitHubContract.List, async (p, _, ct) => await browser.ListAsync(await Directory(p.WorkspaceId, ct), p, ct));
         context.Method(GitHubContract.Detail, async (p, _, ct) => await browser.DetailAsync(await Directory(p.WorkspaceId, ct), p, ct));
         context.Method(GitHubContract.View, async (p, _, ct) => await browser.ViewAsync(await Directory(p.WorkspaceId, ct), p, ct));
+        context.Method(GitHubContract.ContributorStats, async (p, _, ct) => await browser.ContributorsAsync(await Directory(p.WorkspaceId, ct), p, ct));
         context.Method(GitHubContract.Post, async (p, _, ct) => await browser.PostAsync(await Directory(p.WorkspaceId, ct), p, ct));
         context.Method(GitHubContract.Log, async (p, _, ct) => await browser.LogAsync(await Directory(p.WorkspaceId, ct), p, ct));
         context.Method(GitHubContract.Info, async (p, _, ct) =>

@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace Tereditor.Plugins.GitHub.Host;
 
-/// <summary>Actions, Discussions, Releases, Contributors, Deployments and Packages: generic rows and cards, read through gh.</summary>
+/// <summary>Actions, Discussions, Releases, Deployments and Packages: generic rows and cards, read through gh.</summary>
 public sealed partial class GitHubBrowser
 {
     private static readonly string[] Events = ["push", "pull_request", "schedule", "workflow_dispatch", "release", "workflow_run"];
@@ -26,7 +26,6 @@ public sealed partial class GitHubBrowser
                 ("discussions", false) => await DiscussionsAsync(directory, repo, filters, limit, ct),
                 ("discussions", true) => await DiscussionAsync(directory, repo, p.Id, ct),
                 ("releases", _) => await ReleasesAsync(directory, repo, limit, ct),
-                ("contributors", _) => await ContributorsAsync(directory, repo, limit, ct),
                 ("deployments", _) => await DeploymentsAsync(directory, repo, limit, ct),
                 ("packages", _) => await PackagesAsync(directory, repo, filters, ct),
                 _ => Problem("Unknown view: " + p.Kind)
@@ -219,14 +218,6 @@ public sealed partial class GitHubBrowser
     }
 
     private static string Size(long bytes) => bytes >= 1 << 20 ? (bytes / (double)(1 << 20)).ToString("0.0", CultureInfo.InvariantCulture) + " MB" : (bytes / 1024.0).ToString("0.0", CultureInfo.InvariantCulture) + " KB";
-
-    private async Task<GitHubView> ContributorsAsync(string directory, RepoFacts repo, int limit, CancellationToken ct)
-    {
-        using var json = await RestAsync(directory, $"repos/{repo.Slug}/contributors?per_page={limit}", ct);
-        var rows = json.RootElement.ValueKind != JsonValueKind.Array ? [] : json.RootElement.EnumerateArray()
-            .Select(c => new GitHubRow(Text(c, "login"), Text(c, "login"), "none", Text(c, "type") == "Bot" ? "Bot" : "", [], c.GetProperty("contributions").GetInt32() + " commits", Text(c, "html_url"))).ToList();
-        return new(false, "", "Contributors", "Contributions to the default branch, most first", "none", rows, [], [], rows.Count >= limit, rows.Count + " contributors");
-    }
 
     private async Task<GitHubView> DeploymentsAsync(string directory, RepoFacts repo, int limit, CancellationToken ct)
     {

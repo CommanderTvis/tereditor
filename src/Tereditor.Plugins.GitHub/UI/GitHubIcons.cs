@@ -37,4 +37,5 @@ internal static class GitHubIcons
     public const string LayoutLeft = "layoutLeft";
     public const string MoreHorizontal = "moreHorizontal";
     public const string Add = "add";
+    public const string More = "more";
 }

@@ -87,7 +87,7 @@ internal static partial class GitHubBrowserChecks
 
         string[] states = ["success", "failure", "cancelled", "skipped", "running", "queued", "closed", "answered", "open", "none"];
         var rows = states.Select(s => new GitHubRow("9", "Row " + s, s, "meta", [new("chip", "238636")], "right", "https://github.com/o/r/actions/runs/9", "2026-11-01T10:00:00Z")).ToList();
-        foreach (var kind in new[] { "runs", "discussions", "releases", "contributors", "deployments", "packages" })
+        foreach (var kind in new[] { "runs", "discussions", "releases", "deployments", "packages" })
         {
             var tab = new GitHubViewTab(null!, "w", kind);
             tab.Render(new(false, "r", "Title", "Sub", "none", rows, [new("Card", "ann", "2026-11-01T10:00:00Z", "note", "## Notes")], [new("branch", "Branch", ["main"], "")], true, "https://github.com/o/r"));
@@ -258,8 +258,6 @@ internal static partial class GitHubBrowserChecks
                 return ValueTask.FromResult(Ok("""{"total_count":2,"workflows":[{"id":6,"name":"Nightly","path":".github/workflows/nightly.yml","state":"disabled_manually"},{"id":5,"name":"CI","path":".github/workflows/ci.yml","state":"active"}]}"""));
             if (args[0] == "api" && args[1].StartsWith("repos/o/r/releases", StringComparison.Ordinal))
                 return ValueTask.FromResult(Ok("""[{"tag_name":"v2","name":"Two","draft":false,"prerelease":false,"published_at":"2026-11-01T10:00:00Z","author":{"login":"ann"},"body":"## Notes","html_url":"https://github.com/o/r/releases/tag/v2","assets":[{"name":"a.zip","size":2097152}]}]"""));
-            if (args[0] == "api" && args[1].StartsWith("repos/o/r/contributors", StringComparison.Ordinal))
-                return ValueTask.FromResult(Ok("""[{"login":"ann","contributions":12,"type":"User","html_url":"https://github.com/ann"}]"""));
             if (args[0] == "api" && args[1].StartsWith("orgs/o/packages", StringComparison.Ordinal))
                 return ValueTask.FromResult(new RepoHostToolResult(1, "", "gh: You need at least read:packages scope to list packages. (HTTP 403)"));
             if (args[0] == "api" && args.Contains("repos/o/r/issues/7/comments"))
@@ -336,8 +334,6 @@ internal static partial class GitHubBrowserChecks
         Require(discussion.Cards.Select(card => (card.Author, card.Badge, card.Note)).SequenceEqual([("bob", "", ""), ("ann", "Answer", ""), ("bob", "", "replied")]), "A discussion shows the question, the answer and replies");
         var releases = await browser.ViewAsync("/w", new("w", "releases", "", []), default);
         Require(releases.Cards[0] is { Badge: "Latest", Title: "Two" } && releases.Cards[0].Body.Contains("a.zip (2.0 MB)", StringComparison.Ordinal), "A release is a card with its notes and assets");
-        var people = await browser.ViewAsync("/w", new("w", "contributors", "", []), default);
-        Require(people.Rows[0] is { Title: "ann", Right: "12 commits" }, "Contributors list their commits");
         var deployments = await browser.ViewAsync("/w", new("w", "deployments", "", []), default);
         Require(deployments.Rows[0] is { Title: "production", State: "success" }, "A deployment shows its environment and latest status");
         var packages = await browser.ViewAsync("/w", new("w", "packages", "", []), default);

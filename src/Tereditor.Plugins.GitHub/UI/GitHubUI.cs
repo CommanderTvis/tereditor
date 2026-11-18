@@ -11,7 +11,7 @@ public sealed class GitHubUI : PluginUIModule
     public override PluginDisposer? Activate(IPluginUIContext context)
     {
         context.SideTool(new(GitHubContract.Tool, workspace => new GitHubPane(context, workspace)) { Retarget = (control, workspace) => ((GitHubPane)control).Retarget(workspace) });
-        context.Document(new PluginDocumentRegistration(GitHubContract.Scheme, props => GitHubTab.Handles(props.Id) ? new GitHubTab(context, props.WorkspaceId, props.Id) : props.Id == "runs" ? new GitHubActionsTab(context, props.WorkspaceId) : props.Id.StartsWith("run:", StringComparison.Ordinal) ? new GitHubRunTab(context, props.WorkspaceId, props.Id) : new GitHubViewTab(context, props.WorkspaceId, props.Id)) { Icon = "asset:github.svg" });
+        context.Document(new PluginDocumentRegistration(GitHubContract.Scheme, props => GitHubTab.Handles(props.Id) ? new GitHubTab(context, props.WorkspaceId, props.Id) : props.Id == "contributors" ? new GitHubContributorsTab(context, props.WorkspaceId) : props.Id == "runs" ? new GitHubActionsTab(context, props.WorkspaceId) : props.Id.StartsWith("run:", StringComparison.Ordinal) ? new GitHubRunTab(context, props.WorkspaceId, props.Id) : new GitHubViewTab(context, props.WorkspaceId, props.Id)) { Icon = "asset:github.svg" });
         context.RepoHostUI(new(surface => new GitHubReviewSection(surface)) { OpenLink = (workspace, url) => OpenLinkAsync(context, workspace, url) });
         context.SettingsSection(new("GitHub", "asset:github.svg", () => new GitHubSettingsPage(context)));
         context.KeymapAction(new("OpenSettings", "Open GitHub settings", "GitHub", () => context.OpenSettings(UiPages.PluginSection(context.Id))));
