@@ -341,6 +341,9 @@ public sealed record ContextUsageParams(string WorkspaceId)
 /// <summary>A baseline for this workspace finished measuring; clients showing it ask again.</summary>
 public sealed record ContextUsageChanged(string WorkspaceId);
 
+/// <summary>Claude's configuration changed through the host; <c>WorkspaceId</c> is null when every workspace reads it (a user-level file).</summary>
+public sealed record ConfigChanged(string? WorkspaceId);
+
 /// <summary>The host read the account usage in the background; open Account tabs read it again. <paramref name="Failed"/> is set when that read failed.</summary>
 public sealed record AccountUsageChanged(bool Failed);
 
@@ -491,6 +494,8 @@ public static class ClaudeCodeContract
     public static readonly PluginChannel<ClaudeCodeStatusPush> Status = PluginChannel<ClaudeCodeStatusPush>.State("status", StatusSnapshot, "workspaceId");
     public static readonly PluginChannel<IdeActionRequest> IdeAction = PluginChannel<IdeActionRequest>.Event("ideAction");
     public static readonly PluginChannel<ContextUsageChanged> ContextUsage = PluginChannel<ContextUsageChanged>.Event("contextUsage");
+    /// <summary>Every write the host makes to Claude's configuration; each open pane reads its snapshot again.</summary>
+    public static readonly PluginChannel<ConfigChanged> ConfigChange = PluginChannel<ConfigChanged>.Event("configChanged");
     public static readonly PluginChannel<AccountUsageChanged> AccountUsage = PluginChannel<AccountUsageChanged>.Event("accountUsage");
     /// <summary>A project's <c>.tereditor/instructions.toml</c> changed; open instruction views re-read their sections.</summary>
     public static readonly PluginChannel<InstructionSectionsChanged> InstructionsChanged = PluginChannel<InstructionSectionsChanged>.Event("instructionsChanged");
@@ -499,7 +504,7 @@ public static class ClaudeCodeContract
         [.. ChatContract.Methods, ConfigGet, Account, SystemPromptGet, Installed, InstructionsList, InstructionsSet, PluginUninstallPlan, PluginUninstall, PluginMovePlan, PluginMove,
             SkillMovePlan, SkillMove, MarketplacePlan, MarketplaceRun, McpList, ReadFile, WriteFile, PlanEdit, ApplyEdit, PermissionModesGet, SelectionChanged, DocumentClosed,
             AtMention, ActionReply, StatusSnapshot, ContextUsageGet],
-        [Status, IdeAction, ContextUsage, AccountUsage, InstructionsChanged, ChatContract.Updates], ClaudeCodeJson.Default, ChatContract.Json);
+        [Status, IdeAction, ContextUsage, ConfigChange, AccountUsage, InstructionsChanged, ChatContract.Updates], ClaudeCodeJson.Default, ChatContract.Json);
 }
 
 [JsonSourceGenerationOptions(Converters = [typeof(PluginJson.EnumConverter<ClaudeConfigScope>), typeof(PluginJson.EnumConverter<ClaudeWritableScope>), typeof(PluginJson.EnumConverter<ClaudeContextKind>), typeof(PluginJson.EnumConverter<ClaudeCapabilityKind>), typeof(PluginJson.EnumConverter<ClaudePluginPartKind>), typeof(PluginJson.EnumConverter<ClaudeUsageSeverity>), typeof(PluginJson.EnumConverter<ClaudeProblemSeverity>), typeof(PluginJson.EnumConverter<ClaudeFileTemplate>), typeof(PluginJson.EnumConverter<ClaudeMcpTransport>), typeof(PluginJson.EnumConverter<ClaudeHookEvent>), typeof(PluginJson.EnumConverter<ClaudeDiffKind>), typeof(PluginJson.EnumConverter<IdeActionKind>), typeof(PluginJson.EnumConverter<ClaudeCodeStatus>), typeof(PluginJson.EnumConverter<AgentTodoStatus>), typeof(PluginJson.EnumConverter<ClaudeCodeMode>)])]
@@ -547,6 +552,7 @@ public static class ClaudeCodeContract
 [JsonSerializable(typeof(FileWriteResult))]
 [JsonSerializable(typeof(IdeActionRequest))]
 [JsonSerializable(typeof(ContextUsageChanged))]
+[JsonSerializable(typeof(ConfigChanged))]
 [JsonSerializable(typeof(AccountUsageChanged))]
 [JsonSerializable(typeof(InstructionSectionsChanged))]
 internal sealed partial class ClaudeCodeJson : JsonSerializerContext;

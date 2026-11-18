@@ -34,7 +34,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private DateTimeOffset? requestedAt;
     private readonly ClaudeAutoRefresh auto;
     private DispatcherTimer? minute;
-    private IDisposable? usageChannel;
+    private IDisposable? usageChannel, configChannel;
     private string memoryKey = "";
     private readonly ClaudeGlyph glyph;
     private string workspaceId;
@@ -86,6 +86,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         {
             watch?.Dispose(); watch = null;
             usageChannel?.Dispose(); usageChannel = null;
+            configChannel?.Dispose(); configChannel = null;
             minute?.Stop(); minute = null;
             Ui.ThemeChanged -= ThemeChanged;
         };
@@ -131,6 +132,11 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         usageChannel ??= context.Subscribe(ClaudeCodeContract.ContextUsage, change =>
         {
             if (change.WorkspaceId == workspaceId) LoadUsage(refresh: false);
+        });
+        // The one way a change reaches every surface: whoever wrote the configuration through the host, this pane reads it again.
+        configChannel ??= context.Subscribe(ClaudeCodeContract.ConfigChange, change =>
+        {
+            if (change.WorkspaceId is null || change.WorkspaceId == workspaceId) Dispatcher.UIThread.Post(Load);
         });
         Ui.ThemeChanged -= ThemeChanged;
         Ui.ThemeChanged += ThemeChanged;
@@ -257,8 +263,6 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         });
     }
 
-    private void Reload() => Load();
-
     private void RenderSwitcher()
     {
         if (switcher.Children.Count > 0)
@@ -310,7 +314,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private async void Edit(PendingEdit pending)
     {
         if (ClaudeParts.Owner(this) is not { } owner) return;
-        if (await ReviewDialogs.EditAsync(context, owner, workspaceId, session?.TabKey, pending)) Reload();
+        await ReviewDialogs.EditAsync(context, owner, workspaceId, session?.TabKey, pending);
     }
 
     private void Render()
@@ -1041,24 +1045,24 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
 
     async void IClaudeCapabilityHost.Uninstall(PluginUninstallTarget target)
     {
-        if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.UninstallAsync(context, owner, workspaceId, session?.TabKey, target)) Reload();
+        if (ClaudeParts.Owner(this) is { } owner) await ReviewDialogs.UninstallAsync(context, owner, workspaceId, session?.TabKey, target);
     }
 
     async void IClaudeCapabilityHost.Move(PluginMoveTarget target)
     {
-        if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.MoveAsync(context, owner, workspaceId, session?.TabKey, target)) Reload();
+        if (ClaudeParts.Owner(this) is { } owner) await ReviewDialogs.MoveAsync(context, owner, workspaceId, session?.TabKey, target);
     }
 
     string? IClaudeCapabilityHost.ProjectRoot => snapshot?.Root;
 
     async void IClaudeCapabilityHost.MoveSkill(SkillMoveTarget target)
     {
-        if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.MoveSkillAsync(context, owner, workspaceId, session?.TabKey, target)) Reload();
+        if (ClaudeParts.Owner(this) is { } owner) await ReviewDialogs.MoveSkillAsync(context, owner, workspaceId, session?.TabKey, target);
     }
 
     async void IClaudeCapabilityHost.Marketplace(ClaudeMarketplaceAction action)
     {
-        if (ClaudeParts.Owner(this) is { } owner && await ReviewDialogs.MarketplaceAsync(context, owner, workspaceId, session?.TabKey, action)) Reload();
+        if (ClaudeParts.Owner(this) is { } owner) await ReviewDialogs.MarketplaceAsync(context, owner, workspaceId, session?.TabKey, action);
     }
 
     async void IClaudeCapabilityHost.Add(string kind)

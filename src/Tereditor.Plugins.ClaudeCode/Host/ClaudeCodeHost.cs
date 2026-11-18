@@ -76,6 +76,13 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         return ScopeOf(workspaceId, tabKey);
     }
 
+    // A write the host made: every open pane reads its snapshot again, all of them when a user-level file changed.
+    private T Changed<T>(string workspaceId, ClaudeWritableScope? scope, T result)
+    {
+        context.Publish(ClaudeCodeContract.ConfigChange, new ConfigChanged(scope == ClaudeWritableScope.User ? null : workspaceId));
+        return result;
+    }
+
     private static string AbsoluteIn(string workspaceId, string path) => Path.IsPathRooted(path) ? path : Path.Combine(workspaceId, path);
 
     // The loopback server's root: the plugin's base URL names its own route under it.
@@ -137,10 +144,10 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         context.OnInstructionSectionsChanged(root => context.Publish(ClaudeCodeContract.InstructionsChanged, new InstructionSectionsChanged { ProjectRoot = root }));
         context.Method(ClaudeCodeContract.PluginUninstallPlan, (p, _, _) => Done(new CommandPlan(ClaudeCommands.PluginUninstall(Command(), p.Name, p.Scope))));
         context.Method(ClaudeCodeContract.PluginUninstall, async (p, _, ct) =>
-            await ClaudeCommands.UninstallAsync(Command(), p.Name, p.Scope, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root));
+            Changed(p.WorkspaceId, p.Scope, await ClaudeCommands.UninstallAsync(Command(), p.Name, p.Scope, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root)));
         context.Method(ClaudeCodeContract.PluginMovePlan, (p, _, _) => Done(new CommandsPlan(ClaudeCommands.PluginMove(Command(), p.Name, p.From, p.To))));
         context.Method(ClaudeCodeContract.PluginMove, async (p, _, ct) =>
-            await ClaudeCommands.MoveAsync(Command(), p.Name, p.From, p.To, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root));
+            Changed(p.WorkspaceId, null, await ClaudeCommands.MoveAsync(Command(), p.Name, p.From, p.To, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root)));
         context.Method(ClaudeCodeContract.SkillMovePlan, async (p, _, ct) =>
         {
             var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
@@ -151,11 +158,11 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
             var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
             var moved = await Task.Run(() => ClaudeSkillMove.Run(scope.Root, p.Name, p.From, p.To), ct);
             contextUsage?.Changed([moved.From, moved.To]);
-            return moved;
+            return Changed(p.WorkspaceId, null, moved);
         });
         context.Method(ClaudeCodeContract.MarketplacePlan, (p, _, _) => Done(new CommandPlan(ClaudeCommands.Marketplace(Command(), p.Action))));
         context.Method(ClaudeCodeContract.MarketplaceRun, async (p, _, ct) =>
-            await ClaudeCommands.RunMarketplaceAsync(Command(), p.Action, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root));
+            Changed(p.WorkspaceId, null, await ClaudeCommands.RunMarketplaceAsync(Command(), p.Action, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root)));
         context.Method(ClaudeCodeContract.McpList, async (p, _, ct) =>
         {
             var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
@@ -215,12 +222,12 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         context.Method(ClaudeCodeContract.WriteFile, async (p, _, ct) =>
         {
             var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
-            return ClaudeResolver.WriteFile(p.WorkspaceId, scope.Root, p.Path, p.Content, p.BaseHash, scope.PromptFiles);
+            return Changed(p.WorkspaceId, null, ClaudeResolver.WriteFile(p.WorkspaceId, scope.Root, p.Path, p.Content, p.BaseHash, scope.PromptFiles));
         });
         context.Method(ClaudeCodeContract.PlanEdit, async (p, _, ct) =>
             ClaudeEdits.Plan(p.WorkspaceId, p.Scope, p.Edit, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root));
         context.Method(ClaudeCodeContract.ApplyEdit, async (p, _, ct) =>
-            ClaudeEdits.Apply(p.WorkspaceId, p.Scope, p.Edit, p.BaseHash, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root));
+            Changed(p.WorkspaceId, p.Scope, ClaudeEdits.Apply(p.WorkspaceId, p.Scope, p.Edit, p.BaseHash, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root)));
 
         context.Method(ClaudeCodeContract.SelectionChanged, (p, call, _) =>
         {

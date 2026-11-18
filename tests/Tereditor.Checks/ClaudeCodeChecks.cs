@@ -337,6 +337,7 @@ internal static class ClaudeCodeChecks
         SettingValueLinks(app);
         SuggestedSettingValues(app);
         UnsetDocumentedSettings(app);
+        ContextEditReachesSettings(app);
         ScopeChoices(app);
         if (!OperatingSystem.IsWindows()) LaunchedSession(app, directory, launcher);
         if (!OperatingSystem.IsWindows()) ResumeOffers(app, directory);
@@ -566,6 +567,37 @@ internal static class ClaudeCodeChecks
         File.Delete(local);
         app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_context"));
         Console.WriteLine($"PASS Claude unset settings: {unsetKeys.Length} documented permissions keys listed after the set ones, Set composes and reviews");
+    }
+
+    /// <summary>
+    /// A change the host applies (here turning a skill off, as a Context row does) shows on the open Settings surface at once:
+    /// the host announces the write and the pane reads the configuration again, with no refresh button and no reopening.
+    /// </summary>
+    private static void ContextEditReachesSettings(E2eWorkspace app)
+    {
+        var local = Path.Combine(app.Root, ".claude", "settings.local.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(local)!);
+        File.WriteAllText(local, "{}\n");
+        Control[] Rows() => [.. app.Window.GetLogicalDescendants().OfType<Control>().Where(control => control.Name is "ClaudeSetting")];
+        void Surface(string name) => app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_" + name));
+        Surface("settings");
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeConfigRefresh"));
+        E2eWorkspace.Settle(500);
+        Require(!Rows().Any(row => Equals(row.Tag, "skillOverrides.dataviz")), "The skill is not overridden before the edit.");
+        // The write goes through the host on its own, as a second view would make it: the pane runs no dialog and reloads nothing itself.
+        var loader = app.Workbench.PluginLoader!;
+        var entry = loader.Registry.Entry("claude-code")!;
+        var context = new Tereditor.UI.Plugins.PluginUIContext(loader, entry, new Tereditor.UI.Plugins.PluginActivation(entry));
+        var edit = new SkillEdit("dataviz", false);
+        var plan = context.RequestAsync(ClaudeCodeContract.PlanEdit, new ClaudeEditRequest(app.Root, ClaudeWritableScope.Local, edit)).AsTask();
+        E2eWorkspace.Until(() => plan.IsCompleted);
+        var applied = context.RequestAsync(ClaudeCodeContract.ApplyEdit, new ClaudeApplyRequest(app.Root, ClaudeWritableScope.Local, edit, plan.GetAwaiter().GetResult().BaseHash)).AsTask();
+        E2eWorkspace.Until(() => applied.IsCompleted);
+        applied.GetAwaiter().GetResult();
+        E2eWorkspace.Until(() => Rows().Any(row => Equals(row.Tag, "skillOverrides.dataviz")));
+        File.Delete(local);
+        Surface("context");
+        Console.WriteLine("PASS Claude configuration change: a write through the host reaches the open Settings surface without a refresh");
     }
 
     /// <summary>
