@@ -8,7 +8,7 @@ public sealed class RuntimesUI : PluginUIModule
 {
     public override PluginDisposer? Activate(IPluginUIContext context)
     {
-        context.SettingsSection(new(RuntimesPlugin.Name, RuntimesPlugin.Manifest.Icon, () => new RuntimesSettingsView(context)));
+        context.SettingsSection(new("Runtimes", RuntimesPlugin.Manifest.Icon, () => new RuntimesSettingsView(context)));
         return null;
     }
 }
