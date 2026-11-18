@@ -120,6 +120,11 @@ internal sealed class GitHubTab : Border
         if (list.Unchanged) return;
         repoSlug = list.Repo;
         revision = list.Revision;
+        RenderList(list);
+    }
+
+    internal void RenderList(GitHubList list)
+    {
         var offset = scroll.Offset;
         var root = new StackPanel { Spacing = 0, Margin = new Thickness(24, 16), MaxWidth = 1012 };
         var title = Ui.Text(kind == Pulls ? "Pull requests" : "Issues", Ui.TextBrush, 22);
@@ -128,7 +133,7 @@ internal sealed class GitHubTab : Border
         root.Children.Add(title);
         var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 0, 0, 12) };
         bar.Children.Add(queryBox);
-        bar.Children.Add(Ui.Button("Search", () => { limit = 25; revision = null; Refresh(); }, "search-line"));
+        bar.Children.Add(Ui.Button("Search", () => { limit = 25; revision = null; Refresh(); }, GitHubIcons.Search));
         root.Children.Add(bar);
         authors = [.. list.Items.Select(item => item.Author).Distinct().Order()];
         repoLabels = list.RepoLabels;
@@ -207,7 +212,7 @@ internal sealed class GitHubTab : Border
         Grid.SetColumn(text, 1); grid.Children.Add(text);
         if (item.Comments > 0)
         {
-            var comments = Ui.Row("chat-1-line", item.Comments.ToString());
+            var comments = Ui.Row(GitHubIcons.Chat, item.Comments.ToString());
             Grid.SetColumn(comments, 2); grid.Children.Add(comments);
         }
         var row = new Border { Name = "GitHubRow" + item.Number, Child = grid, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.Hand) };
@@ -240,7 +245,7 @@ internal sealed class GitHubTab : Border
         RenderDetail(detail);
     }
 
-    private void RenderDetail(GitHubDetail detail)
+    internal void RenderDetail(GitHubDetail detail)
     {
         var offset = scroll.Offset;
         var remaining = GitHubPending.Remaining(pending, detail.Timeline);
@@ -248,7 +253,7 @@ internal sealed class GitHubTab : Border
         var root = new StackPanel { Spacing = 12, Margin = new Thickness(24, 16), MaxWidth = 1012, Name = "GitHubConversation" };
         if (!standalone)
         {
-            var back = Ui.Button(kind == Pulls ? "Pull requests" : "Issues", () => { number = null; revision = null; Refresh(); }, "arrow-left-line");
+            var back = Ui.Button(kind == Pulls ? "Pull requests" : "Issues", () => { number = null; revision = null; Refresh(); }, GitHubIcons.ArrowLeft);
             back.HorizontalAlignment = HorizontalAlignment.Left;
             root.Children.Add(back);
         }
@@ -343,13 +348,13 @@ internal sealed class GitHubTab : Border
 
     private static string Glyph(string kind) => kind switch
     {
-        "commit" => "git-commit-line",
-        "merged" => "git-merge-line",
-        "closed" => "checkbox-circle-line",
-        "reopened" => "record-circle-line",
-        "labeled" or "unlabeled" => "price-tag-3-line",
-        "referenced" => "links-line",
-        _ => "dot-line"
+        "commit" => GitHubIcons.GitCommit,
+        "merged" => GitHubIcons.GitMerge,
+        "closed" => GitHubIcons.CheckboxCircle,
+        "reopened" => GitHubIcons.RecordCircle,
+        "labeled" or "unlabeled" => GitHubIcons.PriceTag,
+        "referenced" => GitHubIcons.Link,
+        _ => GitHubIcons.CheckboxBlankCircle
     };
 
     internal static Control Card(string author, string at, string note, string body, IReadOnlyList<GitHubReviewComment>? inline, GitHubLinker? linker = null)
@@ -398,11 +403,11 @@ internal sealed class GitHubTab : Border
     {
         var (icon, brush) = (pull, state) switch
         {
-            (true, "merged") => ("git-merge-line", Done),
-            (true, "closed") => ("git-pull-request-line", Closed),
-            (true, _) => ("git-pull-request-line", draft ? Neutral : Open),
-            (false, "open") => ("record-circle-line", Open),
-            _ => ("checkbox-circle-line", Done)
+            (true, "merged") => (GitHubIcons.GitMerge, Done),
+            (true, "closed") => (GitHubIcons.GitPullRequest, Closed),
+            (true, _) => (GitHubIcons.GitPullRequest, draft ? Neutral : Open),
+            (false, "open") => (GitHubIcons.RecordCircle, Open),
+            _ => (GitHubIcons.CheckboxCircle, Done)
         };
         var control = Ui.Icon(icon, brush, 16);
         control.VerticalAlignment = VerticalAlignment.Top; control.Margin = new Thickness(0, 2, 0, 0);

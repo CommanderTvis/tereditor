@@ -1,6 +1,11 @@
+using Avalonia.Controls;
+using Avalonia.LogicalTree;
+
 using Tereditor.Plugins.Api.Host;
 using Tereditor.Plugins.GitHub;
 using Tereditor.Plugins.GitHub.Host;
+using Tereditor.Plugins.GitHub.UI;
+using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Checks;
 
@@ -39,9 +44,57 @@ internal static class GitHubBrowserChecks
         "2026-11-01T10:00:02.5000000Z ##[endgroup]",
         "2026-11-01T10:00:03.0000000Z Post job cleanup.");
 
+    private static Control? Named(Control root, string name) => root.GetLogicalDescendants().OfType<Control>().FirstOrDefault(control => control.Name == name);
+
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
+    }
+
+    /// <summary>Headless: every icon the GitHub screens name resolves, and the pane, list rows, conversation and generic views build with fake data.</summary>
+    public static void RunUi()
+    {
+        var names = typeof(GitHubIcons).GetFields().Where(f => f.IsLiteral).Select(f => (string)f.GetRawConstantValue()!).ToList();
+        Require(names.Count > 10, "The GitHub icon list is not empty");
+        foreach (var name in names)
+            try { Ui.Icon(name); }
+            catch (Exception error) { throw new InvalidOperationException($"The GitHub icon '{name}' does not resolve: {error.Message}"); }
+
+        var pane = new GitHubPane(null!, "w");
+        Require(pane.Children.Count == 9, "The GitHub pane builds its nine buttons");
+
+        static GitHubItem Item(int number, string state, bool draft) => new(number, "Title " + number, state, draft, "ann", [new("bug", "d73a4a")], 2, "2026-11-01T10:00:00Z", "2026-11-02T10:00:00Z", null, "https://github.com/o/r/pull/" + number, "passing", "APPROVED");
+        foreach (var kind in new[] { GitHubTab.Issues, GitHubTab.Pulls })
+        {
+            var tab = new GitHubTab(null!, "w", kind);
+            tab.RenderList(new(false, "r", "o/r", [Item(1, "open", false), Item(2, "open", true), Item(3, "closed", false), Item(4, "merged", false)], 2, 2, true) { RepoLabels = [new("bug", "d73a4a")] });
+            Require(Named(tab, "GitHubRows") is Panel { Children.Count: 5 }, "The " + kind + " list builds a row per item");
+        }
+
+        string[] eventKinds = ["comment", "review", "commit", "labeled", "unlabeled", "closed", "reopened", "merged", "assigned", "unassigned", "renamed", "milestoned", "referenced", "review-requested", "ready", "draft", "force-pushed", "branch-deleted", "SomethingNew"];
+        var timeline = eventKinds.Select(k => new GitHubEvent(k, "bob", "2026-11-01T11:00:00Z", "Text", "abc", "d73a4a", [new("b.txt", "Rename")])).ToList();
+        foreach (var kind in new[] { GitHubTab.Issues, GitHubTab.Pulls })
+        {
+            var tab = new GitHubTab(null!, "w", kind);
+            var pull = kind == GitHubTab.Pulls ? new GitHubPullFacts("main", "feature", 5, 2, 1, "APPROVED", "BLOCKED", "failing", [new("build", "failing"), new("ci", "passing"), new("lint", "pending")]) : null;
+            tab.RenderDetail(new(false, "r", "o/r", kind, 7, "Add b", "open", true, "ann", "2026-11-01T10:00:00Z", "https://github.com/o/r/pull/7", "Body", [new("bug", "d73a4a")], ["bob"], "M1", timeline, true, pull));
+            Require(Named(tab, "GitHubConversation") is Panel, "The " + kind + " conversation builds every timeline kind");
+        }
+
+        string[] states = ["success", "failure", "cancelled", "skipped", "running", "queued", "closed", "answered", "open", "none"];
+        var rows = states.Select(s => new GitHubRow("9", "Row " + s, s, "meta", [new("chip", "238636")], "right", "https://github.com/o/r/actions/runs/9", "2026-11-01T10:00:00Z")).ToList();
+        foreach (var kind in new[] { "runs", "discussions", "releases", "contributors", "deployments", "packages" })
+        {
+            var tab = new GitHubViewTab(null!, "w", kind);
+            tab.Render(new(false, "r", "Title", "Sub", "none", rows, [new("Card", "ann", "2026-11-01T10:00:00Z", "note", "## Notes")], [new("branch", "Branch", ["main"], "")], true, "https://github.com/o/r"));
+            Require(Named(tab, "GitHubView") is Panel, "The " + kind + " view builds a row for every state");
+        }
+        foreach (var state in states)
+        {
+            var tab = new GitHubViewTab(null!, "w", "run:9");
+            tab.Render(new(false, "r", "Run", "Sub", state, rows, [], [], false));
+        }
+        Console.WriteLine("PASS GitHub pane, rows, conversation and views render with every icon resolved");
     }
 
     public static async Task Run()

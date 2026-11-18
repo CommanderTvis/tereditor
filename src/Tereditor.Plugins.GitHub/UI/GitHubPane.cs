@@ -19,15 +19,15 @@ internal sealed class GitHubPane : StackPanel
         Name = "GitHubPane";
         Spacing = 6;
         Margin = new Avalonia.Thickness(10);
-        Children.Add(Open("Issues", "error-warning-line", GitHubTab.Issues));
-        Children.Add(Open("Pull requests", "git-pull-request-line", GitHubTab.Pulls));
-        Children.Add(Open("Actions", "play-circle-line", "runs"));
-        Children.Add(Open("Discussions", "discuss-line", "discussions"));
-        Children.Add(Open("Releases", "price-tag-3-line", "releases"));
-        Children.Add(Open("Contributors", "group-line", "contributors"));
-        Children.Add(Open("Deployments", "rocket-line", "deployments"));
-        Children.Add(Open("Packages", "box-3-line", "packages"));
-        Children.Add(Open("Settings", "settings-3-line", GitHubTab.Settings));
+        Children.Add(Open("Issues", GitHubIcons.AlertImportant, GitHubTab.Issues));
+        Children.Add(Open("Pull requests", GitHubIcons.GitPullRequest, GitHubTab.Pulls));
+        Children.Add(Open("Actions", GitHubIcons.PlayCircle, "runs"));
+        Children.Add(Open("Discussions", GitHubIcons.Discuss, "discussions"));
+        Children.Add(Open("Releases", GitHubIcons.PriceTag, "releases"));
+        Children.Add(Open("Contributors", GitHubIcons.Group, "contributors"));
+        Children.Add(Open("Deployments", GitHubIcons.Rocket, "deployments"));
+        Children.Add(Open("Packages", GitHubIcons.Box, "packages"));
+        Children.Add(Open("Settings", GitHubIcons.Settings, GitHubTab.Settings));
     }
 
     public bool Retarget(string workspaceId) { workspace = workspaceId; return true; }

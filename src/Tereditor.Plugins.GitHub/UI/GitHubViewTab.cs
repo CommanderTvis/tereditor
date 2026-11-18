@@ -103,7 +103,7 @@ internal sealed class GitHubViewTab : Border
         return parts.Length > 4 ? parts[3] + "/" + parts[4] : "";
     }
 
-    private void Render(GitHubView view)
+    internal void Render(GitHubView view)
     {
         var offset = scroll.Offset;
         scroll.Content = Build(view);
@@ -136,7 +136,7 @@ internal sealed class GitHubViewTab : Border
     {
         var root = new StackPanel { Spacing = 12, Margin = new Thickness(24, 16), MaxWidth = 1012, Name = "GitHubView" };
         if (itemId.Length > 0 && !standalone)
-            root.Children.Add(Ui.Button(kind == "runs" ? "Actions" : "Discussions", () => { itemId = ""; revision = null; Refresh(); }, "arrow-left-line"));
+            root.Children.Add(Ui.Button(kind == "runs" ? "Actions" : "Discussions", () => { itemId = ""; revision = null; Refresh(); }, GitHubIcons.ArrowLeft));
         var title = Ui.Text(view.Title, Ui.TextBrush, 22);
         title.FontWeight = FontWeight.SemiBold; title.TextWrapping = TextWrapping.Wrap;
         root.Children.Add(title);
@@ -229,7 +229,7 @@ internal sealed class GitHubViewTab : Border
             panel.Children.Add(lines);
         }
         if (log.Url.StartsWith("https://github.com/", StringComparison.Ordinal))
-            panel.Children.Add(Ui.Button("Open full log on GitHub", () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(log.Url) { UseShellExecute = true }), "external-link-line"));
+            panel.Children.Add(Ui.Button("Open full log on GitHub", () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(log.Url) { UseShellExecute = true }), GitHubIcons.ExternalLink));
         return panel;
     }
 
@@ -328,14 +328,14 @@ internal sealed class GitHubViewTab : Border
 
     private static string StateGlyph(string state) => state switch
     {
-        "success" or "answered" => "checkbox-circle-fill",
-        "failure" => "close-circle-fill",
-        "cancelled" => "stop-circle-line",
-        "skipped" => "skip-forward-line",
-        "running" => "loader-4-line",
-        "queued" => "time-line",
-        "closed" => "checkbox-circle-line",
-        _ => "record-circle-line"
+        "success" or "answered" => GitHubIcons.CheckboxCircleFill,
+        "failure" => GitHubIcons.CloseCircleFill,
+        "cancelled" => GitHubIcons.StopCircle,
+        "skipped" => GitHubIcons.SkipForward,
+        "running" => GitHubIcons.Loader,
+        "queued" => GitHubIcons.Time,
+        "closed" => GitHubIcons.CheckboxCircle,
+        _ => GitHubIcons.RecordCircle
     };
 
     private static Control Message(string text)
