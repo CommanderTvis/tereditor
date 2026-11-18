@@ -87,6 +87,7 @@ internal static class BranchGraphChecks
                 Require(JsonSerializer.Serialize(first.Commits, PluginJson.Options) == JsonSerializer.Serialize(expected.Commits, PluginJson.Options), "The plugin page matches Git's history over each adapter.");
                 var patch = await Call<GitPatch>("patch", new GitPatchParams(repo, "HEAD"));
                 Require(patch.Patch.StartsWith("From " + sha, StringComparison.Ordinal), "The fork patch method accepts Git revision expressions and returns format-patch.");
+                Require((await Call<GitGraphChecks>("checks", new GitGraphChecksParams(repo, [sha]))).Commits.Count == 0, "A repository without a repo host answers no checks, not an error.");
                 foreach (var (method, parameters, reason) in new (string, object, string)[]
                 {
                     ("graph", new GitGraphParams("unknown"), "Unknown project"),

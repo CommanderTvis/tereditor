@@ -88,6 +88,17 @@ A second, read-only surface next to the repo hosting provider (host half `GitHub
 - Job logs: in a run, a job row expands to its log (`gh api repos/{repo}/actions/jobs/{id}/logs`), split by `##[group]` into collapsible groups (those with an error open first, failed jobs expand by themselves), line numbers, dimmed times, colour codes stripped. At most 500 lines per group and 4000 in total are kept (the tail wins); the view says how many were cut and offers Open full log on GitHub. A running job answers that its log is not ready; a finished job's log is cached by id.
 - gh cannot serve: reactions, the Projects and Security tabs, conditional ETag requests through `gh api` (each poll is one call; the host answers Unchanged by hashing), avatar images, and package versions.
 
+## Checks of commits for the Git Graph
+
+`RepoHostProvider.CommitChecksAsync` is the one optional member the Git Graph reads, through core's `IPluginHostContext.CommitChecksAsync`
+(no plugin dependency; GitHub off means no provider and an empty answer). `GitHubCommitChecks` answers it with one `gh api graphql` call per
+50 commits, aliasing `object(oid:)` per commit and reading `statusCheckRollup.contexts` (`totalCount`, `checkRunCountsByState`,
+`statusContextCountsByState` and the first 30 nodes for names). Failure counts failures, timeouts and required actions; queued, waiting
+and running count as pending; success, neutral and skipped count as passed; cancelled leaves it neutral. Results are kept per commit in memory:
+finished ones for ten minutes, running ones for 30 seconds, commits without checks for two minutes. After a rate limit or any failed call
+(403, 429, not signed in, no network) it asks nothing for two minutes, doubling up to 30, answers only what it holds and logs once.
+`TEREDITOR_GH_OFFLINE=1` and non-GitHub remotes answer nothing.
+
 ## Failure and timeouts
 
 Everything runs on pool threads; the UI thread only applies results after checking the workspace and branch still

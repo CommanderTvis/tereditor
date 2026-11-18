@@ -41,7 +41,7 @@ Plugins without restarting the app, where they are grouped by the categories bel
 
 | Plugin | Default | What it does |
 | --- | --- | --- |
-| Git Graph | On | Shows the project's branch graph, with its commits and worktrees, as a side tool. |
+| Git Graph | On | Shows the project's branch graph, with its commits and worktrees, as a side tool. With GitHub on, each commit shows its checks status. |
 | Tailscale | Off | Pairs clients on your tailnet. See [Pair over Tailscale](tailscale.md). |
 | Discord | Off | Shows what you're working on as Discord Rich Presence. |
 

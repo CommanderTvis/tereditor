@@ -500,6 +500,9 @@ Gitea or anything else is another plugin, with no host change.
   seconds per worktree and branch by the host, shared between concurrent callers, dropped after a push, a mutation, a
   provider leaving, or `fresh`; failures are never cached. A provider that throws or times out reads as no
   review and is logged against its plugin. Nothing runs on the UI thread.
+- Commit checks. `CommitChecksAsync(directory, shas)` on the host context routes the directory's `origin` the same way and asks the owner's
+  `CommitChecks` (state, passed, total, names, link; at most 50 commits). No provider, an unrecognized remote or a provider that
+  throws answers an empty list. It is how the Git Graph shows CI without depending on a provider plugin.
 - Observer. `OnBranchStatus` hands each finished status (git facts plus the owner's `PullRequest`) to the plugins that
   asked, which publish it on their own state channel for their UI half.
 - Disabling a provider is the ordinary disable ([roster](#the-roster-state-machine)): its registration is
