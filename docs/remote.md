@@ -18,7 +18,9 @@ iOS clients are not yet supported. Windows and Linux use Skia terminals. See [Wi
 There are two ways to run a host.
 
 - In the desktop app, turn on the listener in Settings › Host. Local work keeps using direct calls while it listens for
-  remote clients.
+  remote clients. Turn on Serve on start there to start listening each time the app starts. It uses the address and
+  port shown on that page, and a new token each time. If it cannot start, for example because the port is in use, the
+  Host page says so.
 - As a standalone host, run `tereditor-host` without a desktop window.
 
 The host keeps its shared state in `TEREDITOR_STATE_DIR` (default `~/.tereditor/host`) and its terminal sessions until it

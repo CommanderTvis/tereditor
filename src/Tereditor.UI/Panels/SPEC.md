@@ -192,8 +192,10 @@ could not save this change: …” inline and re-renders from host state.
   to 127.0.0.1 and port to 54123 (0 requests an available port); the random session token is masked.
   Start/Stop runs off the dispatcher, disables fields while pending or listening, reports errors
   inline with drafts preserved, and updates all open Host pages. Endpoint/token copy actions are
-  available while listening. Closing Settings retains serving; app exit stops it. Configuration
-  stays in memory and never enables automatic serving. A remote client explains that serving must
+  available while listening. Closing Settings retains serving; app exit stops it. Address, port and
+  token stay in memory. Serve on start is a shared host setting (default off) that starts serving at launch with
+  the default loopback address and port; a failed automatic start shows in the status line as “Not listening.
+  The host could not start when the app started: …”. A remote client explains that serving must
   be started at the embedded host instead of offering these controls.
 
 - Appearance explains that mode and pair are shared by every window and client while each device reads its

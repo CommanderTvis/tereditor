@@ -33,6 +33,8 @@ public sealed record HostSettings
     public bool TerminalNotificationsEnabled { get; set; } = true;
     /// <summary>Whether the macOS Option key acts as Alt (an ESC prefix) in terminals, like Ghostty's macos-option-as-alt; off, Option composes characters.</summary>
     public bool TerminalOptionAsAlt { get; init; }
+    /// <summary>Whether an app with an embedded host starts serving it, on the default loopback address, when it launches. Off by default.</summary>
+    public bool ServeOnStart { get; init; }
     /// <summary>
     /// What a terminal bell does, like Ghostty's bell-features: a comma-separated subset of <c>system</c> (the system alert
     /// sound), <c>attention</c> (request attention while the app is unfocused) and <c>title</c> (a bell on the tab until it is

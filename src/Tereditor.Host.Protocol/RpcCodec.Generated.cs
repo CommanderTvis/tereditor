@@ -3578,6 +3578,7 @@ internal static class RpcCodec
         if (value.TerminalHiddenChips is { } field39) writer.String(39, field39);
         if (value.GroupWorkspacesUnderCreator is { } field40) writer.Bool(40, field40);
         if (value.EditorZoomGesturesOff) writer.Bool(41, value.EditorZoomGesturesOff);
+        if (value.ServeOnStart) writer.Bool(42, value.ServeOnStart);
     }
 
     private static SettingsMessage ReadSettingsMessage(ref ProtoReader reader, SettingsMessage? value)
@@ -3625,6 +3626,7 @@ internal static class RpcCodec
                 case 39: value.TerminalHiddenChips = reader.String(); break;
                 case 40: value.GroupWorkspacesUnderCreator = reader.Bool(); break;
                 case 41: value.EditorZoomGesturesOff = reader.Bool(); break;
+                case 42: value.ServeOnStart = reader.Bool(); break;
                 default: reader.Skip(); break;
             }
         }

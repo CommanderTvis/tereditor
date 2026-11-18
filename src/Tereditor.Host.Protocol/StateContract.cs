@@ -79,6 +79,8 @@ public sealed class SettingsMessage
     [ProtoMember(40)] public bool? GroupWorkspacesUnderCreator { get; set; }
     /// <summary>Inverted so a host that predates the setting reads as zooming, its default.</summary>
     [ProtoMember(41)] public bool EditorZoomGesturesOff { get; set; }
+    /// <summary>Off, the default, from a host that predates the setting.</summary>
+    [ProtoMember(42)] public bool ServeOnStart { get; set; }
 }
 
 [ProtoContract]

@@ -118,6 +118,12 @@ dependencies from such a call.
   sessions. Stopping serving cancels remote state, file, plugin and terminal streams, detaches
   remote terminal attachments, and leaves shells and local calls alive. The app stops serving
   before disposing plugins, loopback routes or PTYs at exit. No second state directory is opened.
+- The `serve-on-start` host setting (default off) makes the desktop app start serving once after its windows
+  open, off the UI thread, with `HostListener.StartOnLaunchAsync`: the default loopback address and port and the
+  listener's own random session token, exactly what the Settings › Host toggle starts, so it opens nothing wider
+  and pairing and tokens are unchanged. A failed start (port in use) never throws or stops the app; it is kept in
+  `HostListener.StartFailure`, raised on `Changed` and shown in the Host page's status line until a later start or
+  stop. Turning the setting on while running does not start serving.
 - `ProjectRpc.ReadContentBytesAsync` delegates to the session's host and returns bytes and metadata as one
   message, sized by the existing message limits; diff-side replies carry metadata and revisions.
 - Plugin and loopback cleanup run without the caller's synchronization context before the host

@@ -62,8 +62,25 @@ public sealed class HostListener(string root, HostStateStore state, ITerminalSer
     public int Port { get; private set; } = 54123;
     public string Token { get; private set; } = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
     public Uri? Endpoint => Volatile.Read(ref endpoint);
+    /// <summary>Why the automatic start at launch failed, or null; a later start or stop clears it.</summary>
+    public string? StartFailure { get; private set; }
     /// <summary>Raised after a listener starts or stops, on a background thread.</summary>
     public event Action? Changed;
+
+    /// <summary>
+    /// Starts serving once, on the default loopback address, port and session token, when the Serve on start setting is on.
+    /// A failure is kept in <see cref="StartFailure"/> for the Host page instead of being thrown.
+    /// </summary>
+    public async Task StartOnLaunchAsync(int? port = null)
+    {
+        if (!state.Current.Settings.ServeOnStart || Endpoint is not null) return;
+        try { await StartAsync(Address, port ?? Port, Token); }
+        catch (Exception failure) when (failure is not OperationCanceledException)
+        {
+            StartFailure = failure.Message;
+            Changed?.Invoke();
+        }
+    }
 
     /// <summary>Starts listening without moving the embedded client's adapters onto the wire.</summary>
     public Task StartAsync(IPAddress address, int port, string token, CancellationToken cancellationToken = default) => Task.Run(async () =>
@@ -85,6 +102,7 @@ public sealed class HostListener(string root, HostStateStore state, ITerminalSer
                 BrowserConnections = browsers;
                 Address = address; Port = new Uri(listening).Port; Token = token;
                 Volatile.Write(ref endpoint, new Uri(listening));
+                StartFailure = null;
             }
             catch
             {
@@ -102,7 +120,7 @@ public sealed class HostListener(string root, HostStateStore state, ITerminalSer
     public Task StopAsync(CancellationToken cancellationToken = default) => Task.Run(async () =>
     {
         await gate.WaitAsync(cancellationToken);
-        try { await StopCore(); }
+        try { await StopCore(); StartFailure = null; }
         finally { gate.Release(); }
         Changed?.Invoke();
     }, cancellationToken);

@@ -1808,6 +1808,8 @@ Tereditor.Host.Abstractions.HostSettings.TerminalNotificationsEnabled.get -> boo
 Tereditor.Host.Abstractions.HostSettings.TerminalNotificationsEnabled.set -> void
 Tereditor.Host.Abstractions.HostSettings.TerminalOptionAsAlt.get -> bool
 Tereditor.Host.Abstractions.HostSettings.TerminalOptionAsAlt.init -> void
+Tereditor.Host.Abstractions.HostSettings.ServeOnStart.get -> bool
+Tereditor.Host.Abstractions.HostSettings.ServeOnStart.init -> void
 Tereditor.Host.Abstractions.ITerminalCatalogService.WatchSignalsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Tereditor.Host.Abstractions.TerminalSignal!>!
 Tereditor.Host.Abstractions.TerminalProgressState
 Tereditor.Host.Abstractions.TerminalProgressState.Error = 2 -> Tereditor.Host.Abstractions.TerminalProgressState

@@ -209,7 +209,7 @@ with `TEREDITOR_TOOLS_ENABLE=spec,blueprint`, which sets it for those two in mem
 | Setting | Stored now | Scope | Documented |
 | --- | --- | --- | --- |
 | Appearance: `Theme`, `ThemeMode`, `SystemLight`, `SystemDark`, `FileTypeIcons*`, line widths, `WindowDecorations`, `ActiveKeymap` | `state.json` `HostSettings` | host (shared by clients) | XML comments in `Host.Abstractions/HostState.cs`, Settings UI |
-| Terminal: `TerminalReplayKb`, `TerminalKeepAfterExit`, `TerminalUndoCloseSeconds`, `ShellIntegrationEnabled`, bell, notification flags, `TerminalOptionAsAlt` | `state.json` | host | same |
+| Terminal: `TerminalReplayKb`, `TerminalKeepAfterExit`, `TerminalUndoCloseSeconds`, `ShellIntegrationEnabled`, bell, notification flags, `TerminalOptionAsAlt`, `ServeOnStart` | `state.json` | host | same |
 | `LspEnabled` | `state.json` | host | XML comment; `Language/SPEC.md` |
 | `JavaKotlinProvider` | `state.json` | host | `Language/SPEC.md` |
 | `LanguageServers` (per-server launcher: `command`, `arguments`, `allowPath`), JSON string | `state.json` | host | `Language/SPEC.md`, `LanguageServerOptions` comment |

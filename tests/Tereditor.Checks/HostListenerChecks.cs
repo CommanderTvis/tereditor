@@ -38,8 +38,41 @@ internal static partial class HostListenerChecks
         if (!condition) throw new InvalidOperationException(message);
     }
 
+    /// <summary>Serve on start: off by default, starts on loopback with the unchanged token when on, and a failed start is kept for the Host page.</summary>
+    private static async Task ServeOnStart(string root)
+    {
+        var directory = Path.Combine(root, "serve-on-start");
+        Directory.CreateDirectory(directory);
+        var state = new HostStateStore(directory + "-state");
+        await using var plugins = new PluginRuntime(new() { StateDirectory = null, State = state, Builtins = [] });
+        await using var listener = new HostListener(directory, state, null, plugins);
+        Require(!state.Current.Settings.ServeOnStart, "Serve on start must be off by default.");
+        var token = listener.Token;
+        await listener.StartOnLaunchAsync(0);
+        Require(listener.Endpoint is null && listener.StartFailure is null, "With the setting off, launch must not start serving.");
+        await state.ChangeAsync([HostStateChange.Setting("serve-on-start", "true")]);
+        Require(state.Current.Settings.ServeOnStart, "The setting must save.");
+        Require(new HostStateStore(directory + "-state").Current.Settings.ServeOnStart, "The setting must persist in host state.");
+        using (var occupied = new TcpListener(IPAddress.Loopback, 0))
+        {
+            occupied.Start();
+            Console.WriteLine("EXPECTED: this check takes a port on purpose; the bind error that follows is the point, not a crash.");
+            await listener.StartOnLaunchAsync(((IPEndPoint)occupied.LocalEndpoint).Port);
+            Require(listener.Endpoint is null && !string.IsNullOrEmpty(listener.StartFailure), "A failed start at launch must stay visible, not throw.");
+        }
+        var changes = 0;
+        listener.Changed += () => Interlocked.Increment(ref changes);
+        await listener.StartOnLaunchAsync(0);
+        Require(listener.Endpoint is { } endpoint && IPAddress.IsLoopback(IPAddress.Parse(endpoint.Host)) && listener.Address.Equals(IPAddress.Loopback) &&
+            listener.Token == token && listener.StartFailure is null && changes == 1,
+            "With the setting on, launch must serve on loopback with the unchanged token and clear the failure.");
+        await listener.StartOnLaunchAsync(0);
+        Require(changes == 1, "Starting at launch while serving must change nothing.");
+    }
+
     internal static async Task Run(string root)
     {
+        await ServeOnStart(root);
         var directory = Path.Combine(root, "listener");
         var other = Path.Combine(root, "listener-other");
         Directory.CreateDirectory(directory); Directory.CreateDirectory(other);

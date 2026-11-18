@@ -335,7 +335,7 @@ public sealed partial class SettingsView : UserControl
         // Terminal activity and other clients' workspace updates must not replace the open page.
         if (previous.Settings == next.Settings && previous.Presets.SequenceEqual(next.Presets) && previous.KeymapPresets.SequenceEqual(next.KeymapPresets) && previous.Projects.SequenceEqual(next.Projects)) return;
         if (section == "Code Intelligence" && (previous.Settings.JavaKotlinProvider != next.Settings.JavaKotlinProvider || previous.Settings.LanguageServers != next.Settings.LanguageServers || previous.Settings.LspEnabled != next.Settings.LspEnabled || previous.Settings.LanguageLimits != next.Settings.LanguageLimits || previous.Settings.LanguageTools != next.Settings.LanguageTools)) foreach (var refresh in refreshers) refresh();
-        else if (section == "Editor") foreach (var refresh in refreshers) refresh();
+        else if (section is "Editor" or "Host") foreach (var refresh in refreshers) refresh();
         // A project joining the recents list (the window's own open lands after it mounts) leaves the other pages alone.
         else if (section == "Keymap") { EndKeymapRecording(); RefreshSection(); }
         else if (section == "Appearance" && previous.Settings != next.Settings || section == "Layout" && (previous.Settings != next.Settings || !previous.Presets.SequenceEqual(next.Presets)) ||

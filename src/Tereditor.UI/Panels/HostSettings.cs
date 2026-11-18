@@ -5,6 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Threading;
 
+using Tereditor.Host.Abstractions;
+
 namespace Tereditor.UI.Panels;
 
 public sealed partial class SettingsView
@@ -63,6 +65,9 @@ public sealed partial class SettingsView
         address.Text = listener.Address.ToString();
         port.Text = listener.Port.ToString(CultureInfo.InvariantCulture);
         token.Text = listener.Token;
+        var serveOnStart = PageControl<Switch>(page, "HostServeOnStart");
+        serveOnStart.IsChecked = state.Current.Settings.ServeOnStart;
+        serveOnStart.CheckedChange += on => Share(HostStateChange.Setting("serve-on-start", on ? "true" : "false"));
         var browsers = PageControl<StackPanel>(page, "HostBrowsers");
         string[] browserOrigins = [];
         var busy = false;
@@ -86,7 +91,10 @@ public sealed partial class SettingsView
             address.IsEnabled = port.IsEnabled = token.IsEnabled = !running && !busy;
             toggle.IsEnabled = !busy;
             toggle.Content = busy ? running ? "Stopping…" : "Starting…" : running ? "Stop listening" : "Start listening";
-            status.Text = running ? "Listening at " + listener.Endpoint : "Not listening";
+            serveOnStart.IsChecked = state.Current.Settings.ServeOnStart;
+            status.Text = running ? "Listening at " + listener.Endpoint
+                : listener.StartFailure is { } failure ? "Not listening. The host could not start when the app started: " + failure
+                : "Not listening";
             copyEndpoint.IsEnabled = copyToken.IsEnabled = showCode.IsEnabled = running && !busy;
             if (!running) code.IsVisible = false;
             if (running)

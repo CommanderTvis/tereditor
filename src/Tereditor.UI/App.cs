@@ -354,6 +354,8 @@ public sealed partial class App : Application
             desktop.MainWindow ??= window;
             if (window != desktop.MainWindow) window.Show();
         }
+        // Serving on launch starts after the windows exist and off the UI thread; a failure shows on the Host page.
+        if (listener is not null) _ = Task.Run(() => listener.StartOnLaunchAsync());
         workbench.Commands.Shutdown = () => desktop.TryShutdown();
         desktop.ShutdownRequested += (_, _) => workbench.ShuttingDown = true;
         desktop.Exit += (_, _) =>

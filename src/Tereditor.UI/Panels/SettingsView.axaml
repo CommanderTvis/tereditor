@@ -157,9 +157,18 @@
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                   <StackPanel Spacing="2">
                     <TextBlock Text="Session token" Classes="settings-label" />
-                    <TextBlock Text="Clients use this token to connect. Serving stays off until you start it, and stops when the app quits." Classes="settings-description" />
+                    <TextBlock Text="Clients use this token to connect. Serving stops when the app quits." Classes="settings-description" />
                   </StackPanel>
                   <TextBox x:Name="HostToken" Grid.Column="1" PasswordChar="●" Width="240" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+              <Border Classes="settings-row">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="Serve on start" Classes="settings-label" />
+                    <TextBlock Text="Start listening when the app starts. It uses the address and port above, and a new token each time." Classes="settings-description" />
+                  </StackPanel>
+                  <rendering:Switch x:Name="HostServeOnStart" Grid.Column="1" Label="Serve on start" />
                 </Grid>
               </Border>
               <TextBlock x:Name="HostStatus" TextWrapping="Wrap" />
