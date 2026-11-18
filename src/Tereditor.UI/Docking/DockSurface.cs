@@ -346,7 +346,6 @@ public sealed partial class DockSurface : Grid
     {
         // At Project Home the left side is its own Projects pane, whose width and visibility are its own.
         var home = Home && region == "left";
-        if (width <= double.Epsilon) { if (home) Session.HomeProjects(false); else Session.Visible(region, false); return; }
         var opposite = region == "left" ? GeometryState().RightWidth : GeometryState().LeftWidth;
         var available = Math.Max(double.Epsilon, 1 - opposite);
         var maximum = Math.Max(double.Epsilon, Math.Min(.7, available - Math.Min(1e-6, available / 2)));

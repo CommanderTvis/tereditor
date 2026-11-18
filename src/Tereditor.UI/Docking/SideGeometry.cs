@@ -22,8 +22,8 @@ internal sealed class SideGeometry
     private const double CenterMinimumPixels = 320;
 
     /// <summary>
-    /// The narrowest the fixed Projects rail gets: <see cref="MinPaneWidth"/>, at most 40% of the frame. Unlike a tool pane it never
-    /// folds to nothing, because the window's header and its traffic-light inset live in it.
+    /// The narrowest the fixed Projects rail gets: <see cref="MinPaneWidth"/>, at most 40% of the frame. Like every side pane it never
+    /// folds to nothing, and the window's header and its traffic-light inset live in it.
     /// </summary>
     public static double FixedLeftMinimum(double width) => width > 0 ? Math.Min(.4, MinPaneWidth / width) : .08;
 
@@ -36,17 +36,17 @@ internal sealed class SideGeometry
         var rightTarget = right ? state.RightWidth : 0;
         if (fixedLeft && left)
         {
-            // A narrow frame gives room up in a fixed order: the right side shrinks to its minimum, then folds away, then the rail
-            // shrinks to its own minimum, and only last does the main column go under its own minimum. The rail is never hidden.
+            // A narrow frame gives room up in a fixed order: the right side shrinks to its minimum, then the rail shrinks to its own minimum, and only last
+            // does the main column go under its own minimum. Neither side is ever hidden or folded to nothing.
             sizes = Narrow(leftTarget, rightTarget, right, width, sideMinimum);
             centerIndex = 1;
-            constraints = [new PanelConstraint(FixedLeftMinimum(width)), new(.01), .. right ? new[] { new PanelConstraint(sideMinimum, Collapsible: true) } : []];
+            constraints = [new PanelConstraint(FixedLeftMinimum(width)), new(.01), .. right ? new[] { new PanelConstraint(sideMinimum) } : []];
             return;
         }
         var centerMinimum = Math.Min(1 - (left ? sideMinimum : 0) - (right ? sideMinimum : 0), width > 0 ? CenterMinimumPixels / width : .1);
         centerIndex = left ? 1 : 0;
-        constraints = [.. left ? new[] { new PanelConstraint(sideMinimum, Collapsible: true) } : [],
-            new(centerMinimum), .. right ? new[] { new PanelConstraint(sideMinimum, Collapsible: true) } : []];
+        constraints = [.. left ? new[] { new PanelConstraint(sideMinimum) } : [],
+            new(centerMinimum), .. right ? new[] { new PanelConstraint(sideMinimum) } : []];
         sizes = PanelProjection.Validate([.. left ? new[] { leftTarget } : [],
             1 - leftTarget - rightTarget, .. right ? new[] { rightTarget } : []], constraints);
     }
@@ -59,7 +59,7 @@ internal sealed class SideGeometry
         var rail = Math.Clamp(leftTarget, railMinimum, .7);
         var side = right ? Math.Max(rightMinimum, Math.Min(rightTarget, 1 - rail)) : 0;
         var short1 = centerMinimum - (1 - rail - side);
-        if (short1 > 1e-12 && right) side = side - short1 >= rightMinimum ? side - short1 : 0;
+        if (short1 > 1e-12 && right) side = Math.Max(rightMinimum, side - short1);
         var short2 = centerMinimum - (1 - rail - side);
         if (short2 > 1e-12) rail = Math.Max(railMinimum, rail - short2);
         return right ? [rail, 1 - rail - side, side] : [rail, 1 - rail];

@@ -539,8 +539,11 @@ internal static class DockInputChecks
                 window.MouseUp(destination, MouseButton.Left); Dispatcher.UIThread.RunJobs();
                 var visible = region == "left" ? window.Layout.State.LeftVisible : window.Layout.State.RightVisible;
                 var retained = region == "left" ? window.Layout.State.LeftWidth : window.Layout.State.RightWidth;
-                Require(visible == (share > .5) && Math.Abs(retained - (visible ? minimum : initial)) < .001,
-                    "Side resize must snap to the 220px side minimum or collapse below half of it while retaining expanded width.");
+                Require(visible && Math.Abs(retained - minimum) < .001,
+                    "Side resize must stop at the 220px side minimum and never hide the side, however far the drag goes.");
+                var column = region == "left" ? 0 : 4;
+                Require(((Grid)Find<ResizeHandle>(region + "Separator").Parent!).ColumnDefinitions[column].Width.Value >= minimum - .001,
+                    "A side dragged past its minimum must keep that width on screen.");
             }
         window.Layout.ApplyPreset(DockState.Preset("balanced"));
         window.Layout.ApplyPreset(DockState.Preset("balanced"));
@@ -578,7 +581,19 @@ internal static class DockInputChecks
             "End must resize to the maximum permitted side width.");
         separator = Find<ResizeHandle>("leftSeparator"); Bounds(separator); separator.Focus();
         window.KeyPress(Key.Left, RawInputModifiers.Shift, PhysicalKey.ArrowLeft, null);
-        Require(!window.Layout.State.LeftVisible, "Shift-arrow must move through the full range and collapse the side.");
+        Require(window.Layout.State.LeftVisible && window.Layout.State.LeftWidth > .05, "Shift-arrow must stop at the side minimum and never collapse the side.");
+        window.Layout.ApplyPreset(DockState.Preset("balanced"));
+        window.Layout.Geometry(state => { state.LeftWidth = .001; state.RightWidth = .001; });
+        Dispatcher.UIThread.RunJobs();
+        foreach (var region in new[] { "left", "right" })
+        {
+            var frame = (Grid)Find<ResizeHandle>(region + "Separator").Parent!;
+            Require(frame.ColumnDefinitions[region == "left" ? 0 : 4].Width.Value >= .05,
+                $"A saved {region} width of nearly zero must be raised to the side minimum when it is applied.");
+        }
+        window.Layout.ApplyPreset(DockState.Preset("balanced"));
+        window.Layout.Visible("left", false); window.Layout.Visible("left", true);
+        Require(window.Layout.State.LeftVisible, "An explicit hide and show must still work.");
         window.Width = 2200; window.Height = 1600;
         window.Layout.ApplyPreset(DockState.Preset("balanced"));
         foreach (var edge in new[] { "right", "bottom" })

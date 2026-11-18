@@ -109,7 +109,7 @@ rail, and Mod+1 does nothing. Android desktop windows are unified too. `DockSurf
   bodies keep a 120px minimum; a folded pane occupies nothing inside the stack, keeps its weight and lives
   only on its rail. A side with no expanded pane takes no width. A side is at least 220px wide (at most 35% of the frame, `SideGeometry.MinPaneWidth`)
   while the frame fits two such sides and the 320px centre, else the 8% floor applies, by the separator and on restoring saved widths.
-  Dragging an outer separator below half that minimum hides the side and keeps its last expanded width; the rail brings it back. Saved widths stay
+  Dragging, arrow keys and a narrow window never take a side (the Projects rail, Project Home's Projects pane or a tool side) below that minimum or to nothing; only Hide and the rail's entries hide a side. A saved width below it is raised when applied, not rewritten. Saved widths stay
   ratios of the frame between the rails.
 - There is no bottom zone, alignment, resize handle or toggle shortcut. Legacy frames migrate nonterminal bottom documents to center and discard bottom terminal placements.
 - Side resize projects through left, center and right groups. Only the dragged side ratio is committed;
