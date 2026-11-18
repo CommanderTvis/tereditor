@@ -19,8 +19,15 @@ public sealed record GitHubSignIn(bool Connected, string Detail);
 public sealed record GitHubLabel(string Name, string Color);
 
 /// <summary>One row of an issue or pull request list. State is open, closed or merged; Checks is passing, failing, pending or none.</summary>
+/// <summary>A person with the address of their avatar image (http or https; may be empty).</summary>
+public sealed record GitHubPerson(string Login, string AvatarUrl);
+
 public sealed record GitHubItem(int Number, string Title, string State, bool Draft, string Author, IReadOnlyList<GitHubLabel> Labels, int Comments,
-    string CreatedAt, string UpdatedAt, string? ClosedAt, string Url, string Checks, string Review);
+    string CreatedAt, string UpdatedAt, string? ClosedAt, string Url, string Checks, string Review)
+{
+    /// <summary>Who the item is assigned to.</summary>
+    public IReadOnlyList<GitHubPerson> Assignees { get; init; } = [];
+}
 
 /// <summary>Kind is issues or pulls. Query is GitHub's search syntax without the repository and kind qualifiers. Revision is what the caller holds; the host answers Unchanged when it still matches.</summary>
 public sealed record GitHubListParams(string WorkspaceId, string Kind, string Query, int Limit = 25, string? Revision = null);
@@ -113,6 +120,8 @@ public sealed record GitHubDetail(bool Unchanged, string Revision, string Repo, 
 {
     /// <summary>Set when the header and body loaded but the timeline did not.</summary>
     public string? TimelineProblem { get; init; }
+    /// <summary>The assignees with their avatars (the same people as Assignees).</summary>
+    public IReadOnlyList<GitHubPerson> People { get; init; } = [];
 }
 
 public sealed record GitHubInfoParams(string WorkspaceId);
@@ -155,6 +164,7 @@ public static class GitHubContract
 [JsonSerializable(typeof(GitHubSignIn))]
 [JsonSerializable(typeof(GitHubListParams))]
 [JsonSerializable(typeof(GitHubList))]
+[JsonSerializable(typeof(GitHubPerson))]
 [JsonSerializable(typeof(GitHubDetailParams))]
 [JsonSerializable(typeof(GitHubDetail))]
 [JsonSerializable(typeof(GitHubInfoParams))]

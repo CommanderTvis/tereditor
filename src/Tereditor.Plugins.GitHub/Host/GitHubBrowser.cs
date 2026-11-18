@@ -100,7 +100,7 @@ public sealed partial class GitHubBrowser(ToolRunner run)
                     Text(head, "createdAt"), Text(head, "url"), Text(head, "body"), Labels(head), Names(head, "assignees", "login"),
                     head.TryGetProperty("milestone", out var milestone) && milestone.ValueKind == JsonValueKind.Object ? Text(milestone, "title") : null,
                     [.. nodes.Select(Event).OfType<GitHubEvent>()], truncated, pull ? Pull(head) : null)
-                { TimelineProblem = timelineProblem };
+                { TimelineProblem = timelineProblem, People = People(head) };
                 var revision = Revise($"detail|{repo.Slug}|{p.Number}", JsonSerializer.Serialize(detail, GitHubJson.Default.GitHubDetail));
                 return p.Revision == revision ? detail with { Unchanged = true, Revision = revision, Body = "", Timeline = [] } : detail with { Revision = revision };
             }
@@ -178,8 +178,11 @@ public sealed partial class GitHubBrowser(ToolRunner run)
         return new(node.GetProperty("number").GetInt32(), Text(node, "title"), State(node), pull && Bool(node, "isDraft"), Author(node), Labels(node),
             node.TryGetProperty("comments", out var comments) ? comments.GetProperty("totalCount").GetInt32() : 0,
             Text(node, "createdAt"), Text(node, "updatedAt"), node.TryGetProperty("closedAt", out var closed) && closed.ValueKind == JsonValueKind.String ? closed.GetString() : null,
-            Text(node, "url"), pull ? RollupState(node) : "none", pull ? ReviewState(node) : "none");
+            Text(node, "url"), pull ? RollupState(node) : "none", pull ? ReviewState(node) : "none") { Assignees = People(node) };
     }
+
+    private static IReadOnlyList<GitHubPerson> People(JsonElement node) =>
+        node.TryGetProperty("assignees", out var items) ? [.. items.GetProperty("nodes").EnumerateArray().Select(i => new GitHubPerson(Text(i, "login"), Text(i, "avatarUrl")))] : [];
 
     private static GitHubPullFacts Pull(JsonElement node)
     {
@@ -299,7 +302,7 @@ public sealed partial class GitHubBrowser(ToolRunner run)
     [GeneratedRegex(@"(^|\s)-?(is|state):(open|closed|merged)(?=\s|$)", RegexOptions.IgnoreCase)]
     private static partial Regex StateQualifiers();
 
-    private const string Common = "number title state url createdAt updatedAt closedAt author { login } labels(first: 10) { nodes { name color } } comments { totalCount }";
+    private const string Common = "number title state url createdAt updatedAt closedAt author { login } labels(first: 10) { nodes { name color } } assignees(first: 10) { nodes { login avatarUrl(size: 48) } } comments { totalCount }";
     private const string PullList = "isDraft reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }";
 
     private const string ListQuery = "query($q: String!, $open: String!, $closed: String!, $first: Int!, $owner: String!, $name: String!) { "
@@ -333,7 +336,7 @@ public sealed partial class GitHubBrowser(ToolRunner run)
         + "... on PullRequest { " + TimelineHead + SharedEvents + PullEvents + "} } } } } }";
 
     private const string HeadQuery = "query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issueOrPullRequest(number: $number) { __typename "
-        + "... on Issue { " + Common + " body assignees(first: 10) { nodes { login } } milestone { title } } "
-        + "... on PullRequest { " + Common + " " + PullList + " body assignees(first: 10) { nodes { login } } milestone { title } baseRefName headRefName additions deletions changedFiles mergeStateStatus "
+        + "... on Issue { " + Common + " body milestone { title } } "
+        + "... on PullRequest { " + Common + " " + PullList + " body milestone { title } baseRefName headRefName additions deletions changedFiles mergeStateStatus "
         + "commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 50) { nodes { __typename ... on CheckRun { name conclusion status } ... on StatusContext { context state } } } } } } } } } } }";
 }
