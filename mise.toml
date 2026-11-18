@@ -180,6 +180,10 @@ run = "dotnet run --file scripts/tasks/dev.cs --"
 description = "Publish the desktop app as NativeAOT tuned to this machine's CPU (IlcInstructionSet=native) into artifacts/native and run it, on macOS as artifacts/native/tereditor.app (--no-run to only publish, --print to show the commands); not queued, uses several GB"
 run = "dotnet run --file scripts/tasks/native.cs --"
 
+[tasks.instrumented-native]
+description = "Like native, for looking into the running app's memory: publishes into artifacts/instrumented-native with symbols kept (dSYM on macOS) and EventPipe linked in, so dotnet-counters and dotnet-trace can attach (--malloc-stack-logging starts it with MallocStackLogging=1; --no-run, --print as for native); not queued, uses several GB"
+run = "dotnet run --file scripts/tasks/native.cs -- --instrumented"
+
 [tasks.host]
 description = "Run only the remote host and print its connection QR code (TEREDITOR_CONNECT_HOST)"
 run = "dotnet run --file scripts/tasks/host.cs --"
