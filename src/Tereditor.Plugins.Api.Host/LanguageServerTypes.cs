@@ -55,7 +55,8 @@ public sealed record LanguageServerNuGetPackage(string Id, string Version, strin
 /// <param name="InstallHint">One line on how to install it on the host.</param>
 /// <param name="InstallOnly">Whether only the managed installation needs it, so an installed server runs without it.</param>
 /// <param name="HomeVariable">An environment variable naming the tool's home (such as <c>JAVA_HOME</c>), searched as <c>home/bin</c> and <c>home</c> before PATH.</param>
-public sealed record LanguageServerDependency(string Executable, string Name, string InstallHint, bool InstallOnly = false, string HomeVariable = "");
+/// <param name="MinimumMajor">For a JDK, the oldest major version the server accepts; 0 for any. A JDK found on the host that is older is passed over when the Runtimes for tooling plugin can provide one.</param>
+public sealed record LanguageServerDependency(string Executable, string Name, string InstallHint, bool InstallOnly = false, string HomeVariable = "", int MinimumMajor = 0);
 
 /// <summary>One named configuration control shown for the server in the language configuration view.</summary>
 /// <param name="Label">The control's label.</param>

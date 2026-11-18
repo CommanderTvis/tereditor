@@ -257,7 +257,7 @@ internal sealed partial class RuntimesSettingsView : StackPanel
         try
         {
             var settings = context.Settings<RuntimesSettings>();
-            await context.UpdateSettingsAsync(kind == "bun" ? settings with { BunPath = path } : settings with { UvPath = path });
+            await context.UpdateSettingsAsync(kind switch { "bun" => settings with { BunPath = path }, "uv" => settings with { UvPath = path }, _ => settings with { JdkPath = path } });
         }
         catch (Exception) { context.Notify(PluginNotificationKind.Error, "Couldn't save the path"); return; }
         await RunAsync(token => context.RequestAsync(RuntimesContract.Status, new RuntimesStatusParams(), token).AsTask());

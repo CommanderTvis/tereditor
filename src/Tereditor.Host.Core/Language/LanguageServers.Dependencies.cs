@@ -12,7 +12,7 @@ internal sealed record ToolProbe(string State, string Path, string Source, strin
 internal sealed partial class LanguageServers
 {
     private static readonly TimeSpan ProbeLifetime = TimeSpan.FromSeconds(30);
-    private readonly ConcurrentDictionary<(string Workspace, string Executable, string Home, string Override, ToolchainSource Source), (DateTime Time, ToolProbe Probe)> probes = new();
+    private readonly ConcurrentDictionary<(string Workspace, string Executable, string Home, string Override, ToolchainSource Source, int Minimum, bool Runtimes), (DateTime Time, ToolProbe Probe)> probes = new();
 
     /// <summary>The user's host-wide tool paths from host state, as a JSON object of executable name to absolute path.</summary>
     internal Func<string> ToolPaths { get; set; } = () => "";
@@ -56,19 +56,19 @@ internal sealed partial class LanguageServers
     /// <summary>Drops the cached probes, so the next listing searches the machine again.</summary>
     internal void ForgetProbes() => probes.Clear();
 
-    internal ToolProbe ProbeTool(string executable, string workspace, string homeVariable = "", bool fresh = false)
+    internal ToolProbe ProbeTool(string executable, string workspace, string homeVariable = "", bool fresh = false, int minimumMajor = 0)
     {
         var chosen = ToolOverride(executable);
         var source = Toolchain;
-        var key = (workspace, executable, homeVariable, chosen, source);
+        var key = (workspace, executable, homeVariable, chosen, source, minimumMajor, RuntimesEnabled());
         if (!fresh && probes.TryGetValue(key, out var cached) && DateTime.UtcNow - cached.Time < ProbeLifetime) return cached.Probe;
         Interlocked.Increment(ref ProbeRuns);
-        var probe = Probe(executable, workspace, homeVariable, chosen, source);
+        var probe = Probe(executable, workspace, homeVariable, chosen, source, minimumMajor);
         probes[key] = (DateTime.UtcNow, probe);
         return probe;
     }
 
-    private ToolProbe Probe(string executable, string workspace, string homeVariable, string chosen, ToolchainSource source)
+    private ToolProbe Probe(string executable, string workspace, string homeVariable, string chosen, ToolchainSource source, int minimumMajor)
     {
         if (chosen.Length > 0)
             return LanguageExecutables.Reject(chosen, workspace) is { } problem ? new("rejected", chosen, "override", problem) : new("found", chosen, "override", "");
@@ -87,9 +87,9 @@ internal sealed partial class LanguageServers
         var file = executable + (OperatingSystem.IsWindows() ? ".exe" : "");
         if (homeVariable.Length > 0 && Environment.GetEnvironmentVariable(homeVariable) is { Length: > 0 } home && Path.IsPathFullyQualified(home))
             foreach (var candidate in new[] { Path.Combine(home, "bin", file), Path.Combine(home, file) })
-                if (File.Exists(candidate) && LanguageExecutables.Reject(candidate, workspace) is null) return new("found", candidate, "home", "");
+                if (File.Exists(candidate) && LanguageExecutables.Reject(candidate, workspace) is null && !TooOld(executable, candidate, minimumMajor, workspace, unknownIsOld: false)) return new("found", candidate, "home", "");
         var rejected = new List<string>();
-        if (LanguageExecutables.FindOnPath(executable, workspace, rejected) is { } found) return new("found", found, "path", "");
+        if (LanguageExecutables.FindOnPath(executable, workspace, rejected) is { } found && !TooOld(executable, found, minimumMajor, workspace, unknownIsOld: true)) return new("found", found, "path", "");
         // Under the host's PATH a provisioned runtime (Bun) that is not on it is the pinned one in the cache, once downloaded.
         if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } && !RuntimesEnabled()) return new("missing", "", "managed", OffProblem(ManagedRuntimes.KindOf(executable)!));
         if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } && ManagedRuntimes.FindInstalled(directory, executable, ManagedArtifacts.Platform(), workspace) is { } cached)
@@ -97,6 +97,18 @@ internal sealed partial class LanguageServers
         if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } fetch && !Toolchains.Offline && ManagedRuntimes.Choose(fetch.Id, ManagedArtifacts.Platform(), workspace) is { } wanted)
             return new("download", "", "managed", $"{fetch.Name} {wanted.Version} is downloaded on first use.");
         return new("missing", "", "", rejected.FirstOrDefault() ?? "");
+    }
+
+    /// <summary>
+    /// Whether a JDK found on the host is older than the server accepts and the Runtimes for tooling plugin can provide its own, which is then used instead.
+    /// With no way to provide one (the plugin off, offline, nothing pinned) the host's JDK is kept, as before. A <c>JAVA_HOME</c> whose version cannot be read is trusted; a PATH program is not.
+    /// </summary>
+    private bool TooOld(string executable, string candidate, int minimumMajor, string workspace, bool unknownIsOld)
+    {
+        if (minimumMajor <= 0 || ManagedRuntimes.KindOf(executable) is not { Id: "jdk" } kind || !RuntimesEnabled()) return false;
+        if (ManagedRuntimes.Choose(kind.Id, ManagedArtifacts.Platform(), workspace) is not { } pin || !ManagedRuntimes.IsInstalled(directory, pin) && Toolchains.Offline) return false;
+        var major = ManagedRuntimes.JdkMajor(candidate);
+        return major == 0 ? unknownIsOld : major < minimumMajor;
     }
 
     /// <summary>The dependency a server declares for a tool, or a generic one for a tool it does not declare.</summary>
@@ -107,12 +119,12 @@ internal sealed partial class LanguageServers
     internal string RequireTool(LanguageServer server, string executable, string workspace)
     {
         var dependency = Dependency(server, executable);
-        var probe = ProbeTool(executable, workspace, dependency.HomeVariable, fresh: true);
+        var probe = ProbeTool(executable, workspace, dependency.HomeVariable, fresh: true, minimumMajor: dependency.MinimumMajor);
         return probe.State == "found" ? probe.Path : throw new IOException(Needs(dependency, probe));
     }
 
     internal string? FindTool(LanguageServer server, string executable, string workspace) =>
-        ProbeTool(executable, workspace, Dependency(server, executable).HomeVariable, fresh: true) is { State: "found" } probe ? probe.Path : null;
+        ProbeTool(executable, workspace, Dependency(server, executable).HomeVariable, fresh: true, minimumMajor: Dependency(server, executable).MinimumMajor) is { State: "found" } probe ? probe.Path : null;
 
     private static string Needs(LanguageServerDependency dependency, ToolProbe probe) => probe.State == "rejected"
         ? $"Needs {dependency.Name}: your path for it cannot run. {probe.Problem}"
@@ -133,7 +145,7 @@ internal sealed partial class LanguageServers
         var tools = CurrentTools();
         return [.. spec.Dependencies.Select(dependency =>
         {
-            var probe = ProbeTool(dependency.Executable, workspace, dependency.HomeVariable, fresh);
+            var probe = ProbeTool(dependency.Executable, workspace, dependency.HomeVariable, fresh, dependency.MinimumMajor);
             return new LanguageDependencyState(dependency.Executable, dependency.Name, probe.State, probe.Path, probe.Source, dependency.InstallHint, probe.Problem,
                 tools.ContainsKey(dependency.Executable), managed && (!dependency.InstallOnly || !installed));
         })];
@@ -142,15 +154,15 @@ internal sealed partial class LanguageServers
     /// <summary>Under a managed toolchain (and, for Bun, also under the host's PATH when it is not there), installs the pinned runtimes the server's dependencies need (offline: fails at once when the cache lacks one). A runtime nothing pins is left to <see cref="RequireDependencies"/>.</summary>
     private async Task EnsureRuntimesAsync(LanguageServer server, string workspace, CancellationToken token)
     {
-        foreach (var dependency in server.Spec.Dependencies) await EnsureRuntimeAsync(server.Id, dependency.Executable, dependency.HomeVariable, workspace, token);
+        foreach (var dependency in server.Spec.Dependencies) await EnsureRuntimeAsync(server.Id, dependency.Executable, dependency.HomeVariable, workspace, token, dependency.MinimumMajor);
     }
 
-    private async Task EnsureRuntimeAsync(string owner, string executable, string homeVariable, string workspace, CancellationToken token)
+    private async Task EnsureRuntimeAsync(string owner, string executable, string homeVariable, string workspace, CancellationToken token, int minimumMajor = 0)
     {
         var platform = ManagedArtifacts.Platform();
         if (ManagedRuntimes.KindOf(executable) is { } kind && Usable(kind) && (Toolchain != ToolchainSource.Path || kind.Provisioned) && ToolOverride(executable).Length == 0 && ManagedRuntimes.Choose(kind.Id, platform, workspace) is { } pin)
         {
-            if (Toolchain != ToolchainSource.Managed && ProbeTool(executable, workspace, homeVariable, fresh: true) is { State: "found" }) return;
+            if (Toolchain != ToolchainSource.Managed && ProbeTool(executable, workspace, homeVariable, fresh: true, minimumMajor: minimumMajor) is { State: "found" }) return;
             if (!ManagedRuntimes.IsInstalled(directory, pin) && !Toolchains.Offline && !await ConsentAsync(kind, pin, token)) throw new IOException(DeclinedProblem(kind));
             await ManagedRuntimes.EnsureAsync(directory, pin, managedHttp, message => CodeIntelligenceLog.Info("host.install-progress", ("server", owner), ("message", message)), Toolchains.Offline, token);
             ForgetProbes();
@@ -158,11 +170,11 @@ internal sealed partial class LanguageServers
     }
 
     /// <summary>The path of a host tool (Bun for the ACP plugin's npx agents) by the same rules as a server's dependency: the user's path, then the managed pin or PATH per the toolchain, downloading the pin when it is the answer. Null when none is available.</summary>
-    internal async Task<string?> ProvideToolAsync(string executable, string workspace, CancellationToken token)
+    internal async Task<string?> ProvideToolAsync(string executable, string workspace, CancellationToken token, int minimumMajor = 0)
     {
-        try { await EnsureRuntimeAsync("host", executable, "", workspace, token); }
+        try { await EnsureRuntimeAsync("host", executable, "", workspace, token, minimumMajor); }
         catch (IOException error) { CodeIntelligenceLog.Info("host.tool-unavailable", ("tool", executable), ("message", error.Message)); return null; }
-        return ProbeTool(executable, workspace, "", fresh: true) is { State: "found" } probe ? probe.Path : null;
+        return ProbeTool(executable, workspace, "", fresh: true, minimumMajor: minimumMajor) is { State: "found" } probe ? probe.Path : null;
     }
 
     /// <summary>Refuses a managed start while a tool it needs is missing, naming the tool instead of failing inside the launch.</summary>

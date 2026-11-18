@@ -696,7 +696,7 @@ override Tereditor.Plugins.Api.Host.LanguageServerDependency.Equals(object? obj)
 override Tereditor.Plugins.Api.Host.LanguageServerDependency.GetHashCode() -> int
 override Tereditor.Plugins.Api.Host.LanguageServerDependency.ToString() -> string!
 Tereditor.Plugins.Api.Host.LanguageServerDependency.<Clone>$() -> Tereditor.Plugins.Api.Host.LanguageServerDependency!
-Tereditor.Plugins.Api.Host.LanguageServerDependency.Deconstruct(out string! Executable, out string! Name, out string! InstallHint, out bool InstallOnly, out string! HomeVariable) -> void
+Tereditor.Plugins.Api.Host.LanguageServerDependency.Deconstruct(out string! Executable, out string! Name, out string! InstallHint, out bool InstallOnly, out string! HomeVariable, out int MinimumMajor) -> void
 Tereditor.Plugins.Api.Host.LanguageServerDependency.Equals(Tereditor.Plugins.Api.Host.LanguageServerDependency? other) -> bool
 Tereditor.Plugins.Api.Host.LanguageServerDependency.Executable.get -> string!
 Tereditor.Plugins.Api.Host.LanguageServerDependency.Executable.init -> void
@@ -706,7 +706,9 @@ Tereditor.Plugins.Api.Host.LanguageServerDependency.InstallHint.get -> string!
 Tereditor.Plugins.Api.Host.LanguageServerDependency.InstallHint.init -> void
 Tereditor.Plugins.Api.Host.LanguageServerDependency.InstallOnly.get -> bool
 Tereditor.Plugins.Api.Host.LanguageServerDependency.InstallOnly.init -> void
-Tereditor.Plugins.Api.Host.LanguageServerDependency.LanguageServerDependency(string! Executable, string! Name, string! InstallHint, bool InstallOnly = false, string! HomeVariable = "") -> void
+Tereditor.Plugins.Api.Host.LanguageServerDependency.LanguageServerDependency(string! Executable, string! Name, string! InstallHint, bool InstallOnly = false, string! HomeVariable = "", int MinimumMajor = 0) -> void
+Tereditor.Plugins.Api.Host.LanguageServerDependency.MinimumMajor.get -> int
+Tereditor.Plugins.Api.Host.LanguageServerDependency.MinimumMajor.init -> void
 Tereditor.Plugins.Api.Host.LanguageServerDependency.Name.get -> string!
 Tereditor.Plugins.Api.Host.LanguageServerDependency.Name.init -> void
 Tereditor.Plugins.Api.Host.LanguageServerDependency
@@ -1013,6 +1015,7 @@ Tereditor.Plugins.Api.Host.RuntimeKind.Bun = 0 -> Tereditor.Plugins.Api.Host.Run
 Tereditor.Plugins.Api.Host.RuntimeSource.Pinned = 0 -> Tereditor.Plugins.Api.Host.RuntimeSource
 Tereditor.Plugins.Api.Host.RuntimeSource.System = 1 -> Tereditor.Plugins.Api.Host.RuntimeSource
 Tereditor.Plugins.Api.Host.RuntimeKind.Uv = 1 -> Tereditor.Plugins.Api.Host.RuntimeKind
+Tereditor.Plugins.Api.Host.RuntimeKind.Jdk = 2 -> Tereditor.Plugins.Api.Host.RuntimeKind
 Tereditor.Plugins.Api.Host.RuntimeSource.Downloaded = 2 -> Tereditor.Plugins.Api.Host.RuntimeSource
 Tereditor.Plugins.Api.Host.RuntimeResolution.Args.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Tereditor.Plugins.Api.Host.RuntimeResolution.Command.get -> string!

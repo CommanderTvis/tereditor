@@ -227,7 +227,7 @@ download.
 ### Managed runtimes
 
 The tools servers need can also come from pinned runtimes in the cache, so a slim headless image carries none of them.
-`ManagedRuntimes` holds one entry per runtime kind (the .NET SDK, Bun and uv now; a JDK and Python are table entries to
+`ManagedRuntimes` holds one entry per runtime kind (the .NET SDK, Bun, uv and a Temurin JDK 21 now; Python is a table entry to
 add) and one pin per version and platform: exact version, URL on an allow-listed host, the SHA-256 the host verifies
 before extraction, and the publisher's SHA-512 recorded beside it. Installation reuses `ArtifactInstaller`: hash
 first, bounded extraction, an atomic move into `runtimes/<id>/<version>-<hash prefix>`, nothing left behind on a
@@ -263,13 +263,15 @@ uv (`uv` and `uvx`) is pinned the same way (0.13.9; macOS arm64, Linux x64 and a
 `pyproject.toml` and `.env` from the working directory, so every uv run gets `UV_NO_CONFIG=1` and `UV_NO_ENV_FILE=1`; the downloaded copy
 also keeps its cache, tools and Pythons in `uv-home` of the cache (`UV_CACHE_DIR`, `UV_TOOL_DIR`, `UV_PYTHON_INSTALL_DIR`), next to `bun-home`.
 
-Bun and uv are downloaded only while the Runtimes for tooling plugin ([its SPEC](../../Tereditor.Plugins.Runtimes/SPEC.md)) is on, and only
+The JDK is the one Temurin 21 (Adoptium API, `api.adoptium.net/v3/assets/latest/21/hotspot`: its published SHA-256 per platform, macOS arm64 and x64, Linux x64 and arm64, Windows x64; GitHub release hosts). It only runs the Java-based servers (jdtls needs 21 or newer, Metals takes 11, 17 or 21), never builds or analyses a project: the project JDK stays what the user's project and the server's own settings (`java.home`) say. The servers declare `java` with a `MinimumMajor` (jdtls 21, Metals 11). A JDK the user set (host tool path or the plugin's `JdkPath`) always wins. Then `JAVA_HOME` and PATH, but only when their `release` file says the major version suits the server (a `JAVA_HOME` whose version cannot be read is trusted, a PATH program is not: the macOS stub) or when the JDK cannot be provided (plugin off, offline, no pin). Otherwise the downloaded JDK is used: `runtimes/jdk`, home `Contents/Home` on macOS, and the launch gets `JAVA_HOME` naming it with its `bin` first on PATH (`LanguageServers.ConfigureCaches`). Under `toolchains.source = managed` the same pin comes first.
+
+Bun, uv and the JDK are downloaded only while the Runtimes for tooling plugin ([its SPEC](../../Tereditor.Plugins.Runtimes/SPEC.md)) is on, and only
 when a plugin asks (`IPluginHostContext.ResolveRuntimeAsync`, or a server that needs Bun starting), never at startup. That
 request resolves in this order: the path the user pinned (the host tool path, else the plugin's setting), then an install on the hardened PATH (skipped under
 `toolchains.source = managed`, which means only the host's own copies), then the downloaded copy, downloaded now when none exists.
 With the plugin off, and no pinned or PATH install, a server that needs Bun says `Needs Bun.` and that Runtimes for tooling is off and where to
-turn it on; the downloaded copy is not used. Turning the plugin off removes `runtimes/bun`, `runtimes/uv`, `bun-home` and `uv-home`
-(`LanguageService.PurgeRuntimeDownloadsAsync`) after stopping the language servers that run on Bun and the processes plugins reported with
+turn it on; the downloaded copy is not used. Turning the plugin off removes `runtimes/bun`, `runtimes/uv`, `runtimes/jdk`, `bun-home` and `uv-home`
+(`LanguageService.PurgeRuntimeDownloadsAsync`) after stopping the language servers that run on Bun or declare a `java` dependency and the processes plugins reported with
 `TrackRuntimeProcess`. Turning a language server plugin off removes `servers/<id>`, `cache/<id>` and `workspaces/*/<id>`
 (`PurgeServerDownloadsAsync`). Quitting tereditor removes nothing. A path the user pinned and a Bun or uv found on PATH are never stopped or deleted.
 

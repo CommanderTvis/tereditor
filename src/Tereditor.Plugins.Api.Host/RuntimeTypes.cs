@@ -1,13 +1,16 @@
 namespace Tereditor.Plugins.Api.Host;
 
-/// <summary>A program runtime the host can provide to plugins: Bun (<c>bunx</c>) or uv (<c>uvx</c>).</summary>
+/// <summary>A program runtime the host can provide to plugins: Bun (<c>bunx</c>), uv (<c>uvx</c>) or a Temurin JDK 21 that only runs Java-based language servers.</summary>
 public enum RuntimeKind
 {
     /// <summary>Bun. <see cref="RuntimeResolution.Args"/> start with <c>x</c>, so the command runs a package the way <c>bunx</c> does.</summary>
     Bun,
 
     /// <summary>uv. <see cref="RuntimeResolution.Args"/> start with <c>tool run</c>, so the command runs a package the way <c>uvx</c> does.</summary>
-    Uv
+    Uv,
+
+    /// <summary>A Temurin JDK 21. <see cref="RuntimeResolution.Command"/> is its <c>java</c>, <see cref="RuntimeResolution.Args"/> are empty and <see cref="RuntimeResolution.Env"/> sets <c>JAVA_HOME</c>. Never the JDK of a project.</summary>
+    Jdk
 }
 
 /// <summary>Where a runtime came from, in the order the host tries them.</summary>

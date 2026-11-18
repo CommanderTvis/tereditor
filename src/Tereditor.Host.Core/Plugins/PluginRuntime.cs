@@ -448,7 +448,7 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
     private string RuntimePin(string executable)
     {
         var settings = Settings<Tereditor.Plugins.Runtimes.RuntimesSettings>(Tereditor.Plugins.Runtimes.RuntimesPlugin.Id);
-        return executable switch { "bun" => settings.BunPath, "uv" => settings.UvPath, _ => "" };
+        return executable switch { "bun" => settings.BunPath, "uv" => settings.UvPath, "java" => settings.JdkPath, _ => "" };
     }
 
     private static bool Enabled(PluginEntry entry, IReadOnlyDictionary<string, JsonElement> settings, HostKind kind) =>

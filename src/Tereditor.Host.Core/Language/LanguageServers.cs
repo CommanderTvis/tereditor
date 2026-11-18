@@ -175,6 +175,20 @@ internal sealed partial class LanguageServers(string directory, Func<string>? co
         var installation = new Installation(this, server, workspace);
         Directory.CreateDirectory(installation.ServerCache);
         server.Spec.ConfigureLaunch(installation, new() { Arguments = start.ArgumentList, Environment = start.Environment });
+        ProvideJdk(start, server, workspace);
+    }
+
+    /// <summary>
+    /// A server that needs a JDK and found none of the user's (no path set, no suitable JAVA_HOME or PATH program) runs on the Temurin JDK the Runtimes for tooling plugin downloaded:
+    /// <c>JAVA_HOME</c> names it and its <c>bin</c> leads PATH, so a launcher script finds it too. A JDK the user chose is never replaced, and this is never the project's JDK.
+    /// </summary>
+    private void ProvideJdk(ProcessStartInfo start, LanguageServer server, string workspace)
+    {
+        if (server.Spec.Dependencies.FirstOrDefault(item => item.Executable == "java") is not { } dependency) return;
+        if (ProbeTool("java", workspace, dependency.HomeVariable, fresh: true, minimumMajor: dependency.MinimumMajor) is not { State: "found", Source: "managed" } probe) return;
+        var bin = Path.GetDirectoryName(probe.Path)!;
+        start.Environment["JAVA_HOME"] = Path.GetDirectoryName(bin);
+        start.Environment["PATH"] = bin + Path.PathSeparator + (start.Environment.TryGetValue("PATH", out var path) ? path : "");
     }
 
     private async Task<ProcessStartInfo> ProvisionCoreAsync(LanguageServer server, Installation installation, CancellationToken token)

@@ -4,7 +4,7 @@ using Tereditor.Plugins.Api.Host;
 namespace Tereditor.Plugins.Runtimes.Host;
 
 /// <summary>
-/// The host half: the state of Bun and uv, Download now and Remove download. The resolution itself is the host's (<see cref="IPluginHostContext.ResolveRuntimeAsync"/>)
+/// The host half: the state of Bun, uv and the JDK, Download now and Remove download. The resolution itself is the host's (<see cref="IPluginHostContext.ResolveRuntimeAsync"/>)
 /// and the plugin's switch is what allows it to download. Turned off by the user, it stops what runs from its downloads and deletes all of them; quitting does not.
 /// </summary>
 public sealed class RuntimesHost : PluginHostModule
@@ -26,7 +26,7 @@ public sealed class RuntimesHost : PluginHostModule
             try { await Task.Run(() => context.DownloadRuntimeAsync(kind, token).AsTask(), token); }
             catch (Exception failure) when (failure is IOException or HttpRequestException or InvalidDataException or UnauthorizedAccessException)
             {
-                error = (kind == RuntimeKind.Bun ? "Bun" : "uv") + " could not be downloaded: " + failure.Message;
+                error = (kind switch { RuntimeKind.Bun => "Bun", RuntimeKind.Uv => "uv", _ => "The JDK" }) + " could not be downloaded: " + failure.Message;
             }
             return await StateAsync(context, error, token);
         });
@@ -48,12 +48,13 @@ public sealed class RuntimesHost : PluginHostModule
     {
         "bun" => RuntimeKind.Bun,
         "uv" => RuntimeKind.Uv,
+        "jdk" => RuntimeKind.Jdk,
         _ => throw new ArgumentException("Unknown runtime: " + kind)
     };
 
     private static async ValueTask<RuntimesState> StateAsync(IPluginHostContext context, string error, CancellationToken token) =>
         // The embedded host runs a handler on the caller's thread, and the status walks the cache folders.
-        new([.. (await Task.Run(() => context.RuntimeStatusAsync(token).AsTask(), token)).Select(status => new RuntimeRow(status.Kind == RuntimeKind.Bun ? "bun" : "uv", status.Name,
+        new([.. (await Task.Run(() => context.RuntimeStatusAsync(token).AsTask(), token)).Select(status => new RuntimeRow(status.Kind switch { RuntimeKind.Bun => "bun", RuntimeKind.Uv => "uv", _ => "jdk" }, status.Name,
             status.Source switch { RuntimeSource.Pinned => "pinned", RuntimeSource.System => "system", RuntimeSource.Downloaded => "downloaded", _ => "" },
             status.Path, status.Version, status.Pinned, status.DownloadBytes, status.Downloaded, status.Message)
             { DownloadedPath = status.DownloadedPath, Downloading = status.Downloading, ReceivedBytes = status.ReceivedBytes, TotalBytes = status.TotalBytes })], error);

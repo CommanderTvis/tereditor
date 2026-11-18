@@ -67,12 +67,13 @@ internal static class RuntimesChecks
         var root = Path.Combine(fixture, "runtimes");
         if (Directory.Exists(root)) Directory.Delete(root, true);
         Directory.CreateDirectory(root);
-        var saved = new[] { Toolchains.SourceVariable, Toolchains.CacheVariable, Toolchains.OfflineVariable, "PATH" }.ToDictionary(name => name, Environment.GetEnvironmentVariable);
+        var saved = new[] { Toolchains.SourceVariable, Toolchains.CacheVariable, Toolchains.OfflineVariable, "PATH", "JAVA_HOME" }.ToDictionary(name => name, Environment.GetEnvironmentVariable);
         Env(Toolchains.SourceVariable, null); Env(Toolchains.CacheVariable, null); Env(Toolchains.OfflineVariable, null);
         try
         {
             await Resolution(root);
             await Consent(root);
+            await Jdk(root);
             await Disabling(root);
         }
         finally { foreach (var (name, value) in saved) Env(name, value); ManagedRuntimes.UsePins(null); }
@@ -129,6 +130,110 @@ internal static class RuntimesChecks
         broker.Close();
         Require(!await other && broker.Snapshot().Pending.Count == 0, "Closing the plugin answers open questions with No.");
         Console.WriteLine("PASS one question per runtime, a remembered Not now, and Download now clears it");
+    }
+
+    // A tar.gz like Temurin's: one top folder with the JDK's files, the macOS layout when home is "Contents/Home".
+    private static byte[] JdkArchive(string home, int major)
+    {
+        using var output = new MemoryStream();
+        using (var gzip = new GZipStream(output, CompressionLevel.Fastest, true))
+        using (var writer = new TarWriter(gzip, TarEntryFormat.Pax, true))
+        {
+            foreach (var folder in new[] { "jdk-fake/", $"jdk-fake/{home}/", $"jdk-fake/{home}/bin/" }.Select(path => path.Replace("//", "/")))
+                writer.WriteEntry(new PaxTarEntry(TarEntryType.Directory, folder) { Mode = (UnixFileMode)0x1ed });
+            writer.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, $"jdk-fake/{home}/bin/java") { Mode = (UnixFileMode)0x1ed, DataStream = new MemoryStream("#!/bin/sh\necho openjdk 21.0.13\n"u8.ToArray()) });
+            writer.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, $"jdk-fake/{home}/release") { Mode = (UnixFileMode)0x1a4, DataStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes($"JAVA_VERSION=\"{major}.0.13\"\n")) });
+        }
+        return output.ToArray();
+    }
+
+    // A JDK the user might have: bin/java beside a release file.
+    private static string Home(string directory, string version)
+    {
+        Directory.CreateDirectory(Path.Combine(directory, "bin"));
+        File.WriteAllText(Path.Combine(directory, "release"), $"JAVA_VERSION=\"{version}\"\n");
+        return Tool(Path.Combine(directory, "bin"), "java");
+    }
+
+    private static async Task Jdk(string root)
+    {
+        // The shipped pins: Temurin 21 for the five platforms the Adoptium API serves, one version, a SHA-256 each, GitHub release hosts only.
+        ManagedRuntimes.UsePins(null);
+        var shipped = ManagedRuntimes.Pins.Where(pin => pin.Id == "jdk").ToArray();
+        Require(shipped.Select(pin => pin.Platform).Order().SequenceEqual(["linux-aarch64", "linux-x86_64", "macos-aarch64", "macos-x86_64", "windows-x86_64"]) && shipped.Select(pin => pin.Version).Distinct().Count() == 1 && shipped[0].Version.StartsWith("21.", StringComparison.Ordinal), "The JDK is not pinned at one 21 version for exactly the five platforms.");
+        Require(shipped.All(pin => pin.Url.StartsWith("https://github.com/adoptium/temurin21-binaries/releases/download/", StringComparison.Ordinal) && pin.Sha256.Length == 64 && pin.Hosts!.Contains(new Uri(pin.Url).Host)) && shipped.Select(pin => pin.Sha256).Distinct().Count() == shipped.Length, "A JDK pin lacks its SHA-256 or leaves Temurin's releases.");
+        var layout = Path.Combine(root, "jdk-layout");
+        var kind = ManagedRuntimes.KindOf("java")!;
+        Directory.CreateDirectory(Path.Combine(layout, "flat", "jdk-21", "bin"));
+        Directory.CreateDirectory(Path.Combine(layout, "mac", "jdk-21", "Contents", "Home", "bin"));
+        Require(ManagedRuntimes.BinDirectoryOf(Path.Combine(layout, "flat"), kind) == Path.Combine(layout, "flat", "jdk-21", "bin") && ManagedRuntimes.HomeOf(Path.Combine(layout, "flat"), kind) == Path.Combine(layout, "flat", "jdk-21")
+            && ManagedRuntimes.BinDirectoryOf(Path.Combine(layout, "mac"), kind) == Path.Combine(layout, "mac", "jdk-21", "Contents", "Home", "bin") && ManagedRuntimes.HomeOf(Path.Combine(layout, "mac"), kind) == Path.Combine(layout, "mac", "jdk-21", "Contents", "Home"), "A JDK's bin and home are not found in the Linux, Windows and macOS layouts.");
+        Console.WriteLine("PASS the Temurin JDK is pinned for five platforms with a SHA-256 and found in its Linux and macOS layouts");
+
+        var archive = JdkArchive("Contents/Home", 21);
+        ManagedRuntimes.UsePins([Pin("jdk", archive)]);
+        var source = new FakeSource { Bodies = { ["jdk-"] = archive } };
+        using var http = new HttpClient(source);
+        var workspace = Path.Combine(root, "jdk-workspace");
+        Directory.CreateDirectory(workspace);
+        var empty = Path.Combine(root, "jdk-empty-path");
+        Directory.CreateDirectory(empty);
+        var java = LanguageServers.Catalog.Single(server => server.Id == "java");
+        var metals = LanguageServers.Catalog.Single(server => server.Id == "scala");
+        var old = Home(Path.Combine(root, "jdk-17"), "17.0.9");
+        var current = Home(Path.Combine(root, "jdk-21"), "21.0.2");
+        Env("PATH", empty);
+        Env("JAVA_HOME", null);
+
+        // jdtls needs 21, Metals takes 11 or newer: a JDK of the user's that suits the server is used and nothing is downloaded.
+        var servers = new LanguageServers(Path.Combine(root, "jdk"), null, http);
+        Env("JAVA_HOME", Path.GetDirectoryName(Path.GetDirectoryName(old)));
+        Require(servers.ProbeTool("java", workspace, "JAVA_HOME", true, 11) is { State: "found", Source: "home" } && servers.ProbeTool("java", workspace, "JAVA_HOME", true, 21) is { State: "download", Source: "managed" }, "A JDK 17 must suit Metals and be passed over for jdtls.");
+        Env("JAVA_HOME", Path.GetDirectoryName(Path.GetDirectoryName(current)));
+        Require(servers.ProbeTool("java", workspace, "JAVA_HOME", true, 21) is { State: "found", Source: "home" } && source.Requests == 0, "A JDK 21 of the user's must be used and nothing downloaded.");
+        Env("JAVA_HOME", null);
+        Env("PATH", Path.GetDirectoryName(old));
+        Require(servers.ProbeTool("java", workspace, "JAVA_HOME", true, 11) is { State: "found", Source: "path" } && servers.ProbeTool("java", workspace, "JAVA_HOME", true, 21) is { State: "download" }, "The same must hold for a JDK on PATH.");
+        Console.WriteLine("PASS a JDK of the user's is used when it suits the server (jdtls 21, Metals 11) and passed over when it is older");
+
+        // Nothing suitable and the plugin on: the JDK is downloaded once, checked, and both servers launch with JAVA_HOME naming it.
+        Env("PATH", empty);
+        var provided = await servers.ProvideToolAsync("java", workspace, default, 21);
+        Require(provided is not null && provided.StartsWith(Path.Combine(root, "jdk", "runtimes", "jdk"), StringComparison.Ordinal) && provided.EndsWith(Path.Combine("Contents", "Home", "bin", "java"), StringComparison.Ordinal) && source.Requests == 1, "The JDK was not downloaded into the cache: " + provided);
+        var home = Path.GetDirectoryName(Path.GetDirectoryName(provided))!;
+        foreach (var server in new[] { java, metals })
+        {
+            var start = LanguageServers.Start("fixture", []);
+            servers.ConfigureCaches(start, server, workspace);
+            Require(start.Environment["JAVA_HOME"] == home && start.Environment["PATH"]!.StartsWith(Path.GetDirectoryName(provided)! + ":", StringComparison.Ordinal), $"{server.Id} does not launch with JAVA_HOME naming the downloaded JDK: {start.Environment["JAVA_HOME"]}");
+        }
+        var resolved = await servers.ResolveRuntimeAsync(RuntimeKind.Jdk, workspace, default);
+        Require(resolved is { Available: true, Source: RuntimeSource.Downloaded } && resolved.Command == provided && resolved.Args.Count == 0 && source.Requests == 1, "The JDK runtime does not resolve to the downloaded copy.");
+        var status = await servers.StatusAsync(RuntimeKind.Jdk, default);
+        Require(status is { Downloaded: true, Source: RuntimeSource.Downloaded } && status.Name == "Temurin JDK 21" && status.DownloadBytes > 0, "Settings does not show the downloaded JDK.");
+        Console.WriteLine("PASS an older or missing JDK is replaced by one download, and jdtls and Metals launch with JAVA_HOME naming it");
+
+        // A JDK the user chose is never replaced: not the one in JAVA_HOME that suits, not the path set in Settings.
+        Env("JAVA_HOME", Path.GetDirectoryName(Path.GetDirectoryName(current)));
+        var kept = LanguageServers.Start("fixture", []);
+        servers.ConfigureCaches(kept, java, workspace);
+        Require(kept.Environment["JAVA_HOME"] == Path.GetDirectoryName(Path.GetDirectoryName(current)), "A suitable JAVA_HOME of the user's was replaced.");
+        Env("JAVA_HOME", Path.GetDirectoryName(Path.GetDirectoryName(old)));
+        servers.RuntimePin = name => name == "java" ? old : "";
+        var chosen = LanguageServers.Start("fixture", []);
+        servers.ConfigureCaches(chosen, java, workspace);
+        Require(servers.ProbeTool("java", workspace, "JAVA_HOME", true, 21) is { State: "found", Source: "override" } && chosen.Environment["JAVA_HOME"] == Path.GetDirectoryName(Path.GetDirectoryName(old)), "A JDK path the user set was replaced.");
+        servers.RuntimePin = _ => "";
+        Console.WriteLine("PASS a JDK the user set or exported is never replaced");
+
+        // The plugin off: no download, the host's older JDK is kept as before, and with none the answer offers to turn the plugin on.
+        var off = new LanguageServers(Path.Combine(root, "jdk-off"), null, http) { RuntimesEnabled = () => false };
+        var before = source.Requests;
+        Require(off.ProbeTool("java", workspace, "JAVA_HOME", true, 21) is { State: "found", Source: "home" }, "With the plugin off the user's older JDK is not kept.");
+        Env("JAVA_HOME", null);
+        Env("PATH", empty);
+        Require(off.ProbeTool("java", workspace, "JAVA_HOME", true, 21) is { State: "missing" } missing && missing.Problem.Contains("Runtimes for tooling", StringComparison.Ordinal) && source.Requests == before, "With the plugin off and no JDK, nothing may download and the answer offers the plugin.");
+        Console.WriteLine("PASS with the plugin off no JDK is downloaded and the answer offers to turn it on");
     }
 
     private static async Task Resolution(string root)
@@ -208,8 +313,9 @@ internal static class RuntimesChecks
     {
         var bunArchive = Archive("bun-fake", "bun");
         var uvArchive = Archive("uv-fake", "uv");
-        ManagedRuntimes.UsePins([Pin("bun", bunArchive), Pin("uv", uvArchive)]);
-        var source = new FakeSource { Bodies = { ["bun-"] = bunArchive, ["uv-"] = uvArchive } };
+        var jdkArchive = JdkArchive("bin", 21);
+        ManagedRuntimes.UsePins([Pin("bun", bunArchive), Pin("uv", uvArchive), Pin("jdk", jdkArchive)]);
+        var source = new FakeSource { Bodies = { ["bun-"] = bunArchive, ["uv-"] = uvArchive, ["jdk-"] = jdkArchive } };
         using var http = new HttpClient(source);
         var directory = Path.Combine(root, "disable");
         Directory.CreateDirectory(directory);
@@ -266,7 +372,7 @@ internal static class RuntimesChecks
             await Set(RuntimesPlugin.Id, false);
             Require(downloadedUser.WaitForExit(10000), "A process running from the downloaded Bun was left running.");
             Require(!systemUser.HasExited, "A process running from a system Bun was stopped.");
-            Require(!File.Exists(bunCache) && !File.Exists(uvCache) && !File.Exists(uvTool) && !File.Exists(bunProgram) && !Directory.Exists(Path.Combine(cache, "runtimes", "bun")) && !Directory.Exists(Path.Combine(cache, "runtimes", "uv"))
+            Require(!File.Exists(bunCache) && !File.Exists(uvCache) && !File.Exists(uvTool) && !File.Exists(bunProgram) && !Directory.Exists(Path.Combine(cache, "runtimes", "bun")) && !Directory.Exists(Path.Combine(cache, "runtimes", "uv")) && !Directory.Exists(Path.Combine(cache, "runtimes", "jdk"))
                 && !Directory.Exists(Path.Combine(cache, "bun-home")) && !Directory.Exists(Path.Combine(cache, "uv-home")), "Turning Runtimes for tooling off left downloads or caches behind.");
             Require(File.Exists(cssInstall), "Turning Runtimes for tooling off removed a language server's installation.");
             Require(state.Current.PluginSettings[RuntimesPlugin.Id].GetProperty("bunPath").GetString() == "/pinned/bun", "The user's pinned path was not kept.");

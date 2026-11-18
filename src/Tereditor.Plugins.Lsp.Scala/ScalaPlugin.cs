@@ -38,7 +38,7 @@ public sealed class ScalaPlugin() : LanguageServerPlugin(Id)
         Website = "https://scalameta.org/metals/",
         Repository = "https://github.com/scalameta/metals",
         Pinning = LanguageServerPinning.Partial,
-        Dependencies = [new("cs", "Coursier", "Install Coursier (cs) from https://get-coursier.io.", InstallOnly: true)],
+        Dependencies = [new("cs", "Coursier", "Install Coursier (cs) from https://get-coursier.io.", InstallOnly: true), new("java", "a JDK 11, 17 or 21", "Get one (sdkman on macOS) and set JAVA_HOME, or turn on Runtimes for tooling to download a Temurin JDK 21 that only runs this server.", HomeVariable: "JAVA_HOME", MinimumMajor: 11)],
         PinningDescription = "Managed, partially pinned: exact Metals version; Coursier resolves dependencies at install without a stored hash.",
         Settings = [Setting("Build import", "metals.autoImportBuilds", choices: ["off", "initial", "all"]), Setting("Excluded symbol packages", "metals.excludedPackages", "lines")],
         IsProjectManifest = file =>

@@ -12,11 +12,14 @@ public sealed record RuntimesSettings
 
     /// <summary>The absolute path of the uv the user wants to use; empty means find one.</summary>
     public string UvPath { get; set; } = "";
+
+    /// <summary>The absolute path of the <c>java</c> program the user wants the Java-based language servers to run on; empty means find one.</summary>
+    public string JdkPath { get; set; } = "";
 }
 
 /// <summary>One runtime as the settings page shows it.</summary>
-/// <param name="Kind"><c>bun</c> or <c>uv</c>.</param>
-/// <param name="Name">Bun or uv.</param>
+/// <param name="Kind"><c>bun</c>, <c>uv</c> or <c>jdk</c>.</param>
+/// <param name="Name">Bun, uv or Temurin JDK 21.</param>
 /// <param name="Source">The source in use: <c>pinned</c>, <c>system</c> or <c>downloaded</c>; empty when none is available.</param>
 /// <param name="Path">The program in use; empty when none.</param>
 /// <param name="Version">Its version; empty when unknown.</param>
@@ -44,7 +47,7 @@ public sealed record RuntimesState(IReadOnlyList<RuntimeRow> Runtimes, string Er
 
 public sealed record RuntimesStatusParams;
 
-/// <param name="Kind"><c>bun</c> or <c>uv</c>.</param>
+/// <param name="Kind"><c>bun</c>, <c>uv</c> or <c>jdk</c>.</param>
 public sealed record RuntimeKindParams(string Kind);
 
 /// <summary>One download waiting for the user's answer: <paramref name="Kind"/> is <c>bun</c> or <c>uv</c>.</summary>
@@ -58,7 +61,7 @@ public sealed record RuntimeAnswerParams(string Kind, bool Download);
 
 public static class RuntimesContract
 {
-    /// <summary>The state of both runtimes. Starts no download.</summary>
+    /// <summary>The state of every runtime. Starts no download.</summary>
     public static readonly PluginMethod<RuntimesStatusParams, RuntimesState> Status = new("status");
 
     /// <summary>Downloads the pinned copy now.</summary>
@@ -87,7 +90,7 @@ public static class RuntimesPlugin
     public static readonly PluginManifest Manifest = new(Id, Name, "settings-3-line", "0.1.0", PluginApi.Generation, 1)
     {
         Category = PluginCategories.Environment,
-        Description = "Gives language servers and agents the Bun and uv they need to run packages. It uses your own install when there is one and downloads its own copy only when a plugin asks for it. Turning it off deletes everything it downloaded.",
+        Description = "Gives language servers and agents the Bun and uv they need to run packages, and a Temurin JDK 21 that runs the Java-based language servers. It uses your own install when there is one and downloads its own copy only when a plugin asks for it. Turning it off deletes everything it downloaded.",
         EnabledByDefault = true,
         Headless = HeadlessSupport.Yes,
         UnavailableOn = [HostKind.PureWeb],

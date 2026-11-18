@@ -16,7 +16,7 @@
   </StackPanel.Styles>
   <StackPanel Spacing="4">
     <TextBlock Text="Runtimes for tooling" FontSize="15" FontWeight="SemiBold" />
-    <TextBlock Classes="detail" Text="Language servers and agents need Bun and uv to run packages. tereditor uses your own install when there is one. If there is none, it downloads its own copy the first time a plugin asks, never at startup. Turning this plugin off stops everything that runs from its downloads and deletes them. Your paths below are kept." />
+    <TextBlock Classes="detail" Text="Language servers and agents need Bun and uv to run packages. The Java and Scala servers need a JDK; tereditor downloads a Temurin JDK 21 that only runs those servers and never your project. tereditor uses your own install when there is one. If there is none, it downloads its own copy the first time a plugin asks, never at startup. Turning this plugin off stops everything that runs from its downloads and deletes them. Your paths below are kept." />
   </StackPanel>
   <StackPanel x:Name="RuntimesRows" Spacing="20" />
   <TextBlock x:Name="RuntimesError" Classes="detail" IsVisible="False" />

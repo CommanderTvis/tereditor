@@ -293,7 +293,7 @@ internal sealed class PluginHostContext(PluginRuntime runtime, PluginEntry entry
     public async ValueTask<IReadOnlyList<RuntimeStatus>> RuntimeStatusAsync(CancellationToken cancellationToken = default)
     {
         var languages = runtime.Seams.State.Languages;
-        return [await languages.RuntimeStatusAsync(RuntimeKind.Bun, cancellationToken), await languages.RuntimeStatusAsync(RuntimeKind.Uv, cancellationToken)];
+        return [await languages.RuntimeStatusAsync(RuntimeKind.Bun, cancellationToken), await languages.RuntimeStatusAsync(RuntimeKind.Uv, cancellationToken), await languages.RuntimeStatusAsync(RuntimeKind.Jdk, cancellationToken)];
     }
 
     public async ValueTask<IReadOnlyList<RuntimeStatus>> DownloadRuntimeAsync(RuntimeKind kind, CancellationToken cancellationToken = default)

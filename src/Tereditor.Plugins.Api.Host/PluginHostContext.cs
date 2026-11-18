@@ -480,7 +480,7 @@ public interface IPluginHostContext
     /// <param name="cancellationToken">Cancels the download.</param>
     [PluginPermission("process")]
     ValueTask<RuntimeResolution> ResolveRuntimeAsync(RuntimeKind kind, string workspace, CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult(RuntimeResolution.Unavailable(kind, "This host cannot provide " + (kind == RuntimeKind.Bun ? "Bun" : "uv") + "."));
+        ValueTask.FromResult(RuntimeResolution.Unavailable(kind, "This host cannot provide " + kind switch { RuntimeKind.Bun => "Bun", RuntimeKind.Uv => "uv", _ => "a JDK" } + "."));
 
     /// <summary>
     /// Tells the host a process started from a resolved runtime. When the runtime is the downloaded copy, the host stops the process before it deletes the

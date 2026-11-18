@@ -24,11 +24,11 @@ public sealed partial class LanguageService
         if (resolution is { Available: true, Source: RuntimeSource.Downloaded }) ManagedProcesses.Track(processId, resolution.Command);
     }
 
-    /// <summary>Stops every language server that runs on a runtime (Bun), whichever copy it uses; they start again on demand and then find the runtime or say what is missing.</summary>
+    /// <summary>Stops every language server that runs on a runtime (Bun, or the JDK of the Java-based servers), whichever copy it uses; they start again on demand and then find the runtime or say what is missing.</summary>
     private async Task StopRuntimeUsersAsync(string executable, string reason)
     {
         foreach (var key in entries.Keys.ToArray())
-            if (servers.Find(key[(key.IndexOf('\0') + 1)..]) is { Spec.Runtime: var runtime } && runtime == executable && entries.TryRemove(key, out var entry))
+            if (servers.Find(key[(key.IndexOf('\0') + 1)..]) is { Spec: { Runtime: var runtime } spec } && (runtime == executable || spec.Dependencies.Any(item => item.Executable == executable)) && entries.TryRemove(key, out var entry))
             {
                 try { await PreserveDraftsAsync(key, entry, lifetime.Token); }
                 catch (OperationCanceledException) { }
@@ -45,7 +45,7 @@ public sealed partial class LanguageService
 
     internal async Task PurgeRuntimeDownloadsAsync()
     {
-        foreach (var kind in new[] { RuntimeKind.Bun, RuntimeKind.Uv }) await RemoveRuntimeDownloadAsync(kind);
+        foreach (var kind in new[] { RuntimeKind.Bun, RuntimeKind.Uv, RuntimeKind.Jdk }) await RemoveRuntimeDownloadAsync(kind);
     }
 
     /// <summary>Stops a language server in every workspace and deletes what was downloaded for it.</summary>

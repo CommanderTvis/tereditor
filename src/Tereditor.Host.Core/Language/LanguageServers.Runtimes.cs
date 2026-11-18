@@ -82,13 +82,16 @@ internal sealed partial class LanguageServers
     internal static string OffProblem(ManagedRuntimeKind kind) =>
         $"{kind.Name} is not installed and Runtimes for tooling is off, so it is not downloaded. Turn it on in Settings > Plugins, or install {kind.Name} yourself.";
 
-    internal static string ExecutableOf(RuntimeKind kind) => kind == RuntimeKind.Bun ? "bun" : "uv";
+    /// <summary>The JDK the Runtimes plugin provides and the oldest major version it accepts on the host as its own answer.</summary>
+    internal const int JdkMajor = 21;
 
-    internal static string NameOf(RuntimeKind kind) => kind == RuntimeKind.Bun ? "Bun" : "uv";
+    internal static string ExecutableOf(RuntimeKind kind) => kind switch { RuntimeKind.Bun => "bun", RuntimeKind.Uv => "uv", _ => "java" };
 
-    private static string HomeOf(string cache, RuntimeKind kind) => Path.Combine(cache, kind == RuntimeKind.Bun ? "bun-home" : "uv-home");
+    internal static string NameOf(RuntimeKind kind) => kind switch { RuntimeKind.Bun => "Bun", RuntimeKind.Uv => "uv", _ => "Temurin JDK 21" };
 
-    private string DownloadRoot(RuntimeKind kind) => Path.Combine(ManagedRuntimes.RuntimesRoot(directory), ExecutableOf(kind));
+    private static string HomeOf(string cache, RuntimeKind kind) => Path.Combine(cache, kind switch { RuntimeKind.Bun => "bun-home", RuntimeKind.Uv => "uv-home", _ => "jdk-home" });
+
+    private string DownloadRoot(RuntimeKind kind) => Path.Combine(ManagedRuntimes.RuntimesRoot(directory), ManagedRuntimes.KindOf(ExecutableOf(kind))!.Id);
 
     /// <summary>
     /// The environment every start of a runtime gets: its cache stays in the host's cache (for the downloaded copy; an install of the user's keeps its own)
@@ -106,6 +109,7 @@ internal sealed partial class LanguageServers
             if (!File.Exists(config)) File.WriteAllText(config, "");
             return new Dictionary<string, string> { ["BUN_INSTALL"] = home, ["BUN_OPTIONS"] = $"\"--config={config}\" --no-env-file", ["DO_NOT_TRACK"] = "1" };
         }
+        if (kind == RuntimeKind.Jdk) return new Dictionary<string, string>();
         var env = new Dictionary<string, string> { ["UV_NO_CONFIG"] = "1", ["UV_NO_ENV_FILE"] = "1" };
         if (source == RuntimeSource.Downloaded)
         {
@@ -119,7 +123,7 @@ internal sealed partial class LanguageServers
     }
 
     private RuntimeResolution Ready(RuntimeKind kind, string path, RuntimeSource source) =>
-        new(kind, true, path, kind == RuntimeKind.Bun ? ["x"] : ["tool", "run"], RuntimeEnvironment(kind, source), source, "", false);
+        new(kind, true, path, kind switch { RuntimeKind.Bun => ["x"], RuntimeKind.Uv => ["tool", "run"], _ => [] }, RuntimeEnvironment(kind, source), source, "", false);
 
     /// <summary>
     /// Finds a runtime: the path the user pinned, then an install on PATH (not under a managed toolchain, which means only the host's copies),
@@ -135,7 +139,7 @@ internal sealed partial class LanguageServers
                 ? RuntimeResolution.Unavailable(kind, $"The {name} path you set cannot run. {problem}")
                 : Ready(kind, pinned, RuntimeSource.Pinned);
         var rejected = new List<string>();
-        if (Toolchain != ToolchainSource.Managed && LanguageExecutables.FindOnPath(tool, workspace, rejected) is { } found) return Ready(kind, found, RuntimeSource.System);
+        if (Toolchain != ToolchainSource.Managed && LanguageExecutables.FindOnPath(tool, workspace, rejected) is { } found && (kind != RuntimeKind.Jdk || ManagedRuntimes.JdkMajor(found) >= JdkMajor)) return Ready(kind, found, RuntimeSource.System);
         if (!RuntimesEnabled()) return RuntimeResolution.Unavailable(kind, OffProblem(runtime), offerEnable: true);
         var platform = ManagedArtifacts.Platform();
         if (ManagedRuntimes.FindInstalled(directory, tool, platform, workspace) is { } copy) return Ready(kind, copy, RuntimeSource.Downloaded);
@@ -182,7 +186,7 @@ internal sealed partial class LanguageServers
             if (LanguageExecutables.Reject(pinned, directory) is { } problem) message = $"The {name} path you set cannot run. {problem}";
             else (source, path) = (RuntimeSource.Pinned, pinned);
         }
-        if (source is null && Toolchain != ToolchainSource.Managed && LanguageExecutables.FindOnPath(tool, directory) is { } system) (source, path) = (RuntimeSource.System, system);
+        if (source is null && Toolchain != ToolchainSource.Managed && LanguageExecutables.FindOnPath(tool, directory) is { } system && (kind != RuntimeKind.Jdk || ManagedRuntimes.JdkMajor(system) >= JdkMajor)) (source, path) = (RuntimeSource.System, system);
         if (source is null && downloaded && ManagedRuntimes.FindInstalled(directory, tool, platform, directory) is { } copy) (source, path) = (RuntimeSource.Downloaded, copy);
         if (source is null && message.Length == 0)
             message = RuntimesEnabled() ? $"{name} is not installed. It is downloaded the first time a plugin needs it." : OffProblem(runtime);

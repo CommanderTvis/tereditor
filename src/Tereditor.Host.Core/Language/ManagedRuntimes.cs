@@ -74,17 +74,44 @@ internal static class ManagedRuntimes
     /// <summary>Bun's and uv's releases are GitHub release assets: the tag URL redirects to this host.</summary>
     internal static readonly string[] BunHosts = ["github.com", "release-assets.githubusercontent.com"];
 
-    /// <summary>The folder inside an installed runtime that holds its tools.</summary>
-    internal static string BinDirectoryOf(string root, ManagedRuntimeKind kind) =>
-        kind.BinDirectory != "*" ? Path.GetFullPath(Path.Combine(root, kind.BinDirectory))
-            : Directory.Exists(root) ? Directory.EnumerateDirectories(root).OrderBy(path => path, StringComparer.Ordinal).FirstOrDefault() ?? root : root;
+    /// <summary>The folder inside an installed runtime that holds its tools. <c>jdk</c>: the archive's one top-level folder, whose home is <c>Contents/Home</c> on macOS.</summary>
+    internal static string BinDirectoryOf(string root, ManagedRuntimeKind kind)
+    {
+        if (kind.BinDirectory is not ("*" or "jdk")) return Path.GetFullPath(Path.Combine(root, kind.BinDirectory));
+        var top = Directory.Exists(root) ? Directory.EnumerateDirectories(root).OrderBy(path => path, StringComparer.Ordinal).FirstOrDefault() ?? root : root;
+        return kind.BinDirectory == "jdk" ? Path.Combine(top, Directory.Exists(Path.Combine(top, "Contents", "Home", "bin")) ? Path.Combine("Contents", "Home", "bin") : "bin") : top;
+    }
 
-    /// <summary>Adding Node, a JDK or Python is one entry here and its pins below.</summary>
+    /// <summary>
+    /// The major version of the JDK a <c>java</c> program belongs to, read from the <c>release</c> file beside its <c>bin</c> folder (no process is started); 0 when it cannot be told,
+    /// for example the macOS <c>/usr/bin/java</c> stub.
+    /// </summary>
+    internal static int JdkMajor(string java)
+    {
+        try
+        {
+            var resolved = new FileInfo(java).ResolveLinkTarget(true)?.FullName ?? java;
+            var release = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(resolved)) ?? "", "release");
+            if (!File.Exists(release) || new FileInfo(release).Length > 64 * 1024) return 0;
+            var line = File.ReadLines(release).FirstOrDefault(item => item.StartsWith("JAVA_VERSION=", StringComparison.Ordinal));
+            var version = line?["JAVA_VERSION=".Length..].Trim('"') ?? "";
+            var parts = version.Split('.', '_', '-', '+');
+            if (parts.Length > 1 && parts[0] == "1" && int.TryParse(parts[1], out var legacy)) return legacy;
+            return int.TryParse(parts[0], out var major) ? major : 0;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return 0; }
+    }
+
+    /// <summary>The value of the runtime's root variable: the install folder, or for a JDK its home (the folder above <c>bin</c>), which is what <c>JAVA_HOME</c> names.</summary>
+    internal static string HomeOf(string root, ManagedRuntimeKind kind) => kind.BinDirectory == "jdk" ? Path.GetDirectoryName(BinDirectoryOf(root, kind))! : root;
+
+    /// <summary>Adding Node or Python is one entry here and its pins below.</summary>
     internal static readonly ManagedRuntimeKind[] Kinds =
     [
         new("dotnet-sdk", ".NET SDK", ["dotnet"], "", "DOTNET_ROOT"),
         new("bun", "Bun", ["bun"], "*", "BUN_ROOT", Provisioned: true),
-        new("uv", "uv", ["uv", "uvx"], "*", "UV_ROOT", Provisioned: true)
+        new("uv", "uv", ["uv", "uvx"], "*", "UV_ROOT", Provisioned: true),
+        new("jdk", "Temurin JDK 21", ["java"], "jdk", "JAVA_HOME", Provisioned: true)
     ];
 
     /// <summary>The pins in force; checks replace them with a fake archive.</summary>
@@ -183,7 +210,7 @@ internal static class ManagedRuntimes
             {
                 var root = InstallDirectory(directory, pin);
                 bins.Add(BinDirectoryOf(root, kind));
-                variables[kind.RootVariable] = root;
+                variables[kind.RootVariable] = HomeOf(root, kind);
             }
         if (bins.Count == 0) return null;
         var cache = CacheRoot(directory);
@@ -235,6 +262,8 @@ internal static class ManagedRuntimes
     private const string BunSource = "SHA-256 from SHASUMS256.txt of the bun-v1.4.4 GitHub release (oven-sh/bun, glibc builds on Linux), verified against the download";
 
     private const string UvSource = "SHA-256 from the .sha256 file of the uv 0.13.9 GitHub release (astral-sh/uv), matched against the SHA-256 of the download";
+
+    private const string JdkSource = "SHA-256 as published by the Adoptium API (api.adoptium.net/v3/assets/latest/21/hotspot, Temurin 21.0.13+9), matched against the SHA-256 of the download";
 
     private static readonly ManagedRuntimePin[] Builtin =
     [
@@ -290,5 +319,15 @@ internal static class ManagedRuntimes
         "edd61f7f5728a56cc62455386661860bdfc7bab65872f39b0c25bdcc1d8e1beb", "", "zip", UvSource, BunHosts),
     new("uv", "0.13.9", "windows-aarch64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-aarch64-pc-windows-msvc.zip",
         "72eed595983a4d7d22d79f21065b0f4479cc7e5c7a89104bb410c8f47559a878", "", "zip", UvSource, BunHosts),
+    new("jdk", "21.0.13", "macos-aarch64", "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.13_9.tar.gz",
+        "bf036b35b071bfb2f54f2c0af8ee8d88afa95ee6eb3dce02c0f94cfc2524d04a", "", "tar.gz", JdkSource, BunHosts),
+    new("jdk", "21.0.13", "macos-x86_64", "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_mac_hotspot_21.0.13_9.tar.gz",
+        "9aa1d1c17ae5467a022679e7e0af5c00797d94ac462ed1a46f4db07a8a34a6dd", "", "tar.gz", JdkSource, BunHosts),
+    new("jdk", "21.0.13", "linux-x86_64", "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz",
+        "d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c", "", "tar.gz", JdkSource, BunHosts),
+    new("jdk", "21.0.13", "linux-aarch64", "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_aarch64_linux_hotspot_21.0.13_9.tar.gz",
+        "e3522e707fc7dbe2a72c30746b1e7068301a0213ecd213d4491f35a14eb55578", "", "tar.gz", JdkSource, BunHosts),
+    new("jdk", "21.0.13", "windows-x86_64", "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_windows_hotspot_21.0.13_9.zip",
+        "a4dbaa05fca4bd89d84584e58c459bd732efebb1722af80ab13c6516832004f9", "", "zip", JdkSource, BunHosts),
     ];
 }
