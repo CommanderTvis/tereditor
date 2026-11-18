@@ -27,7 +27,11 @@ public sealed partial class ProjectServices
             throw new UnauthorizedAccessException("Only this project's workspaces have change totals.");
         var comparison = state?.Current.DiffBase(target) ?? "";
         var from = comparison.Length > 0 ? await GitRepository.ComparisonBaseAsync(target, comparison, cancellationToken) : "HEAD";
-        var summary = await GitRepository.RunAsync(target, cancellationToken, "diff", "--shortstat", "--end-of-options", from, "--");
+        // Exit 128 is a HEAD that does not exist yet: a repository with no commits has no totals.
+        var run = await GitRepository.ProbeAsync(target, cancellationToken, "diff", "--shortstat", "--end-of-options", from, "--");
+        if (run.ExitCode == 128) return null;
+        if (!run.Succeeded) throw GitRepository.Failure(run);
+        var summary = run.Output;
         return new(Count(Insertions().Match(summary)), Count(Deletions().Match(summary)));
 
         static int Count(Match match) => match.Success ? int.Parse(match.Groups[1].ValueSpan, CultureInfo.InvariantCulture) : 0;

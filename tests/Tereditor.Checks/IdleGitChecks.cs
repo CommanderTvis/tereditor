@@ -55,7 +55,8 @@ internal static class IdleGitChecks
             foreach (var folder in folders)
             {
                 var host = services[folder];
-                await host.ListWorkspacesAsync(folder);
+                // A linked worktree is no project of its own: the registry lists the main folder.
+                if (folder != worktree) await host.ListWorkspacesAsync(folder);
                 var snapshot = await host.GetGitAsync("");
                 if (!snapshot.IsRepository) continue;
                 await host.ListBranchesAsync(false);

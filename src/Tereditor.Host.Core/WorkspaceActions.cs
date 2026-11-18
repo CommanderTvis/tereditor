@@ -62,17 +62,15 @@ public sealed partial class ProjectServices
     private static async Task<IReadOnlyDictionary<string, BranchTip>> LocalTipsAsync(string currentRoot, string defaultBase, CancellationToken cancellationToken)
     {
         var tips = new Dictionary<string, BranchTip>();
-        try
-        {
-            var lines = await GitRepository.RunAsync(currentRoot, cancellationToken, "for-each-ref", $"--format=%(refname:short)%09%(objectname)%09%(ahead-behind:{defaultBase})", "refs/heads");
-            foreach (var line in lines.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        // A base that does not resolve (a repository with no commits, a ref that is gone) means no tips, not a failure.
+        var probe = await GitRepository.ProbeAsync(currentRoot, cancellationToken, "for-each-ref", $"--format=%(refname:short)%09%(objectname)%09%(ahead-behind:{defaultBase})", "refs/heads");
+        if (probe.Succeeded)
+            foreach (var line in probe.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
                 var parts = line.Split('\t');
                 if (parts.Length == 3 && int.TryParse(parts[2].Split(' ')[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ahead))
                     tips[parts[0]] = new(parts[1], ahead);
             }
-        }
-        catch (IOException) when (!cancellationToken.IsCancellationRequested) { }
         return tips;
     }
 
