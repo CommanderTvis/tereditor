@@ -102,6 +102,10 @@ checksums, Visual Studio's ARM64 C++ tools on `windows-11-arm` (probe log), the 
 `check:packaged -- --packaged` on macOS (and failing on a payload without a library, a plugin or terminfo), the
 payload rule on the cross-built Linux payload, a Debug browser build. Not run: Windows and Linux packages, Android.
 
+## 2026-11-18 — Runtimes consent prompt
+
+Plugin on and runtime missing: the Runtimes host half asks on its `consent` channel (one prompt for every client, Download or Not now, once per runtime per session, no disk) before a plugin's request downloads; headless downloads as before; `IPluginHostContext.SetRuntimeConsent` is the hook. Render checks for the prompt, the chat Turn it on button and the language server row button; host checks for the question. Not done: progress after Download shows only in the server row or chat install text, a prompt dismissed with its X leaves the request waiting.
+
 ## 2026-11-18 — Runtimes follow-ups
 
 Settings › Runtimes shows download progress (bytes so far, Cancel), says when a download is outranked and offers Use the download / Use the one on my computer. Turn it on button in the chat banner (failed ACP start) and in language server dependency rows; `IPluginUIContext.TurnOnRuntimeAsync(kind)` is the new narrow API. `--runtimes-ui` renders the page headless. `WiredAgents` checked: it is Air Gateway's Claude Code, Codex, Pi list, matches its spec and check, unrelated to Runtimes. Not done: consent popup when the plugin is on, chat button render check.

@@ -38,6 +38,15 @@ public sealed record RuntimesStatusParams;
 /// <param name="Kind"><c>bun</c> or <c>uv</c>.</param>
 public sealed record RuntimeKindParams(string Kind);
 
+/// <summary>One download waiting for the user's answer: <paramref name="Kind"/> is <c>bun</c> or <c>uv</c>.</summary>
+public sealed record RuntimeAsk(string Kind, string Name, string Version);
+
+/// <summary>The downloads that wait for an answer now. Every client sees the same list.</summary>
+public sealed record RuntimeConsents(IReadOnlyList<RuntimeAsk> Pending);
+
+/// <param name="Download">True to download, false for Not now.</param>
+public sealed record RuntimeAnswerParams(string Kind, bool Download);
+
 public static class RuntimesContract
 {
     /// <summary>The state of both runtimes. Starts no download.</summary>
@@ -49,7 +58,16 @@ public static class RuntimesContract
     /// <summary>Stops what runs from the downloaded copy and deletes it with its caches.</summary>
     public static readonly PluginMethod<RuntimeKindParams, RuntimesState> Remove = new("remove");
 
-    public static readonly PluginContract Contract = PluginContract.Create<RuntimesSettings>(RuntimesPlugin.Id, 1, [Status, Download, Remove], [], RuntimesJson.Default);
+    /// <summary>The downloads that wait for an answer.</summary>
+    public static readonly PluginMethod<RuntimesStatusParams, RuntimeConsents> Consents = new("consents");
+
+    /// <summary>Answers a waiting download: yes starts it, no remembers Not now until tereditor restarts or the user presses Download now.</summary>
+    public static readonly PluginMethod<RuntimeAnswerParams, RuntimeConsents> Answer = new("answer");
+
+    /// <summary>A download is waiting for an answer, or was answered.</summary>
+    public static readonly PluginChannel<RuntimeConsents> ConsentChanged = PluginChannel<RuntimeConsents>.State("consent", Consents);
+
+    public static readonly PluginContract Contract = PluginContract.Create<RuntimesSettings>(RuntimesPlugin.Id, 1, [Status, Download, Remove, Consents, Answer], [ConsentChanged], RuntimesJson.Default);
 }
 
 public static class RuntimesPlugin
@@ -73,4 +91,6 @@ public static class RuntimesPlugin
 [JsonSerializable(typeof(RuntimesStatusParams))]
 [JsonSerializable(typeof(RuntimeKindParams))]
 [JsonSerializable(typeof(RuntimesState))]
+[JsonSerializable(typeof(RuntimeConsents))]
+[JsonSerializable(typeof(RuntimeAnswerParams))]
 internal sealed partial class RuntimesJson : JsonSerializerContext;

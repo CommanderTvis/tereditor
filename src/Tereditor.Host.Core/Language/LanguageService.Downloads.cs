@@ -5,6 +5,8 @@ namespace Tereditor.Host.Core.Language;
 public sealed partial class LanguageService
 {
     /// <summary>Whether the Runtimes for tooling plugin may download a runtime.</summary>
+    internal Func<RuntimeOffer, CancellationToken, ValueTask<bool>>? RuntimeConsent { set => servers.RuntimeConsent = value; }
+
     internal Func<bool> RuntimesEnabled { init => servers.RuntimesEnabled = value; }
 
     /// <summary>The path the user pinned for a runtime's program, by executable name; empty when none.</summary>

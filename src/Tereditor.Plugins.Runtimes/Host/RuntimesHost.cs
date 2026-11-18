@@ -14,9 +14,14 @@ public sealed class RuntimesHost : PluginHostModule
     public override ValueTask<PluginDisposer?> ActivateAsync(IPluginHostContext context)
     {
         context.Method(RuntimesContract.Status, async (_, _, token) => await StateAsync(context, "", token));
+        var broker = new RuntimeConsentBroker(consents => context.Publish(RuntimesContract.ConsentChanged, consents));
+        context.Method(RuntimesContract.Consents, (_, _, _) => ValueTask.FromResult(broker.Snapshot()));
+        context.Method(RuntimesContract.Answer, (parameters, _, _) => ValueTask.FromResult(broker.Answer(Parse(parameters.Kind), parameters.Download)));
+        context.SetRuntimeConsent(broker.AskAsync);
         context.Method(RuntimesContract.Download, async (parameters, _, token) =>
         {
             var kind = Parse(parameters.Kind);
+            broker.Forget(kind);
             string error = "";
             try { await Task.Run(() => context.DownloadRuntimeAsync(kind, token).AsTask(), token); }
             catch (Exception failure) when (failure is IOException or HttpRequestException or InvalidDataException or UnauthorizedAccessException)
@@ -31,7 +36,12 @@ public sealed class RuntimesHost : PluginHostModule
             return await StateAsync(context, "", token);
         });
         context.OnUserDisabled(() => context.PurgeRuntimeDownloadsAsync());
-        return ValueTask.FromResult<PluginDisposer?>(null);
+        return ValueTask.FromResult<PluginDisposer?>(() =>
+        {
+            context.SetRuntimeConsent(null);
+            broker.Close();
+            return ValueTask.CompletedTask;
+        });
     }
 
     private static RuntimeKind Parse(string kind) => kind switch

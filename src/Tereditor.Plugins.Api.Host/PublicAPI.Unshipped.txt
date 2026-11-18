@@ -1021,6 +1021,23 @@ Tereditor.Plugins.Api.Host.RuntimeResolution.OfferEnable.get -> bool
 Tereditor.Plugins.Api.Host.RuntimeResolution.Message.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeResolution.OfferEnable.init -> void
 Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeLanguageServerDownloadsAsync(string! serverId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Tereditor.Plugins.Api.Host.RuntimeOffer
+Tereditor.Plugins.Api.Host.RuntimeOffer.RuntimeOffer(Tereditor.Plugins.Api.Host.RuntimeKind Kind, string! Name, string! Version) -> void
+Tereditor.Plugins.Api.Host.RuntimeOffer.Kind.get -> Tereditor.Plugins.Api.Host.RuntimeKind
+Tereditor.Plugins.Api.Host.RuntimeOffer.Kind.init -> void
+Tereditor.Plugins.Api.Host.RuntimeOffer.Name.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeOffer.Name.init -> void
+Tereditor.Plugins.Api.Host.RuntimeOffer.Version.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeOffer.Version.init -> void
+Tereditor.Plugins.Api.Host.RuntimeOffer.Deconstruct(out Tereditor.Plugins.Api.Host.RuntimeKind Kind, out string! Name, out string! Version) -> void
+override Tereditor.Plugins.Api.Host.RuntimeOffer.ToString() -> string!
+static Tereditor.Plugins.Api.Host.RuntimeOffer.operator !=(Tereditor.Plugins.Api.Host.RuntimeOffer? left, Tereditor.Plugins.Api.Host.RuntimeOffer? right) -> bool
+static Tereditor.Plugins.Api.Host.RuntimeOffer.operator ==(Tereditor.Plugins.Api.Host.RuntimeOffer? left, Tereditor.Plugins.Api.Host.RuntimeOffer? right) -> bool
+override Tereditor.Plugins.Api.Host.RuntimeOffer.GetHashCode() -> int
+override Tereditor.Plugins.Api.Host.RuntimeOffer.Equals(object? obj) -> bool
+Tereditor.Plugins.Api.Host.RuntimeOffer.Equals(Tereditor.Plugins.Api.Host.RuntimeOffer? other) -> bool
+Tereditor.Plugins.Api.Host.RuntimeOffer.<Clone>$() -> Tereditor.Plugins.Api.Host.RuntimeOffer!
+Tereditor.Plugins.Api.Host.IPluginHostContext.SetRuntimeConsent(System.Func<Tereditor.Plugins.Api.Host.RuntimeOffer!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>>? ask) -> void
 Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedPath.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedPath.init -> void
 Tereditor.Plugins.Api.Host.RuntimeStatus.Name.get -> string!

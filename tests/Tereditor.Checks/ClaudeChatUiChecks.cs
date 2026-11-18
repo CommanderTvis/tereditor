@@ -311,6 +311,7 @@ internal static class ClaudeChatUiChecks
         CodeCopyButton();
         SelectionGeometry();
         MarkdownBounded();
+        RuntimeOffer();
         Behaviour();
         CompanionSplit();
     }
@@ -3487,6 +3488,55 @@ internal static class ClaudeChatUiChecks
             }
         }
         finally { host.Close(); }
+    }
+
+    // A failed start that needs a runtime while Runtimes is off offers Turn it on: the click downloads with Cancel, then the agent starts again; a failure keeps the button.
+    private static void RuntimeOffer()
+    {
+        var failed = new ChatHeader(ChatStatus.Failed) { Error = "Bun is not installed and Runtimes is off.", RuntimeOffer = new("bun", "Bun") };
+        var chat = new FakeChat { Header = failed };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, failed));
+        var asked = new List<string>();
+        var notices = new List<string>();
+        string answer = "offline";
+        var gate = new TaskCompletionSource();
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent)
+        {
+            TurnOnRuntime = async (kind, token) => { asked.Add(kind); await gate.Task.WaitAsync(token); return answer; },
+            Notify = (_, title, text) => notices.Add(title + " " + text)
+        }, Workspace, Chat);
+        var window = new Window { Width = 900, Height = 500, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Button? Turn() => view.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => button.Name == "ChatTurnOnRuntime");
+            Frame(window); Frame(window);
+            E2eWorkspace.Until(() => Turn() is { IsEffectivelyVisible: true }, "A failed start that needs Bun shows Turn it on.");
+            Turn()!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            E2eWorkspace.Until(() => asked.Count == 1 && view.GetVisualDescendants().OfType<StackPanel>().Any(panel => panel.Name == "DownloadStrip"), "Turn it on shows the download with Cancel.");
+            Require(asked[0] == "bun" && !Turn()!.IsEffectivelyVisible, "Turn it on asks for Bun and hides itself while it works.");
+            gate.SetResult();
+            E2eWorkspace.Until(() => notices.Count == 1 && Turn() is { IsEffectivelyVisible: true }, "A failed download says so and keeps Turn it on.");
+            Require(notices[0].Contains("offline", StringComparison.Ordinal), "The failure names the reason.");
+            answer = "";
+            chat.Header = new ChatHeader(ChatStatus.Idle);
+            var opens = chat.Calls.Count(call => call == ChatContract.Open.Name);
+            Turn()!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            E2eWorkspace.Until(() => chat.Calls.Count(call => call == ChatContract.Open.Name) == opens + 1, "A finished download starts the agent again.");
+        }
+        finally { window.Close(); }
+
+        var plain = new FakeChat { Header = failed };
+        plain.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, failed));
+        var without = new ChatView(new ChatEnvironment(plain, TestAgent), Workspace, Chat);
+        var other = new Window { Width = 900, Height = 500, Content = without, Background = Ui.Surface };
+        other.Show();
+        try
+        {
+            Frame(other); Frame(other);
+            Require(!without.GetVisualDescendants().OfType<Button>().Any(button => button.Name == "ChatTurnOnRuntime" && button.IsEffectivelyVisible), "Where the host cannot turn the plugin on there is no button.");
+        }
+        finally { other.Close(); }
     }
 
     // Before Claude Code reports, the chips read one muted word each; a host without the chat handler says so plainly.

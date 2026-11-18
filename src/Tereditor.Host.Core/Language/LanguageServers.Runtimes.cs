@@ -64,6 +64,19 @@ internal sealed partial class LanguageServers
     /// <summary>The path the user pinned for a runtime's program in Settings › Runtimes for tooling; empty when none.</summary>
     internal Func<string, string> RuntimePin { get; set; } = _ => "";
 
+    /// <summary>Asks the user before a runtime that Runtimes for tooling provides is downloaded for a plugin's request; null (a host without a screen, or without the plugin) allows it.</summary>
+    internal Func<RuntimeOffer, CancellationToken, ValueTask<bool>>? RuntimeConsent { get; set; }
+
+    private async Task<bool> ConsentAsync(ManagedRuntimeKind kind, ManagedRuntimePin pin, CancellationToken token)
+    {
+        if (!kind.Provisioned || RuntimeConsent is not { } ask) return true;
+        var asked = kind.Id switch { "bun" => (RuntimeKind?)RuntimeKind.Bun, "uv" => RuntimeKind.Uv, _ => null };
+        return asked is not { } which || await ask(new(which, kind.Name, pin.Version), token);
+    }
+
+    internal static string DeclinedProblem(ManagedRuntimeKind kind) =>
+        $"{kind.Name} is not downloaded because you chose Not now. Use Download now in Settings > Runtimes, or install {kind.Name} yourself.";
+
     private bool Usable(ManagedRuntimeKind kind) => !kind.Provisioned || RuntimesEnabled();
 
     internal static string OffProblem(ManagedRuntimeKind kind) =>
@@ -128,6 +141,7 @@ internal sealed partial class LanguageServers
         if (ManagedRuntimes.FindInstalled(directory, tool, platform, workspace) is { } copy) return Ready(kind, copy, RuntimeSource.Downloaded);
         if (ManagedRuntimes.Choose(runtime.Id, platform, workspace) is not { } pin) return RuntimeResolution.Unavailable(kind, ManagedRuntimes.NotPinned(runtime, platform, workspace));
         if (Toolchains.Offline) return RuntimeResolution.Unavailable(kind, $"{name} is not installed, and tereditor is offline, so it cannot be downloaded.");
+        if (!await ConsentAsync(runtime, pin, token)) return RuntimeResolution.Unavailable(kind, DeclinedProblem(runtime));
         try { await ManagedRuntimes.EnsureAsync(directory, pin, managedHttp, message => CodeIntelligenceLog.Info("host.install-progress", ("server", "runtimes"), ("message", message)), false, token); }
         catch (Exception error) when (error is IOException or HttpRequestException or InvalidDataException or UnauthorizedAccessException)
         {

@@ -274,6 +274,11 @@ internal sealed class PluginHostContext(PluginRuntime runtime, PluginEntry entry
 
     public void TrackRuntimeProcess(RuntimeResolution resolution, int processId) => LanguageService.TrackRuntimeProcess(resolution, processId);
 
+    public void SetRuntimeConsent(Func<RuntimeOffer, CancellationToken, ValueTask<bool>>? ask)
+    {
+        if (runtime.Seams.Kind != HostKind.Headless || ask is null) runtime.Seams.State.Languages.RuntimeConsent = ask;
+    }
+
     public void OnUserDisabled(Func<ValueTask> handler) => Register(table => table.UserDisabled = table.UserDisabled.Add(handler));
 
     public async ValueTask<IReadOnlyList<RuntimeStatus>> RuntimeStatusAsync(CancellationToken cancellationToken = default)

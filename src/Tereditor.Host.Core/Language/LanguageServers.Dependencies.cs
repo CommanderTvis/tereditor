@@ -151,6 +151,7 @@ internal sealed partial class LanguageServers
         if (ManagedRuntimes.KindOf(executable) is { } kind && Usable(kind) && (Toolchain != ToolchainSource.Path || kind.Provisioned) && ToolOverride(executable).Length == 0 && ManagedRuntimes.Choose(kind.Id, platform, workspace) is { } pin)
         {
             if (Toolchain != ToolchainSource.Managed && ProbeTool(executable, workspace, homeVariable, fresh: true) is { State: "found" }) return;
+            if (!ManagedRuntimes.IsInstalled(directory, pin) && !Toolchains.Offline && !await ConsentAsync(kind, pin, token)) throw new IOException(DeclinedProblem(kind));
             await ManagedRuntimes.EnsureAsync(directory, pin, managedHttp, message => CodeIntelligenceLog.Info("host.install-progress", ("server", owner), ("message", message)), Toolchains.Offline, token);
             ForgetProbes();
         }

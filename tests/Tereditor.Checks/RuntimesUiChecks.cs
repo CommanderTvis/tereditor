@@ -111,7 +111,40 @@ internal static class RuntimesUiChecks
             Until(() => saved.Count == 2 && saved[1].BunPath == "", "Use the one on my computer clears the pin");
         }
         finally { window.Close(); }
+        Prompts();
         Console.WriteLine("PASS runtimes-ui: rows, not installed, downloading with size and Cancel, cancelled, failed, installed, download beside a system install, use the download");
+    }
+
+    // The consent prompt: one per waiting download, with Download and Not now; an answer takes it down; the same list never shows a second prompt.
+    private static void Prompts()
+    {
+        var shown = new List<(PluginPrompt Prompt, bool[] Disposed)>();
+        var answers = new List<RuntimeAnswerParams>();
+        var context = Fake.Create(async (method, parameters, _) =>
+        {
+            if (method != "answer") throw new NotSupportedException(method);
+            answers.Add((RuntimeAnswerParams)parameters);
+            await Task.Yield();
+            return new RuntimesState([]);
+        }, [], shown);
+        var prompts = new RuntimeConsentPrompts(context);
+        var bun = new RuntimeAsk("bun", "Bun", "1.4.4");
+        prompts.Apply(new([bun]));
+        Require(shown.Count == 1 && prompts.Shown == 1, "a waiting download shows one prompt");
+        var text = shown[0].Prompt;
+        Require(text.Title == "Download Bun?" && text.Message.Contains("Bun 1.4.4", StringComparison.Ordinal) && text.Message.Contains("Nothing is downloaded until you say yes", StringComparison.Ordinal) && !text.Message.Contains((char)8212),
+            "the prompt names the runtime and its version and says nothing downloads without a yes: " + text.Message);
+        Require(text.Actions.Select(action => action.Label).SequenceEqual(["Download", "Not now"]), "the prompt offers Download and Not now");
+        prompts.Apply(new([bun]));
+        Require(shown.Count == 1, "the same waiting download does not show a second prompt");
+        prompts.Apply(new([bun, new("uv", "uv", "0.13.9")]));
+        Require(shown.Count == 2 && prompts.Shown == 2, "a second runtime gets its own prompt");
+        prompts.Apply(new([new("uv", "uv", "0.13.9")]));
+        Require(shown[0].Disposed[0] && !shown[1].Disposed[0] && prompts.Shown == 1, "an answer from another client takes the prompt down here");
+        shown[1].Prompt.Actions[1].RunAsync().AsTask().GetAwaiter().GetResult();
+        Require(answers.Count == 1 && answers[0] == new RuntimeAnswerParams("uv", false), "Not now sends a no for that runtime");
+        prompts.Dispose();
+        Require(shown.All(item => item.Disposed[0]), "closing the plugin takes every prompt down");
     }
 
     private class Fake : DispatchProxy
@@ -122,9 +155,11 @@ internal static class RuntimesUiChecks
         internal static Control? View;
         internal static Action? Refresh;
 
-        internal static IPluginUIContext Create(Func<string, object, CancellationToken, Task<RuntimesState>> backing, List<RuntimesSettings> settings)
+        private static List<(PluginPrompt Prompt, bool[] Disposed)> prompts = [];
+
+        internal static IPluginUIContext Create(Func<string, object, CancellationToken, Task<RuntimesState>> backing, List<RuntimesSettings> settings, List<(PluginPrompt Prompt, bool[] Disposed)>? shown = null)
         {
-            (handler, saved, Sections, View) = (backing, settings, 0, null);
+            (handler, saved, Sections, View, prompts) = (backing, settings, 0, null, shown ?? []);
             return Create<IPluginUIContext, Fake>();
         }
 
@@ -144,11 +179,24 @@ internal static class RuntimesUiChecks
                         var task = handler(((PluginMethodSpec)args![0]!).Name, args[1]!, (CancellationToken)args[2]!);
                         return Activator.CreateInstance(method.ReturnType, task);
                     }
+                case "Subscribe": return new Stop(new bool[1]);
+                case "Subscribe": return new Stop(new bool[1]);
+                case "Prompt":
+                    {
+                        var disposed = new bool[1];
+                        prompts.Add(((PluginPrompt)args![0]!, disposed));
+                        return new Stop(disposed);
+                    }
                 case "Settings": return new RuntimesSettings { BunPath = saved.LastOrDefault()?.BunPath ?? "" };
                 case "UpdateSettingsAsync": saved.Add((RuntimesSettings)args![0]!); return method.ReturnType == typeof(ValueTask) ? default(ValueTask) : Activator.CreateInstance(method.ReturnType, saved[^1]);
                 case "Notify": throw new InvalidOperationException("runtimes-ui: the page reported an error: " + string.Join(" / ", args!.OfType<string>()));
                 default: throw new NotSupportedException(method.Name);
             }
+        }
+
+        private sealed class Stop(bool[] disposed) : IDisposable
+        {
+            public void Dispose() => disposed[0] = true;
         }
     }
 }

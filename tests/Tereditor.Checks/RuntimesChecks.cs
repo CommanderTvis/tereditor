@@ -72,9 +72,63 @@ internal static class RuntimesChecks
         try
         {
             await Resolution(root);
+            await Consent(root);
             await Disabling(root);
         }
         finally { foreach (var (name, value) in saved) Env(name, value); ManagedRuntimes.UsePins(null); }
+    }
+
+    // The question before a plugin's request downloads: asked once per runtime, remembered No for the session, never asked when the runtime is already there.
+    private static async Task Consent(string root)
+    {
+        var bunArchive = Archive("bun-fake", "bun");
+        var uvArchive = Archive("uv-fake", "uv");
+        ManagedRuntimes.UsePins([Pin("bun", bunArchive), Pin("uv", uvArchive)]);
+        var source = new FakeSource { Bodies = { ["bun-"] = bunArchive, ["uv-"] = uvArchive } };
+        using var http = new HttpClient(source);
+        var workspace = Path.Combine(root, "consent-workspace");
+        Directory.CreateDirectory(workspace);
+        var without = Path.Combine(root, "consent-bin-without");
+        Directory.CreateDirectory(without);
+        var withTools = Path.Combine(root, "consent-bin-with");
+        Tool(withTools, "bun");
+
+        // The host side: a Not now means no request and a message that says where to download; a Download downloads once.
+        Env("PATH", withTools + ":/usr/bin:/bin");
+        var asked = new List<RuntimeOffer>();
+        var yes = false;
+        var servers = new LanguageServers(Path.Combine(root, "consent"), null, http) { RuntimeConsent = (offer, _) => { asked.Add(offer); return ValueTask.FromResult(yes); } };
+        Require((await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default)).Source == RuntimeSource.System && asked.Count == 0 && source.Requests == 0, "A runtime found on PATH was asked about or downloaded.");
+        Env("PATH", without + ":/usr/bin:/bin");
+        var declined = await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default);
+        Require(!declined.Available && declined.Message.Contains("Not now", StringComparison.Ordinal) && declined.Message.Contains("Settings", StringComparison.Ordinal) && !declined.Message.Contains((char)8212)
+            && asked is [{ Kind: RuntimeKind.Bun, Name: "Bun" }] && asked[0].Version.Length > 0 && source.Requests == 0, "A Not now must download nothing and say where to download: " + declined.Message);
+        yes = true;
+        var accepted = await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default);
+        Require(accepted is { Available: true, Source: RuntimeSource.Downloaded } && asked.Count == 2 && source.Requests == 1, "A yes downloads the runtime once.");
+        await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default);
+        Require(asked.Count == 2 && source.Requests == 1, "A runtime that is installed is not asked about again.");
+        Console.WriteLine("PASS a missing runtime asks before it downloads; Not now downloads nothing; PATH and installed copies are never asked about");
+
+        // The plugin side: one question for concurrent requests, a remembered No, Download now forgets it, closing answers No.
+        var published = new List<RuntimeConsents>();
+        var broker = new RuntimeConsentBroker(published.Add);
+        var offer = new RuntimeOffer(RuntimeKind.Bun, "Bun", "1.4.4");
+        var first = broker.AskAsync(offer, default).AsTask();
+        var second = broker.AskAsync(offer, default).AsTask();
+        Require(published.Count == 1 && published[0].Pending is [{ Kind: "bun", Name: "Bun", Version: "1.4.4" }] && broker.Snapshot().Pending.Count == 1, "Two requests for one runtime must share one question.");
+        var other = broker.AskAsync(new(RuntimeKind.Uv, "uv", "0.13.9"), default).AsTask();
+        Require(published.Count == 2 && published[1].Pending.Count == 2, "A second runtime gets its own question.");
+        broker.Answer(RuntimeKind.Bun, false);
+        Require(await first == false && await second == false && broker.Snapshot().Pending is [{ Kind: "uv" }] && published[^1].Pending is [{ Kind: "uv" }], "A No answers every waiting request and takes the question down.");
+        Require(!await broker.AskAsync(offer, default) && published.Count == 3, "After Not now the runtime is not asked about again in the session.");
+        broker.Forget(RuntimeKind.Bun);
+        var again = broker.AskAsync(offer, default).AsTask();
+        broker.Answer(RuntimeKind.Bun, true);
+        Require(await again, "After Download now the question comes back and a yes downloads.");
+        broker.Close();
+        Require(!await other && broker.Snapshot().Pending.Count == 0, "Closing the plugin answers open questions with No.");
+        Console.WriteLine("PASS one question per runtime, a remembered Not now, and Download now clears it");
     }
 
     private static async Task Resolution(string root)

@@ -9,6 +9,8 @@ public sealed class RuntimesUI : PluginUIModule
     public override PluginDisposer? Activate(IPluginUIContext context)
     {
         context.SettingsSection(new("Runtimes", RuntimesPlugin.Manifest.Icon, () => new RuntimesSettingsView(context)));
-        return null;
+        var prompts = new RuntimeConsentPrompts(context);
+        context.Subscribe(RuntimesContract.ConsentChanged, prompts.Apply, new RuntimesStatusParams());
+        return prompts.Dispose;
     }
 }

@@ -43,6 +43,9 @@ public sealed record RuntimeResolution(RuntimeKind Kind, bool Available, string 
         new(kind, false, "", [], new Dictionary<string, string>(), null, message, offerEnable);
 }
 
+/// <summary>A download a plugin's request is about to start: which runtime, its name for the user and the pinned version.</summary>
+public sealed record RuntimeOffer(RuntimeKind Kind, string Name, string Version);
+
 /// <summary>What Settings › Runtimes for tooling shows for one runtime.</summary>
 /// <param name="Kind">The runtime.</param>
 /// <param name="Name">Its name for the user, <c>Bun</c> or <c>uv</c>.</param>

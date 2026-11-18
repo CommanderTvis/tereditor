@@ -489,6 +489,13 @@ public interface IPluginHostContext
     [PluginAmbient]
     void OnUserDisabled(Func<ValueTask> handler) { }
 
+    /// <summary>
+    /// Sets who is asked before a runtime is downloaded because a plugin needed it (not for Download now, which is the user's own request). The answer is true to download.
+    /// Null removes it. A host without a screen ignores it and downloads.
+    /// </summary>
+    [PluginPermission("process")]
+    void SetRuntimeConsent(Func<RuntimeOffer, CancellationToken, ValueTask<bool>>? ask) { }
+
     /// <summary>The state of every runtime, for the Runtimes for tooling settings page. Starts no download.</summary>
     [PluginPermission("process")]
     ValueTask<IReadOnlyList<RuntimeStatus>> RuntimeStatusAsync(CancellationToken cancellationToken = default) => ValueTask.FromResult<IReadOnlyList<RuntimeStatus>>([]);

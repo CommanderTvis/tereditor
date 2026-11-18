@@ -33,6 +33,7 @@ M:Tereditor.Plugins.Api.Host.IPluginHostContext.PublicBaseUrl
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.Publish``1(Tereditor.Plugins.Api.PluginChannel{``0},``0,Tereditor.Plugins.Api.Host.PluginCall)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeLanguageServerDownloadsAsync(System.String,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeRuntimeDownloadsAsync(System.Threading.CancellationToken)
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.SetRuntimeConsent(System.Func{Tereditor.Plugins.Api.Host.RuntimeOffer,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask{System.Boolean}})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.ReadState``1(System.String,``0)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.RemoveRuntimeDownloadAsync(Tereditor.Plugins.Api.Host.RuntimeKind,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.RepoHost(Tereditor.Plugins.Api.Host.RepoHostProvider)
