@@ -14,7 +14,7 @@ public static class CodeIntelligenceLog
 {
     private const long Limit = 2 * 1024 * 1024;
     private const int MaxValue = 300;
-    private static readonly Channel<string> Queue = Channel.CreateBounded<string>(new BoundedChannelOptions(20_000) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
+    private static readonly Channel<string> Queue = Channel.CreateBounded<string>(new BoundedChannelOptions(20_000) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true }, _ => Interlocked.Increment(ref written));
     private static readonly ConcurrentDictionary<string, Operation> Pending = new();
     private static readonly object Gate = new();
     private static string? path;
@@ -99,26 +99,29 @@ public static class CodeIntelligenceLog
                 try
                 {
                     var target = Path;
-                    if (open is null || openPath != target)
-                    {
-                        open?.Dispose();
-                        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target)!);
-                        Rotate(target);
-                        open = new StreamWriter(new FileStream(target, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = false };
-                        openPath = target;
-                    }
                     var count = 0;
-                    while (reader.TryRead(out var line)) { open.WriteLine(line); count++; }
-                    open.Flush();
+                    while (reader.TryRead(out var line))
+                    {
+                        // Rotate before the line that would cross the limit, so the current file always exists once a line is written.
+                        if (open is null || openPath != target || open.BaseStream.Position >= Limit)
+                        {
+                            open?.Dispose();
+                            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target)!);
+                            Rotate(target);
+                            open = new StreamWriter(new FileStream(target, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = false };
+                            openPath = target;
+                        }
+                        open.WriteLine(line); count++;
+                        if (open.BaseStream.Position + 4096 >= Limit) open.Flush();
+                    }
+                    open?.Flush();
                     Interlocked.Add(ref written, count);
-                    if (open.BaseStream.Length > Limit) { open.Dispose(); open = null; Rotate(target); }
                 }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException)
                 {
                     // Logging must never take the app down; drop what could not be written.
                     open?.Dispose(); open = null;
                     while (reader.TryRead(out _)) Interlocked.Increment(ref written);
-                    Interlocked.Exchange(ref written, Volatile.Read(ref enqueued));
                     Thread.Sleep(1000);
                 }
             }
