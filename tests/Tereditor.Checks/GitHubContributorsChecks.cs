@@ -25,7 +25,7 @@ internal static class GitHubContributorsChecks
         "[" + string.Join(',', weeks.Select(w => $$"""{"w":{{w.W}},"a":{{w.A}},"d":{{w.D}},"c":{{w.C}}}""")) + "]";
 
     private static string Stats(string login, string weeks) =>
-        $$"""{"total":1,"weeks":{{weeks}},"author":{"login":"{{login}}","avatar_url":"https://avatars.example/{{login}}","html_url":"https://github.com/{{login}}"}}""";
+        $$$"""{"total":1,"weeks":{{{weeks}}},"author":{"login":"{{{login}}}","avatar_url":"https://avatars.example/{{{login}}}","html_url":"https://github.com/{{{login}}}"}}""";
 
     private static GitHubBrowser Browser(List<string> calls, params string[] answers)
     {
@@ -44,7 +44,7 @@ internal static class GitHubContributorsChecks
     {
         var starts = Enumerable.Range(0, weeks).Select(i => 1_700_000_000L + i * 604800L).ToList();
         var list = Enumerable.Range(0, authors).Select(a => new GitHubContributor("user" + a, "", "https://github.com/user" + a,
-            [.. Enumerable.Range(0, weeks).Select(i => (a + i) % 5), ], [.. Enumerable.Range(0, weeks).Select(i => (a + i) % 7 * 10)], [.. Enumerable.Range(0, weeks).Select(i => (a + i) % 3)])).ToList();
+            [.. Enumerable.Range(0, weeks).Select(i => (a + i) % 5)], [.. Enumerable.Range(0, weeks).Select(i => (a + i) % 7 * 10)], [.. Enumerable.Range(0, weeks).Select(i => (a + i) % 3)])).ToList();
         return new(false, "rev", "main", false, starts, list);
     }
 
