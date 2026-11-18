@@ -59,9 +59,16 @@ public sealed record ClaudePluginPart(ClaudePluginPartKind Kind, string Name)
     public string? Path { get; init; }
 }
 
+/// <summary>What <c>claude mcp list</c> says about a server it checked.</summary>
+public enum ClaudeMcpStatus { Connected, NeedsAuth, Pending, Failed, Disabled, Unknown }
+
 public sealed record ClaudeCapability(ClaudeCapabilityKind Kind, string Name, ClaudeConfigOrigin Origin, bool Enabled)
 {
     public string? Detail { get; init; }
+    /// <summary>For a server from <c>claude mcp list</c>: its health; null for a row that was not checked.</summary>
+    public ClaudeMcpStatus? Status { get; init; }
+    /// <summary>The raw status text Claude printed; the pane shows it when the status is <c>Unknown</c>.</summary>
+    public string? StatusText { get; init; }
     /// <summary>For a plugin: what it adds, read from its installed files; null when those files are not found.</summary>
     public IReadOnlyList<ClaudePluginPart>? Parts { get; init; }
     /// <summary>The setting that switched this off, when something did.</summary>

@@ -3,11 +3,13 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 
 using Tereditor.Checks.E2E;
 using Tereditor.Plugins.Agent.UI;
 using Tereditor.Plugins.ClaudeCode;
 using Tereditor.Plugins.ClaudeCode.Host;
+using Tereditor.Plugins.ClaudeCode.Host.ClaudeConfig;
 using Tereditor.Plugins.ClaudeCode.UI;
 
 namespace Tereditor.Checks;
@@ -698,6 +700,19 @@ internal static class ClaudeContextChecks
         surface.Actions(userSkill)[1].Run();
         surface.Actions(projectSkill)[1].Run();
         Require(host.Calls.SequenceEqual(["moveskill ponytail project", "moveskill synced user"]), "The move entries reach the pane with the target scope.");
+
+        (ClaudeMcpStatus Status, string Word, IBrush Brush)[] states =
+        [
+            (ClaudeMcpStatus.Connected, "Connected", Tereditor.Plugins.UI.Kit.Ui.Success), (ClaudeMcpStatus.NeedsAuth, "Needs sign-in", Tereditor.Plugins.UI.Kit.Ui.Warning), (ClaudeMcpStatus.Pending, "Starting", Tereditor.Plugins.UI.Kit.Ui.Warning),
+            (ClaudeMcpStatus.Failed, "Failed", Tereditor.Plugins.UI.Kit.Ui.Danger), (ClaudeMcpStatus.Disabled, "Disabled", Tereditor.Plugins.UI.Kit.Ui.Muted), (ClaudeMcpStatus.Unknown, "? odd", Tereditor.Plugins.UI.Kit.Ui.Muted)
+        ];
+        var servers = states.Select(state => new ClaudeCapability(ClaudeCapabilityKind.Mcp, "claude.ai " + state.Status, new(ClaudeConfigScope.User), true)
+            { Detail = "https://api.example.com/mcp", Status = state.Status, StatusText = "? odd" }).ToArray();
+        var badges = new ClaudeCapabilitiesSurface(host, servers).View.GetLogicalDescendants().OfType<TextBlock>().Where(block => block.Name == "ClaudeMcpStatus").ToArray();
+        Require(badges.Length == states.Length && badges.Zip(states).All(pair => pair.First.Text == pair.Second.Word && ReferenceEquals(pair.First.Foreground, pair.Second.Brush)),
+            "A server row shows its status as a badge worded and coloured by state; an unknown status shows Claude's text, muted.");
+        Require(McpList.Capabilities(McpList.Parse("claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ✔ Connected\n"), new HashSet<string>(), "/p").Single() is { Status: ClaudeMcpStatus.Connected, Detail: "https://gmail.mcp.claude.com/mcp" },
+            "The detail line keeps only the target; the status travels apart.");
         Console.WriteLine("PASS Claude Code capabilities: marketplaces and their plugins form one tree with the Instructions connectors, fold, and keep their menus");
     }
 

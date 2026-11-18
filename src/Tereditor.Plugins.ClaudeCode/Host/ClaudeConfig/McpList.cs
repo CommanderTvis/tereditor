@@ -56,7 +56,17 @@ internal static class McpList
         [.. entries.Where(entry => !declared.Contains(entry.Name)).Select(entry => new ClaudeCapability(ClaudeCapabilityKind.Mcp, entry.Name,
             new(ClaudeConfigScope.User), entry.Status != McpListStatus.Disabled)
         {
-            Detail = $"{entry.Target} · {entry.StatusText}",
+            Detail = entry.Target,
+            Status = entry.Status switch
+            {
+                McpListStatus.Connected => ClaudeMcpStatus.Connected,
+                McpListStatus.NeedsAuth => ClaudeMcpStatus.NeedsAuth,
+                McpListStatus.Pending => ClaudeMcpStatus.Pending,
+                McpListStatus.Failed => ClaudeMcpStatus.Failed,
+                McpListStatus.Disabled => ClaudeMcpStatus.Disabled,
+                _ => ClaudeMcpStatus.Unknown
+            },
+            StatusText = entry.StatusText,
             DisabledBy = entry.Status == McpListStatus.Disabled
                 ? new(ClaudeConfigScope.Local, ClaudePaths.ClaudeStatePath()) { KeyPath = ["projects", root, "disabledMcpServers"] }
                 : null

@@ -2024,9 +2024,9 @@ internal static class ClaudeCodeChecks
         Console.WriteLine("PASS fork plugins/claude-code/claude-config.spec.ts (host): a skill, a hook and a plugin are each composed, then written where the scope says; moves and marketplaces run Claude's CLI");
 
         var servers = (await Call(ClaudeCodeContract.McpList, new WorkspaceParams(project))).Capabilities;
-        Require(servers.Single(item => item.Name == "claude.ai Gmail") is { Enabled: true } gmail && (gmail.Detail ?? "").Contains("Connected", StringComparison.Ordinal) &&
+        Require(servers.Single(item => item.Name == "claude.ai Gmail") is { Enabled: true } gmail && gmail.Status == ClaudeMcpStatus.Connected && !(gmail.Detail ?? "").Contains("Connected", StringComparison.Ordinal) &&
             servers.Single(item => item.Name == "claude.ai Uber Eats") is { Enabled: false } &&
-            (servers.Single(item => item.Name == "plugin:cloudflare:cloudflare").Detail ?? "").Contains("Needs authentication", StringComparison.Ordinal),
+            servers.Single(item => item.Name == "plugin:cloudflare:cloudflare").Status == ClaudeMcpStatus.NeedsAuth,
             "Claude's connectors and plugin servers are parsed from its health check.");
         Console.WriteLine("PASS fork plugins/claude-code/claude-config.spec.ts (host): claude.ai connectors and plugin servers appear as rows from Claude's own health check");
 

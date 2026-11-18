@@ -346,6 +346,13 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
             DockPanel.SetDock(chip, Dock.Right);
             head.Children.Add(chip);
         }
+        if (item.Status is { } status)
+        {
+            var badge = StatusBadge(status, item.StatusText);
+            badge.Margin = new Thickness(4, 0);
+            DockPanel.SetDock(badge, Dock.Right);
+            head.Children.Add(badge);
+        }
         Control name = Ui.Text(item.Name, Ui.TextBrush, 13);
         if (group is not null) name = Disclosure(name, head, group);
         head.Children.Add(name);
@@ -360,7 +367,12 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
             row.Children.Add(source);
         }
         // Under its marketplace a plugin's marketplace name is the parent row; elsewhere it stays on the row.
-        if (item.Detail is { } detail && !underMarketplace) row.Children.Add(ClaudeParts.Code(detail, Ui.Hint));
+        if (item.Detail is { } detail && !underMarketplace)
+        {
+            var line = ClaudeParts.Code(detail, Ui.Hint);
+            if (item.Status is not null) ToolTip.SetTip(line, detail);
+            row.Children.Add(line);
+        }
         if (item.Kind == ClaudeCapabilityKind.Plugin)
         {
             var summary = Ui.Text(PartsSummary(item), Ui.Hint, 11);
@@ -368,5 +380,23 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
             row.Children.Add(summary);
         }
         return group is not null ? Parent(row, group) : new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Child = row };
+    }
+
+    /// <summary>The health of a server as a short coloured word; an unknown status shows Claude's own text, muted.</summary>
+    internal static TextBlock StatusBadge(ClaudeMcpStatus status, string? raw)
+    {
+        var (text, brush) = status switch
+        {
+            ClaudeMcpStatus.Connected => ("Connected", (IBrush)Ui.Success),
+            ClaudeMcpStatus.NeedsAuth => ("Needs sign-in", Ui.Warning),
+            ClaudeMcpStatus.Pending => ("Starting", Ui.Warning),
+            ClaudeMcpStatus.Failed => ("Failed", Ui.Danger),
+            ClaudeMcpStatus.Disabled => ("Disabled", Ui.Muted),
+            _ => (raw ?? "Unknown", Ui.Muted)
+        };
+        var badge = Ui.Text(text, brush, 10);
+        badge.Name = "ClaudeMcpStatus";
+        badge.Tag = status;
+        return badge;
     }
 }
