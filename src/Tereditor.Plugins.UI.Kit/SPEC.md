@@ -340,7 +340,10 @@ observes half a palette. That makes the brush names, and the manifest colour key
 Its frames, options, bullet rows, loading/error states and pan/zoom chrome are compiled XAML. Interactive
 diagrams fill a companion; inline diagrams are capped and offer a fullscreen button. The kit owns no
 terminal or plugin state. A consumer supplies a render-verdict callback. Comparisons settle immediately;
-Mermaid renders through Merman off the UI thread and reports its native parser error. Theme rerenders
+Mermaid renders through Merman off the UI thread and reports its native parser error. Merman draws HTML labels as
+text in a group that carries the node's classes, so a `classDef` or `style` rule that sets `fill`, `stroke` and
+`stroke-width` would also hit the label. `MermaidRenderer` pins each such label text to no stroke and to the fill
+Merman gave it (the node's `color`): strokes belong to shapes only, as in Mermaid. Checked by `--mermaid-stroke`. Theme rerenders
 retain the mounted navigation control and its zoom/scroll. The pan/zoom surface clips oversized diagrams
 to its bounds, including when resized or panned beside other content. Toolbar and wheel use `ZoomGesture`, shared
 with PDF Preview, with 25–600% bounds. Native trackpad magnify and further lifecycle/appearance cases

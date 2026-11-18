@@ -88,13 +88,35 @@ public static class MermaidRenderer
     internal static bool IsTreeView(string svg) => svg.Contains("aria-roledescription=\"treeView\"", StringComparison.Ordinal);
 
     private static Result Finish(Result result, string options)
-        => result.Svg is not { } svg ? result : result with { Svg = WithReadableInk(IsTreeView(svg) ? WithoutTreeRoot(svg) : svg, options) };
+        => result.Svg is not { } svg ? result : result with { Svg = WithReadableInk(WithoutLabelStroke(IsTreeView(svg) ? WithoutTreeRoot(svg) : svg), options) };
 
     // Mermaid's own default ink: near-black text and strokes that Merman 0.7 still writes as literals in some diagrams.
     private static readonly System.Text.RegularExpressions.Regex InkAttribute =
         new(@"(?<![-\w])(fill|stroke|color)=""(?:#000|#000000|#333|#333333|black)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     private static readonly System.Text.RegularExpressions.Regex InkDeclaration =
         new(@"(?<![-\w])(fill|stroke|color)\s*:\s*(?:#000|#000000|#333|#333333|black|rgb\(\s*0\s*,\s*0\s*,\s*0\s*\))(?=\s*[;}!""])", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private static readonly System.Text.RegularExpressions.Regex FallbackText =
+        new("<text\\b[^>]*\\bmerman-foreignobject-fallback-text[^>]*>");
+    private static readonly System.Text.RegularExpressions.Regex FillAttribute = new("\\sfill=\"([^\"]*)\"");
+    private static readonly System.Text.RegularExpressions.Regex StyleAttribute = new("\\sstyle=\"");
+
+    /// <summary>
+    /// Merman draws HTML labels as <c>&lt;text&gt;</c> in a group that carries the node's classes, so a class rule such as
+    /// <c>.run&gt;*{fill;stroke;stroke-width}</c> (from <c>classDef</c>) lands on the text as well as on the shape. In
+    /// Mermaid the stroke and fill belong to the shape only; the label keeps its own <c>color</c>. Each such text gets an
+    /// inline style that pins its stroke off and its fill to the colour Merman gave it.
+    /// </summary>
+    internal static string WithoutLabelStroke(string svg)
+        => FallbackText.Replace(svg, match =>
+        {
+            var tag = match.Value;
+            var fill = FillAttribute.Match(tag) is { Success: true } found ? $"fill:{found.Groups[1].Value};" : "";
+            var pin = fill + "stroke:none;stroke-width:0;";
+            return StyleAttribute.Match(tag) is { Success: true } style
+                ? tag.Insert(style.Index + style.Length, pin)
+                : tag.Insert(tag.Length - 1, " style=\"" + pin.TrimEnd(';') + "\"");
+        });
 
     /// <summary>
     /// Merman 0.7 ignores the host theme in places and keeps Mermaid's default near-black ink: gantt axis ticks,

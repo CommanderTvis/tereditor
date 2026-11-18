@@ -1339,6 +1339,11 @@ internal static class Program
             E2E.MarkdownFindE2E.Run(Path.Combine(root, "upstream-e2e"));
             return;
         }
+        if (args.SequenceEqual(["--mermaid-stroke"]))
+        {
+            MermaidStrokeChecks.Run();
+            return;
+        }
         if (args.SequenceEqual(["--markdown-tables"]))
         {
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
@@ -1647,6 +1652,7 @@ internal static class Program
         Gate.Case("resources", () => ResourceChecks.Run(root));
         Gate.Case("markdown-table-diffs", MarkdownTableDiffChecks.Run);
         Gate.Case("markdown-mermaid-diffs", MarkdownMermaidDiffChecks.Run);
+        Gate.Case("mermaid-stroke", MermaidStrokeChecks.Run);
         Gate.Case("markdown-images", MarkdownImageChecks.Run);
         Gate.Case("markdown-html-tables", MarkdownHtmlTableChecks.Run);
         Gate.Case("drawn-rendering", DrawnRenderingChecks.Run);
