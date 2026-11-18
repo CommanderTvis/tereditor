@@ -28,4 +28,13 @@ internal static class GitHubIcons
     public const string Loader = "loader";
     public const string ExternalLink = "externalLink";
     public const string ArrowLeft = "arrowLeft";
+    public const string ArrowRight = "arrowRight";
+    public const string ArrowDown = "arrowDown";
+    public const string Calendar = "calendar";
+    public const string Timer = "timer";
+    public const string Tools = "tools";
+    public const string NodeTree = "nodeTree";
+    public const string LayoutLeft = "layoutLeft";
+    public const string MoreHorizontal = "moreHorizontal";
+    public const string Add = "add";
 }

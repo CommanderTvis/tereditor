@@ -101,6 +101,7 @@ internal static partial class GitHubBrowserChecks
         Console.WriteLine("PASS GitHub pane, rows, conversation and views render with every icon resolved");
         LinkHoverAndAvatars();
         PlaceholdersAreCentred();
+        GitHubActionsChecks.Run();
     }
 
     private static Window Show(Control content, double width = 800, double height = 600)
@@ -250,7 +251,11 @@ internal static partial class GitHubBrowserChecks
             if (args[0] == "api" && args[1].StartsWith("repos/o/r/actions/runs/9", StringComparison.Ordinal))
                 return ValueTask.FromResult(Ok("""{"id":9,"name":"CI","display_title":"Fix it","run_number":4,"event":"push","status":"in_progress","head_branch":"main","head_sha":"abcdef1234","actor":{"login":"ann"},"created_at":"2026-11-01T10:00:00Z","html_url":"https://github.com/o/r/actions/runs/9"}"""));
             if (args[0] == "api" && args[1].StartsWith("repos/o/r/actions/runs?", StringComparison.Ordinal))
-                return ValueTask.FromResult(Ok("""{"total_count":2500,"workflow_runs":[{"id":9,"name":"CI","display_title":"Fix it","run_number":4,"event":"push","status":"completed","conclusion":"failure","head_branch":"main","head_sha":"abcdef1234","actor":{"login":"ann"},"run_started_at":"2026-11-01T10:00:00Z","created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:01:04Z","html_url":"https://github.com/o/r/actions/runs/9"}]}"""));
+                return ValueTask.FromResult(Ok("""{"total_count":2500,"workflow_runs":[{"id":9,"name":"CI","display_title":"Fix it","run_number":4,"event":"push","status":"completed","conclusion":"failure","head_branch":"main","head_sha":"abcdef1234","actor":{"login":"ann"},"workflow_id":5,"path":".github/workflows/ci.yml","run_started_at":"2026-11-01T10:00:00Z","created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:01:04Z","html_url":"https://github.com/o/r/actions/runs/9"}]}"""));
+            if (args[0] == "api" && args[1].StartsWith("repos/o/r/actions/workflows/5/runs?", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"total_count":3,"workflow_runs":[{"id":8,"name":"CI","display_title":"Other","run_number":3,"event":"schedule","status":"completed","conclusion":"success","head_branch":"main","head_sha":"abcdef1234","actor":{"login":"ann"},"workflow_id":5,"path":".github/workflows/ci.yml","run_started_at":"2026-11-01T10:00:00Z","created_at":"2026-11-01T10:00:00Z","updated_at":"2026-11-01T10:00:30Z","html_url":"https://github.com/o/r/actions/runs/8"}]}"""));
+            if (args[0] == "api" && args[1].StartsWith("repos/o/r/actions/workflows?", StringComparison.Ordinal))
+                return ValueTask.FromResult(Ok("""{"total_count":2,"workflows":[{"id":6,"name":"Nightly","path":".github/workflows/nightly.yml","state":"disabled_manually"},{"id":5,"name":"CI","path":".github/workflows/ci.yml","state":"active"}]}"""));
             if (args[0] == "api" && args[1].StartsWith("repos/o/r/releases", StringComparison.Ordinal))
                 return ValueTask.FromResult(Ok("""[{"tag_name":"v2","name":"Two","draft":false,"prerelease":false,"published_at":"2026-11-01T10:00:00Z","author":{"login":"ann"},"body":"## Notes","html_url":"https://github.com/o/r/releases/tag/v2","assets":[{"name":"a.zip","size":2097152}]}]"""));
             if (args[0] == "api" && args[1].StartsWith("repos/o/r/contributors", StringComparison.Ordinal))
@@ -262,7 +267,7 @@ internal static partial class GitHubBrowserChecks
             if (args[0] == "api" && args.Contains("repos/o/r/issues/7") && args.Contains("PATCH")) return ValueTask.FromResult(Ok("""{"state":"closed"}"""));
             if (text.Contains("mutation(", StringComparison.Ordinal)) return ValueTask.FromResult(Ok("""{"data":{"addDiscussionComment":{"comment":{"databaseId":901,"createdAt":"2026-11-02T10:00:00Z","body":"Hi","author":{"login":"me"}}}}}"""));
             if (text.Contains("discussion(number: $number) { id }", StringComparison.Ordinal)) return ValueTask.FromResult(Ok("""{"data":{"repository":{"discussion":{"id":"D_1"}}}}"""));
-            if (args[0] == "api" && args[1] == "repos/o/r/actions/jobs/5") return ValueTask.FromResult(Ok(jobDone ? """{"status":"completed","html_url":"https://github.com/o/r/actions/runs/9/job/5"}""" : """{"status":"in_progress","html_url":"https://github.com/o/r/actions/runs/9/job/5"}"""));
+            if (args[0] == "api" && args[1] == "repos/o/r/actions/jobs/5") return ValueTask.FromResult(Ok(jobDone ? """{"status":"completed","html_url":"https://github.com/o/r/actions/runs/9/job/5","steps":[{"number":1,"name":"Build","started_at":"2026-11-01T10:00:00Z"},{"number":2,"name":"Post","started_at":"2026-11-01T10:00:03Z"}]}""" : """{"status":"in_progress","html_url":"https://github.com/o/r/actions/runs/9/job/5"}"""));
             if (args[0] == "api" && args[1] == "repos/o/r/actions/jobs/5/logs") return ValueTask.FromResult(Ok(JobLog));
             if (text.Contains("discussionCategories", StringComparison.Ordinal))
                 return ValueTask.FromResult(Ok("""{"data":{"repository":{"discussionCategories":{"nodes":[{"id":"C1","name":"Q&A","emoji":":pray:"}]}}}}"""));
@@ -311,13 +316,20 @@ internal static partial class GitHubBrowserChecks
         RequireTimelineSpreads();
 
         var runs = await browser.ViewAsync("/w", new("w", "runs", "", [new("status", "failure")]), default);
-        Require(runs.Problem is null && runs.Rows[0] is { State: "failure", Right: "1m 4s" } && runs.Rows[0].Meta == "CI #4: Commit abcdef1 pushed by ann" && runs.Rows[0].Chips[0].Name == "main", "A run row carries state, wording, branch and duration");
-        Require(runs.Summary == "2,500 workflow runs" && runs.Filters.Select(x => x.Key).SequenceEqual(["event", "status", "branch", "actor"]) && runs.Filters[1].Value == "failure", "Runs offer the event, status, branch and actor filters");
+        Require(runs.Problem is null && runs.Rows.Count == 0 && runs.Runs[0] is { State: "failure", Duration: "1m 4s", Workflow: "CI", Number: 4, Event: "push", Actor: "ann", Sha: "abcdef1234", Branch: "main", WorkflowPath: ".github/workflows/ci.yml" }, "A run carries state, workflow, trigger, branch and duration");
+        Require(runs.Summary == "2,500 workflow runs" && runs.Total == 2500 && runs.HasMore && runs.Filters.Select(x => x.Key).SequenceEqual(["workflow", "event", "status", "branch", "actor"]) && runs.Filters[2].Value == "failure", "Runs offer the workflow, event, status, branch and actor filters");
+        Require(runs.Workflows.Select(w => w.Name).SequenceEqual(["CI", "Nightly"]) && runs.Workflows[1].State == "disabled_manually" && runs.RepoUrl == "https://github.com/o/r", "Runs list the repository's workflows by name");
+        var filtered = await browser.ViewAsync("/w", new("w", "runs", "", [new("workflow", "CI"), new("q", "other"), new("branch", "main")]), default);
+        Require(filtered.Title == "CI" && filtered.Subtitle == "Showing runs from CI" && filtered.Runs.Count == 1 && filtered.Runs[0].Id == "8" && calls.Any(call => call.Contains("repos/o/r/actions/workflows/5/runs?per_page=30&page=1&branch=main", StringComparison.Ordinal)), "A workflow filter reads that workflow's runs and keeps the other qualifiers");
+        var none = await browser.ViewAsync("/w", new("w", "runs", "", [new("workflow", "5"), new("q", "nomatch")]), default);
+        Require(none.Runs.Count == 0, "Free text is matched against the page that came back");
+        var next = await browser.ViewAsync("/w", new("w", "runs", "", [], 30) { Page = 2 }, default);
+        Require(calls.Any(call => call.Contains("repos/o/r/actions/runs?per_page=30&page=2", StringComparison.Ordinal)) && next.Workflows.Count == 0, "A later page asks for its page and skips the workflow list");
         Require(calls.Any(call => call.Contains("status=failure", StringComparison.Ordinal)), "A chosen status goes to the runs call");
         var runAgain = await browser.ViewAsync("/w", new("w", "runs", "", [new("status", "failure")], 30, runs.Revision), default);
-        Require(runAgain.Unchanged && runAgain.Rows.Count == 0, "An unchanged runs list answers Unchanged");
+        Require(runAgain.Unchanged && runAgain.Runs.Count == 0, "An unchanged runs list answers Unchanged");
         var run = await browser.ViewAsync("/w", new("w", "runs", "9", []), default);
-        Require(run.State == "running" && run.Rows.Select(r => (r.Title, r.Indent)).SequenceEqual([("build", 0), ("Checkout", 1)]) && run.Rows[0].Right == "2m 5s", "A run lists its jobs with their steps");
+        Require(run.State == "running" && run.Rows.Select(r => (r.Title, r.Indent)).SequenceEqual([("build", 0), ("Checkout", 1)]) && run.Rows[0].Right == "2m 5s" && run.Rows[1].Id == "1/1" && run.Rows[1].At == "2026-11-01T10:00:00Z", "A run lists its jobs with their steps, keyed by job and step number");
         var discussions = await browser.ViewAsync("/w", new("w", "discussions", "", [new("category", "Q&A")]), default);
         Require(discussions.Rows[0] is { State: "answered" } && discussions.Filters[0].Options.SequenceEqual(["Q&A"]) && calls.Any(call => call.Contains("category=C1", StringComparison.Ordinal)), "Discussions filter by category id");
         var discussion = await browser.ViewAsync("/w", new("w", "discussions", "3", []), default);
@@ -354,14 +366,17 @@ internal static partial class GitHubBrowserChecks
         Require(running is { InProgress: true } && running.Problem!.Contains("still running", StringComparison.Ordinal), "A running job says its log is not ready");
         jobDone = true;
         var log = await browser.LogAsync("/w", new("w", "5"), default);
-        Require(log.Problem is null && log.Groups[0].Name == "Run build" && log.Groups[0].HasError && log.Groups[0].Lines[0] == new GitHubLogLine("10:00:01", "make") && log.Groups[0].Lines[1].Text == "Process completed with exit code 2.", "A log is split into groups with stamps and colour codes removed");
+        Require(log.Problem is null && log.Steps.Count == 2 && log.Steps[0] is { Number: 1, Name: "Build", HasError: true } && log.Steps[0].Lines[0] is { Header: true, Text: "Run build", Time: "10:00:00" }
+            && log.Steps[0].Lines[1] is { Time: "10:00:01", Grouped: true, Text: "\x1b[36;1mmake\x1b[0m" } && log.Steps[0].Lines[2] is { Error: true, Text: "Process completed with exit code 2." }, "A log is split into steps by time, groups are marked and colour codes stay for the view");
+        Require(log.Steps[1] is { Number: 2 } && log.Steps[1].Lines.Select(l => l.Text).SequenceEqual(["Post job cleanup."]), "A line after the next step started belongs to that step");
         var before = calls.Count;
         await browser.LogAsync("/w", new("w", "5"), default);
         Require(calls.Count == before, "A finished job's log is cached");
         var huge = GitHubBrowser.ParseLog(string.Join('\n', Enumerable.Range(0, 20000).Select(i => "2026-11-01T10:00:00.0000000Z line " + i)), "");
-        Require(huge.Groups.Sum(g => g.Lines.Count) <= 500 && huge.Cut == 19500 && huge.Groups[0].Lines[^1].Text == "line 19999", "A huge log keeps its tail and counts what it cut");
-        var many = GitHubBrowser.ParseLog(string.Join('\n', Enumerable.Range(0, 20).SelectMany(g => new[] { "##[group]G" + g }.Concat(Enumerable.Range(0, 400).Select(i => "x")))), "");
-        Require(many.Groups.Sum(g => g.Lines.Count) <= 4000 && many.Cut == 4000, "Many groups stay under the total cap");
+        Require(huge.Steps[0].Lines.Count == 5000 && huge.Cut == 15000 && huge.Steps[0].Cut == 15000 && huge.Steps[0].Lines[^1].Text == "line 19999", "A huge step keeps its last 5000 lines and counts what it cut");
+        var many = GitHubBrowser.ParseLog(string.Join('\n', Enumerable.Range(0, 5).SelectMany(g => Enumerable.Range(0, 5000).Select(i => $"2026-11-01T10:0{g}:00.0000000Z x"))), "",
+            [.. Enumerable.Range(0, 5).Select(g => new GitHubBrowser.StepStart(g + 1, "S" + g, $"2026-11-01T10:0{g}:00Z"))]);
+        Require(many.Steps.Sum(s => s.Lines.Count) == 20000 && many.Cut == 5000 && many.Steps[0].Lines.Count == 0, "Many steps stay under the total cap of 20000 lines, the earliest lines go first");
 
         failing = true;
         var broken = await browser.ListAsync("/w", new("w", "issues", ""), default);

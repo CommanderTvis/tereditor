@@ -63,13 +63,36 @@ public sealed record GitHubCard(string Title, string Author, string At, string N
 }
 
 /// <summary>Kind: runs, discussions, releases, contributors, deployments or packages. Id is empty for the list, else the run id or discussion number.</summary>
-public sealed record GitHubViewParams(string WorkspaceId, string Kind, string Id, IReadOnlyList<GitHubFilterValue> Filters, int Limit = 30, string? Revision = null);
+public sealed record GitHubViewParams(string WorkspaceId, string Kind, string Id, IReadOnlyList<GitHubFilterValue> Filters, int Limit = 30, string? Revision = null)
+{
+    /// <summary>The 1-based page of Limit rows to read; a list view answers only that page.</summary>
+    public int Page { get; init; } = 1;
+}
+
+/// <summary>One workflow of the repository. State is active or a disabled kind; Path is the file under .github/workflows (or dynamic/... for GitHub's own).</summary>
+public sealed record GitHubWorkflow(string Id, string Name, string Path, string State);
+
+/// <summary>One workflow run of the Actions list; light strings and numbers only. State as in <see cref="GitHubRow"/>. Started is ISO, Duration is ready text.</summary>
+public sealed record GitHubRun(string Id, string Title, string State, string Workflow, string WorkflowId, string WorkflowPath, int Number, string Event, string Actor, string Sha,
+    string Branch, string Started, string Duration, string Url);
 
 public sealed record GitHubView(bool Unchanged, string Revision, string Title, string Subtitle, string State, IReadOnlyList<GitHubRow> Rows, IReadOnlyList<GitHubCard> Cards,
     IReadOnlyList<GitHubFilter> Filters, bool HasMore, string Summary = "", string? Problem = null)
 {
     /// <summary>Not null when this answer is the saved copy.</summary>
     public GitHubCacheNote? Cached { get; init; }
+
+    /// <summary>The runs of the asked page (Actions list only; Rows stays empty there).</summary>
+    public IReadOnlyList<GitHubRun> Runs { get; init; } = [];
+
+    /// <summary>The repository's workflows (Actions list, first page only).</summary>
+    public IReadOnlyList<GitHubWorkflow> Workflows { get; init; } = [];
+
+    /// <summary>The repository's web address, for workflow file links.</summary>
+    public string RepoUrl { get; init; } = "";
+
+    /// <summary>All runs that match, as GitHub counts them.</summary>
+    public int Total { get; init; }
 }
 
 public sealed record GitHubReviewComment(string Path, string Body);
@@ -89,12 +112,21 @@ public sealed record GitHubPostResult(bool Ok, string? Problem, GitHubEvent? Eve
 
 public sealed record GitHubLogParams(string WorkspaceId, string JobId);
 
-public sealed record GitHubLogLine(string Time, string Text);
+/// <summary>One log line. Text keeps its colour codes (the view parses them per visible line). Header: it opens a ##[group]; Grouped: it sits inside one; Error: it was an ##[error] line.</summary>
+public sealed record GitHubLogLine(string Time, string Text)
+{
+    public bool Header { get; init; }
 
-public sealed record GitHubLogGroup(string Name, bool HasError, IReadOnlyList<GitHubLogLine> Lines);
+    public bool Grouped { get; init; }
 
-/// <summary>One job's log in GitHub's groups; Cut counts the lines left out to keep it bounded; Url is the job's page.</summary>
-public sealed record GitHubLog(IReadOnlyList<GitHubLogGroup> Groups, int Cut, string Url, string? Problem = null, bool InProgress = false);
+    public bool Error { get; init; }
+}
+
+/// <summary>The log lines of one step of a job (Number 0 and an empty name when the steps are unknown); Cut counts the lines left out of its start.</summary>
+public sealed record GitHubLogStep(int Number, string Name, IReadOnlyList<GitHubLogLine> Lines, bool HasError, int Cut);
+
+/// <summary>One job's log split into its steps; Cut counts the lines left out to keep it bounded; Url is the job's page.</summary>
+public sealed record GitHubLog(IReadOnlyList<GitHubLogStep> Steps, int Cut, string Url, string? Problem = null, bool InProgress = false);
 
 /// <summary>Draft comment text per tab, kept in memory so a refresh or a rebuilt view never loses what was typed.</summary>
 public static class GitHubDrafts

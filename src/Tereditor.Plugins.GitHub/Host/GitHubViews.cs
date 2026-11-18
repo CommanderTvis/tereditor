@@ -21,7 +21,7 @@ public sealed partial class GitHubBrowser
             var limit = Math.Clamp(p.Limit, 1, 100);
             var view = (p.Kind, p.Id.Length > 0) switch
             {
-                ("runs", false) => await RunsAsync(directory, repo, filters, limit, ct),
+                ("runs", false) => await RunsAsync(directory, repo, filters, limit, Math.Max(1, p.Page), ct),
                 ("runs", true) => await RunAsync(directory, repo, p.Id, ct),
                 ("discussions", false) => await DiscussionsAsync(directory, repo, filters, limit, ct),
                 ("discussions", true) => await DiscussionAsync(directory, repo, p.Id, ct),
@@ -32,9 +32,9 @@ public sealed partial class GitHubBrowser
                 _ => Problem("Unknown view: " + p.Kind)
             };
             if (view.Problem is not null) return view;
-            var key = $"view|{repo.Slug}|{p.Kind}|{p.Id}|{string.Join(',', filters.OrderBy(f => f.Key).Select(f => f.Key + "=" + f.Value))}|{limit}";
+            var key = $"view|{repo.Slug}|{p.Kind}|{p.Id}|{string.Join(',', filters.OrderBy(f => f.Key).Select(f => f.Key + "=" + f.Value))}|{limit}|{p.Page}";
             var revision = Revise(key, JsonSerializer.Serialize(view, GitHubJson.Default.GitHubView));
-            return p.Revision == revision ? view with { Unchanged = true, Revision = revision, Rows = [], Cards = [] } : view with { Revision = revision };
+            return p.Revision == revision ? view with { Unchanged = true, Revision = revision, Rows = [], Cards = [], Runs = [], Workflows = [] } : view with { Revision = revision };
         }
         catch (Exception error) when (IsExpected(error)) { return Problem(Describe(error)); }
     }
@@ -81,33 +81,61 @@ public sealed partial class GitHubBrowser
 
     private static string Short(string sha) => sha.Length >= 7 ? sha[..7] + " " : "";
 
-    private async Task<GitHubView> RunsAsync(string directory, RepoFacts repo, Dictionary<string, string> filters, int limit, CancellationToken ct)
+    private static readonly string[] RunQualifiers = ["branch", "event", "actor", "status", "created", "head_sha"];
+
+    private async Task<IReadOnlyList<GitHubWorkflow>> WorkflowsAsync(string directory, RepoFacts repo, CancellationToken ct)
     {
-        var path = new StringBuilder($"repos/{repo.Slug}/actions/runs?per_page={limit}");
+        try
+        {
+            using var json = await RestAsync(directory, $"repos/{repo.Slug}/actions/workflows?per_page=100", ct);
+            return [.. json.RootElement.GetProperty("workflows").EnumerateArray()
+                .Select(w => new GitHubWorkflow(w.GetProperty("id").GetInt64().ToString(CultureInfo.InvariantCulture), Text(w, "name"), Text(w, "path"), Text(w, "state")))
+                .OrderBy(w => w.Name, StringComparer.OrdinalIgnoreCase)];
+        }
+        catch (Exception error) when (IsExpected(error)) { return []; }
+    }
+
+    /// <summary>
+    /// The runs API filters by branch, event, actor, status, created and head_sha only; it has no title or free-text search, so the "q" filter
+    /// is matched here against the title, workflow, branch and actor of the page that came back.
+    /// </summary>
+    private async Task<GitHubView> RunsAsync(string directory, RepoFacts repo, Dictionary<string, string> filters, int limit, int page, CancellationToken ct)
+    {
+        var workflows = page == 1 ? await WorkflowsAsync(directory, repo, ct) : [];
+        var wanted = filters.GetValueOrDefault("workflow", "");
+        var workflow = wanted.Length == 0 ? null : workflows.FirstOrDefault(w => w.Id == wanted || w.Name == wanted || w.Path == wanted);
+        var scope = workflow is not null ? workflow.Id : wanted;
+        var path = new StringBuilder(scope.Length > 0 ? $"repos/{repo.Slug}/actions/workflows/{Enc(scope)}/runs?" : $"repos/{repo.Slug}/actions/runs?").Append("per_page=").Append(limit).Append("&page=").Append(page);
         foreach (var (key, value) in filters)
-            if (key is "event" or "status" or "branch" or "actor") path.Append('&').Append(key).Append('=').Append(Enc(value));
+            if (RunQualifiers.Contains(key)) path.Append('&').Append(key).Append('=').Append(Enc(value));
         using var json = await RestAsync(directory, path.ToString(), ct);
         var root = json.RootElement;
         var runs = root.GetProperty("workflow_runs").EnumerateArray().ToList();
-        var rows = runs.Select(run =>
+        var text = filters.GetValueOrDefault("q", "");
+        var items = runs.Select(run =>
         {
             var actor = run.TryGetProperty("actor", out var a) && a.ValueKind == JsonValueKind.Object ? Text(a, "login") : "";
             var started = Text(run, "run_started_at") is { Length: > 0 } s ? s : Text(run, "created_at");
             var state = RunState(run);
-            return new GitHubRow(run.GetProperty("id").GetInt64().ToString(CultureInfo.InvariantCulture), Text(run, "display_title"), state,
-                $"{Text(run, "name")} #{run.GetProperty("run_number").GetInt32()}: {Describe(Text(run, "event"), actor, run)}",
-                Text(run, "head_branch") is { Length: > 0 } branch ? [new(branch, "")] : [], state is "success" or "failure" or "cancelled" or "skipped" ? Duration(started, Text(run, "updated_at")) : "",
-                Text(run, "html_url"), Text(run, "created_at"));
-        }).ToList();
+            var file = Text(run, "path");
+            return new GitHubRun(run.GetProperty("id").GetInt64().ToString(CultureInfo.InvariantCulture), Text(run, "display_title"), state, Text(run, "name"),
+                run.TryGetProperty("workflow_id", out var wid) && wid.ValueKind == JsonValueKind.Number ? wid.GetInt64().ToString(CultureInfo.InvariantCulture) : "", file,
+                run.GetProperty("run_number").GetInt32(), Text(run, "event"), actor, Text(run, "head_sha"), Text(run, "head_branch"), started,
+                state is "success" or "failure" or "cancelled" or "skipped" ? Duration(started, Text(run, "updated_at")) : "", Text(run, "html_url"));
+        }).Where(r => text.Length == 0 || new[] { r.Title, r.Workflow, r.Branch, r.Actor }.Any(v => v.Contains(text, StringComparison.OrdinalIgnoreCase))).ToList();
         var total = root.GetProperty("total_count").GetInt32();
         IReadOnlyList<GitHubFilter> chips =
         [
+            new("workflow", "Workflow", [.. workflows.Select(w => w.Name)], workflow?.Name ?? ""),
             new("event", "Event", Events, filters.GetValueOrDefault("event", "")),
             new("status", "Status", Statuses, filters.GetValueOrDefault("status", "")),
             new("branch", "Branch", Distinct(runs.Select(r => Text(r, "head_branch")), filters.GetValueOrDefault("branch", "")), filters.GetValueOrDefault("branch", "")),
             new("actor", "Actor", Distinct(runs.Select(r => r.TryGetProperty("actor", out var a) ? Text(a, "login") : ""), filters.GetValueOrDefault("actor", "")), filters.GetValueOrDefault("actor", ""))
         ];
-        return new(false, "", "All workflows", "Showing runs from all workflows", "none", rows, [], chips, total > rows.Count, total.ToString("N0", CultureInfo.InvariantCulture) + " workflow runs");
+        return new(false, "", workflow?.Name ?? "All workflows", workflow is null ? "Showing runs from all workflows" : "Showing runs from " + workflow.Name, "none", [], [], chips, page * limit < total, total.ToString("N0", CultureInfo.InvariantCulture) + " workflow runs")
+        {
+            Runs = items, Workflows = workflows, RepoUrl = repo.Url, Total = total
+        };
     }
 
     private async Task<GitHubView> RunAsync(string directory, RepoFacts repo, string id, CancellationToken ct)
@@ -123,7 +151,7 @@ public sealed partial class GitHubBrowser
             rows.Add(new(job.GetProperty("id").GetInt64().ToString(CultureInfo.InvariantCulture), Text(job, "name"), RunState(job), "", [], Duration(Text(job, "started_at"), Text(job, "completed_at")), Text(job, "html_url"), Text(job, "started_at")));
             if (job.TryGetProperty("steps", out var steps) && steps.ValueKind == JsonValueKind.Array)
                 foreach (var step in steps.EnumerateArray())
-                    rows.Add(new(Text(job, "name") + "/" + step.GetProperty("number").GetInt32(), Text(step, "name"), RunState(step), "", [], Duration(Text(step, "started_at"), Text(step, "completed_at")), "", "", 1));
+                    rows.Add(new(job.GetProperty("id").GetInt64().ToString(CultureInfo.InvariantCulture) + "/" + step.GetProperty("number").GetInt32(), Text(step, "name"), RunState(step), "", [], Duration(Text(step, "started_at"), Text(step, "completed_at")), "", Text(step, "started_at"), 1));
         }
         var state = RunState(r);
         var branch = Text(r, "head_branch");

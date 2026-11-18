@@ -27,10 +27,6 @@ internal sealed class GitHubViewTab : Border
     private readonly Dictionary<string, string> filters = [];
     private readonly GitHubLinker linker;
     private readonly List<GitHubCard> pendingCards = [];
-    private readonly HashSet<string> expanded = [];
-    private readonly Dictionary<string, GitHubLog> logs = [];
-    private readonly HashSet<string> loading = [];
-    private readonly HashSet<string> autoOpened = [];
     private GitHubComposer? composer;
     private GitHubView? shown;
     private string repoSlug = "";
@@ -123,20 +119,6 @@ internal sealed class GitHubViewTab : Border
         Refresh();
     }
 
-    private async Task LoadLogAsync(string jobId)
-    {
-        if (!loading.Add(jobId)) return;
-        var token = lifetime?.Token ?? CancellationToken.None;
-        GitHubLog log;
-        try { log = await Task.Run(async () => await context.RequestAsync(GitHubContract.Log, new GitHubLogParams(workspace, jobId), token).AsTask(), token); }
-        catch (OperationCanceledException) { loading.Remove(jobId); return; }
-        catch (Exception error) { log = new([], 0, "", error.Message); }
-        loading.Remove(jobId);
-        if (token.IsCancellationRequested) return;
-        logs[jobId] = log;
-        if (shown is not null) Render(shown);
-    }
-
     private Control Build(GitHubView view, out Control top)
     {
         var root = new StackPanel { Spacing = 12, Margin = new Thickness(24, 0, 24, 16), MaxWidth = 1012, Name = "GitHubView" };
@@ -163,20 +145,7 @@ internal sealed class GitHubViewTab : Border
         if (view.Rows.Count > 0 || (view.Cards.Count == 0 && itemId.Length == 0))
         {
             var frame = new StackPanel { Name = "GitHubRows" };
-            foreach (var row in view.Rows)
-            {
-                if (!(kind == "runs" && itemId.Length > 0 && row.Indent == 0)) { frame.Children.Add(Row(row)); continue; }
-                if (row.State == "failure" && autoOpened.Add(row.Id)) expanded.Add(row.Id);
-                if (logs.TryGetValue(row.Id, out var old) && old.InProgress && row.State is not ("running" or "queued")) logs.Remove(row.Id);
-                var block = new StackPanel();
-                block.Children.Add(Row(row));
-                if (expanded.Contains(row.Id))
-                {
-                    if (!logs.ContainsKey(row.Id)) _ = LoadLogAsync(row.Id);
-                    block.Children.Add(logs.TryGetValue(row.Id, out var log) ? LogView(log) : new Border { Padding = new Thickness(40, 8), Child = Ui.Text("Loading the log…") });
-                }
-                frame.Children.Add(block);
-            }
+            foreach (var row in view.Rows) frame.Children.Add(Row(row));
             if (view.Rows.Count == 0) frame.Children.Add(new Border { Padding = new Thickness(24), Child = Ui.Text("No results matched your search.") });
             root.Children.Add(new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), ClipToBounds = true, Child = frame });
         }
@@ -206,41 +175,6 @@ internal sealed class GitHubViewTab : Border
     }
 
     private string composerKey = "";
-
-    private Control LogView(GitHubLog log)
-    {
-        var panel = new StackPanel { Name = "GitHubLog", Margin = new Thickness(40, 0, 12, 8), Spacing = 2 };
-        if (log.Problem is not null) { panel.Children.Add(Message(log.Problem)); return panel; }
-        if (log.Cut > 0) panel.Children.Add(Ui.Text($"{log.Cut} lines were left out to keep this short.", Ui.Muted, 12));
-        var number = 0;
-        foreach (var group in log.Groups)
-        {
-            var lines = new SelectableTextBlock { FontFamily = Ui.CodeFont, FontSize = 12, TextWrapping = TextWrapping.NoWrap, IsVisible = group.Name.Length == 0 || group.HasError };
-            foreach (var line in group.Lines)
-            {
-                number++;
-                lines.Inlines!.Add(new Avalonia.Controls.Documents.Run(number.ToString().PadLeft(5) + "  ") { Foreground = Ui.Muted });
-                if (line.Time.Length > 0) lines.Inlines.Add(new Avalonia.Controls.Documents.Run(line.Time + "  ") { Foreground = Ui.Muted, FontStyle = FontStyle.Italic });
-                lines.Inlines.Add(new Avalonia.Controls.Documents.Run(line.Text + "\n") { Foreground = group.HasError && line.Text.Contains("rror", StringComparison.Ordinal) ? GitHubTab.Closed : Ui.TextBrush });
-            }
-            if (group.Name.Length > 0)
-            {
-                var header = new Button { Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0, 2) };
-                void Label() => header.Content = HoverLink.Apply(Ui.Text((lines.IsVisible ? "▾ " : "▸ ") + group.Name, Ui.TextBrush, 12), header);
-                Label();
-                header.Click += (_, _) =>
-                {
-                    lines.IsVisible = !lines.IsVisible;
-                    Label();
-                };
-                panel.Children.Add(header);
-            }
-            panel.Children.Add(lines);
-        }
-        if (log.Url.StartsWith("https://github.com/", StringComparison.Ordinal))
-            panel.Children.Add(Ui.Button("Open full log on GitHub", () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(log.Url) { UseShellExecute = true }), GitHubIcons.ExternalLink));
-        return panel;
-    }
 
     private Control Chip(GitHubFilter filter)
     {
@@ -280,13 +214,6 @@ internal sealed class GitHubViewTab : Border
         Grid.SetColumn(text, 1); grid.Children.Add(text);
         if (row.Right.Length > 0) { var right = Ui.Text(row.Right, Ui.Muted, 12); Grid.SetColumn(right, 2); grid.Children.Add(right); }
         var border = new Border { Name = "GitHubRow" + row.Id, Child = grid, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1) };
-        if (kind == "runs" && itemId.Length > 0 && row.Indent == 0)
-        {
-            void Toggle() { if (!expanded.Remove(row.Id)) expanded.Add(row.Id); if (shown is not null) Render(shown); }
-            border.Background = Brushes.Transparent;
-            HoverLink.Apply(title, border, Toggle);
-            border.PointerPressed += (_, _) => Toggle();
-        }
         if (itemId.Length == 0 && kind is "runs" or "discussions")
         {
             border.Background = Brushes.Transparent;

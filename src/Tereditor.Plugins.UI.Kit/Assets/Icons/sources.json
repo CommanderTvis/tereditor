@@ -16,6 +16,7 @@
   "bookFill": "BookOpenFill",
   "box": "Box3Line",
   "boxFill": "Box3Fill",
+  "calendar": "CalendarLine",
   "chat": "Chat1Line",
   "chatNew": "ChatNewLine",
   "check": "CheckLine",
@@ -65,6 +66,7 @@
   "moreHorizontal": "More2Line",
   "network": "NodeTree",
   "networkFill": "NodeTree",
+  "nodeTree": "NodeTree",
   "openai": "OpenaiLine",
   "palette": "PaletteLine",
   "pencil": "PencilLine",
@@ -94,5 +96,7 @@
   "subtract": "SubtractLine",
   "terminal": "TerminalBoxLine",
   "time": "TimeLine",
+  "timer": "TimerLine",
+  "tools": "ToolsLine",
   "trash": "DeleteBinLine"
 }

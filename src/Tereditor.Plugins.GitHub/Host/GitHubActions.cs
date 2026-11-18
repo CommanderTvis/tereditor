@@ -8,8 +8,8 @@ namespace Tereditor.Plugins.GitHub.Host;
 /// <summary>Posting comments and closing or reopening, and reading one job's log. Only a click in the UI reaches PostAsync.</summary>
 public sealed partial class GitHubBrowser
 {
-    private const int LogGroupLines = 500;
-    private const int LogTotalLines = 4000;
+    private const int LogStepLines = 5000;
+    private const int LogTotalLines = 20000;
     private readonly ConcurrentDictionary<string, GitHubLog> logs = new();
 
     public async Task<GitHubPostResult> PostAsync(string directory, GitHubPostParams p, CancellationToken ct)
@@ -72,7 +72,7 @@ public sealed partial class GitHubBrowser
             if (Text(job.RootElement, "status") != "completed") return new([], 0, url, "This job is still running. Its log is available when it finishes. This tab keeps refreshing.", true);
             var result = await run("gh", directory, ["api", $"repos/{repo.Slug}/actions/jobs/{id}/logs"], TimeSpan.FromSeconds(60), GhEnvironment, ct);
             if (result.ExitCode != 0) return new([], 0, url, Trim(result.Error, "gh could not read the log. It may have expired."));
-            var log = ParseLog(result.Output, url);
+            var log = ParseLog(result.Output, url, StepStarts(job.RootElement));
             if (logs.Count > 40) logs.Clear();
             logs[p.JobId] = log;
             return log;
@@ -80,52 +80,73 @@ public sealed partial class GitHubBrowser
         catch (Exception error) when (IsExpected(error)) { return new([], 0, "", Describe(error)); }
     }
 
-    [GeneratedRegex("\\x1B\\[[0-9;?]*[ -/]*[@-~]")]
-    private static partial Regex Ansi();
-
-    [GeneratedRegex(@"^(\d{4}-\d\d-\d\dT)(\d\d:\d\d:\d\d)[.\d]*Z ?")]
+    [GeneratedRegex(@"^(\d{4}-\d\d-\d\d)T(\d\d:\d\d:\d\d)[.\d]*Z ?")]
     private static partial Regex Stamp();
 
-    private sealed class LogGroupBuilder(string name)
+    /// <summary>A step as the jobs API lists it: its number, name and start (second precision, ISO).</summary>
+    public readonly record struct StepStart(int Number, string Name, string Started);
+
+    private sealed class StepBuilder(int number, string name, DateTimeOffset? started)
     {
+        public int Number { get; } = number;
         public string Name { get; } = name;
+        public DateTimeOffset? Started { get; } = started;
         public bool Error { get; set; }
         public List<GitHubLogLine> Lines { get; } = [];
     }
 
-    /// <summary>Splits a job log into its ##[group] sections, drops colour codes, and keeps it bounded.</summary>
-    public static GitHubLog ParseLog(string text, string url)
+    private static List<StepStart> StepStarts(JsonElement job)
     {
-        var groups = new List<LogGroupBuilder>();
-        var current = new LogGroupBuilder("");
-        groups.Add(current);
+        var list = new List<StepStart>();
+        if (job.TryGetProperty("steps", out var steps) && steps.ValueKind == JsonValueKind.Array)
+            foreach (var step in steps.EnumerateArray()) list.Add(new(step.GetProperty("number").GetInt32(), Text(step, "name"), Text(step, "started_at")));
+        return list;
+    }
+
+    /// <summary>
+    /// Splits a job log into its steps and keeps it bounded. A line belongs to the last step that started at or before the line's time
+    /// (steps carry second precision, the log finer); lines with no time stay with the step before. Colour codes stay in the text.
+    /// </summary>
+    public static GitHubLog ParseLog(string text, string url, IReadOnlyList<StepStart>? starts = null)
+    {
+        var steps = (starts is { Count: > 0 } ? starts : [new StepStart(0, "", "")])
+            .Select(s => new StepBuilder(s.Number, s.Name, DateTimeOffset.TryParse(s.Started, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var t) ? t : null))
+            .OrderBy(s => s.Started ?? DateTimeOffset.MinValue).ThenBy(s => s.Number).ToList();
+        var current = steps[0];
+        var inGroup = false;
         foreach (var raw in text.Replace(((char)0xFEFF).ToString(), "").Split('\n'))
         {
-            var line = Ansi().Replace(raw.TrimEnd('\r'), "");
+            var line = raw.TrimEnd('\r');
             var time = "";
-            if (Stamp().Match(line) is { Success: true } stamp) { time = stamp.Groups[2].Value; line = line[stamp.Length..]; }
-            if (line.StartsWith("##[group]", StringComparison.Ordinal)) { current = new(line["##[group]".Length..]); groups.Add(current); continue; }
-            if (line.StartsWith("##[endgroup]", StringComparison.Ordinal)) { current = new(""); groups.Add(current); continue; }
+            if (Stamp().Match(line) is { Success: true } stamp)
+            {
+                time = stamp.Groups[2].Value;
+                line = line[stamp.Length..];
+                if (steps.Count > 1 && DateTimeOffset.TryParse(stamp.Groups[1].Value + "T" + time + "Z", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at))
+                    current = steps.LastOrDefault(s => s.Started is { } started && started <= at) ?? steps[0];
+            }
+            if (line.StartsWith("##[endgroup]", StringComparison.Ordinal)) { inGroup = false; continue; }
+            var header = line.StartsWith("##[group]", StringComparison.Ordinal);
+            if (header) { line = line["##[group]".Length..]; inGroup = true; }
             var error = line.StartsWith("##[error]", StringComparison.Ordinal);
             if (error) { line = line["##[error]".Length..]; current.Error = true; }
             if (line.Length == 0 && time.Length == 0) continue;
-            current.Lines.Add(new(time, line));
+            current.Lines.Add(new GitHubLogLine(time, line) { Header = header, Grouped = inGroup && !header, Error = error });
         }
         var cut = 0;
-        var kept = new List<(string Name, bool Error, List<GitHubLogLine> Lines)>();
-        foreach (var group in groups.Where(g => g.Lines.Count > 0 || g.Name.Length > 0))
+        var kept = steps.OrderBy(s => s.Number).Select(s => (Step: s, Lines: s.Lines, Cut: 0)).ToList();
+        for (var i = 0; i < kept.Count; i++)
         {
-            var lines = group.Lines;
-            if (lines.Count > LogGroupLines) { cut += lines.Count - LogGroupLines; lines = lines.GetRange(lines.Count - LogGroupLines, LogGroupLines); }
-            kept.Add((group.Name, group.Error, lines));
+            var lines = kept[i].Lines;
+            if (lines.Count > LogStepLines) { var drop = lines.Count - LogStepLines; cut += drop; kept[i] = (kept[i].Step, lines.GetRange(drop, LogStepLines), drop); }
         }
-        var total = kept.Sum(g => g.Lines.Count);
+        var total = kept.Sum(s => s.Lines.Count);
         for (var i = 0; total > LogTotalLines && i < kept.Count; i++)
         {
             var drop = Math.Min(kept[i].Lines.Count, total - LogTotalLines);
-            kept[i] = (kept[i].Name, kept[i].Error, kept[i].Lines.GetRange(drop, kept[i].Lines.Count - drop));
+            kept[i] = (kept[i].Step, kept[i].Lines.GetRange(drop, kept[i].Lines.Count - drop), kept[i].Cut + drop);
             total -= drop; cut += drop;
         }
-        return new([.. kept.Select(g => new GitHubLogGroup(g.Name, g.Error, g.Lines))], cut, url);
+        return new([.. kept.Select(s => new GitHubLogStep(s.Step.Number, s.Step.Name, s.Lines, s.Step.Error, s.Cut))], cut, url);
     }
 }
