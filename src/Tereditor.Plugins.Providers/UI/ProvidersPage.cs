@@ -166,6 +166,16 @@ internal sealed class ProvidersPage : StackPanel
         ShowPane(entries, rebuild || previous != selectedId || paneId != selectedId);
     }
 
+    /// <summary>One plain sentence when an agent uses the provider as its model source while the provider has no key; null otherwise. A provider nobody uses is not a problem.</summary>
+    private string? Problem(Entry entry)
+    {
+        if (entry.Row is not { Ready: false } || report is null) return null;
+        var roster = context.Host().Roster;
+        var names = report.Sources.Where(choice => choice.ProviderId == entry.Id)
+            .Select(choice => roster.FirstOrDefault(agent => agent.Id == choice.AgentId)?.Label ?? choice.AgentId).Distinct().ToList();
+        return names.Count == 0 ? null : string.Join(" and ", names) + (names.Count == 1 ? " uses" : " use") + " this provider, but its key is missing.";
+    }
+
     private Control ListRow(Entry entry)
     {
         Control? mark = null;
@@ -179,7 +189,7 @@ internal sealed class ProvidersPage : StackPanel
             }
             else mark = new TextBlock { Text = "Not set up", FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
         }
-        return MasterDetail.Row(entry.Id, Ui.Icon("lock", Ui.Muted), entry.Name, null, entry.Row is null ? null : WorksWith(entry.Row.Provider), null, mark);
+        return MasterDetail.Row(entry.Id, Ui.Icon("lock", Ui.Muted), entry.Name, null, entry.Row is null ? null : WorksWith(entry.Row.Provider), Problem(entry), mark);
     }
 
     private void ShowPane(List<Entry> entries, bool rebuild)
@@ -208,6 +218,13 @@ internal sealed class ProvidersPage : StackPanel
         var works = Ui.Text(WorksWith(provider), Ui.Muted, 12);
         works.Name = "ModelProviderWorksWith";
         panel.Children.Add(works);
+        if (Problem(new(provider.Id, provider.Name, 0, row, null)) is { } problem)
+        {
+            var warning = Ui.Text(problem + " Add a key to fix it.", Ui.Danger, 12);
+            warning.Name = "ModelProviderProblem";
+            warning.TextWrapping = TextWrapping.Wrap;
+            panel.Children.Add(warning);
+        }
         var column = new ApiKeyRow(provider.Name,
             secret => Load(() => context.RequestAsync(ProvidersContract.SaveModelKey, new SaveModelKeyParams(provider.Id, secret)).AsTask()),
             () => Load(() => context.RequestAsync(ProvidersContract.RemoveModelKey, new ModelProviderParams(provider.Id)).AsTask()))

@@ -138,6 +138,23 @@ internal static class ProvidersUiChecks
             var row = Find<Border>(page, "ModelProviderDetail_custom-test-gateway").Single();
             Require(Texts(row).Any(text => text.Contains("Works with Claude Code", StringComparison.Ordinal) && !text.Contains("Anthropic Messages", StringComparison.Ordinal)) && Buttons(row).Contains("Remove provider"), "the custom provider is listed with the agents it works with, not its API kinds, and can be removed");
 
+            // The red dot: only a provider an agent uses while it has no key. A provider nobody uses and with no key is just Not set up.
+            Require(Find<Avalonia.Controls.Shapes.Ellipse>(page, "MasterProblem_anthropic").Count == 0 && Find<Avalonia.Controls.Shapes.Ellipse>(page, "MasterProblem_together").Count == 0, "a provider with no key that nobody uses has no red dot");
+            host.Children.Remove(page);
+            sources = [new("codex", "together")];
+            var second = registry.SettingsSections.Single().Value.Create();
+            host.Children.Add(second);
+            Settle();
+            var dot = Find<Avalonia.Controls.Shapes.Ellipse>(second, "MasterProblem_together").Single();
+            Require(ToolTip.GetTip(dot) is "Codex uses this provider, but its key is missing." && Find<Avalonia.Controls.Shapes.Ellipse>(second, "MasterProblem_anthropic").Count == 0 && Find<Avalonia.Controls.Shapes.Ellipse>(second, "MasterProblem_openrouter").Count == 0, "a provider an agent uses without a key has a red dot that says why, and no other row has one");
+            var secondRail = Find<ListBox>(second, "ModelProvidersRail").Single();
+            secondRail.SelectedItem = ((IEnumerable<Control>)secondRail.ItemsSource!).First(item => item.Tag as string == "together");
+            Settle();
+            Require(Find<TextBlock>(second, "ModelProviderProblem").Single().Text!.StartsWith("Codex uses this provider, but its key is missing.", StringComparison.Ordinal) && Buttons(second).Contains("Add key"), "the pane of that provider repeats the sentence and offers Add key");
+            host.Children.Remove(second);
+            sources = [];
+            Settle();
+
             // The slot: own provider first, then the user's providers that fit the agent.
             ComboBox Choice(string agent)
             {
