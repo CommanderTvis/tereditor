@@ -370,6 +370,11 @@ internal static class Program
             IntelliJMavenChecks.Run(root);
             return;
         }
+        if (args.SequenceEqual(["--language-stall"]))
+        {
+            LanguageStallChecks.Run();
+            return;
+        }
         if (args.SequenceEqual(["--intellij-license"]))
         {
             IntelliJLicenseChecks.Run().GetAwaiter().GetResult();
@@ -1628,6 +1633,7 @@ internal static class Program
         Gate.Case("settings-terms-status", IntelliJLicenseChecks.TermsStatus);
         Gate.Case("intellij-license-mount", () => IntelliJLicenseMountChecks.Run(root));
         Gate.Case("intellij-maven", () => IntelliJMavenChecks.Run(root));
+        Gate.Case("language-stall", LanguageStallChecks.Run);
         Gate.Case("language-catalog", () => LanguageCatalogChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("language-on-demand", () => { LanguageOnDemandChecks.Run(root).GetAwaiter().GetResult(); LanguageOnDemandChecks.Lifetime(root).GetAwaiter().GetResult(); LanguageFreshnessChecks.Run(root).GetAwaiter().GetResult(); LanguageOnDemandChecks.CloneWait(root).GetAwaiter().GetResult(); EditDiagnosticsChecks.Run(root).GetAwaiter().GetResult(); });
         Gate.Case("language-refactoring", () => LanguageRefactoringChecks.Run(root).GetAwaiter().GetResult());

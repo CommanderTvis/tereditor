@@ -28,8 +28,18 @@ internal sealed partial class LanguageSession : IAsyncDisposable, ILanguageServe
     internal bool IsIndexing => projectLoading || !indexing.IsEmpty || projectRestores.Values.Any(task => !task.IsCompleted) || Reloading || Settling;
     internal string Status => ActionText.Length > 0 ? ActionText : detail;
     /// <summary>What an answer held back while the project graph loads says, with what the server is doing.</summary>
-    internal string LoadingDetail => "The project graph is still loading (" + (Reloading ? "reloading projects after watched project files changed" : detail) + "), so this answer could be incomplete; call again. " + projectModel.Description;
-    internal string ProjectDetail => (ActionText.Length > 0 ? ActionText : detail) + ". " + projectModel.Description;
+    internal string LoadingDetail => "The project graph is still loading (" + (Reloading ? "reloading projects after watched project files changed" : detail + StallNote()) + "), so this answer could be incomplete; call again. " + projectModel.Description;
+    internal string ProjectDetail => (ActionText.Length > 0 ? ActionText : detail) + StallNote() + ". " + projectModel.Description;
+    private long progressChanged = Stopwatch.GetTimestamp();
+    /// <summary>How long the open progress line may stay the same before the status says the server looks stuck.</summary>
+    internal static readonly TimeSpan StallAfter = TimeSpan.FromMinutes(5);
+    private string StallNote() => indexing.IsEmpty ? "" : StallText(detail, Stopwatch.GetElapsedTime(progressChanged));
+
+    /// <summary>The warning a status carries when the progress line has not changed for <see cref="StallAfter"/>, or empty; a Gradle line gets the usual causes of a stuck import.</summary>
+    internal static string StallText(string progress, TimeSpan unchanged) => unchanged < StallAfter ? "" :
+        $" (no progress for {(int)unchanged.TotalMinutes} min at \"{progress}\"; the server may be stuck" +
+        (progress.Contains("Gradle", StringComparison.OrdinalIgnoreCase) ? ". Check that the Gradle wrapper distribution and dependencies are cached when offline, that the JDK suits the build, and that no other Gradle daemon holds the project lock" : "") +
+        "; the language log has the server's output)";
     private readonly ConcurrentDictionary<string, Task> projectRestores = new();
     private readonly LanguageLog log;
     private JsonArray ProjectFolders => [.. projectModel.WorkspaceFolders.Select(path => (JsonNode)new JsonObject { ["uri"] = UriOf(path + Path.DirectorySeparatorChar), ["name"] = Path.GetFileName(path) })];
@@ -517,7 +527,9 @@ internal sealed partial class LanguageSession : IAsyncDisposable, ILanguageServe
             if (progress["kind"]?.ToString() == "end") indexing.TryRemove(id, out _);
             // A server that opens a token per project and never ends some of them must not grow this bookkeeping, or the detail every poll carries, without bound.
             else if (progress["kind"]?.ToString() is "begin" or "report" && (indexing.Count < MaxProgressTokens || indexing.ContainsKey(id))) indexing[id] = progress["message"]?.ToString() ?? progress["title"]?.ToString() ?? "Indexing…";
-            detail = ProgressDetail(indexing);
+            var next = ProgressDetail(indexing);
+            if (next != detail) progressChanged = Stopwatch.GetTimestamp();
+            detail = next;
         }
     }
 
