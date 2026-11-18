@@ -14,6 +14,9 @@ namespace Tereditor.Plugins.ClaudeCode.UI;
 /// </summary>
 internal static class ClaudeTree
 {
+    // Every tree row ends in a 1px separator; a rule stops above it, so no tree line pierces a separator.
+    private const double RowRule = 1;
+
     /// <summary>The guides to the left of a row at <paramref name="depth"/>; <paramref name="last"/> is true for the last child of its parent, which ends in an elbow instead of a tee. <paramref name="endedAbove"/> marks the ancestor levels whose last child is already behind, so they carry no rule.</summary>
     public static IEnumerable<Control> Guides(int depth, bool last, IReadOnlyList<bool>? endedAbove = null)
     {
@@ -25,13 +28,13 @@ internal static class ClaudeTree
                 guide.Name = "ClaudeContextConnector";
                 guide.Tag = last ? "last" : "tee";
                 var rule = new Border { Width = 1, Background = Ui.BorderBrush, HorizontalAlignment = HorizontalAlignment.Left };
-                if (!last) Grid.SetRowSpan(rule, 2);
+                if (!last) { Grid.SetRowSpan(rule, 2); rule.Margin = new Thickness(0, 0, 0, RowRule); }
                 guide.Children.Add(rule);
                 var arm = new Border { Height = 1, Background = Ui.BorderBrush, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, -8, 0) };
                 guide.Children.Add(arm);
             }
             else if (endedAbove is not null && level < endedAbove.Count && endedAbove[level]) { }
-            else guide.Children.Add(new Border { Width = 1, Background = Ui.BorderBrush, HorizontalAlignment = HorizontalAlignment.Left, [Grid.RowSpanProperty] = 2 });
+            else guide.Children.Add(new Border { Width = 1, Background = Ui.BorderBrush, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, RowRule), [Grid.RowSpanProperty] = 2 });
             DockPanel.SetDock(guide, Dock.Left);
             yield return guide;
         }

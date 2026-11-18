@@ -298,6 +298,7 @@ internal static class ClaudeContextChecks
         ToolDocsLinks();
         CapabilityTree();
         PluginPartsTree();
+        TreeConnectorBounds();
         Require(rows.Single(row => row.Key == "skills").Children.Select(skill => skill.Label).SequenceEqual(["dataviz", "example", "tidy"]),
             "Skills open into each skill and each plugin, heaviest first.");
 
@@ -698,6 +699,70 @@ internal static class ClaudeContextChecks
         surface.Actions(projectSkill)[1].Run();
         Require(host.Calls.SequenceEqual(["moveskill ponytail project", "moveskill synced user"]), "The move entries reach the pane with the target scope.");
         Console.WriteLine("PASS Claude Code capabilities: marketplaces and their plugins form one tree with the Instructions connectors, fold, and keep their menus");
+    }
+
+    // The tree connectors of a group stay inside it: the vertical line of the first level ends at the elbow of the group's last plugin and
+    // never reaches the row's bottom rule, the next group or the pane's left edge, with one child or several, one line of text or wrapped.
+    private static void TreeConnectorBounds()
+    {
+        const string longText = "Does a great many things for the project, and the line that says so is long enough to wrap in a narrow pane several times over";
+        ClaudePluginPart[] parts =
+        [
+            new(ClaudePluginPartKind.Skill, "tools:alpha") { Description = longText, Path = "/cache/tools/skills/alpha/SKILL.md" },
+            new(ClaudePluginPartKind.Skill, "tools:beta") { Description = longText }, new(ClaudePluginPartKind.Agent, "tools:helper") { Description = "Helps" }
+        ];
+        ClaudeCapability Plugin(string name, string market, IReadOnlyList<ClaudePluginPart>? contents) =>
+            new(ClaudeCapabilityKind.Plugin, name, new(ClaudeConfigScope.User, "/home/.claude/settings.json") { KeyPath = ["enabledPlugins", name] }, true) { Detail = market, Parts = contents };
+        ClaudeCapability Market(string name) => new(ClaudeCapabilityKind.Marketplace, name, new(ClaudeConfigScope.User, "/home/.claude/settings.json"), true) { Detail = "acme/" + name };
+        IReadOnlyList<ClaudeCapability> capabilities =
+        [
+            Market("one"), Plugin("solo@one", "one", [parts[2]]),
+            Market("several"), Plugin("first@several", "several", parts), Plugin("second@several", "several", null), Plugin("third@several", "several", [parts[0]]),
+            Plugin("loose@" + longText, longText, parts)
+        ];
+        foreach (var width in new[] { 260.0, 700 })
+            foreach (var opened in new[] { false, true })
+            {
+                var surface = new ClaudeCapabilitiesSurface(new FakeCapabilityHost(), capabilities);
+                var view = surface.View;
+                var window = new Window { Width = width, Height = 3000, Content = view };
+                window.Show();
+                try
+                {
+                    if (opened) foreach (var plugin in capabilities.Where(item => item.Parts is { Count: > 0 })) surface.Toggle("plugin/" + plugin.Name);
+                    E2eWorkspace.Settle();
+                    var section = view.GetLogicalDescendants().OfType<StackPanel>().Single(panel => panel.Name == "ClaudeCapabilitySection");
+                    var groups = section.Children.OfType<StackPanel>().Where(panel => panel.Name == "ClaudeCapabilityChildren").ToArray();
+                    Require(groups.Length == 3 && groups[0].Bounds.Height > 0, $"Each marketplace with plugins and the group without one has a laid out children panel: window {window.Bounds}, view {view.Bounds}, groups {string.Join("; ", groups.Select(g => g.Bounds))}.");
+                    foreach (var group in groups)
+                    {
+                        string where = $"(width {width}, {(opened ? "parts open" : "parts folded")}, {group.Tag})";
+                        Rect Of(Control control) => new(control.TranslatePoint(default, group)!.Value, control.Bounds.Size);
+                        var guides = group.GetVisualDescendants().OfType<Grid>().Where(grid => grid.IsEffectivelyVisible && grid.Margin.Left == 15 && grid.Width == 5).ToArray();
+                        static string guide0(Border arm) => $"{((Control)arm.Parent!).Bounds} visible {arm.IsVisible}/{arm.IsEffectivelyVisible}";
+                        var plugins = group.Children.OfType<DockPanel>().ToArray();
+                        var elbow = Of(plugins[^1].Children.OfType<Grid>().Single(grid => grid.Name == "ClaudeContextConnector")).Center.Y;
+                        foreach (var rule in guides.SelectMany(guide => guide.Children.OfType<Border>()).Where(border => border.Width == 1))
+                        {
+                            var rect = Of(rule);
+                            Require(rect.Left >= -0.5 && rect.Top >= -0.5 && rect.Bottom <= group.Bounds.Height - 1 + 0.5,
+                                $"A vertical tree line stays inside its group {where}: {rect} in {group.Bounds.Size}.");
+                            if (rect.Left < 20) Require(rect.Bottom <= elbow + 0.5, $"The first-level line ends at the elbow of the last plugin {where}: line {rect}, elbow {elbow}.");
+                        }
+                        foreach (var arm in guides.SelectMany(guide => guide.Children.OfType<Border>()).Where(border => border.Height == 1))
+                            Require(Of(arm).Left >= 14.5, $"An elbow starts at its line {where}: arm {Of(arm)} {arm.Bounds}, guide {guide0(arm)}, row {plugins[0].Bounds}, group {group.Bounds}.");
+                        foreach (var row in plugins.Concat(group.GetVisualDescendants().OfType<DockPanel>().Where(p => p.IsEffectivelyVisible && p.Children.OfType<Grid>().Any(g => g.Margin.Left == 15 && g.Width == 5))).Distinct())
+                            foreach (var rule in row.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<Border>()).Where(b => b.Width == 1))
+                                Require(rule.TranslatePoint(new(0, rule.Bounds.Height), row)!.Value.Y <= row.Bounds.Height - 1 + 0.5, $"A tree line stops above the row separator {where}: {Of(rule)} in row {row.Bounds}.");
+                        var parent = section.Children[section.Children.IndexOf(group) - 1];
+                        var stem = parent.GetVisualDescendants().OfType<Border>().SingleOrDefault(border => border.Name == "ClaudeContextStem");
+                        Require(stem is null || stem.TranslatePoint(new(0, stem.Bounds.Height), parent)!.Value.Y <= parent.Bounds.Height + 0.5,
+                            $"A parent's stem ends at the bottom of its row {where}.");
+                    }
+                }
+                finally { window.Close(); }
+            }
+        Console.WriteLine("PASS Claude Code plugin tree: connector lines stay inside their group for one, several and wrapped children");
     }
 
     // A plugin row says what it adds in a count line and, opened, lists the parts by kind under it, each opening its file.

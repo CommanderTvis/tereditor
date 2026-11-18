@@ -360,7 +360,7 @@ tree connectors and stem as an `@`-imported file under its importer (`UI/ClaudeT
 marketplace is not listed, or that have none, sit under a last parent row "No marketplace", so every
 plugin shows once. Marketplaces keep their listed order, plugins theirs. A click on a parent folds its
 children and its stem; the pane remembers which parents are folded until the workspace changes. A
-plugin under its marketplace does not repeat the marketplace name. Capability rows show no token counts.
+plugin under its marketplace does not repeat the marketplace name. A tree line never crosses a row's bottom separator: a rule that runs on to the next row stops one pixel above it, and the last child's line ends at its elbow (a headless check measures this for one, several and wrapped children). Capability rows show no token counts.
 
 A plugin row says what the plugin adds. The host reads the plugin's install folder (`installed_plugins.json` names
 it; the entry for the project wins, then the user's) and lists its parts in `ClaudeCapability.Parts`: skills,
