@@ -234,12 +234,12 @@ internal sealed class GitHubActionsTab : Border
 
     private void SetFooter(bool loading = false)
     {
-        if (items.Count > 0 && items[^1] is Footer) items.RemoveAt(items.Count - 1);
-        if (items.Count == 0) return;
+        var had = items.Count > 0 && items[^1] is Footer;
         var capped = RunCount >= MaxRuns && total > RunCount;
-        if (loading) items.Add(new Footer("Loading more…"));
-        else if (capped) items.Add(new Footer("Showing the latest " + MaxRuns + " runs. Refine the search to see others."));
-        else if (hasMore) items.Add(new Footer(""));
+        Footer? want = items.Count == 0 ? null : loading ? new("Loading more…") : capped ? new("Showing the latest " + MaxRuns + " runs. Refine the search to see others.") : hasMore ? new("") : null;
+        if (had && want is not null) { if (!Equals(items[^1], want)) items[^1] = want; return; }
+        if (had) items.RemoveAt(items.Count - 1);
+        else if (want is not null) items.Add(want);
     }
 
     private void Header(GitHubView view)
