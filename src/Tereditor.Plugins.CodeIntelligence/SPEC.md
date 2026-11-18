@@ -33,6 +33,8 @@ language catalog is empty, running servers stop, nothing starts or downloads, an
 settings, installed servers and caches stay. At startup, before the first reconcile, a builtin server whose required
 plugin is off is not offered either.
 
+Settings lists the page as the plugin's own section, "Code Intelligence", under Plugins (key `plugin:code-intelligence:code-intelligence`; the old name `Code Intelligence` still opens it). The plugin's UI half registers the section; the page itself is still built by core's Settings view, since it needs the window and host state, so moving its code into the plugin is left for a later step. On Settings › Plugins the plugin sits in its own group, Code Intelligence, with Air Context; each language server stays in its language's group. The limits rows (idle timeout, memory budget, server caps) share one grid: label, a 128 px box column and one shared unit column.
+
 There is no Code Intelligence settings section, no Language tool tab, strip entry or catalog entry, no language keymap
 group, and in the editor no hover, go to definition, usages, diagnostics decorations, quick info or status chip. A saved
 layout that names the Language tool restores without it and keeps its slot. Enabling the plugin brings all of it back.

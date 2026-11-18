@@ -14,6 +14,7 @@ using Tereditor.Plugins.BranchGraph;
 using Tereditor.Plugins.BranchGraph.UI;
 using Tereditor.Plugins.ClaudeCode;
 using Tereditor.Plugins.ClaudeCode.UI;
+using Tereditor.Plugins.CodeIntelligence;
 using Tereditor.Plugins.Codex;
 using Tereditor.Plugins.Codex.UI;
 using Tereditor.Plugins.Discord;
@@ -54,6 +55,7 @@ public static class BuiltinPlugins
     public static IReadOnlyList<(PluginManifest Manifest, Func<PluginUIModule> Load)> All =
     [
         (SpecDialectManifest.Manifest, () => new SpecDialectUI()),
+        (CodeIntelligenceContract.Manifest, () => new CodeIntelligenceUI()),
         (BlueprintContract.Manifest, () => new BlueprintUI()),
         (ClaudeCodeManifest.Manifest, () => new ClaudeCodeUI()),
         (DiscordPlugin.Manifest, () => new DiscordUI()),

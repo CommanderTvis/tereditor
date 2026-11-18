@@ -452,6 +452,7 @@ Tereditor.Plugins.Api.PluginRosterEntry.Category.get -> string?
 Tereditor.Plugins.Api.PluginRosterEntry.Category.init -> void
 Tereditor.Plugins.Api.PluginCategories
 const Tereditor.Plugins.Api.PluginCategories.Agents = "Agents" -> string!
+const Tereditor.Plugins.Api.PluginCategories.CodeIntelligence = "Code Intelligence" -> string!
 const Tereditor.Plugins.Api.PluginCategories.Documents = "Specs & Documents" -> string!
 const Tereditor.Plugins.Api.PluginCategories.Environment = "Environment" -> string!
 const Tereditor.Plugins.Api.PluginCategories.Integrations = "Integrations" -> string!

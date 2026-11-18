@@ -384,7 +384,7 @@ internal static class PluginsSettingsScrollChecks
             var manifests = Tereditor.Host.Core.Plugins.BuiltinPlugins.All.Select(item => item.Manifest).ToArray();
             var panel = new StackPanel();
             // The user wants Air Gateway and Air Context without an icon anywhere, so they are the builtins allowed to declare none.
-            string[] iconless = ["air-gateway", "air-context"];
+            string[] iconless = ["air-gateway"];
             var icons = manifests.Where(manifest => !iconless.Contains(manifest.Id)).Select(manifest =>
             {
                 var entry = new PluginRosterEntry(manifest.Id, manifest.Label, manifest.Icon, manifest.Version, manifest.WireVersion, PluginOrigin.Builtin, PluginStatus.Active) { Assets = manifest.Assets };

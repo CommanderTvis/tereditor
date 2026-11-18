@@ -19,6 +19,10 @@ internal static partial class PluginHostChecks
         var dependents = all.Where(plugin => plugin.Manifest.DependsOn.Any(dependency => dependency.Id == CodeIntelligence)).Select(plugin => plugin.Manifest.Id).Order().ToArray();
         string[] expected = [.. BuiltinPlugins.LanguageServers.Select(server => server.Contract.Id), "air-context"];
         Require(dependents.SequenceEqual(expected.Order()), "Every language server plugin and Air Context require Code Intelligence: " + string.Join(", ", dependents));
+        Require(byId[CodeIntelligence].Category == PluginCategories.CodeIntelligence && byId["air-context"].Category == PluginCategories.CodeIntelligence && byId["air-context"].Icon.Length > 0,
+            "Code Intelligence and Air Context are listed under Code Intelligence, not Agents, and Air Context has an icon.");
+        Require(BuiltinPlugins.LanguageServers.All(server => byId[server.Contract.Id].Category is { } category && category != PluginCategories.Agents && category != PluginCategories.CodeIntelligence && PluginCategories.Order.Contains(category)),
+            "Every language server plugin is listed under its language.");
         Require(byId[CodeIntelligence].DependsOn.Count == 0, "Code Intelligence requires nothing.");
         // No cycle: a plugin reaches the base through DependsOn, and the base reaches nothing.
         foreach (var plugin in all)

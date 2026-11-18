@@ -85,10 +85,9 @@ public sealed partial class SettingsView : UserControl
         close.Content = Ui.Icon("close");
         close.Click += (_, _) => Close();
         navigationList = this.FindControl<StackPanel>("SettingsNavigation")!;
-        foreach (var item in new[] { ("Appearance", "palette"), ("Highlighting", "sparkling"), ("Code Intelligence", "code"), ("Editor", "pencil"), ("Layout", "layout"), ("Keymap", "code"), ("Projects", "folderTab"), ("Terminal", "terminal"), ("Notifications", "alertInfo"), ("Host", "server"), ("Plugins", "puzzle"), ("About", "alertInfo") })
+        foreach (var item in new[] { ("Appearance", "palette"), ("Highlighting", "sparkling"), ("Editor", "pencil"), ("Layout", "layout"), ("Keymap", "code"), ("Projects", "folderTab"), ("Terminal", "terminal"), ("Notifications", "alertInfo"), ("Host", "server"), ("Plugins", "puzzle"), ("About", "alertInfo") })
             Navigation(this.FindControl<Button>("Settings_" + item.Item1.Replace(' ', '_'))!, item.Item1, item.Item2.Length == 0 ? IndentedLabel(item.Item1) : Ui.Row(item.Item2, item.Item1));
         SyncPluginSections();
-        navigation["Code Intelligence"].IsVisible = LanguageSupport.Available;
         window.Workbench.PluginRegistry.Changed += PluginsChanged;
 #if !ANDROID && !BROWSER
         if (window.Workbench.Listener is { } listener) listener.Changed += ListenerChanged;
@@ -147,7 +146,6 @@ public sealed partial class SettingsView : UserControl
     private void PluginsChanged(PluginTables tables)
     {
         if (tables.HasFlag(PluginTables.SettingsSections) || tables.HasFlag(PluginTables.Roster)) SyncPluginSections();
-        if (tables.HasFlag(PluginTables.Roster)) navigation["Code Intelligence"].IsVisible = LanguageSupport.Available;
         if (tables.HasFlag(PluginTables.KeymapActions) || tables.HasFlag(PluginTables.Active) || tables.HasFlag(PluginTables.Roster)) RefreshKeymapList();
         if (section == "Highlighting" && (tables.HasFlag(PluginTables.Launchers) || tables.HasFlag(PluginTables.Roster))) RefreshHighlightingAgents();
     }
@@ -212,6 +210,7 @@ public sealed partial class SettingsView : UserControl
     {
         var row = window.Workbench.PluginRegistry.SettingsSections.FirstOrDefault(candidate => SectionKey(candidate) == key);
         if (row is null) return new StackPanel();
+        if (key == CodeIntelligenceUI.SectionKey) return LspSettings();
         var page = new StackPanel { Spacing = 8 };
         page.Children.Add(new TextBlock { Text = row.Value.Label, Classes = { "settings-heading" } });
         page.Children.Add(WorkbenchWindow.Mount(row.PluginId, row.Value.Create));
@@ -223,7 +222,7 @@ public sealed partial class SettingsView : UserControl
     private static readonly Dictionary<string, string> SectionSummaries = new()
     {
         ["Appearance"] = "Theme, file icons, interface font size",
-        ["Code Intelligence"] = "Language servers and launchers",
+        [CodeIntelligenceUI.SectionKey] = "Language servers and launchers",
         ["Editor"] = "Font, wrapping, display",
         ["Layout"] = "Presets, panes, file previews",
         ["Keymap"] = "Shortcuts and keymap presets",
@@ -270,6 +269,8 @@ public sealed partial class SettingsView : UserControl
 
     public void ShowSection(string name)
     {
+        // The page moved under Plugins; its old name still opens it.
+        if (name == "Code Intelligence") name = CodeIntelligenceUI.SectionKey;
         if (name.StartsWith("plugin:", StringComparison.Ordinal) && !navigation.ContainsKey(name)) name = "Plugins";
         section = name; refreshers.Clear();
         PaintNavigation();
@@ -277,7 +278,6 @@ public sealed partial class SettingsView : UserControl
         {
             "Editor" => EditorSettings(),
             "Highlighting" => HighlightingSettings(),
-            "Code Intelligence" => LspSettings(),
             "Layout" => LayoutSettings(),
             "Keymap" => KeymapSettings(),
             "Projects" => ProjectSettings(),
@@ -334,7 +334,7 @@ public sealed partial class SettingsView : UserControl
     {
         // Terminal activity and other clients' workspace updates must not replace the open page.
         if (previous.Settings == next.Settings && previous.Presets.SequenceEqual(next.Presets) && previous.KeymapPresets.SequenceEqual(next.KeymapPresets) && previous.Projects.SequenceEqual(next.Projects)) return;
-        if (section == "Code Intelligence" && (previous.Settings.JavaKotlinProvider != next.Settings.JavaKotlinProvider || previous.Settings.LanguageServers != next.Settings.LanguageServers || previous.Settings.LspEnabled != next.Settings.LspEnabled || previous.Settings.LanguageLimits != next.Settings.LanguageLimits || previous.Settings.LanguageTools != next.Settings.LanguageTools)) foreach (var refresh in refreshers) refresh();
+        if (section == CodeIntelligenceUI.SectionKey && (previous.Settings.JavaKotlinProvider != next.Settings.JavaKotlinProvider || previous.Settings.LanguageServers != next.Settings.LanguageServers || previous.Settings.LspEnabled != next.Settings.LspEnabled || previous.Settings.LanguageLimits != next.Settings.LanguageLimits || previous.Settings.LanguageTools != next.Settings.LanguageTools)) foreach (var refresh in refreshers) refresh();
         else if (section is "Editor" or "Host") foreach (var refresh in refreshers) refresh();
         // A project joining the recents list (the window's own open lands after it mounts) leaves the other pages alone.
         else if (section == "Keymap") { EndKeymapRecording(); RefreshSection(); }

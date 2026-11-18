@@ -13,6 +13,9 @@ namespace Tereditor.UI.Panels;
 /// </summary>
 internal sealed class OptionalNumberRow : Border
 {
+    /// <summary>The shared size group of the unit column: put the rows under a <c>Grid.IsSharedSizeScope</c> parent.</summary>
+    internal const string NumberUnitGroup = "NumberUnit";
+
     private readonly CheckBox check = new() { VerticalAlignment = VerticalAlignment.Center };
     private readonly NumericUpDown input = new()
     {
@@ -20,7 +23,6 @@ internal sealed class OptionalNumberRow : Border
         Maximum = int.MaxValue,
         Increment = 1,
         FormatString = "0",
-        Width = 128,
         IsEnabled = false,
         VerticalAlignment = VerticalAlignment.Center
     };
@@ -28,9 +30,10 @@ internal sealed class OptionalNumberRow : Border
 
     public OptionalNumberRow()
     {
-        var end = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { input, unit } };
-        Grid.SetColumn(end, 1);
-        Child = new Grid { ColumnDefinitions = new("*,Auto"), ColumnSpacing = 12, Children = { check, end } };
+        // The page that holds the rows is a shared size scope: every row has the same fixed box column and one shared unit column, so boxes and units line up.
+        Grid.SetColumn(input, 1);
+        Grid.SetColumn(unit, 2);
+        Child = new Grid { ColumnDefinitions = new("*,128,Auto") { [2] = { SharedSizeGroup = NumberUnitGroup } }, ColumnSpacing = 8, Children = { check, input, unit } };
         check.IsCheckedChanged += (_, _) => input.IsEnabled = check.IsChecked == true;
     }
 

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
@@ -299,6 +300,13 @@ internal static class LanguageLimitChecks
                 var limitsStack = (StackPanel)limitRows[0].GetLogicalParent()!;
                 Require(limitsStack.Children[limitsStack.Children.IndexOf(view.FindControl<Button>("LimitsSave")!) - 1] == limitRows[^1] && !Hairline(limitRows[^1]),
                     "A hairline sits directly above Save limits.");
+                // One grid for every number row: equal box widths and right edges, and the units start at one shared edge.
+                window.UpdateLayout();
+                Point At(Control control) => control.TranslatePoint(default, view)!.Value;
+                var boxes = new Control[] { idle.Input, budget.Input, view.FindControl<TextBox>("LimitsCSharp")!, view.FindControl<TextBox>("LimitsJvm")!, view.FindControl<TextBox>("LimitsOther")! };
+                Require(boxes.All(box => Math.Abs(box.Bounds.Width - 128) < .5 && Math.Abs(At(box).X - At(boxes[0]).X) < .5), "The number boxes differ in width or left edge: " + string.Join(", ", boxes.Select(box => $"{At(box).X:0.#}+{box.Bounds.Width:0.#}")));
+                var units = idle.GetVisualDescendants().OfType<TextBlock>().Concat(budget.GetVisualDescendants().OfType<TextBlock>()).Where(block => block.Text is "minutes" or "MiB").ToArray();
+                Require(units.Length == 2 && Math.Abs(At(units[0]).X - At(units[1]).X) < .5 && At(units[0]).X >= At(idle.Input).X + 128, "The units do not start at one shared edge right of the boxes.");
                 // Unchecked means never: the number greys out but keeps its value, and the host gets 0.
                 idle.Check.IsChecked = false;
                 Require(!idle.Input.IsEnabled && idle.Value is null && idle.Number == 10, "An unchecked idle row did not grey out and keep its number.");

@@ -54,7 +54,10 @@ public static class PluginCategories
     /// <summary>Environment managers that shape every shell, such as mise and direnv.</summary>
     public const string Environment = "Environment";
 
-    /// <summary>AI coding agents and the context they use.</summary>
+    /// <summary>The switch for the language features and the semantic search that builds on them.</summary>
+    public const string CodeIntelligence = "Code Intelligence";
+
+    /// <summary>AI coding agents.</summary>
     public const string Agents = "Agents";
 
     /// <summary>Model providers: the accounts, gateways and keys that supply models to the agents.</summary>
@@ -74,7 +77,7 @@ public static class PluginCategories
 
     /// <summary>The builtin categories in listing order; any other category follows alphabetically, then <see cref="Other"/>.</summary>
     public static IReadOnlyList<string> Order { get; } =
-        [Cpp, CSharp, Css, Dart, Go, JavaScript, Jvm, Php, PowerShell, Python, R, Ruby, Rust, Shell, Swift, Environment, Agents, ModelProviders, VersionControl, Documents, Integrations];
+        [Cpp, CSharp, Css, Dart, Go, JavaScript, Jvm, Php, PowerShell, Python, R, Ruby, Rust, Shell, Swift, Environment, CodeIntelligence, Agents, ModelProviders, VersionControl, Documents, Integrations];
 
     /// <summary>The icon name (a core icon of the plugin UI kit, or <c>file-type:&lt;name&gt;</c>, a language's single-colour Material Icon Theme logo) shown before a category's chip. The letter languages (C &amp; C++, C#, CSS, Go, JavaScript &amp; TypeScript, PHP, R) have none: their chips already spell the letters. See <see cref="IconOf"/>.</summary>
     public static IReadOnlyDictionary<string, string> Icons { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -88,6 +91,7 @@ public static class PluginCategories
         [Shell] = "file-type:console",
         [Swift] = "file-type:swift",
         [Environment] = "settings",
+        [CodeIntelligence] = "code",
         [Agents] = "robot",
         [ModelProviders] = "cloud",
         [VersionControl] = "gitBranch",
