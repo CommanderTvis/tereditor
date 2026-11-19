@@ -95,7 +95,7 @@
         "DefaultProjectPanes": null,
         "ProjectPanes": {},
         "Center": {
-          "GroupId": "757b473fb9d04389af13399533ec54ea",
+          "GroupId": "60a3d7f9772e4b10bf935f5453840537",
           "Axis": "horizontal",
           "Ratio": 0.5,
           "First": null,
@@ -104,14 +104,14 @@
         },
         "Groups": [
           {
-            "Id": "757b473fb9d04389af13399533ec54ea",
+            "Id": "60a3d7f9772e4b10bf935f5453840537",
             "Region": "center",
             "Tools": [],
             "Folded": false,
             "Weight": 1
           },
           {
-            "Id": "2f0950e065e545e8ac088f31b1edf4d1",
+            "Id": "bc6737c8b38545ec9c5175cc828a421e",
             "Region": "left",
             "Tools": [
               {
@@ -129,7 +129,7 @@
             "Weight": 1
           },
           {
-            "Id": "4037d00ca1f3406ab5cf55005e753ea5",
+            "Id": "2e5eee1a4d644678b7af6a09ea0befae",
             "Region": "right",
             "Tools": [
               {
@@ -157,7 +157,7 @@
             "Weight": 1.25
           },
           {
-            "Id": "f0f9f3cfb8654c36b53790bb7b40ab5e",
+            "Id": "1effc3c0cb554b538b9609b845b773c4",
             "Region": "right",
             "Tools": [
               {

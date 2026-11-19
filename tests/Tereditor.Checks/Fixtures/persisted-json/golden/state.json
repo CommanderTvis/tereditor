@@ -17,6 +17,7 @@
     "NotificationsEnabled": false,
     "TerminalNotificationsEnabled": true,
     "TerminalOptionAsAlt": true,
+    "ServeOnStart": true,
     "BellFeatures": "system,title",
     "LspEnabled": true,
     "JavaKotlinProvider": "standard",
