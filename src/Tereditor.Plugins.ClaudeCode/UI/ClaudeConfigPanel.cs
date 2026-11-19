@@ -477,8 +477,8 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         if (entry.Key.StartsWith("skills/", StringComparison.Ordinal))
         {
             var name = entry.Key["skills/".Length..];
-            // A plugin's skill belongs to its plugin: it opens to read and has no action here.
-            if (entry.Tip?.StartsWith("Plugin", StringComparison.OrdinalIgnoreCase) == true) return [];
+            // A plugin's skill file is read-only, but the skill can still be denied by rule.
+            if (entry.Tip?.StartsWith("Plugin", StringComparison.OrdinalIgnoreCase) == true) return [Toggle("skill", $"Skill({name})", name, RestartNote)];
             return skillsOff.Contains(name)
                 ? [new("Turn skill back on", new(new SkillEdit(name, true), $"Turn \"{name}\" back on", RestartNote))]
                 : [new("Turn off this skill", new(new SkillEdit(name, false), $"Turn off \"{name}\"", RestartNote))];
