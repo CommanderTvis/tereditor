@@ -72,6 +72,23 @@ public static partial class ScopedSetting
         };
     }
 
+    /// <summary>The pill beside a scope chip for a key the product sets itself; the tip says why the file value is not used.</summary>
+    public static Border OverrideChip(string tip, string name = "OverrideChip")
+    {
+        var chip = new Border
+        {
+            Name = name,
+            Background = Ui.Elevated,
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4, 0),
+            Margin = new Thickness(4, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = Ui.Text("SET BY TEREDITOR", Ui.Accent, 10)
+        };
+        ToolTip.SetTip(chip, tip);
+        return chip;
+    }
+
     /// <summary>A home-abbreviated path that opens its file when clicked, with the whole path on hover.</summary>
     public static Button SourcePath(string path, Action<string> onOpen, string name = "SourcePath")
     {
@@ -128,7 +145,7 @@ public static partial class ScopedSetting
     /// </summary>
     public static Control SettingRow(string namePrefix, string settingKey, Control value, ScopedSettingSource source,
         IReadOnlyList<ScopedSettingShadow> shadowed, Action<string> onOpen, IEnumerable<Control>? actions = null,
-        string? docsUrl = null, string? docsTitle = null, string? description = null, string? hint = null)
+        string? docsUrl = null, string? docsTitle = null, string? description = null, string? hint = null, string? overrideTip = null)
     {
         var row = new StackPanel { Name = namePrefix + "Setting", Tag = settingKey, Spacing = 2, Margin = new Thickness(8, 4) };
         var head = new WrapPanel { Orientation = Orientation.Horizontal };
@@ -189,6 +206,7 @@ public static partial class ScopedSetting
         var chip = ScopeChip(source.Scope, namePrefix + "ScopeChip");
         chip.Margin = new Thickness(4, 0, 0, 0);
         meta.Children.Add(chip);
+        if (overrideTip is not null) meta.Children.Add(OverrideChip(overrideTip, namePrefix + "OverrideChip"));
         var end = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
         foreach (var action in actions ?? []) end.Children.Add(action);
         DockPanel.SetDock(end, Dock.Right);

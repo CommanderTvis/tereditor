@@ -530,6 +530,10 @@ internal static class ClaudeCodeChecks
             "A nested key uses its documented ancestor's summary with no type, and a key the reference does not list has no note.");
         Require(!Tereditor.Plugins.UI.Kit.ScopedSetting.SettingRow("Claude", "zzNewerKey", new TextBlock(), new("user", null), [], _ => { }).GetLogicalDescendants()
             .OfType<TextBlock>().Any(text => text.Name is "ClaudeSettingSummary" or "ClaudeSettingHint"), "A row with no note draws no description and no placeholder.");
+        var marked = Tereditor.Plugins.UI.Kit.ScopedSetting.SettingRow("Claude", "model", new TextBlock(), new("user", null), [], _ => { }, overrideTip: ClaudeLaunchOverrides.Tooltip);
+        var unmarked = Tereditor.Plugins.UI.Kit.ScopedSetting.SettingRow("Claude", "permissions.allow", new TextBlock(), new("user", null), [], _ => { });
+        Require(marked.GetLogicalDescendants().OfType<Border>().Count(border => border.Name == "ClaudeOverrideChip" && Avalonia.Controls.ToolTip.GetTip(border) as string == ClaudeLaunchOverrides.Tooltip) == 1 &&
+            !unmarked.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "ClaudeOverrideChip"), "A row for an overridden key shows the chip with its tip; any other row does not.");
         app.Click(deny.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "ClaudeSettingSet"));
         E2eWorkspace.Until(() => Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Any(dialog => Equals(dialog.Tag, "ClaudeValueDialog")));
         var composer = Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Single(dialog => Equals(dialog.Tag, "ClaudeValueDialog"));
@@ -1378,6 +1382,18 @@ internal static class ClaudeCodeChecks
         Require(ClaudeLaunch.SessionCommand("A=1 claude", "", false, false, platform: HostPlatform.Windows, windowsShell: "cmd").StartsWith("set \"A=1\" && claude ", StringComparison.Ordinal)
             && ClaudeLaunch.SessionCommand("A=1 claude", "", false, false, platform: HostPlatform.Windows).StartsWith("$env:A='1'; claude ", StringComparison.Ordinal), "Windows shells get their own syntax.");
         Require(ClaudeLaunch.SessionCommand("claude", "", false, false).StartsWith("TEREDITOR_UI_LAUNCH=claude claude ", StringComparison.Ordinal), "A plain command is unchanged.");
+        // The overridden-settings list is the launcher's truth: every default flag it passes is listed, and every listed flag is passed.
+        var fixedFlags = new[] { "--append-system-prompt-file", "--plugin-dir", "--add-dir", "--session-id" };
+        var passed = new[] { true, false }.SelectMany(withChrome => System.Text.RegularExpressions.Regex.Matches(
+            ClaudeLaunch.SessionCommand("claude", "", false, true, model: "opus", effort: "high", sessionId: "s", permissionMode: "plan", advisor: "fable", chrome: withChrome), @"(?<= )--[a-z-]+"))
+            .Select(match => match.Value).Where(flag => !fixedFlags.Contains(flag)).ToHashSet();
+        var listed = ClaudeLaunchOverrides.All.SelectMany(entry => entry.Flags).Where(flag => flag != "--settings").ToHashSet();
+        Require(passed.SetEquals(listed), $"The launcher's default flags match the overridden-settings list: {string.Join(' ', passed.Except(listed).Concat(listed.Except(passed)))}.");
+        var sourceProvider = new Tereditor.Plugins.Providers.ProviderDefinition("p", "P", Tereditor.Plugins.Providers.ProviderGroup.JetBrainsAi, [new(Tereditor.Plugins.Api.ModelApiKinds.AnthropicMessages, "https://p.test", [Tereditor.Plugins.Api.ModelAuthKind.ApiKey])]) { NeedsKey = true };
+        using (var generated = JsonDocument.Parse(Tereditor.Plugins.Providers.Host.AgentModelFiles.ClaudeJson(sourceProvider, sourceProvider.Apis[0], "helper")))
+            Require(generated.RootElement.EnumerateObject().All(property => ClaudeLaunchOverrides.For(property.Name) is not null), "Every key of the generated model source settings file is in the overridden-settings list.");
+        Require(ClaudeLaunchOverrides.For("env.ANTHROPIC_BASE_URL") is not null && ClaudeLaunchOverrides.For("permissions.allow") is null && ClaudeLaunchOverrides.For("modelSettings.opus.effortLevel") is null,
+            "A key inside an overridden object is overridden; a neighbour with a similar name is not.");
     }
 
     public static async Task Run(string root)

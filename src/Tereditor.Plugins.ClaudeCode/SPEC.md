@@ -424,6 +424,15 @@ the summary and the hint are the row's accessible description). A key matches ex
 whose `*` segment stands for any one key segment, then its nearest documented ancestor, which gives the summary but no
 type or default. A key the reference does not list shows no description and no placeholder.
 
+Settings tereditor sets itself for a session it starts carry a "SET BY TEREDITOR" chip beside the scope chip, with the
+tip "Tereditor sets this for sessions it starts. The value in this file is not used there." The file value stays shown and
+Remove still works; the chip adds no row height to other rows. `ClaudeLaunchOverrides.All` is the one list, each key with
+its launch words and the case that sets it: `model` (`--model`), `effortLevel` (`--effort`), `permissions.defaultMode`
+(`--permission-mode`), `advisorModel` (`--advisor`) and `claudeInChromeDefaultEnabled` (`--chrome`, `--no-chrome`), each only when
+the matching plugin setting, preset or chat choice is set; and `apiKeyHelper` and `env` (including `env.*`) when a Model
+source is chosen (generated `--settings` file or a cloud platform's variables). The checks assert the launcher's default
+flags and the generated settings file's keys match this list. tereditor does not turn off EnterWorktree or add tool denies.
+
 The Settings tab lists the set keys (with source, shadowed values and Remove) and, after them, the documented keys no
 file sets, under "Not set · documented by Claude Code": every match while the filter has text, behind a "Show N
 documented settings that are not set" button while it is empty. A key above or below a set one is not listed
