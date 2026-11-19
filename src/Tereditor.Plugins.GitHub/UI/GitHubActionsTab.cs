@@ -319,7 +319,10 @@ internal sealed class GitHubActionsTab : Border
         var value = filter.Key == "workflow" ? filter.Value : filters.GetValueOrDefault(filter.Key, "");
         var button = new Button
         {
-            Name = "GitHubChip" + filter.Label, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(8, 4),
+            Name = "GitHubChip" + filter.Label,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(8, 4),
             Content = Ui.Text(filter.Label + (value.Length > 0 ? ": " + value : "") + " ▾", Ui.TextBrush, 13)
         };
         var flyout = new MenuFlyout();

@@ -167,7 +167,10 @@ internal sealed class GitHubRunTab : Border
         if (job.Right.Length > 0) { var time = Ui.Text(job.Right, Ui.Muted, 12); Grid.SetColumn(time, 2); row.Children.Add(time); }
         var border = new Border
         {
-            Name = "GitHubJob" + job.Id, Child = row, CornerRadius = new CornerRadius(4), Cursor = new Cursor(StandardCursorType.Hand),
+            Name = "GitHubJob" + job.Id,
+            Child = row,
+            CornerRadius = new CornerRadius(4),
+            Cursor = new Cursor(StandardCursorType.Hand),
             Background = job.Id == selectedJob ? Ui.Selected : Brushes.Transparent
         };
         border.PointerPressed += (_, e) => { if (e.GetCurrentPoint(border).Properties.IsLeftButtonPressed) Select(job.Id); };

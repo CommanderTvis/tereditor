@@ -134,7 +134,10 @@ public sealed partial class GitHubBrowser
         ];
         return new(false, "", workflow?.Name ?? "All workflows", workflow is null ? "Showing runs from all workflows" : "Showing runs from " + workflow.Name, "none", [], [], chips, page * limit < total, total.ToString("N0", CultureInfo.InvariantCulture) + " workflow runs")
         {
-            Runs = items, Workflows = workflows, RepoUrl = repo.Url, Total = total
+            Runs = items,
+            Workflows = workflows,
+            RepoUrl = repo.Url,
+            Total = total
         };
     }
 
