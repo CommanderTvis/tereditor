@@ -21,7 +21,8 @@ internal sealed partial class PluginHostContext
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(value);
-        if (key is not ("lsp-enabled" or "java-kotlin-provider" or "language-limits") && !(key.StartsWith("language-server:", StringComparison.Ordinal) && key.Length > 16))
+        if (key is not ("lsp-enabled" or "java-kotlin-provider" or "language-limits") && !(key.StartsWith("language-server:", StringComparison.Ordinal) && key.Length > 16) &&
+            !(key.StartsWith("language-tool:", StringComparison.Ordinal) && key.Length > 14))
             throw new ArgumentException($"plugin {Id} may not write the host setting \"{key}\"", nameof(key));
         if (!Live) return;
         await runtime.Seams.State.ChangeAsync([HostStateChange.Setting(key, value)], cancellationToken);
@@ -32,7 +33,12 @@ internal sealed partial class PluginHostContext
         ArgumentNullException.ThrowIfNull(operation);
         if (Array.IndexOf(SettingsOperations, operation) < 0) throw new ArgumentException($"plugin {Id} may not run the language operation \"{operation}\"", nameof(operation));
         if (!Live) return "{}";
-        var result = await runtime.Seams.State.Languages.ExecuteAsync(new LanguageRequest(workspace, Operation: operation, Server: server), cancellationToken);
+        return LanguageResultJson(await runtime.Seams.State.Languages.ExecuteAsync(new LanguageRequest(workspace, Operation: operation, Server: server), cancellationToken));
+    }
+
+    /// <summary>A language result as the host context hands it to a plugin: the fields the Code Intelligence page reads.</summary>
+    internal static string LanguageResultJson(LanguageResult result)
+    {
         var servers = new JsonArray();
         foreach (var state in result.Servers)
             servers.Add((JsonNode?)new JsonObject
@@ -43,6 +49,11 @@ internal sealed partial class PluginHostContext
                 ["detail"] = state.Detail,
                 ["version"] = state.Version,
                 ["hasTerms"] = state.Presentation?.HasTerms == true,
+                ["termsNote"] = state.Presentation?.TermsNote ?? "",
+                ["replacesLabel"] = state.Presentation?.ReplacesLabel ?? "",
+                ["replaces"] = new JsonArray([.. (state.Presentation?.Replaces ?? []).Select(replaced => (JsonNode?)replaced)]),
+                ["icon"] = state.Presentation?.Icon is { Length: > 0 } icon ? Convert.ToBase64String(icon) : "",
+                ["iconFormat"] = state.Presentation?.IconFormat ?? "",
                 ["workspace"] = state.Workspace,
                 ["memoryBytes"] = state.MemoryBytes,
                 ["idleSeconds"] = state.IdleSeconds,
@@ -67,7 +78,12 @@ internal sealed partial class PluginHostContext
     {
         if (!Live) return "{}";
         var request = new LanguageTermsRequest(workspace, server, accept, artifactId, eulaSha256) { Answers = answers ?? new Dictionary<string, string>() };
-        var result = await runtime.Seams.State.Languages.TermsAsync(request, cancellationToken);
+        return TermsResultJson(await runtime.Seams.State.Languages.TermsAsync(request, cancellationToken));
+    }
+
+    /// <summary>A terms result as the host context hands it to a plugin.</summary>
+    internal static string TermsResultJson(LanguageTermsResult result)
+    {
         return new JsonObject
         {
             ["state"] = result.State,

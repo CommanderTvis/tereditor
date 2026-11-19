@@ -318,7 +318,7 @@ public interface IPluginHostContext
 
     /// <summary>
     /// Saves one language setting through the host state, so every client sees it: <c>lsp-enabled</c>, <c>java-kotlin-provider</c>,
-    /// <c>language-limits</c> or <c>language-server:</c> and a server id. No other key is accepted.
+    /// <c>language-limits</c>, <c>language-server:</c> and a server id, or <c>language-tool:</c> and a program's file name. No other key is accepted.
     /// </summary>
     /// <param name="key">The setting's key.</param>
     /// <param name="value">The value, as the host saves it.</param>

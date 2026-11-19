@@ -29,7 +29,13 @@ public sealed record LanguageDependencyRow(string Executable, string Name, strin
 /// <param name="Detail">The implementation line.</param>
 /// <param name="HasTerms">Whether the user must accept terms before it runs.</param>
 /// <param name="Dependencies">The tools it needs; null when the host did not probe them.</param>
-public sealed record LanguageServerRow(string Id, string Name, string Version, string Detail, bool HasTerms, IReadOnlyList<LanguageDependencyRow>? Dependencies = null);
+/// <param name="Replaces">The servers this one replaces when chosen as the provider; empty for one that replaces none.</param>
+/// <param name="ReplacesLabel">Names the languages the replaced servers serve; empty when the host has none.</param>
+/// <param name="TermsNote">Text to read before the terms; empty for none.</param>
+/// <param name="Icon">The server's mark; null for none.</param>
+/// <param name="IconFormat"><c>svg</c> or <c>png</c>; empty with no mark.</param>
+public sealed record LanguageServerRow(string Id, string Name, string Version, string Detail, bool HasTerms, IReadOnlyList<LanguageDependencyRow>? Dependencies = null,
+    IReadOnlyList<string>? Replaces = null, string ReplacesLabel = "", string TermsNote = "", byte[]? Icon = null, string IconFormat = "");
 
 /// <summary>The catalog of the servers active plugins provide.</summary>
 /// <param name="Servers">One row per server, in catalog order.</param>
@@ -112,6 +118,11 @@ public sealed record LanguageTermsState(string State, string Detail, string Vers
 /// <param name="Arguments">Arguments that replace the defaults; null keeps the defaults.</param>
 public sealed record LanguageServerOptionsParams(string Server, bool AllowPath = false, string Command = "", string[]? Arguments = null);
 
+/// <summary>A host-wide tool path: the program's file name and the path the user chose; empty to find it on PATH again.</summary>
+/// <param name="Executable">The program's file name.</param>
+/// <param name="Path">The path; empty clears it.</param>
+public sealed record LanguageToolParams(string Executable, string Path);
+
 /// <summary>One value of a host setting this plugin owns, as JSON text or a plain string.</summary>
 /// <param name="Value">The value to save.</param>
 public sealed record CodeIntelligenceValue(string Value);
@@ -157,6 +168,9 @@ public static class CodeIntelligenceContract
     /// <summary>Saves one server's launcher choices.</summary>
     public static readonly PluginMethod<LanguageServerOptionsParams, CodeIntelligenceSettingsState> SetServerOptions = new("setServerOptions");
 
+    /// <summary>Saves the host-wide path of one tool the servers need.</summary>
+    public static readonly PluginMethod<LanguageToolParams, CodeIntelligenceSettingsState> SetTool = new("setTool");
+
     /// <summary>Saves the limits (JSON).</summary>
     public static readonly PluginMethod<CodeIntelligenceValue, CodeIntelligenceSettingsState> SetLimits = new("setLimits");
 
@@ -176,7 +190,7 @@ public static class CodeIntelligenceContract
     public static readonly PluginChannel<CodeIntelligenceCatalogChange> CatalogChanged = PluginChannel<CodeIntelligenceCatalogChange>.Event("catalogChanged");
 
     public static readonly PluginContract Contract = PluginContract.Create(Id, 1,
-        [Catalog, Resolution, Provision, ConfigurationSchema, Running, Terms, SetServerOptions, SetLimits, SetEnabled, SetProvider, ReadSettings],
+        [Catalog, Resolution, Provision, ConfigurationSchema, Running, Terms, SetServerOptions, SetTool, SetLimits, SetEnabled, SetProvider, ReadSettings],
         [Settings, CatalogChanged], CodeIntelligenceJson.Default);
 
     public static readonly PluginManifest Manifest = new(Id, "Code Intelligence", "code-s-slash-line", "0.1.0", PluginApi.Generation, 1)
@@ -198,6 +212,7 @@ public static class CodeIntelligenceContract
 [JsonSerializable(typeof(LanguageTermsParams))]
 [JsonSerializable(typeof(LanguageTermsState))]
 [JsonSerializable(typeof(LanguageServerOptionsParams))]
+[JsonSerializable(typeof(LanguageToolParams))]
 [JsonSerializable(typeof(CodeIntelligenceValue))]
 [JsonSerializable(typeof(CodeIntelligenceSettingsState))]
 [JsonSerializable(typeof(CodeIntelligenceSettingsParams))]

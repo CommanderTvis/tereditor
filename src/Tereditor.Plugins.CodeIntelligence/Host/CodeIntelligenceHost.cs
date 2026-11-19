@@ -14,6 +14,12 @@ public sealed class CodeIntelligenceHost : PluginHostModule
 {
     private long revision;
 
+    /// <summary>Replaces the language service call, for a check that drives the page from a fake host; the JSON is what the host context returns.</summary>
+    internal Func<string, LanguageServerParams, CancellationToken, ValueTask<string>>? LanguageCall { get; init; }
+
+    /// <summary>Replaces the terms call, as <see cref="LanguageCall"/> does.</summary>
+    internal Func<LanguageTermsParams, CancellationToken, ValueTask<string>>? TermsCall { get; init; }
+
     public override PluginContract Contract => CodeIntelligenceContract.Contract;
 
     public override ValueTask<PluginDisposer?> ActivateAsync(IPluginHostContext context)
@@ -34,12 +40,17 @@ public sealed class CodeIntelligenceHost : PluginHostModule
         context.Method(CodeIntelligenceContract.Running, async (request, _, token) => Running(await Call(context, "running", request, token)));
         context.Method(CodeIntelligenceContract.Terms, async (request, _, token) =>
         {
-            using var document = JsonDocument.Parse(await context.LanguageTermsAsync(request.Workspace, request.Server, request.Accept, request.ArtifactId, request.EulaSha256, request.Answers, token));
+            using var document = JsonDocument.Parse(TermsCall is { } terms ? await terms(request, token) : await context.LanguageTermsAsync(request.Workspace, request.Server, request.Accept, request.ArtifactId, request.EulaSha256, request.Answers, token));
             return Terms(document.RootElement);
         });
         context.Method(CodeIntelligenceContract.SetServerOptions, async (request, _, token) =>
         {
             await context.SetLanguageSettingAsync("language-server:" + request.Server, ServerOptions(request), token);
+            return await Settings(context);
+        });
+        context.Method(CodeIntelligenceContract.SetTool, async (request, _, token) =>
+        {
+            await context.SetLanguageSettingAsync("language-tool:" + request.Executable, request.Path, token);
             return await Settings(context);
         });
         context.Method(CodeIntelligenceContract.SetLimits, async (request, _, token) =>
@@ -82,9 +93,9 @@ public sealed class CodeIntelligenceHost : PluginHostModule
         return new(settings.Enabled, settings.LanguageServers, settings.LanguageTools, settings.Limits, settings.JavaKotlinProvider);
     }
 
-    private static async ValueTask<JsonElement> Call(IPluginHostContext context, string operation, LanguageServerParams request, CancellationToken token)
+    private async ValueTask<JsonElement> Call(IPluginHostContext context, string operation, LanguageServerParams request, CancellationToken token)
     {
-        using var document = JsonDocument.Parse(await context.LanguageCallAsync(operation, request.Workspace, request.Server, token));
+        using var document = JsonDocument.Parse(LanguageCall is { } call ? await call(operation, request, token) : await context.LanguageCallAsync(operation, request.Workspace, request.Server, token));
         return document.RootElement.Clone();
     }
 
@@ -113,7 +124,8 @@ public sealed class CodeIntelligenceHost : PluginHostModule
             server.TryGetProperty("dependencies", out var dependencies) && dependencies.ValueKind == JsonValueKind.Array
                 ? [.. dependencies.EnumerateArray().Select(dependency => new LanguageDependencyRow(Text(dependency, "executable"), Text(dependency, "name"), Text(dependency, "state"), Text(dependency, "path"),
                     Text(dependency, "source"), Text(dependency, "installHint"), Text(dependency, "problem"), Flag(dependency, "override"), !dependency.TryGetProperty("required", out var required) || required.ValueKind != JsonValueKind.False))]
-                : null))], Text(result, "detail"));
+                : null, Strings(server, "replaces"), Text(server, "replacesLabel"), Text(server, "termsNote"),
+            Text(server, "icon") is { Length: > 0 } icon ? Convert.FromBase64String(icon) : null, Text(server, "iconFormat")))], Text(result, "detail"));
 
     internal static LanguageResolution Resolution(JsonElement result)
     {
