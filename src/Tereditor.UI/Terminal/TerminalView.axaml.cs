@@ -410,13 +410,16 @@ public sealed partial class TerminalView : UserControl, IDisposable
     internal void DismissGuardNotice() => guardDismissed?.Invoke();
 
     /// <summary>Below this view width the companion stacks below the surface instead of squeezing it.</summary>
-    public const double CompanionStackBelow = 560;
+    public const double CompanionStackBelow = 600;
+
+    /// <summary>The least width the companion column keeps beside the surface, so its text never breaks per letter. With <see cref="SurfaceMinWidth"/> it fits exactly where the view stops stacking.</summary>
+    public const double CompanionMinWidth = 240;
 
     /// <summary>The least width the surface keeps beside a companion: the larger of this and <see cref="SurfaceMinShare"/> of the view.</summary>
     public const double SurfaceMinWidth = 360, SurfaceMinShare = 0.3;
 
     /// <summary>The widest the companion column may be at this view width, so it never takes the surface's room.</summary>
-    public static double CompanionMaxWidth(double viewWidth) => Math.Max(0, viewWidth - Math.Max(SurfaceMinWidth, SurfaceMinShare * viewWidth) - 1);
+    public static double CompanionMaxWidth(double viewWidth) => Math.Max(CompanionMinWidth, viewWidth - Math.Max(SurfaceMinWidth, SurfaceMinShare * viewWidth) - 1);
 
     /// <summary>A stacked companion never takes more than this share of the height; the surface keeps the rest.</summary>
     public const double CompanionStackMaxShare = 0.6;
@@ -520,6 +523,7 @@ public sealed partial class TerminalView : UserControl, IDisposable
         // One clamp for every path (drag, restored width, resize, zoom): the surface keeps its minimum, the companion yields.
         var wideColumns = CompanionColumns;
         wideColumns[0].MinWidth = companion.IsVisible && !stacked ? Math.Min(Math.Max(SurfaceMinWidth, SurfaceMinShare * Bounds.Width), Bounds.Width) : 0;
+        wideColumns[2].MinWidth = companion.IsVisible && !stacked ? CompanionMinWidth : 0;
         wideColumns[2].MaxWidth = companion.IsVisible && !stacked && Bounds.Width > 0 ? CompanionMaxWidth(Bounds.Width) : double.PositiveInfinity;
         companionSplitter.IsVisible = companion.IsVisible && !stacked;
         stackSplitter.IsVisible = stacked;

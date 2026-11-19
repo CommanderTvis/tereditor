@@ -194,6 +194,15 @@ internal static class TerminalResumeHintChecks
             Require(!view.CompanionStacked && body.Bounds.Width >= Math.Max(360, 0.3 * view.Bounds.Width) - 1 && pane.Bounds.Width <= TerminalView.CompanionMaxWidth(view.Bounds.Width) + 1,
                 $"At window width {width} the surface keeps {body.Bounds.Width} of {view.Bounds.Width} and the companion {pane.Bounds.Width}.");
         }
+        // The companion keeps its minimum width: a splitter over-drag and a tiny restored width both stop at it.
+        fixture.Window.Width = 900; Settle();
+        view.Companion = pane; Settle();
+        var companionColumns = view.GetLogicalDescendants().OfType<Grid>().First(grid => grid.ColumnDefinitions.Count == 3 && grid.Children.Any(child => child is ContentControl { Name: "TerminalCompanion" })).ColumnDefinitions;
+        companionColumns[2].Width = new GridLength(8); Settle();
+        Require(!view.CompanionStacked && Math.Abs(pane.Bounds.Width - TerminalView.CompanionMinWidth) < 1, $"A splitter over-drag stops at the minimum: {pane.Bounds.Width}.");
+        view.Companion = null; Settle();
+        view.CompanionWidth = 12; view.Companion = pane; Settle();
+        Require(!view.CompanionStacked && Math.Abs(pane.Bounds.Width - TerminalView.CompanionMinWidth) < 1, $"A tiny restored width shows the minimum: {pane.Bounds.Width}.");
         // Zoom shrinks the view's logical width while the saved width stays: the narrower widths above are that case.
         view.Companion = null; Settle();
         // The chips are part of the terminal's box: no border line, and beside a companion the strip keeps to the surface's column so the companion reaches the bottom edge.
