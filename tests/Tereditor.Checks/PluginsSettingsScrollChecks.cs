@@ -177,6 +177,8 @@ internal static class PluginsSettingsScrollChecks
             Description = "A language server with its own PNG mark and a description long enough to give the card some height."
         }).ToArray();
         var read = PluginIcons.ReadAsset;
+        // The counter is process-wide: other cases in the same process decode marks too, so count from here.
+        var decodesBefore = AssetIcon.Decodes;
         PluginIcons.ReadAsset = (_, _, _) => Task.FromResult<byte[]?>([.. png]);
         try
         {
@@ -195,8 +197,8 @@ internal static class PluginsSettingsScrollChecks
                 for (var guard = 0; guard < 400 && scroller.Offset.Y > 0; guard++)
                 { scroller.Offset = scroller.Offset.WithY(Math.Max(0, scroller.Offset.Y - 60)); Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); }
             }
-            Console.WriteLine($"plugins-settings icons: {AssetIcon.Decodes} PNG decodes for {Plugins} plugins over two full scroll passes");
-            Require(AssetIcon.Decodes <= Plugins, $"A PNG mark must decode once per plugin, not once per realization ({AssetIcon.Decodes} decodes, {Plugins} plugins).");
+            Console.WriteLine($"plugins-settings icons: {AssetIcon.Decodes - decodesBefore} PNG decodes for {Plugins} plugins over two full scroll passes");
+            Require(AssetIcon.Decodes - decodesBefore <= Plugins, $"A PNG mark must decode once per plugin, not once per realization ({AssetIcon.Decodes - decodesBefore} decodes, {Plugins} plugins).");
             window.Close();
             state.Dispose();
         }

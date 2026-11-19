@@ -112,14 +112,17 @@ internal static class AcpChecks
         // A narrow row with a long name: one version label, a badge, and no overlap between the version, the badge and the action.
         var install = new Avalonia.Controls.Button { Content = "Install ▷" };
         var narrow = Tereditor.Plugins.UI.Kit.MasterDetail.Row("registry:c", null, "A very long agent name that cannot fit", "v2026.11.13", "Description", null, install, "Not recommended", "Use the native chat.");
-        narrow.Measure(new Avalonia.Size(240, double.PositiveInfinity));
-        narrow.Arrange(new Avalonia.Rect(narrow.DesiredSize));
+        // In a window, so the button has its template and its real width.
+        var narrowHost = new Avalonia.Controls.Window { Width = 240, Height = 120, Content = narrow };
+        narrowHost.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         Avalonia.Rect Bounds(Avalonia.Controls.Control visual) => new(Avalonia.VisualExtensions.TranslatePoint(visual, default, narrow) ?? default, visual.Bounds.Size);
         var labels = narrow.GetLogicalDescendants().OfType<Avalonia.Controls.TextBlock>().ToList();
         var version = labels.Single(text => text.Text == "v2026.11.13");
         var badge = labels.Single(text => text.Text == "Not recommended");
         Require(labels.Count(text => text.Text?.Contains("2026.11.13", StringComparison.Ordinal) == true) == 1, "The version shows once.");
-        Require(!Bounds(version).Intersects(Bounds(install)) && !Bounds(badge).Intersects(Bounds(install)) && !Bounds(version).Intersects(Bounds(badge)) && Bounds(version).Right <= 240 && Bounds(badge).Right <= 240, "At a narrow width the version, the badge and the action do not overlap.");
+        Require(install.Bounds.Width > 0 && Bounds(install).Right <= 240 && !Bounds(version).Intersects(Bounds(install)) && !Bounds(badge).Intersects(Bounds(install)) && !Bounds(version).Intersects(Bounds(badge)) && Bounds(version).Right <= 240 && Bounds(badge).Right <= 240, "At a narrow width the version, the badge and the action do not overlap.");
+        narrowHost.Close();
         var npxEntry = new AcpAgentEntry("pi-acp", "Pi", "npx") { Origin = "registry", Args = ["-y", "pi-acp@0.0.34"] };
         Require(Tereditor.Plugins.Acp.AcpEntryText.CommandLine(npxEntry) == "bunx pi-acp@0.0.34" && Tereditor.Plugins.Acp.AcpEntryText.Resolve(npxEntry, null) is { Command: "npx", UsesBun: false } && Tereditor.Plugins.Acp.AcpEntryText.Resolve(npxEntry, "/b/bun") is { Command: "/b/bun", UsesBun: true }, "The Runs line shows bunx exactly when the launcher runs Bun.");
         Require(Tereditor.Plugins.Acp.UI.AcpSettingsView.DefaultModePicker(npxEntry, _ => { }) is null && Tereditor.Plugins.Acp.UI.AcpSettingsView.DefaultModePicker(npxEntry with { KnownModes = [new("a", "A")] }, _ => { }) is null && Tereditor.Plugins.Acp.UI.AcpSettingsView.DefaultModePicker(npxEntry with { KnownModes = [new("a", "A"), new("b", "B")] }, _ => { }) is not null, "The mode choice shows only for an agent with two or more modes.");

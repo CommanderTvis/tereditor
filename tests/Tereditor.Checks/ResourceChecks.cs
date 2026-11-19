@@ -319,6 +319,8 @@ internal static partial class ResourceChecks
 
     private static void Window(string root)
     {
+        // The gate runs this under both the resources and the documents case with one root: a second seed commit of the same files would find nothing to commit.
+        if (Directory.Exists(root)) Directory.Delete(root, true);
         Directory.CreateDirectory(root);
         IsolatedGit.Run(root, "init", "-b", "main");
         File.WriteAllBytes(Path.Combine(root, "blob.bin"), [0xFF, 0xFE, 0x00, 0x01]);

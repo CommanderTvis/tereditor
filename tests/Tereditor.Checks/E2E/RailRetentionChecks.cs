@@ -196,9 +196,14 @@ internal static class RailRetentionChecks
         Require(retained.All(control => Controls(app).Contains(control)), "Creating a workspace must insert rows without replacing survivors.");
         Console.WriteLine("PASS rail creation, rename, inactive/active removal retain surviving controls, focus, menus and scroll position");
         VerifySwitchScroll(app, app.Root, created);
-        void Publish(string[] paths) => app.State!.ChangeWorkspaces(current => current.Where(workspace => workspace.ProjectRoot != other)
-            .Concat(paths.Select(path => new WorkspaceRecord(Guid.NewGuid().ToString(), other,
-                path == other ? WorkspaceKinds.Default : WorkspaceKinds.External, path, path == other ? "main" : "", "main"))));
+        // Git made the folder behind the host's back: the host remembers a missing folder for a few seconds, so tell it to look again.
+        void Publish(string[] paths)
+        {
+            foreach (var path in paths) Tereditor.Host.Core.FolderProbe.Forget(path);
+            app.State!.ChangeWorkspaces(current => current.Where(workspace => workspace.ProjectRoot != other)
+                .Concat(paths.Select(path => new WorkspaceRecord(Guid.NewGuid().ToString(), other,
+                    path == other ? WorkspaceKinds.Default : WorkspaceKinds.External, path, path == other ? "main" : "", "main"))));
+        }
         var stale = Path.Combine(Path.GetDirectoryName(other)!, "rail-stale-workspace");
         IsolatedGit.Run(other, "worktree", "add", "--detach", stale);
         Publish([other, stale]);
