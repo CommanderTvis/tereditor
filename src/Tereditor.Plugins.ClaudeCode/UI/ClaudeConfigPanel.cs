@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 
@@ -621,6 +622,21 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         }
     }
 
+    /// <summary>A left click on a built-in tool's row opens its docs page; other rows get nothing. A turned-off row keeps its struck-through look.</summary>
+    internal static void AttachToolLink(DockPanel line, BaselineEntry entry, bool denied, Action<string> open)
+    {
+        if (!entry.Key.StartsWith("system-tools/", StringComparison.Ordinal) || ClaudeToolDocs.Url(entry.Key["system-tools/".Length..]) is not { } url) return;
+        var name = line.GetLogicalDescendants().OfType<TextBlock>().First(block => block.Name == "ClaudeContextName");
+        if (denied) line.Cursor = new Cursor(StandardCursorType.Hand); else HoverLink.Apply(name, line);
+        ToolTip.SetTip(name, entry.Label + ": open its docs");
+        line.PointerPressed += (_, args) =>
+        {
+            if (!args.GetCurrentPoint(line).Properties.IsLeftButtonPressed) return;
+            open(url);
+            args.Handled = true;
+        };
+    }
+
     // The same row as a file's: tokens docked right, a glyph, the name. A row with parts keeps its glyph, adds a
     // chevron after its name and opens them below it, indented a step.
     private void AddBaselineRow(Panel list, BaselineEntry entry, int depth)
@@ -630,6 +646,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         var line = BaselineLine(entry, depth, open, denied: IsOff(actions));
         list.Children.Add(line);
         AttachRowActions(line, actions, Edit);
+        AttachToolLink(line, entry, IsOff(actions), url => TopLevel.GetTopLevel(line)?.Launcher.LaunchUriAsync(new Uri(url)));
         if (entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && rowSkillFiles.TryGetValue(entry.Key["skills/".Length..], out var skillFile))
         {
             line.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);

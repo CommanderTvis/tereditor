@@ -315,7 +315,7 @@ first, with subtotals) and each server into its tools; Skills open into each ski
 MCP tool, deferred ones included, while its "MCP tools" category counts only those loaded at start, so when tools are
 deferred a server's subtotal reads "N tokens if loaded" and the MCP tools row's tooltip names the deferred total. When
 every MCP tool is deferred (no "MCP tools" category) the row still shows, at 0 tokens, with its servers and tools. A row's
-name trims with an ellipsis (whole in its tooltip) before the chevron and the count, which keep their place. A row with actions shows a hover bubble (theme hover fill, 4 px radius) around its name and the three-dots button, which sits right after the name; the row's height never changes. The header totals the rows as
+name trims with an ellipsis (whole in its tooltip) before the chevron and the count, which keep their place. A row with actions shows a hover bubble (theme hover fill, 4 px radius) around its name and the three-dots button, which sits right after the name; the row's height never changes. A left click on a built-in tool's row opens its section of the tools reference in the system browser (`ClaudeToolDocs` maps each tool to its heading id; MCP and unknown tools have no link), with the name turning accent and underlined on hover. The header totals the rows as
 "N tokens in new session". Every amount says "1 token" for one and abbreviates to "tok"/"toks" where the row is
 narrower than the Agent UI `TokenAmount` threshold; a short line above the table says "Measured 5m ago" (the same `ClaudeParts.Ago` phrasing as the account usage reading, the absolute time in the tooltip), that it is measuring, or why it
 failed, with Retry. Before a baseline exists rows show an ellipsis.

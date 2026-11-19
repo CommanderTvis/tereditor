@@ -295,6 +295,7 @@ internal static class ClaudeContextChecks
         BaselineLineLayout();
         RowMoreButton();
         DeniedRow();
+        ToolDocsLinks();
         CapabilityTree();
         PluginPartsTree();
         Require(rows.Single(row => row.Key == "skills").Children.Select(skill => skill.Label).SequenceEqual(["dataviz", "example", "tidy"]),
@@ -424,6 +425,45 @@ internal static class ClaudeContextChecks
                 Require(!menu.IsOpen && more.Opacity == 0 && !more.IsHitTestVisible && Heights().SequenceEqual(before),
                     $"Closing the menu of {entry.Key} hides the button again and changes no row height.");
             }
+        }
+        finally { host.Close(); }
+    }
+
+    // A built-in tool's row opens its docs page on a real left click; an unknown or MCP tool's row does nothing. Every mapped tool
+    // links under the docs URL, and every built-in tool the Context table lists is mapped.
+    private static void ToolDocsLinks()
+    {
+        Require(ClaudeToolDocs.Anchors.All(pair => ClaudeToolDocs.Url(pair.Key) is { } url && url.StartsWith(ClaudeToolDocs.DocsUrl, StringComparison.Ordinal) &&
+            (pair.Value.Length == 0 || (url == ClaudeToolDocs.DocsUrl + "#" + pair.Value && pair.Value.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-')))),
+            "Every mapped tool has a docs URL under the tools reference, with a plain heading anchor when it has one.");
+        Require(ClaudeConfigPanel.BuiltInTools.All(tool => ClaudeToolDocs.Url(tool) is not null) && ClaudeToolDocs.Url("mcp__x__y") is null,
+            "Every built-in tool in the table is mapped, an unknown name is not.");
+        var known = new ClaudeConfigPanel.BaselineEntry("system-tools/Edit", "Edit", "terminal", -1, []);
+        var unknown = new ClaudeConfigPanel.BaselineEntry("system-tools/Nope", "Nope", "terminal", -1, []);
+        var opened = new List<string>();
+        var stack = new StackPanel();
+        DockPanel Row(ClaudeConfigPanel.BaselineEntry entry)
+        {
+            var line = ClaudeConfigPanel.BaselineLine(entry, 0, false);
+            ClaudeConfigPanel.AttachToolLink(line, entry, false, opened.Add);
+            stack.Children.Add(line);
+            return line;
+        }
+        var knownRow = Row(known);
+        var unknownRow = Row(unknown);
+        var host = new Window { Width = 400, Height = 200, Content = stack };
+        host.Show();
+        try
+        {
+            E2eWorkspace.Settle();
+            var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), Avalonia.Input.PointerType.Mouse, true);
+            void Click(Control line) => line.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(line, pointer, host, default, 0,
+                new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.LeftMouseButton, Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+                Avalonia.Input.KeyModifiers.None));
+            Click(unknownRow);
+            Require(opened.Count == 0, "A click on an unknown tool row opens nothing.");
+            Click(knownRow);
+            Require(opened.SequenceEqual([ClaudeToolDocs.DocsUrl + "#edit-tool-behavior"]), "A click on the Edit row asks to open its docs section.");
         }
         finally { host.Close(); }
     }
