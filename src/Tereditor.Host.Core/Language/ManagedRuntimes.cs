@@ -200,7 +200,7 @@ internal static class ManagedRuntimes
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.Ordinal);
 
     /// <summary>Makes sure a pin is installed. Offline, a missing artifact fails at once and clearly; online it is downloaded, verified against the pinned SHA-256 and installed atomically.</summary>
-    internal static async Task<string> EnsureAsync(string directory, ManagedRuntimePin pin, HttpClient http, Action<string>? progress, bool offline, CancellationToken token)
+    internal static async Task<string> EnsureAsync(string directory, ManagedRuntimePin pin, HttpClient http, Action<string>? progress, bool offline, CancellationToken token, Action<long, long>? bytes = null)
     {
         var kind = Kinds.First(item => item.Id == pin.Id);
         var root = InstallDirectory(directory, pin);
@@ -216,7 +216,7 @@ internal static class ManagedRuntimes
             progress?.Invoke($"Downloading {kind.Name} {pin.Version} ({pin.Platform}) from {new Uri(pin.Url).Host}.");
             var artifact = new ManagedArtifact(pin.Id, pin.Version, pin.Platform, pin.Url, pin.Sha256, pin.Format, pin.Source, pin.Hosts ?? OfficialHosts);
             var installLog = CodeIntelligenceLog.Begin("host.runtime-install", ("runtime", kind.Name), ("version", pin.Version), ("root", root));
-            try { await ArtifactInstaller.InstallAsync(artifact, root, http, token); installLog.Succeed(); }
+            try { await ArtifactInstaller.InstallAsync(artifact, root, http, token, bytes); installLog.Succeed(); }
             catch (Exception error) { installLog.Fail(error); throw; }
             progress?.Invoke($"Installed {kind.Name} {pin.Version} at {root}, SHA-256 verified.");
         }

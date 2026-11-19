@@ -167,8 +167,8 @@ internal static class ArtifactInstaller
 
     internal static HttpClient CreateClient() => new(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromMinutes(10) };
 
-    /// <summary>Installs into <paramref name="root"/> unless it already holds this artifact; failure leaves no partial directory.</summary>
-    internal static async Task InstallAsync(ManagedArtifact artifact, string root, HttpClient http, CancellationToken token)
+    /// <summary>Installs into <paramref name="root"/> unless it already holds this artifact; failure leaves no partial directory. <paramref name="progress"/> gets the bytes received and the total (0 when the server sends none) while the archive downloads.</summary>
+    internal static async Task InstallAsync(ManagedArtifact artifact, string root, HttpClient http, CancellationToken token, Action<long, long>? progress = null)
     {
         if (artifact.Sha256.Length != 64 || !artifact.Sha256.All(char.IsAsciiHexDigitLower))
             throw new IOException($"{artifact.Server} has no pinned SHA-256 for {artifact.Platform}; it will not be installed.");
@@ -191,7 +191,7 @@ internal static class ArtifactInstaller
             {
                 if (artifact.Format is not ("zip" or "tar.gz" or "gz"))
                     throw new IOException($"{artifact.Server} for {artifact.Platform} is a {artifact.Format} the host does not unpack: it is only available preinstalled in the headless image. Allow PATH for this server or set an executable override.");
-                await DownloadAsync(http, artifact.Server, new Uri(artifact.Url), artifact.Hosts, archive, token);
+                await DownloadAsync(http, artifact.Server, new Uri(artifact.Url), artifact.Hosts, archive, token, progress);
                 if (ManagedArtifacts.Hash(archive) != artifact.Sha256)
                     throw new IOException($"{artifact.Server} download failed verification: SHA-256 does not match the pinned value. Nothing was installed.");
                 await ExtractAsync(archive, staging, artifact, token);
@@ -259,7 +259,7 @@ internal static class ArtifactInstaller
         }
     }
 
-    private static async Task DownloadAsync(HttpClient http, string name, Uri start, string[] hosts, string destination, CancellationToken token)
+    private static async Task DownloadAsync(HttpClient http, string name, Uri start, string[] hosts, string destination, CancellationToken token, Action<long, long>? progress = null)
     {
         var url = start;
         for (var hop = 0; hop < 6; hop++)
@@ -275,7 +275,7 @@ internal static class ArtifactInstaller
                 throw new IOException($"{name} download refused: redirected to {final.Host}.");
             await using var input = await response.Content.ReadAsStreamAsync(token);
             await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true);
-            await CopyBoundedAsync(input, output, DownloadLimit, token);
+            await CopyBoundedAsync(input, output, DownloadLimit, token, progress is null ? null : received => progress(received, response.Content.Headers.ContentLength ?? 0));
             return;
         }
         throw new IOException($"{name} download refused: too many redirects.");
@@ -365,15 +365,19 @@ internal static class ArtifactInstaller
         }
     }
 
-    private static async Task CopyBoundedAsync(Stream input, Stream output, long limit, CancellationToken token)
+    private static async Task CopyBoundedAsync(Stream input, Stream output, long limit, CancellationToken token, Action<long>? received = null)
     {
         var buffer = new byte[81920];
         int read;
+        long total = 0;
+        received?.Invoke(0);
         while ((read = await input.ReadAsync(buffer, token)) > 0)
         {
             limit -= read;
             if (limit < 0) throw new IOException("Download or archive exceeds the size limit.");
             await output.WriteAsync(buffer.AsMemory(0, read), token);
+            total += read;
+            received?.Invoke(total);
         }
     }
 }

@@ -28,6 +28,15 @@ public sealed record RuntimeRow(string Kind, string Name, string Source, string 
 {
     /// <summary>The program of the downloaded copy, whichever source is in use; empty when none.</summary>
     public string DownloadedPath { get; init; } = "";
+
+    /// <summary>Whether the pinned copy is downloading right now.</summary>
+    public bool Downloading { get; init; }
+
+    /// <summary>The bytes of the archive received so far while <see cref="Downloading"/>.</summary>
+    public long ReceivedBytes { get; init; }
+
+    /// <summary>The size of the archive; 0 when the server did not say, so the page cannot show a percent.</summary>
+    public long TotalBytes { get; init; }
 }
 
 /// <param name="Error">What went wrong with the last Download now or Remove download, in plain words; empty when nothing did.</param>

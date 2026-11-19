@@ -1064,6 +1064,12 @@ Tereditor.Plugins.Api.Host.RuntimeOffer.<Clone>$() -> Tereditor.Plugins.Api.Host
 Tereditor.Plugins.Api.Host.IPluginHostContext.SetRuntimeConsent(System.Func<Tereditor.Plugins.Api.Host.RuntimeOffer!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>>? ask) -> void
 Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedPath.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedPath.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.Downloading.get -> bool
+Tereditor.Plugins.Api.Host.RuntimeStatus.Downloading.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.ReceivedBytes.get -> long
+Tereditor.Plugins.Api.Host.RuntimeStatus.ReceivedBytes.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.TotalBytes.get -> long
+Tereditor.Plugins.Api.Host.RuntimeStatus.TotalBytes.init -> void
 Tereditor.Plugins.Api.Host.RuntimeStatus.Name.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeStatus.Version.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeResolution.Message.init -> void

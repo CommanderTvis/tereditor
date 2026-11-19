@@ -142,7 +142,7 @@ internal sealed partial class LanguageServers
         if (ManagedRuntimes.Choose(runtime.Id, platform, workspace) is not { } pin) return RuntimeResolution.Unavailable(kind, ManagedRuntimes.NotPinned(runtime, platform, workspace));
         if (Toolchains.Offline) return RuntimeResolution.Unavailable(kind, $"{name} is not installed, and tereditor is offline, so it cannot be downloaded.");
         if (!await ConsentAsync(runtime, pin, token)) return RuntimeResolution.Unavailable(kind, DeclinedProblem(runtime));
-        try { await ManagedRuntimes.EnsureAsync(directory, pin, managedHttp, message => CodeIntelligenceLog.Info("host.install-progress", ("server", "runtimes"), ("message", message)), false, token); }
+        try { await EnsureTrackedAsync(kind, pin, false, token); }
         catch (Exception error) when (error is IOException or HttpRequestException or InvalidDataException or UnauthorizedAccessException)
         {
             return RuntimeResolution.Unavailable(kind, $"{name} could not be downloaded: {error.Message}");
@@ -151,6 +151,16 @@ internal sealed partial class LanguageServers
         return ManagedRuntimes.FindInstalled(directory, tool, platform, workspace) is { } installed
             ? Ready(kind, installed, RuntimeSource.Downloaded)
             : RuntimeResolution.Unavailable(kind, $"{name} was downloaded but its program was not found.");
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<RuntimeKind, (long Received, long Total)> receiving = new();
+
+    // The pinned download of a runtime, with the bytes it has received so far, which Status reports while it runs.
+    private async Task EnsureTrackedAsync(RuntimeKind kind, ManagedRuntimePin pin, bool offline, CancellationToken token)
+    {
+        receiving[kind] = (0, 0);
+        try { await ManagedRuntimes.EnsureAsync(directory, pin, managedHttp, message => CodeIntelligenceLog.Info("host.install-progress", ("server", "runtimes"), ("message", message)), offline, token, (received, total) => receiving[kind] = (received, total)); }
+        finally { receiving.TryRemove(kind, out _); }
     }
 
     private static readonly Regex VersionPattern = new(@"\d+\.\d+\.\d+[^\s)]*", RegexOptions.Compiled);
@@ -187,7 +197,14 @@ internal sealed partial class LanguageServers
             }
             catch (Exception error) when (error is TimeoutException or System.ComponentModel.Win32Exception or IOException) { }
         }
-        return new(kind, name, source, path, version, pinned, bytes, downloaded, message) { DownloadedPath = downloaded ? ManagedRuntimes.FindInstalled(directory, tool, platform, directory) ?? "" : "" };
+        var active = receiving.TryGetValue(kind, out var progress);
+        return new(kind, name, source, path, version, pinned, bytes, downloaded, message)
+        {
+            DownloadedPath = downloaded ? ManagedRuntimes.FindInstalled(directory, tool, platform, directory) ?? "" : "",
+            Downloading = active,
+            ReceivedBytes = active ? progress.Received : 0,
+            TotalBytes = active ? progress.Total : 0
+        };
     }
 
     /// <summary>Downloads the pinned copy now. Fails with an <see cref="IOException"/> in plain words when offline or when the download does not verify.</summary>
@@ -196,7 +213,7 @@ internal sealed partial class LanguageServers
         var runtime = ManagedRuntimes.KindOf(ExecutableOf(kind))!;
         var platform = ManagedArtifacts.Platform();
         var pin = ManagedRuntimes.Choose(runtime.Id, platform, directory) ?? throw new IOException(ManagedRuntimes.NotPinned(runtime, platform, directory));
-        await ManagedRuntimes.EnsureAsync(directory, pin, managedHttp, message => CodeIntelligenceLog.Info("host.install-progress", ("server", "runtimes"), ("message", message)), Toolchains.Offline, token);
+        await EnsureTrackedAsync(kind, pin, Toolchains.Offline, token);
         ForgetProbes();
     }
 

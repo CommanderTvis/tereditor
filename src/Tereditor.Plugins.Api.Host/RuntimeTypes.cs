@@ -60,6 +60,15 @@ public sealed record RuntimeStatus(RuntimeKind Kind, string Name, RuntimeSource?
 {
     /// <summary>The program of the downloaded copy, whichever source is in use; empty when none is downloaded.</summary>
     public string DownloadedPath { get; init; } = "";
+
+    /// <summary>Whether the pinned copy is downloading right now.</summary>
+    public bool Downloading { get; init; }
+
+    /// <summary>The bytes of the archive received so far while <see cref="Downloading"/>; 0 otherwise.</summary>
+    public long ReceivedBytes { get; init; }
+
+    /// <summary>The size of the archive while <see cref="Downloading"/>; 0 when the server did not say.</summary>
+    public long TotalBytes { get; init; }
 }
 
 /// <summary>Removes what a plugin downloaded. Every plugin that downloads something removes all of it, and only that, when the user turns the plugin off.</summary>

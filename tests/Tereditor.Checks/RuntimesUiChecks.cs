@@ -9,9 +9,11 @@ using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.Runtimes;
 using Tereditor.Plugins.Runtimes.UI;
 
+using Kit = Tereditor.Plugins.UI.Kit;
+
 namespace Tereditor.Checks;
 
-// Settings > Runtimes rendered headless over a fake host: the rows, the buttons and each state (not installed, downloading with its size and Cancel, installed, failed,
+// Settings > Runtimes rendered headless over a fake host: the rows, the buttons and each state (not installed, start, midway with percent and bytes, cancelled, failed, done,
 // the download that is not the one in use). "Off" has no page: a plugin that is off registers no section, which the first step asserts.
 internal static class RuntimesUiChecks
 {
@@ -28,13 +30,14 @@ internal static class RuntimesUiChecks
         var state = new RuntimesState([Row("bun", message: "Bun is not installed. It is downloaded the first time a plugin needs it."), Row("uv", "system")]);
         var pending = new TaskCompletionSource<RuntimesState>();
         CancellationToken downloadToken = default;
-        long size = 0;
+        long received = 0, total = 0;
+        var downloading = false;
         var saved = new List<RuntimesSettings>();
         var fake = Fake.Create(async (method, parameters, token) =>
         {
             switch (method)
             {
-                case "status": return state with { Runtimes = [.. state.Runtimes.Select(row => row.Kind == "bun" && size > 0 ? row with { DownloadBytes = size } : row)] };
+                case "status": return state with { Runtimes = [.. state.Runtimes.Select(row => row.Kind == "bun" && downloading ? row with { Downloading = true, ReceivedBytes = received, TotalBytes = total } : row)] };
                 case "download": downloadToken = token; return await pending.Task.WaitAsync(token);
                 default: throw new NotSupportedException(method);
             }
@@ -61,36 +64,51 @@ internal static class RuntimesUiChecks
             // Not installed: Download now is on, Remove download is off, and the message says where it comes from.
             Require(Find("RuntimesDownload")!.IsEnabled && !Find("RuntimesRemove")!.IsEnabled, "not installed: Download now on, Remove download off");
             Require(view.GetVisualDescendants().OfType<TextBlock>().Any(text => (text.Text ?? "").Contains("Bun is not installed", StringComparison.Ordinal)), "not installed: the message is shown");
-            Require(Named<StackPanel>("DownloadStrip") is null, "no progress before a download starts");
+            Control Slot() { Settle(); return (Control)Named<ProgressBar>("RuntimesProgressBar")!.Parent!; }
+            string Label() => ((TextBlock)Find("RuntimesDownload")!.Content!).Text ?? "";
+            string Line() => Named<TextBlock>("RuntimesProgressText")?.Text ?? "";
+            var slotHeight = Slot().Bounds.Height;
+            Require(slotHeight > 0 && Named<ProgressBar>("RuntimesProgressBar")!.Opacity == 0 && !Find("RuntimesCancel")!.IsEnabled && Line().Length == 0 && Label() == "Download now", "idle: the progress slot is laid out but quiet");
 
-            // Downloading: progress with the size so far, Cancel, and the buttons wait.
+            // Start: the button says so and waits, the bar and Cancel show on that row, the row keeps its height.
             Find("RuntimesDownload")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Until(() => Named<StackPanel>("DownloadStrip") is not null, "downloading: the progress strip appears");
-            size = 3 * 1024 * 1024;
-            Until(() => (Named<TextBlock>("DownloadText")?.Text ?? "").Contains("3 MB so far", StringComparison.Ordinal), "downloading: the strip shows the bytes so far: " + Named<TextBlock>("DownloadText")?.Text);
-            Require(Named<ProgressBar>("DownloadProgress") is { IsVisible: true } && Find("DownloadCancel") is { IsEnabled: true }, "downloading: a bar and an enabled Cancel");
-            Require(!Find("RuntimesDownload")!.IsEffectivelyEnabled && !Find("RuntimesRemove")!.IsEffectivelyEnabled, "downloading: Download now and Remove download wait");
+            Until(() => Label() == "Downloading…", "start: the button says Downloading…");
+            Require(!Find("RuntimesDownload")!.IsEffectivelyEnabled && !Find("RuntimesRemove")!.IsEffectivelyEnabled && Find("RuntimesCancel") is { IsEnabled: true, Opacity: 1 }, "start: Download now and Remove download wait, Cancel is on");
+            Require(Named<ProgressBar>("RuntimesProgressBar") is { Opacity: 1, IsIndeterminate: true } && Line() == "Downloading Bun…", "start: an indeterminate bar and the plain line: " + Line());
+            Require(Slot().Bounds.Height == slotHeight, "start: the progress slot keeps its height");
 
-            // Cancel stops the request and says so; the page is usable again.
-            Find("DownloadCancel")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Until(() => downloadToken.IsCancellationRequested && Named<StackPanel>("DownloadStrip") is null, "cancel: the request is cancelled and the strip goes away");
-            Require(Named<TextBlock>("RuntimesError") is { IsVisible: true } cancelled && (cancelled.Text ?? "").Contains("cancelled", StringComparison.Ordinal) && Find("RuntimesDownload")!.IsEffectivelyEnabled, "cancel: the page says so and works again");
+            // Midway, size unknown: the bytes so far, the bar stays indeterminate.
+            (downloading, received, total) = (true, 3L * 1024 * 1024, 0);
+            Until(() => Line().Contains("3 MB", StringComparison.Ordinal), "midway: the line shows the bytes so far: " + Line());
+            Require(Named<ProgressBar>("RuntimesProgressBar")!.IsIndeterminate && !Line().Contains('%'), "midway, size unknown: indeterminate, no percent");
 
-            // Failed: the host's error shows under the rows.
+            // Midway, size known: percent and both sizes, a determinate bar.
+            (received, total) = (4L * 1024 * 1024, 10L * 1024 * 1024);
+            Until(() => Line() == "Downloading Bun… 40% (4 MB of 10 MB)", "midway, size known: percent and sizes: " + Line());
+            Require(Named<ProgressBar>("RuntimesProgressBar") is { IsIndeterminate: false, Value: 40 } && Slot().Bounds.Height == slotHeight, "midway, size known: a determinate bar at 40 and the same height");
+
+            // Cancel stops the request and says so on the row; the page is usable again.
+            Find("RuntimesCancel")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Until(() => downloadToken.IsCancellationRequested && Line() == "The download was cancelled.", "cancel: the request is cancelled and the row says so: " + Line());
+            Require(Label() == "Download now" && Find("RuntimesDownload")!.IsEffectivelyEnabled && Named<ProgressBar>("RuntimesProgressBar")!.Opacity == 0 && !Find("RuntimesCancel")!.IsEnabled && Slot().Bounds.Height == slotHeight, "cancel: the row is idle again at the same height");
+
+            // Failed: the host's error shows on the row, in the danger colour.
             pending = new();
+            (downloading, received, total) = (false, 0, 0);
             Find("RuntimesDownload")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Until(() => Named<StackPanel>("DownloadStrip") is not null, "failed: a second download starts");
+            Until(() => Label() == "Downloading…", "failed: a second download starts");
             pending.SetResult(state with { Error = "Bun could not be downloaded: offline." });
-            Until(() => Named<StackPanel>("DownloadStrip") is null && Named<TextBlock>("RuntimesError") is { IsVisible: true } failed && (failed.Text ?? "").Contains("offline", StringComparison.Ordinal), "failed: the error shows and the strip is gone");
+            Until(() => Line() == "Bun could not be downloaded: offline.", "failed: the error shows on the row: " + Line());
+            Require(Named<TextBlock>("RuntimesProgressText")!.Foreground == Kit.Ui.Danger && Label() == "Download now" && Find("RuntimesDownload")!.IsEffectivelyEnabled && Slot().Bounds.Height == slotHeight, "failed: danger colour, button back, same height");
 
-            // Installed and in use: Remove download is on, Download now is off, the size shows.
+            // Done: the row says so, Remove download is on, Download now is off, the size shows.
             pending = new();
-            size = 0;
             state = new([Row("bun", "downloaded", downloaded: true, bytes: 225L * 1024 * 1024, downloadedPath: "/cache/bun"), Row("uv", "system")]);
             Find("RuntimesDownload")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Until(() => Named<StackPanel>("DownloadStrip") is not null, "installed: a download starts to refresh the page");
+            Until(() => Label() == "Downloading…", "done: a download starts");
             pending.SetResult(state);
-            Until(() => Named<StackPanel>("DownloadStrip") is null && !Find("RuntimesDownload")!.IsEnabled && Find("RuntimesRemove")!.IsEnabled, "installed: Download now off, Remove download on");
+            Until(() => Line() == "Bun is downloaded." && !Find("RuntimesDownload")!.IsEnabled && Find("RuntimesRemove")!.IsEnabled, "done: the row says so, Download now off, Remove download on: " + Line());
+            Require(Named<TextBlock>("RuntimesProgressText")!.Foreground != Kit.Ui.Danger && Slot().Bounds.Height == slotHeight, "done: normal colour and the same height");
             Require(view.GetVisualDescendants().OfType<TextBlock>().Any(text => (text.Text ?? "").Contains("225 MB", StringComparison.Ordinal)) && Named<TextBlock>("RuntimesAlso") is null && Find("RuntimesUseDownload") is null,
                 "installed and in use: the size shows, no 'also downloaded' line");
 
@@ -112,7 +130,7 @@ internal static class RuntimesUiChecks
         }
         finally { window.Close(); }
         Prompts();
-        Console.WriteLine("PASS runtimes-ui: rows, not installed, downloading with size and Cancel, cancelled, failed, installed, download beside a system install, use the download");
+        Console.WriteLine("PASS runtimes-ui: rows, not installed, start, midway (size unknown and known), cancelled, failed, done, steady row height, download beside a system install, use the download");
     }
 
     // The consent prompt: one per waiting download, with Download and Not now; an answer takes it down; the same list never shows a second prompt.
