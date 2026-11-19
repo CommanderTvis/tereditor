@@ -63,6 +63,15 @@ internal static class GitHubTabCloseE2E
                 Require(app.Window.WorkspaceMounted && app.Window.WorkspaceRoot == workspace, $"Closing the {id} GitHub tab must leave the workspace mounted.");
             }
         Require(!Disposed(avatar), "Closing a GitHub tab must not dispose the avatar image the plugin keeps for its other tabs.");
+        // Reopening shows the cached avatar again, drawn without an error.
+        _ = app.Window.OpenPluginDocumentAsync(workspace, "github", "issues", "issues");
+        Until(() => Controls(app).Any(control => control.Name == "GitHubTab"));
+        Settle(400);
+        var reopened = Controls(app).OfType<Border>().Single(control => control.Name == "GitHubTab");
+        ((GitHubTab)reopened).RenderList(new(false, "r", "o/r", [new GitHubItem(1, "Title", "open", false, "ann", [], 0, "2026-11-01T10:00:00Z", "2026-11-02T10:00:00Z", null, "https://github.com/o/r/issues/1", "none", "none") { Assignees = [new("ann", avatarUrl)] }], 1, 0, false));
+        Until(() => reopened.GetLogicalDescendants().OfType<Image>().Any(image => ReferenceEquals(image.Source, avatar)));
+        Settle(400);
+        Require(!Disposed(avatar), "A reopened Issues tab must draw the cached avatar.");
         Console.WriteLine("PASS closing a GitHub tab keeps the project and workspace in the rail");
     }
 }
