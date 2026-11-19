@@ -100,6 +100,7 @@ internal static partial class GitHubBrowserChecks
         }
         Console.WriteLine("PASS GitHub pane, rows, conversation and views render with every icon resolved");
         LinkHoverAndAvatars();
+        AvatarCircles();
         PlaceholdersAreCentred();
         GitHubActionsChecks.Run();
     }

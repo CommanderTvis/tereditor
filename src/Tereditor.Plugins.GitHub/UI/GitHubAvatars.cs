@@ -11,23 +11,38 @@ namespace Tereditor.Plugins.GitHub.UI;
 
 /// <summary>
 /// Overlapping round avatars of the people an item is assigned to: up to three, then a +N count. Each shows the login's initial until its
-/// image arrives and keeps it when the image fails. Images load like the Markdown preview's: http and https only, 1 MB at most, no
-/// credentials, off the UI thread. The login is the tooltip.
+/// image arrives and keeps it when the image fails; the image replaces the initial in the same circle, so nothing moves. The host fetches and
+/// saves the bytes (the UI never reaches the network); the UI decodes each address once, off the UI thread, and keeps up to
+/// <see cref="Kept"/> decoded images, so scrolling, refreshing and every row of one person never ask again. A failed address is not asked
+/// again for a minute. The login is the tooltip.
 /// </summary>
 internal static class GitHubAvatars
 {
-    internal const int Shown = 3, MaxBytes = 1024 * 1024;
+    internal const int Shown = 3, Kept = 128;
+    private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(1);
 
-    private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromSeconds(15) };
-    private static readonly Dictionary<string, Bitmap> Cache = [];
+    private static readonly Dictionary<string, Bitmap> Decoded = [];
+    private static readonly Queue<string> Order = new();
+    private static readonly Dictionary<string, Task<Bitmap?>> Flights = [];
+    private static readonly Dictionary<string, long> Failed = [];
 
-    /// <summary>Puts an image in the cache as if it had been downloaded, so checks need no network.</summary>
-    internal static void Remember(string url, Bitmap bitmap) { lock (Cache) Cache[url] = bitmap; }
+    /// <summary>Puts an image in the decoded cache as if it had been fetched, so checks need no host. The cache owns it for the life of the process.</summary>
+    internal static void Remember(string url, Bitmap bitmap)
+    {
+        if (GitHubAvatarUrl.Normalize(url) is not { } uri) return;
+        lock (Decoded) { Decoded[uri.AbsoluteUri] = bitmap; Order.Enqueue(uri.AbsoluteUri); }
+    }
 
-    internal static Control Stack(IReadOnlyList<GitHubPerson> people, bool load = true)
+    /// <summary>Forgets every decoded image (for checks).</summary>
+    internal static void Reset()
+    {
+        lock (Decoded) { Decoded.Clear(); Order.Clear(); Flights.Clear(); Failed.Clear(); }
+    }
+
+    internal static Control Stack(IReadOnlyList<GitHubPerson> people, Func<string, Task<byte[]?>>? fetch)
     {
         var stack = new StackPanel { Name = "GitHubAssignees", Orientation = Orientation.Horizontal, Spacing = -4, VerticalAlignment = VerticalAlignment.Center };
-        foreach (var person in people.Take(Shown)) stack.Children.Add(Avatar(person, load));
+        foreach (var person in people.Take(Shown)) stack.Children.Add(Avatar(person, fetch));
         if (people.Count > Shown)
         {
             var more = new Border { Width = 24, Height = 24, CornerRadius = new CornerRadius(12), Background = Ui.Elevated, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(1), Child = Ui.Text("+" + (people.Count - Shown), Ui.Muted, 12) };
@@ -38,45 +53,64 @@ internal static class GitHubAvatars
         return stack;
     }
 
-    private static Border Avatar(GitHubPerson person, bool load)
+    private static Border Avatar(GitHubPerson person, Func<string, Task<byte[]?>>? fetch)
     {
         var initial = Ui.Text(person.Login.Length > 0 ? person.Login[..1].ToUpperInvariant() : "·", Ui.TextBrush, 12);
         initial.HorizontalAlignment = HorizontalAlignment.Center;
         var avatar = new Border { Name = "GitHubAvatar" + person.Login, Width = 24, Height = 24, CornerRadius = new CornerRadius(12), ClipToBounds = true, Background = Ui.Elevated, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(1), Child = initial };
         ToolTip.SetTip(avatar, person.Login);
-        if (load && Uri.TryCreate(person.AvatarUrl, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http") _ = LoadAsync(avatar, uri);
+        if (GitHubAvatarUrl.Normalize(person.AvatarUrl) is not { } uri) return avatar;
+        var key = uri.AbsoluteUri;
+        Bitmap? ready;
+        lock (Decoded) Decoded.TryGetValue(key, out ready);
+        if (ready is not null) avatar.Child = Picture(ready);
+        else if (fetch is not null) _ = ShowAsync(avatar, key, person.AvatarUrl, fetch);
         return avatar;
     }
 
-    private static async Task LoadAsync(Border avatar, Uri uri)
+    private static Image Picture(Bitmap bitmap) => new() { Source = bitmap, Stretch = Stretch.UniformToFill };
+
+    private static async Task ShowAsync(Border avatar, string key, string url, Func<string, Task<byte[]?>> fetch)
     {
+        var bitmap = await Flight(key, url, fetch);
+        if (bitmap is not null) await Dispatcher.UIThread.InvokeAsync(() => avatar.Child = Picture(bitmap));
+    }
+
+    private static Task<Bitmap?> Flight(string key, string url, Func<string, Task<byte[]?>> fetch)
+    {
+        lock (Decoded)
+        {
+            if (Decoded.TryGetValue(key, out var done)) return Task.FromResult<Bitmap?>(done);
+            if (Flights.TryGetValue(key, out var running)) return running;
+            if (Failed.TryGetValue(key, out var at) && Environment.TickCount64 - at < RetryAfter.TotalMilliseconds) return Task.FromResult<Bitmap?>(null);
+            return Flights[key] = Task.Run(() => LoadAsync(key, url, fetch));
+        }
+    }
+
+    private static async Task<Bitmap?> LoadAsync(string key, string url, Func<string, Task<byte[]?>> fetch)
+    {
+        Bitmap? bitmap = null;
         try
         {
-            Bitmap? bitmap;
-            lock (Cache) Cache.TryGetValue(uri.AbsoluteUri, out bitmap);
-            if (bitmap is null)
+            if (await fetch(url) is { } bytes)
             {
-                bitmap = await Task.Run(async () =>
-                {
-                    using var response = await Client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
-                    response.EnsureSuccessStatusCode();
-                    if (response.Content.Headers.ContentLength > MaxBytes) throw new IOException("Image too large.");
-                    using var stream = await response.Content.ReadAsStreamAsync();
-                    using var memory = new MemoryStream();
-                    var buffer = new byte[8192];
-                    int count;
-                    while ((count = await stream.ReadAsync(buffer)) > 0)
-                    {
-                        if (memory.Length + count > MaxBytes) throw new IOException("Image too large.");
-                        memory.Write(buffer, 0, count);
-                    }
-                    memory.Position = 0;
-                    return new Bitmap(memory);
-                });
-                lock (Cache) { if (Cache.Count >= 64) Cache.Clear(); Cache[uri.AbsoluteUri] = bitmap; }
+                using var memory = new MemoryStream(bytes);
+                bitmap = new Bitmap(memory);
             }
-            await Dispatcher.UIThread.InvokeAsync(() => avatar.Child = new Image { Source = bitmap, Stretch = Stretch.UniformToFill });
         }
-        catch (Exception error) when (error is IOException or HttpRequestException or OperationCanceledException or ArgumentException or InvalidOperationException or NotSupportedException) { }
+        // Whatever goes wrong (host error, undecodable bytes) leaves the initial in the circle.
+        catch (Exception error) when (error is not OutOfMemoryException) { }
+        lock (Decoded)
+        {
+            Flights.Remove(key);
+            if (bitmap is null) Failed[key] = Environment.TickCount64;
+            else
+            {
+                Decoded[key] = bitmap;
+                Order.Enqueue(key);
+                while (Order.Count > Kept) Decoded.Remove(Order.Dequeue());
+            }
+        }
+        return bitmap;
     }
 }

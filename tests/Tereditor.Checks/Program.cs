@@ -749,6 +749,7 @@ internal static class Program
             CommitChecksChecks.RunAsync().GetAwaiter().GetResult();
             GitHubBrowserChecks.RunCache().GetAwaiter().GetResult();
             GitHubContributorsChecks.Run().GetAwaiter().GetResult();
+            GitHubBrowserChecks.RunAvatars().GetAwaiter().GetResult();
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
             GitHubBrowserChecks.RunUi();
             CommitChecksChecks.RunUi();

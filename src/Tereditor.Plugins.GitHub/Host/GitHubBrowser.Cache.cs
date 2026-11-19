@@ -60,10 +60,13 @@ public sealed partial class GitHubBrowser
             + "|" + Math.Clamp(p.Limit, 1, 100).ToString(CultureInfo.InvariantCulture) + "|" + Math.Max(1, p.Page).ToString(CultureInfo.InvariantCulture), p.Revision, ViewCodec, token => FetchViewAsync(directory, p with { Revision = null }, token), ct);
 
     /// <summary>Bytes the local copy takes on disk.</summary>
-    public Task<long> CacheSizeAsync() => cache is null ? Task.FromResult(0L) : cache.SizeAsync();
+    public async Task<long> CacheSizeAsync() => (cache is null ? 0 : await cache.SizeAsync()) + (avatars is null ? 0 : await avatars.SizeAsync());
 
     /// <summary>Deletes the local copy; returns the bytes freed. Works while the cache is switched off.</summary>
-    public Task<long> ClearCacheAsync() => cache is null ? Task.FromResult(0L) : cache.ClearAsync();
+    public async Task<long> ClearCacheAsync() => (cache is null ? 0 : await cache.ClearAsync()) + (avatars is null ? 0 : await avatars.ClearAsync());
+
+    /// <summary>One avatar image: the saved copy at once, else fetched and saved; null when the address is not allowed or the fetch failed.</summary>
+    public Task<byte[]?> AvatarAsync(string url, CancellationToken ct) => avatars is null ? Task.FromResult<byte[]?>(null) : avatars.GetAsync(url, ct);
 
     private async Task<T> ServeAsync<T>(string directory, string group, string key, string? have, Codec<T> codec, Func<CancellationToken, Task<T>> fetch, CancellationToken ct) where T : class
     {

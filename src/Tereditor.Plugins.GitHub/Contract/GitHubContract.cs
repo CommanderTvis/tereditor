@@ -191,6 +191,26 @@ public sealed record GitHubCacheQuery(bool Clear);
 /// <summary>Bytes the local copy takes on disk, or the bytes freed when it was cleared.</summary>
 public sealed record GitHubCacheSize(long Bytes);
 
+/// <summary>Asks for one avatar image by the address GitHub gave (a public https address on githubusercontent.com).</summary>
+public sealed record GitHubAvatarQuery(string Url);
+
+/// <summary>The image bytes (a small PNG, JPEG, GIF or WebP), or null when the address is not allowed or the image could not be fetched.</summary>
+public sealed record GitHubAvatarData(byte[]? Bytes);
+
+/// <summary>The one form an avatar address is fetched, cached and looked up in: public https on githubusercontent.com, the 48 pixel size, no volatile query parts.</summary>
+public static class GitHubAvatarUrl
+{
+    public const int Size = 48;
+
+    public static Uri? Normalize(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || uri.UserInfo.Length > 0) return null;
+        var host = uri.Host.ToLowerInvariant();
+        if (host != "githubusercontent.com" && !host.EndsWith(".githubusercontent.com", StringComparison.Ordinal)) return null;
+        return new Uri("https://" + host + uri.AbsolutePath + "?s=" + Size);
+    }
+}
+
 public static class GitHubContract
 {
     public const string Id = "github";
@@ -204,7 +224,8 @@ public static class GitHubContract
     public static readonly PluginMethod<GitHubLogParams, GitHubLog> Log = new("log");
     public static readonly PluginMethod<GitHubCacheQuery, GitHubCacheSize> Cache = new("cache");
     public static readonly PluginMethod<GitHubContributorsParams, GitHubContributors> ContributorStats = new("contributors");
-    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View, Post, Log, Cache, ContributorStats], [], GitHubJson.Default);
+    public static readonly PluginMethod<GitHubAvatarQuery, GitHubAvatarData> Avatar = new("avatar");
+    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View, Post, Log, Cache, ContributorStats, Avatar], [], GitHubJson.Default);
 
     public const string Tool = "github";
     public const string Scheme = "github";
@@ -243,6 +264,8 @@ public static class GitHubContract
 [JsonSerializable(typeof(GitHubCacheSize))]
 [JsonSerializable(typeof(GitHubContributorsParams))]
 [JsonSerializable(typeof(GitHubContributors))]
+[JsonSerializable(typeof(GitHubAvatarQuery))]
+[JsonSerializable(typeof(GitHubAvatarData))]
 public sealed partial class GitHubJson : JsonSerializerContext;
 
 /// <summary>Where a GitHub link points inside this repository; everything else is not ours to open.</summary>

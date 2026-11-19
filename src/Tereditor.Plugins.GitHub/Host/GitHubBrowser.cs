@@ -13,7 +13,7 @@ namespace Tereditor.Plugins.GitHub.Host;
 /// and a conversation with its timeline. It keeps only a revision (a hash of the last answer) per view, so a caller that
 /// polls gets <c>Unchanged</c> instead of the same payload again.
 /// </summary>
-public sealed partial class GitHubBrowser(ToolRunner run, GitHubCache? cache = null)
+public sealed partial class GitHubBrowser(ToolRunner run, GitHubCache? cache = null, GitHubAvatarStore? avatars = null)
 {
     private static readonly TimeSpan Query = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan RepoTtl = TimeSpan.FromMinutes(10);

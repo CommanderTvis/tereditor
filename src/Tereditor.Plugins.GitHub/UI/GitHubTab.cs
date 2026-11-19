@@ -50,9 +50,16 @@ internal sealed class GitHubTab : Border
 
     internal static bool Handles(string id) => id is Issues or Pulls or Settings || id.StartsWith("issue:", StringComparison.Ordinal) || id.StartsWith("pull:", StringComparison.Ordinal);
 
+    /// <summary>Where avatar bytes come from: the host (it fetches and saves them). Checks replace it.</summary>
+    internal Func<string, Task<byte[]?>> AvatarSource { get; set; }
+
+    private async Task<byte[]?> FetchAvatarAsync(string url) =>
+        (await Task.Run(async () => await context.RequestAsync(GitHubContract.Avatar, new GitHubAvatarQuery(url), CancellationToken.None).AsTask())).Bytes;
+
     public GitHubTab(IPluginUIContext context, string workspace, string id)
     {
         this.context = context;
+        AvatarSource = FetchAvatarAsync;
         this.workspace = workspace;
         Name = "GitHubTab";
         var parts = id.Split(':', 2);
@@ -222,7 +229,7 @@ internal sealed class GitHubTab : Border
         text.Children.Add(Ui.Text($"#{item.Number} · {item.Author} {verb} {Ago(item.ClosedAt ?? item.CreatedAt)}" + (item.Review == "approved" ? " · Approved" : item.Review == "changes-requested" ? " · Changes requested" : ""), Ui.Muted, 12));
         Grid.SetColumn(text, 1); grid.Children.Add(text);
         var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Top };
-        if (item.Assignees.Count > 0) right.Children.Add(GitHubAvatars.Stack(item.Assignees));
+        if (item.Assignees.Count > 0) right.Children.Add(GitHubAvatars.Stack(item.Assignees, AvatarSource));
         if (item.Comments > 0)
         {
             var comments = Ui.Row(GitHubIcons.Chat, item.Comments.ToString());
@@ -293,7 +300,7 @@ internal sealed class GitHubTab : Border
             var side = new WrapPanel();
             foreach (var label in detail.Labels) side.Children.Add(LabelChip(label));
             if (detail.Assignees.Count > 0) side.Children.Add(Ui.Text("Assigned to " + string.Join(", ", detail.Assignees), Ui.Muted, 12));
-            if (detail.People.Count > 0) { var people = GitHubAvatars.Stack(detail.People); people.Margin = new Thickness(8, 0); side.Children.Add(people); }
+            if (detail.People.Count > 0) { var people = GitHubAvatars.Stack(detail.People, AvatarSource); people.Margin = new Thickness(8, 0); side.Children.Add(people); }
             if (detail.Milestone is not null) side.Children.Add(Ui.Text("  Milestone " + detail.Milestone, Ui.Muted, 12));
             root.Children.Add(side);
         }
