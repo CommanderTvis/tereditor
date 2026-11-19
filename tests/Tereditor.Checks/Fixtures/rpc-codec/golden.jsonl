@@ -626,3 +626,7 @@
 {"type":"TerminalGuardNoticeMessage","case":"rich","sample":{"WorkspaceId":"WorkspaceId\u00B71\u2713","TabKey":"TabKey\u00B72\u2713","Text":"Text\u00B73\u2713","Lines":["first","","\u00FC"],"Count":5007,"Sequence":1099511627782},"bytes":"0a11576f726b73706163654964c2b731e29c93120c5461624b6579c2b732e29c931a0a54657874c2b733e29c932205666972737422002202c3bc288f2730868080808020"}
 {"type":"TerminalGuardNoticeMessage","case":"zero","sample":{"WorkspaceId":"","TabKey":"","Text":"","Lines":[],"Count":0,"Sequence":0},"bytes":"0a0012001a00"}
 {"type":"TerminalGuardNoticeMessage","case":"negative-null","sample":{"WorkspaceId":null,"TabKey":null,"Text":null,"Lines":null,"Count":-1,"Sequence":-9223372036854775808},"bytes":"28ffffffffffffffffff013080808080808080808001","decoded":{"WorkspaceId":"","TabKey":"","Text":"","Lines":[],"Count":-1,"Sequence":-9223372036854775808},"reencoded":"0a0012001a0028ffffffffffffffffff013080808080808080808001"}
+{"type":"WorkspaceSizeReply","case":"default","sample":{"Known":false,"Bytes":0},"bytes":""}
+{"type":"WorkspaceSizeReply","case":"rich","sample":{"Known":true,"Bytes":1099511627778},"bytes":"080110828080808020"}
+{"type":"WorkspaceSizeReply","case":"zero","sample":{"Known":false,"Bytes":0},"bytes":""}
+{"type":"WorkspaceSizeReply","case":"negative-null","sample":{"Known":false,"Bytes":-9223372036854775808},"bytes":"1080808080808080808001"}
