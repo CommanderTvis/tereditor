@@ -80,7 +80,13 @@ return Guard(() =>
         Environment.SetEnvironmentVariable(name, null);
     if (mallocStackLogging) Environment.SetEnvironmentVariable("MallocStackLogging", "1");
     if (instrumented) Console.WriteLine(mallocStackLogging ? "MallocStackLogging=1 is set." : $"To attribute small native allocations, run again with --malloc-stack-logging (or start {executable} with MallocStackLogging=1).");
-    if (!OperatingSystem.IsWindows()) return Run(executable, appArgs);
+    if (!OperatingSystem.IsWindows())
+    {
+        var code = Run(executable, appArgs);
+        // The shell-style code 128+N means the signal N ended the app, with no managed exception to print (a native crash).
+        if (code > 128) Console.Error.WriteLine($"The app was killed by signal {code - 128} (exit code {code}): a native crash, not a build failure. Crash reports: ~/Library/Logs/DiagnosticReports/tereditor-*.ips (macOS).");
+        return code;
+    }
     Process.Start(new ProcessStartInfo(executable, appArgs) { UseShellExecute = false });
     return 0;
 });
