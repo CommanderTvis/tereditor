@@ -40,12 +40,19 @@ internal static class IdleGitChecks
         var services = folders.ToDictionary(folder => folder, folder => new ProjectServices(folder));
 
         var thrown = new System.Collections.Concurrent.ConcurrentDictionary<string, int>();
+        var traces = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         void Count(object? sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs args)
         {
             var frame = new StackTrace(args.Exception, false).GetFrames().Select(item => item.GetMethod())
                 .FirstOrDefault(method => method?.DeclaringType?.Namespace?.StartsWith("Tereditor.Host", StringComparison.Ordinal) == true);
             var site = frame is null ? "?" : frame.DeclaringType!.Name + "." + frame.Name;
-            thrown.AddOrUpdate(args.Exception.GetType().Name + " at " + site, 1, (_, count) => count + 1);
+            var key = args.Exception.GetType().Name + " at " + site;
+            thrown.AddOrUpdate(key, 1, (_, count) => count + 1);
+            // The first raise of each kind keeps its type, message and top frames, so a failure names where it came from.
+            traces.TryAdd(key, "thread \"" + Thread.CurrentThread.Name + "\" pool=" + Thread.CurrentThread.IsThreadPoolThread + Environment.NewLine
+                + args.Exception.GetType().FullName + ": " + args.Exception.Message + Environment.NewLine
+                + string.Join(Environment.NewLine, new StackTrace(args.Exception, false).GetFrames().Take(12).Select(item => "    at " + item.GetMethod()?.DeclaringType?.FullName + "." + item.GetMethod()?.Name))
+                + Environment.NewLine + "    raised from" + Environment.NewLine + string.Join(Environment.NewLine, new StackTrace(1, false).GetFrames().Take(25).Select(item => "    at " + item.GetMethod()?.DeclaringType?.FullName + "." + item.GetMethod()?.Name)));
         }
 
         // One pass is what the workbench asks after a file or Git change: the listing, the snapshot, and for a repository the
@@ -92,8 +99,8 @@ internal static class IdleGitChecks
             foreach (var (command, count) in GitRepository.NonZeroExits.OrderByDescending(pair => pair.Value))
                 Console.WriteLine($"idle-git: non-zero exit answered as a result, {count} in 10 passes: {command}");
             foreach (var (site, count) in thrown.OrderByDescending(pair => pair.Value))
-                Console.WriteLine($"idle-git: exception, {count} in 10 passes: {site}");
-            Require(thrown.IsEmpty, "An idle host must throw nothing after its first refresh: " + string.Join("; ", thrown.Select(pair => pair.Value + " x " + pair.Key)));
+                Console.WriteLine($"idle-git: exception, {count} in 10 passes: {site}{Environment.NewLine}{traces.GetValueOrDefault(site)}");
+            Require(thrown.IsEmpty, "An idle host must throw nothing after its first refresh: " + string.Join("; ", thrown.Select(pair => pair.Value + " x " + pair.Key + Environment.NewLine + traces.GetValueOrDefault(pair.Key))));
             Require(Interlocked.Read(ref GitRepository.Raised) == raised, "An idle host must raise no Git failure after its first refresh.");
             Require(passes.Skip(1).Distinct().Count() == 1, "Every later pass starts the same Git runs: " + string.Join(", ", passes));
             Require(passes[1] <= 30 * folders.Length, $"A pass over {folders.Length} folders starts a bounded number of Git runs, not {passes[1]}.");

@@ -313,6 +313,8 @@ internal static class StateChecks
         File.WriteAllText(replaced, "");
         Require(recents.Current.RecentProjects.SequenceEqual([other]), "Recents stop listing a folder that is gone or became a file.");
         Directory.CreateDirectory(gone);
+        // A folder seen missing is remembered for FolderProbe.Remember; the watcher or opening the folder looks again at once.
+        FolderProbe.Forget(gone);
         Require(recents.Current.RecentProjects.SequenceEqual([other, gone]), "A restored folder returns to recents in its place.");
 
         // Open projects and their workspaces hide the same way: a deleted folder leaves the rail, a restored one returns.
@@ -329,6 +331,7 @@ internal static class StateChecks
         Require(rail.Current.Projects.SequenceEqual([staying]) && rail.Current.Workspaces.Select(workspace => workspace.Id).SequenceEqual(["s"]),
             "A project whose folder is gone leaves the rail with its workspaces.");
         Directory.CreateDirectory(vanishing);
+        FolderProbe.Forget(vanishing);
         Require(rail.Current.Projects.SequenceEqual([vanishing, staying]), "A restored project folder returns to the rail.");
 
         // Sessions end with the app; a persisted agent record whose workspace folder is gone can never resume, so a load drops it.
