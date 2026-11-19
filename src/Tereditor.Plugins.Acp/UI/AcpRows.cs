@@ -84,7 +84,7 @@ internal sealed record AcpAgentDetail(AcpAgentEntry Entry, AcpRegistryAgent? Reg
     public string? UpdateTo => Registry is { } registry && registry.Version != Entry.Version ? registry.Version : null;
     public bool CanUpdate => IsRegistry && UpdateTo is not null && Registry!.Installable;
     public bool CanReinstall => IsRegistry && UpdateTo is null && Registry is { Installable: true };
-    public string InstallStatus => !IsRegistry ? "Custom" : Problem is { } problem ? problem : UpdateTo is { } newer ? $"Installed {Entry.Version}. Version {newer} is available." : "Installed";
+    public string InstallStatus => !IsRegistry ? "Custom" : Problem is { } problem ? problem : UpdateTo is { } newer ? $"Version {newer} is available." : "Installed";
     /// <summary>Where the program is: the managed file, or the runner (Bun for npx entries, uvx) that fetches the pinned package.</summary>
     public string Location => Path.IsPathRooted(Entry.LaunchCommand()) ? Entry.LaunchCommand()
         : Entry is { Origin: "registry", CommandOverride.Length: 0, Command: "npx" } ? "bunx runs the package named above (npx only if Bun cannot be provided)" : Entry.LaunchCommand() + " runs the package named above";
