@@ -404,6 +404,12 @@ internal static class ClaudeContextChecks
                 Require(Heights().SequenceEqual(before), $"Entering {entry.Key} changes no row height.");
                 if (more is null) { Raise(Avalonia.Input.InputElement.PointerExitedEvent, line); continue; }
                 Require(more.Opacity == 1 && more.IsHitTestVisible && more.IsVisible, $"The pointer over {entry.Key} shows its more button.");
+                var name = line.GetLogicalDescendants().OfType<TextBlock>().First(block => block.Name == "ClaudeContextName");
+                var bubble = line.GetLogicalDescendants().OfType<Border>().Single(border => border.Name == "ClaudeContextBubble");
+                var titleEnd = name.TranslatePoint(new Point(name.Bounds.Width, 0), line)!.Value.X;
+                var dotsStart = more.TranslatePoint(default, line)!.Value.X;
+                Require(ReferenceEquals(bubble.Background, Tereditor.Plugins.UI.Kit.Ui.Hover) && dotsStart >= titleEnd - 0.5 && dotsStart - titleEnd <= 8,
+                    $"On hover {entry.Key} shows the hover bubble and its dots start within one spacing step of the title end ({titleEnd} to {dotsStart}).");
                 more.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 E2eWorkspace.Settle();
                 var menu = line.ContextMenu!;

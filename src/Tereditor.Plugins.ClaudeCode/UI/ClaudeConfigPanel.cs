@@ -595,16 +595,29 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => edit(action.Edit)));
             line.ContextMenu = menu;
             // Right-click is not something a row hints at: a small button shows while the pointer is over it and opens the same menu.
-            var more = new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), Margin = new Thickness(0, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
+            var more = new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
             // The button always takes its space and only fades in, so a row never changes height when the pointer enters it.
             void ShowMore(bool shown) { more.Opacity = shown ? 1 : 0; more.IsHitTestVisible = shown; }
             ToolTip.SetTip(more, actions[0].Label);
             more.Click += (_, _) => menu.Open(line); // Avalonia opens a context menu only on the control it is attached to
-            line.PointerEntered += (_, _) => ShowMore(true);
-            line.PointerExited += (_, _) => ShowMore(more.IsPressed || menu.IsOpen);
-            menu.Closed += (_, _) => ShowMore(line.IsPointerOver);
+            // The dots sit right after the title, and a hover bubble hugs both. The bubble keeps the title's place (negative margin
+            // against its padding) and adds no height.
+            var title = line.Children[^1];
             SetDock(more, Dock.Right);
-            line.Children.Insert(1, more);
+            DockPanel named;
+            line.Children.Remove(title);
+            if (title is DockPanel { Name: "ClaudeContextNamed" } existing) { named = existing; named.Children.Insert(1, more); }
+            else
+            {
+                named = new DockPanel { Name = "ClaudeContextNamed", HorizontalAlignment = HorizontalAlignment.Left, Children = { more, title } };
+            }
+            named.HorizontalAlignment = HorizontalAlignment.Left;
+            var bubble = new Border { Name = "ClaudeContextBubble", CornerRadius = new CornerRadius(4), Padding = new Thickness(4, 0, 2, 0), Margin = new Thickness(-4, 0, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent, Child = named };
+            line.Children.Add(bubble);
+            void Hover(bool shown) { ShowMore(shown); bubble.Background = shown ? Ui.Hover : Brushes.Transparent; }
+            line.PointerEntered += (_, _) => Hover(true);
+            line.PointerExited += (_, _) => Hover(more.IsPressed || menu.IsOpen);
+            menu.Closed += (_, _) => Hover(line.IsPointerOver);
         }
     }
 
@@ -638,7 +651,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             var nowOpen = !parts.IsVisible;
             if (nowOpen) expandedRows.Add(entry.Key); else expandedRows.Remove(entry.Key);
             parts.IsVisible = nowOpen;
-            ((Avalonia.Controls.Shapes.Path)((Panel)line.Children[^1]).Children[0]).Data = Geometry.Parse(nowOpen ? "M 3,5 L 7,9 L 11,5" : "M 5,3 L 9,7 L 5,11");
+            line.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single(path => path.Name == "ClaudeContextChevron").Data = Geometry.Parse(nowOpen ? "M 3,5 L 7,9 L 11,5" : "M 5,3 L 9,7 L 5,11");
             args.Handled = true;
         };
     }
