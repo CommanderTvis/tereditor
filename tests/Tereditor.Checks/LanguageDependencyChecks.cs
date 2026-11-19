@@ -224,8 +224,8 @@ internal static class LanguageDependencyChecks
             Console.WriteLine("PASS Settings shows Needs Go with the rail marker before any start, and nothing for a server without dependencies");
             Select("go");
             var launched = new List<Uri>();
-            var launcher = Tereditor.UI.Panels.LanguageProviderLinks.Launch;
-            Tereditor.UI.Panels.LanguageProviderLinks.Launch = (_, uri) => { launched.Add(uri); return Task.CompletedTask; };
+            var launcher = Tereditor.Plugins.CodeIntelligence.UI.ProviderLinks.Launch;
+            Tereditor.Plugins.CodeIntelligence.UI.ProviderLinks.Launch = (_, uri) => { launched.Add(uri); return Task.CompletedTask; };
             try
             {
                 E2E.E2eWorkspace.Until(() => Shows("Needs Go"), "The Go row was not shown.");
@@ -234,7 +234,7 @@ internal static class LanguageDependencyChecks
                 link.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter, Source = link });
                 Require(launched.Select(uri => uri.AbsoluteUri).SequenceEqual(["https://go.dev/dl/"]), "The Go hint's URL did not open through the app's launcher.");
             }
-            finally { Tereditor.UI.Panels.LanguageProviderLinks.Launch = launcher; }
+            finally { Tereditor.Plugins.CodeIntelligence.UI.ProviderLinks.Launch = launcher; }
             var servers = pane.FindControl<ListBox>("Servers")!;
             bool PaneNeeds() => Enumerable.Range(0, servers.ItemCount).Any(index => servers.Items[index]?.ToString() == "Go (gopls)" && servers.ContainerFromIndex(index) is ListBoxItem row
                 && row.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Name == "ServerNeeds" && block.IsEffectivelyVisible));

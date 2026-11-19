@@ -265,7 +265,8 @@ internal static class IntelliJLicenseChecks
     /// <summary>Settings › Code Intelligence: a server with terms shows their status, a review button, and Install now once accepted; one without shows none of it.</summary>
     internal static void SettingsTerms(string fixture)
     {
-        using var app = new E2E.E2eWorkspace(Path.Combine(fixture, "settings-terms"), openFiles: false);
+        E2E.E2eWorkspace? holder = null;
+        using var app = holder = new E2E.E2eWorkspace(Path.Combine(fixture, "settings-terms"), openFiles: false, hostPlugins: FakeCodeIntelligence.HostPlugins(() => holder!.Host));
         var terms = new List<LanguageTermsRequest>();
         var provisions = new List<LanguageRequest>();
         var accepted = false;
@@ -317,14 +318,15 @@ internal static class IntelliJLicenseChecks
             Require(Find<Avalonia.Controls.Button>("LspReviewTerms").IsEnabled && !Find<Avalonia.Controls.Button>("LspInstall").IsVisible, "Before acceptance the review button must be on and Install now hidden.");
             Require(terms.Count == 0, "Selecting a server that is not installed read its terms, which downloads it.");
             Find<Avalonia.Controls.Button>("LspReviewTerms").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
-            E2E.E2eWorkspace.Until(() => settings.TermsWindow is not null, "The review button opened no terms window.");
-            var dialog = settings.TermsWindow!;
+            Avalonia.Controls.Window? OpenTerms() => Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(settings).OfType<Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligencePage>().Single().TermsWindow;
+            E2E.E2eWorkspace.Until(() => OpenTerms() is not null, "The review button opened no terms window.");
+            var dialog = OpenTerms()!;
             E2E.E2eWorkspace.Until(() => terms.Count > 0 && Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.CheckBox>(dialog, "TermsConsent")!.IsEnabled, "The terms window did not load the terms.");
             Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.CheckBox>(dialog, "TermsConsent")!.IsChecked = true;
             E2E.E2eWorkspace.Until(() => Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(dialog, "AcceptTerms")!.IsEnabled);
             Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(dialog, "AcceptTerms")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
             E2E.E2eWorkspace.Until(() => terms.Any(request => request.Accept && request.Server == "intellij" && request.ArtifactId == Hash && request.EulaSha256 == Hash), "Accepting did not record the acknowledgement through the host call.");
-            E2E.E2eWorkspace.Until(() => dialog is Tereditor.UI.Panels.LanguageTermsWindow { Result.Accepted: true }, "The terms window did not take the host's accepted reply before closing.");
+            E2E.E2eWorkspace.Until(() => dialog is Tereditor.Plugins.CodeIntelligence.UI.LanguageTermsWindow { Result.Accepted: true }, "The terms window did not take the host's accepted reply before closing.");
             dialog.Close();
             E2E.E2eWorkspace.Until(() => Find<Avalonia.Controls.TextBlock>("LspTermsStatus").Text!.StartsWith("Terms accepted on 2026-11-07", StringComparison.Ordinal), "The accepted status was not shown.");
             Require(!Find<Avalonia.Controls.Button>("LspReviewTerms").IsEnabled, "The review button stayed on after acceptance.");
@@ -339,7 +341,7 @@ internal static class IntelliJLicenseChecks
             Select("intellij");
             E2E.E2eWorkspace.Until(() => Find<Avalonia.Controls.TextBlock>("LspTermsStatus").Text!.StartsWith("Terms accepted on", StringComparison.Ordinal), "An installed, accepted server did not show its recorded acceptance.");
         }
-        finally { settings.TermsWindow?.Close(); }
+        finally { Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(settings).OfType<Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligencePage>().FirstOrDefault()?.TermsWindow?.Close(); }
         Console.WriteLine("PASS Settings terms: status, review dialog records acceptance via the host, Install now with error and Retry, nothing for a server without terms");
     }
 

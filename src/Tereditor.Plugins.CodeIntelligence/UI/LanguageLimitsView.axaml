@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:kit="using:Tereditor.Plugins.UI.Kit" xmlns:panels="using:Tereditor.Plugins.CodeIntelligence.UI" x:Class="Tereditor.Plugins.CodeIntelligence.UI.LanguageLimitsView" x:ClassModifier="internal">
+  <StackPanel Spacing="8" Margin="0,8" Grid.IsSharedSizeScope="True">
+    <TextBlock Text="Limits" FontWeight="SemiBold" />
+    <TextBlock Text="Servers stop when unused for the idle timeout, when all of them together pass the memory budget (least recently used first) or when the system is short of memory. A server with an open editor or a request in progress is never stopped; a stopped server starts again on its next request." FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" />
+    <TextBlock x:Name="LimitsSummary" TextWrapping="Wrap" />
+    <panels:OptionalNumberRow x:Name="LimitsIdle" Classes="settings-row grouped" Label="Stop idle servers after" Unit="minutes" Minimum="1" Maximum="10080" />
+    <panels:OptionalNumberRow x:Name="LimitsBudget" Classes="settings-row group-end" Label="Set the memory budget manually" Unit="MiB" Minimum="1" Maximum="1048576" />
+    <Border Classes="settings-row grouped">
+      <Grid ColumnSpacing="8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="128" /><ColumnDefinition Width="Auto" SharedSizeGroup="NumberUnit" /></Grid.ColumnDefinitions>
+        <TextBlock Text="Maximum running C# language servers" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" x:Name="LimitsCSharp" AutomationProperties.Name="Maximum running C# language servers" />
+      </Grid>
+    </Border>
+    <Border Classes="settings-row grouped">
+      <Grid ColumnSpacing="8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="128" /><ColumnDefinition Width="Auto" SharedSizeGroup="NumberUnit" /></Grid.ColumnDefinitions>
+        <TextBlock Text="Maximum running JVM servers of one kind" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" x:Name="LimitsJvm" AutomationProperties.Name="Maximum running JVM language servers of one kind" />
+      </Grid>
+    </Border>
+    <Border Classes="settings-row grouped">
+      <Grid ColumnSpacing="8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="128" /><ColumnDefinition Width="Auto" SharedSizeGroup="NumberUnit" /></Grid.ColumnDefinitions>
+        <TextBlock Text="Maximum running servers of any other kind" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" x:Name="LimitsOther" AutomationProperties.Name="Maximum running language servers of any other kind" />
+      </Grid>
+    </Border>
+    <Button x:Name="LimitsSave" Content="Save limits" HorizontalAlignment="Left" Click="SaveClicked" />
+    <TextBlock x:Name="LimitsMessage" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" />
+  </StackPanel>
+</UserControl>

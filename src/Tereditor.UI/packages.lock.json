@@ -588,6 +588,15 @@
           "Tereditor.Plugins.CodeIntelligence": "[1.0.0, )"
         }
       },
+      "tereditor.plugins.codeintelligence.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.6, )",
+          "Tereditor.Plugins.Api.UI": "[1.0.0, )",
+          "Tereditor.Plugins.CodeIntelligence": "[1.0.0, )",
+          "Tereditor.Plugins.UI.Kit": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.codex": {
         "type": "Project",
         "dependencies": {

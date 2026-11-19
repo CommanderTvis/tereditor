@@ -210,10 +210,12 @@ public sealed partial class SettingsView : UserControl
     {
         var row = window.Workbench.PluginRegistry.SettingsSections.FirstOrDefault(candidate => SectionKey(candidate) == key);
         if (row is null) return new StackPanel();
-        if (key == CodeIntelligenceUI.SectionKey) return LspSettings();
         var page = new StackPanel { Spacing = 8 };
-        page.Children.Add(new TextBlock { Text = row.Value.Label, Classes = { "settings-heading" } });
+        // The Code Intelligence page has its own heading and leaves room for what other plugins add to it.
+        var own = key == Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligenceUI.SectionKey;
+        if (!own) page.Children.Add(new TextBlock { Text = row.Value.Label, Classes = { "settings-heading" } });
         page.Children.Add(WorkbenchWindow.Mount(row.PluginId, row.Value.CreateForWorkspace is { } createFor ? () => createFor(window.WorkspaceRoot) : row.Value.Create));
+        if (own) page.Children.Add(new Tereditor.UI.Plugins.PluginSlot(window.Workbench.PluginRegistry, Tereditor.Plugins.Api.UI.UiSlots.CodeIntelligenceSettings, window.WorkspaceRoot));
         return page;
     }
 
@@ -222,7 +224,7 @@ public sealed partial class SettingsView : UserControl
     private static readonly Dictionary<string, string> SectionSummaries = new()
     {
         ["Appearance"] = "Theme, file icons, interface font size",
-        [CodeIntelligenceUI.SectionKey] = "Language servers and launchers",
+        [Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligenceUI.SectionKey] = "Language servers and launchers",
         ["Editor"] = "Font, wrapping, display",
         ["Layout"] = "Presets, panes, file previews",
         ["Keymap"] = "Shortcuts and keymap presets",
@@ -270,7 +272,7 @@ public sealed partial class SettingsView : UserControl
     public void ShowSection(string name)
     {
         // The page moved under Plugins; its old name still opens it.
-        if (name == "Code Intelligence") name = CodeIntelligenceUI.SectionKey;
+        if (name == "Code Intelligence") name = Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligenceUI.SectionKey;
         if (name.StartsWith("plugin:", StringComparison.Ordinal) && !navigation.ContainsKey(name)) name = "Plugins";
         section = name; refreshers.Clear();
         PaintNavigation();
@@ -334,8 +336,7 @@ public sealed partial class SettingsView : UserControl
     {
         // Terminal activity and other clients' workspace updates must not replace the open page.
         if (previous.Settings == next.Settings && previous.Presets.SequenceEqual(next.Presets) && previous.KeymapPresets.SequenceEqual(next.KeymapPresets) && previous.Projects.SequenceEqual(next.Projects)) return;
-        if (section == CodeIntelligenceUI.SectionKey && (previous.Settings.JavaKotlinProvider != next.Settings.JavaKotlinProvider || previous.Settings.LanguageServers != next.Settings.LanguageServers || previous.Settings.LspEnabled != next.Settings.LspEnabled || previous.Settings.LanguageLimits != next.Settings.LanguageLimits || previous.Settings.LanguageTools != next.Settings.LanguageTools)) foreach (var refresh in refreshers) refresh();
-        else if (section is "Editor" or "Host") foreach (var refresh in refreshers) refresh();
+        if (section is "Editor" or "Host") foreach (var refresh in refreshers) refresh();
         // A project joining the recents list (the window's own open lands after it mounts) leaves the other pages alone.
         else if (section == "Keymap") { EndKeymapRecording(); RefreshSection(); }
         else if (section == "Appearance" && previous.Settings != next.Settings || section == "Layout" && (previous.Settings != next.Settings || !previous.Presets.SequenceEqual(next.Presets)) ||

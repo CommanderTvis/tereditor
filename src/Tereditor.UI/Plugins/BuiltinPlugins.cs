@@ -55,7 +55,7 @@ public static class BuiltinPlugins
     public static IReadOnlyList<(PluginManifest Manifest, Func<PluginUIModule> Load)> All =
     [
         (SpecDialectManifest.Manifest, () => new SpecDialectUI()),
-        (CodeIntelligenceContract.Manifest, () => new CodeIntelligenceUI()),
+        (CodeIntelligenceContract.Manifest, () => new Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligenceUI()),
         (BlueprintContract.Manifest, () => new BlueprintUI()),
         (ClaudeCodeManifest.Manifest, () => new ClaudeCodeUI()),
         (DiscordPlugin.Manifest, () => new DiscordUI()),

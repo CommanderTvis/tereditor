@@ -272,7 +272,12 @@ internal static class LanguageLimitChecks
             }).GetAwaiter().GetResult();
             state.Languages.MemoryOf = (_, _, _) => 300L << 20;
             IProjectServices host = new LocalProjectAdapter(new ProjectServices(workspace, state));
-            var view = new LanguageLimitsView(host, workspace, () => state.Current.Settings.LanguageLimits,
+            var view = new Tereditor.Plugins.CodeIntelligence.UI.LanguageLimitsView(async token =>
+                {
+                    var listed = await host.LanguageAsync(new(workspace, Operation: "running"), token);
+                    using var summary = System.Text.Json.JsonDocument.Parse(new System.Text.Json.Nodes.JsonObject { ["configuration"] = listed.Configuration, ["servers"] = new System.Text.Json.Nodes.JsonArray() }.ToJsonString());
+                    return Tereditor.Plugins.CodeIntelligence.Host.CodeIntelligenceHost.Running(summary.RootElement);
+                }, () => state.Current.Settings.LanguageLimits,
                 json => state.ChangeAsync([HostStateChange.Setting("language-limits", json)]).AsTask());
             var running = new LanguageRunningView(host, workspace);
             var window = new Window { Width = 720, Height = 600, Content = new ScrollViewer { Content = new StackPanel { Children = { running, view } } } };
@@ -285,8 +290,8 @@ internal static class LanguageLimitChecks
                 Require(text.Contains("ui", StringComparison.Ordinal) && text.Contains("300\u00A0MiB", StringComparison.Ordinal), "The running rows lack their workspace or memory: " + text);
                 Require(running.GetVisualDescendants().OfType<Button>().Any(button => button.Content as string is { } label && label.Contains("1 running", StringComparison.Ordinal)), "The Running summary lacks the count.");
                 Require(view.FindControl<TextBlock>("LimitsSummary")!.Text!.Contains("budget", StringComparison.Ordinal), "The summary lacks the budget.");
-                var idle = view.FindControl<OptionalNumberRow>("LimitsIdle")!;
-                var budget = view.FindControl<OptionalNumberRow>("LimitsBudget")!;
+                var idle = view.FindControl<Tereditor.Plugins.CodeIntelligence.UI.OptionalNumberRow>("LimitsIdle")!;
+                var budget = view.FindControl<Tereditor.Plugins.CodeIntelligence.UI.OptionalNumberRow>("LimitsBudget")!;
                 Require(view.FindControl<TextBox>("LimitsCSharp")!.Text == "4" && idle.IsOn && idle.Number == 10 && idle.Input.IsEnabled, "The idle default is not shown on.");
                 Require(!budget.IsOn && !budget.Input.IsEnabled && budget.Value is null && budget.Number > 0, "The automatic budget is not shown off with its value: " + budget.Number);
                 var automatic = budget.Number;

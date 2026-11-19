@@ -26,6 +26,7 @@
     <Project Path="src/Tereditor.Plugins.EnvMise/Host/Tereditor.Plugins.EnvMise.Host.csproj" />
     <Project Path="src/Tereditor.Plugins.CodeIntelligence/Contract/Tereditor.Plugins.CodeIntelligence.csproj" />
     <Project Path="src/Tereditor.Plugins.CodeIntelligence/Host/Tereditor.Plugins.CodeIntelligence.Host.csproj" />
+    <Project Path="src/Tereditor.Plugins.CodeIntelligence/UI/Tereditor.Plugins.CodeIntelligence.UI.csproj" />
     <Project Path="src/Tereditor.Plugins.Env/Contract/Tereditor.Plugins.Env.csproj" />
     <Project Path="src/Tereditor.Plugins.Env/Host/Tereditor.Plugins.Env.Host.csproj" />
     <Project Path="src/Tereditor.Plugins.Env/UI/Tereditor.Plugins.Env.UI.csproj" />

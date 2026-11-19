@@ -1392,7 +1392,14 @@ internal static class LanguageChecks
             Require(IJ<StackPanel>("ProviderOptions").IsVisible && IJ<Button>("RestartConfiguration").IsEnabled && IJ<CheckBox>("AutoStart").IsEnabled,
                 "IntelliJ configuration hid its availability or enabled execution.");
             Require(!pane.GetLogicalDescendants().OfType<ComboBox>().Any(control => control.Name == "ProviderChoice"), "Provider routing must live in Settings, not Code Intelligence.");
-            var providerView = new Tereditor.UI.Panels.LanguageProviderView(new LocalProjectAdapter(new ProjectServices(root, state)), root);
+            var providerHost = new LocalProjectAdapter(new ProjectServices(root, state));
+            var providerView = new Tereditor.Plugins.CodeIntelligence.UI.LanguageProviderView(async token =>
+                {
+                    var listed = await providerHost.LanguageAsync(new(root, Operation: "catalog"), token);
+                    return new Tereditor.Plugins.CodeIntelligence.LanguageCatalogState([.. listed.Servers.Select(server => new Tereditor.Plugins.CodeIntelligence.LanguageServerRow(server.Id, server.Presentation?.Name ?? server.Id, server.Version, server.Detail,
+                        server.Presentation?.HasTerms == true, null, server.Presentation?.Replaces, server.Presentation?.ReplacesLabel ?? "", server.Presentation?.TermsNote ?? ""))], listed.Detail);
+                }, () => state.Current.Settings.JavaKotlinProvider,
+                async chosen => { await state.ChangeAsync([HostStateChange.Setting("java-kotlin-provider", chosen)]); return state.Current.Settings.JavaKotlinProvider; });
             var providerWindow = new Window { Content = providerView };
             providerWindow.Show(window);
             T Provider<T>(string name) where T : Control => providerView.GetLogicalDescendants().OfType<T>().Single(control => control.Name == name);

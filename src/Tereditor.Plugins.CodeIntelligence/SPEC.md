@@ -12,7 +12,7 @@ tags: [plugins, language]
 ## Responsibility
 
 The plugin `code-intelligence` is the one switch for the language features of the app. Builtin, enabled by default, wire
-version 1, headless, no settings or UI half. Its host half serves the methods and channels the settings page will use (migration steps 1 to 4; see the design below), and nothing calls them yet. Every language server plugin and Air Context require it.
+version 1, headless host half plus a UI half (`UI/`) that holds the Settings page. The host half serves the methods and channels the page uses (see the design below). Every language server plugin and Air Context require it.
 
 ## Where the line is
 
@@ -33,7 +33,7 @@ language catalog is empty, running servers stop, nothing starts or downloads, an
 settings, installed servers and caches stay. At startup, before the first reconcile, a builtin server whose required
 plugin is off is not offered either.
 
-Settings lists the page as the plugin's own section, "Code Intelligence", under Plugins (key `plugin:code-intelligence:code-intelligence`; the old name `Code Intelligence` still opens it). The plugin's UI half registers the section; the page itself is still built by core's Settings view, since it needs the window and host state, so moving its code into the plugin is left for a later step. On Settings › Plugins the plugin sits in its own group, Code Intelligence, with Air Context; each language server stays in its language's group. The limits rows (idle timeout, memory budget, server caps) share one grid: label, a 128 px box column and one shared unit column.
+Settings lists the page as the plugin's own section, "Code Intelligence", under Plugins (key `plugin:code-intelligence:code-intelligence`; the old name `Code Intelligence` still opens it). The plugin's UI half registers the section with a factory that receives the workspace root (`SettingsSectionRegistration.CreateForWorkspace`) and builds the whole page: the switch, the Java and Kotlin provider, each server's launcher, terms, tools and install, and the limits. It talks to the host only through the plugin's methods and channels, so it references the contract, `Api.UI` and `UI.Kit` and nothing of the host. What other plugins add to the page (Air Context) is a slot core appends below it. The Code Intelligence tool pane stays in core on host types and keeps its own copies of the views the two share (`LanguageDependencyList`, `LanguageTermsWindow`), which is why those exist twice. "Turn it on" for Runtimes is offered in the tool pane only; the page shows the same hint without the button, because a plugin cannot switch another plugin on. On Settings › Plugins the plugin sits in its own group, Code Intelligence, with Air Context; each language server stays in its language's group. The limits rows (idle timeout, memory budget, server caps) share one grid: label, a 128 px box column and one shared unit column.
 
 There is no Code Intelligence settings section, no Language tool tab, strip entry or catalog entry, no language keymap
 group, and in the editor no hover, go to definition, usages, diagnostics decorations, quick info or status chip. A saved
@@ -42,7 +42,7 @@ layout that names the Language tool restores without it and keeps its slot. Enab
 
 ## Design: the Code Intelligence page and its views move into the plugin
 
-Status: steps 1 to 4 below are done (the contract, the host context members, the host half's read and write methods and the settings and catalog channels, with checks); the page and its views still live in `Tereditor.UI` and steps 5 to 8 remain. Written from the code at commit 853be7ae7.
+Status: done. Steps 1 to 4 landed first (the contract, the host context members, the host half and its checks); then the section factory with the workspace root, and the page and its views moved into `UI/` with the checks rewritten against it. The notes below record the design as it was planned; where they say a member is not needed, the page also needed `SetTool` and the server marks in the catalog rows, and `SettingsSectionRegistration.CreateForWorkspace`.
 
 ### Facts the design rests on
 
@@ -107,7 +107,7 @@ Channels (state channels, so a late subscriber gets a snapshot):
 Needed from `IPluginHostContext` (five host-only members, built as plain methods; `language.settings` permission; pending in the isolated runtime):
 
 - `LanguageSettingsAsync` reads the five language settings; `OnLanguageChanged(Action<bool>)` fires after they change (false) or after the catalog changes (true).
-- `SetLanguageSettingAsync(key, value)` writes through the host state, so saved keys and broadcast stay as they are. Only `lsp-enabled`, `java-kotlin-provider`, `language-limits` and `language-server:<id>` are accepted.
+- `SetLanguageSettingAsync(key, value)` writes through the host state, so saved keys and broadcast stay as they are. Only `lsp-enabled`, `java-kotlin-provider`, `language-limits`, `language-server:<id>` and `language-tool:<program>` are accepted.
 - `LanguageCallAsync(operation, workspace, server)` runs `catalog`, `resolution`, `provision`, `configurationSchema` or `running` and returns the result as JSON text; `LanguageTermsAsync` does the same for terms. The host half parses them into the contract's records. No other operation is accepted.
 
 What stays in core: `LanguageService`, `LanguageServers`, the on-demand lifecycle, installation, the `lsp_*` MCP tools (`LanguageMcpTools`), headless hosting and the `language` wire operations. The host half is an adapter, not a second implementation.

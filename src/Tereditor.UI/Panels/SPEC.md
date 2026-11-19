@@ -320,8 +320,8 @@ with its server, state, memory, idle time and a Stop that releases it (it restar
 header is the one-line summary ("20 running · 28 MiB"); the section starts collapsed when more than five run.
 It polls the host's `running` operation every 5 s off the UI thread while shown.
 
-Settings › Code Intelligence is the Code Intelligence plugin's own section, listed under Plugins (hidden while the plugin is off). It holds only configuration in a Limits section (`LanguageLimitsView`; every number row shares one grid: label, a fixed 128 px box column, and one shared unit column, so boxes and units align): the idle
-timeout and memory budget as two optional-number rows (`OptionalNumberRow`: a check box, a number and its unit; unchecked greys the number out, keeps its value and means never or automatic, which the host stores as 0; an unchecked budget shows the budget in force; the automatic derivation and memory pressure are noted), the
+Settings › Code Intelligence is the Code Intelligence plugin's own section, listed under Plugins (hidden while the plugin is off). The page is built by the plugin (`Tereditor.Plugins.CodeIntelligence/UI`). It holds only configuration in a Limits section (`LanguageLimitsView` in the plugin; every number row shares one grid: label, a fixed 128 px box column, and one shared unit column, so boxes and units align): the idle
+timeout and memory budget as two optional-number rows (`OptionalNumberRow` in the plugin: a check box, a number and its unit; unchecked greys the number out, keeps its value and means never or automatic, which the host stores as 0; an unchecked budget shows the budget in force; the automatic derivation and memory pressure are noted), the
 explanation of when servers stop, and the C#, JVM and other count caps, saved as the `language-limits` host
 setting and re-shown from its broadcast; its rows form two groups (timeout and budget, then the three caps) with one hairline between them and none between rows of a group or above Save. Settings shows no live server state. `--lsp-limits` checks it headless.
 

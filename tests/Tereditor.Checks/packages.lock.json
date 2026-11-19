@@ -557,6 +557,15 @@
           "Tereditor.Plugins.CodeIntelligence": "[1.0.0, )"
         }
       },
+      "tereditor.plugins.codeintelligence.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.6, )",
+          "Tereditor.Plugins.Api.UI": "[1.0.0, )",
+          "Tereditor.Plugins.CodeIntelligence": "[1.0.0, )",
+          "Tereditor.Plugins.UI.Kit": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.codex": {
         "type": "Project",
         "dependencies": {
@@ -1148,6 +1157,7 @@
           "Tereditor.Plugins.BranchGraph.UI": "[1.0.0, )",
           "Tereditor.Plugins.ClaudeCode.UI": "[1.0.0, )",
           "Tereditor.Plugins.CodeIntelligence": "[1.0.0, )",
+          "Tereditor.Plugins.CodeIntelligence.UI": "[1.0.0, )",
           "Tereditor.Plugins.Codex.UI": "[1.0.0, )",
           "Tereditor.Plugins.Discord.UI": "[1.0.0, )",
           "Tereditor.Plugins.Env.UI": "[1.0.0, )",
