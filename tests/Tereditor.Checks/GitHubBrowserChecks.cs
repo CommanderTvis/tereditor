@@ -121,7 +121,9 @@ internal static partial class GitHubBrowserChecks
     /// <summary>A tab's scroller, taken out of the tab so a window can host it without the tab's refresh timer or host connection.</summary>
     private static GitHubPage Scroller(Border tab)
     {
-        var page = (GitHubPage)tab.Child!;
+        var freshness = (GitHubFreshness)tab.Child!;
+        var page = freshness.Children.OfType<GitHubPage>().Single();
+        freshness.Children.Remove(page);
         tab.Child = null;
         return page;
     }
