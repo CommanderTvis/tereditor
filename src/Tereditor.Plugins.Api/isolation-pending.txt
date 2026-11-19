@@ -9,6 +9,7 @@ M:Tereditor.Plugins.Api.Host.IPluginHostContext.AgentLaunchContributions(System.
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.AgentRecord(Tereditor.Plugins.Api.TerminalRef)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.AgentSessions(System.Func{System.Collections.Generic.IReadOnlyList{Tereditor.Plugins.Api.Host.AgentSession}})
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.BunPathAsync(System.String,System.Threading.CancellationToken)
+M:Tereditor.Plugins.Api.Host.IPluginHostContext.CommitChecksAsync(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.Dependency(Tereditor.Plugins.Api.PluginContract)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.DownloadRuntimeAsync(Tereditor.Plugins.Api.Host.RuntimeKind,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.Host.IPluginHostContext.ExternalFiles(System.Func{System.String,System.Collections.Generic.IReadOnlyList{System.String}})

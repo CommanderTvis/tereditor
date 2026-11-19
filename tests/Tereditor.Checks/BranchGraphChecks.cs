@@ -300,8 +300,12 @@ internal static class BranchGraphChecks
         Console.WriteLine("PASS repository graph retention across held worktree switches, with commit actions routed to the active worktree");
     }
 
-    private static GraphPanel Panel(E2eWorkspace app) =>
-        app.Window.GetLogicalDescendants().OfType<GraphPanel>().Single(panel => panel.IsEffectivelyVisible);
+    private static GraphPanel Panel(E2eWorkspace app)
+    {
+        var panels = app.Window.GetLogicalDescendants().OfType<GraphPanel>().ToArray();
+        return panels.SingleOrDefault(panel => panel.IsEffectivelyVisible)
+            ?? throw new InvalidOperationException($"No visible graph panel: {panels.Length} in the window, visible {string.Join('/', panels.Select(panel => panel.IsVisible))}, attached {string.Join('/', panels.Select(panel => panel.GetLogicalAncestors().Contains(app.Window)))}.");
+    }
 
     private static GraphCommitRow Row(GraphPanel panel, string subject) =>
         panel.GetLogicalDescendants().OfType<GraphCommitRow>().Single(row => row.Model.Commit.Subject == subject);

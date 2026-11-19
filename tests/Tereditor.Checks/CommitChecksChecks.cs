@@ -36,7 +36,7 @@ internal static partial class CommitChecksChecks
     private static string Run(string name, string conclusion, string status = "COMPLETED") =>
         $"{{\"__typename\":\"CheckRun\",\"name\":\"{name}\",\"conclusion\":{(conclusion.Length == 0 ? "null" : "\"" + conclusion + "\"")},\"status\":\"{status}\"}}";
 
-    private sealed class Gh
+    private sealed partial class Gh
     {
         public readonly List<List<string>> Asked = [];
         public Func<string, string?> Answer = _ => "null";

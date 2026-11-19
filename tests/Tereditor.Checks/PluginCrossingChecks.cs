@@ -28,8 +28,8 @@ internal static class PluginCrossingChecks
 {
     // The member tables' hashes. A change to the plugin API's crossing surface (a member, its attributes, the pending
     // list) changes them; update the pin in the same change, after checking the change is meant.
-    private const string HostTable = "dbbfe0e5627d4100";
-    private const string UITable = "eb870d513db0dde6";
+    private const string HostTable = "4104bb2835019ef7";
+    private const string UITable = "8fd34c364b945a51";
 
     private static void Require(bool value, string message)
     {

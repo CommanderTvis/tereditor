@@ -749,6 +749,7 @@ internal static class Program
             CommitChecksChecks.RunAsync().GetAwaiter().GetResult();
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
             GitHubBrowserChecks.RunUi();
+            CommitChecksChecks.RunUi();
             return;
         }
         if (args.SequenceEqual(["--content"]))
@@ -983,7 +984,6 @@ internal static class Program
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
             BranchGraphChecks.RunUi(root);
-            CommitChecksChecks.RunUi();
             Console.WriteLine("PASS Branch Graph checks");
             return;
         }
