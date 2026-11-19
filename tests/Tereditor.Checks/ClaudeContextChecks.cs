@@ -399,7 +399,32 @@ internal static class ClaudeContextChecks
             foreach (var (entry, line, actions) in rows)
             {
                 var more = line.GetLogicalDescendants().OfType<Button>().SingleOrDefault(button => button.Name == "ClaudeContextRowMore");
-                Require((more is not null) == (actions.Count > 0), $"Row {entry.Key} has the more button exactly when it has actions.");
+                var toolRow = entry.Key.StartsWith("system-tools/", StringComparison.Ordinal);
+                Require((more is not null) == (actions.Count > 0 && !toolRow), $"Row {entry.Key} has the more button exactly when it has actions and is not a built-in tool.");
+                if (toolRow && actions.Count > 0)
+                {
+                    var toggle = line.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextRowToggle");
+                    Require(toggle.Opacity == 0 && !toggle.IsHitTestVisible && !line.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "ClaudeContextBubble"),
+                        $"Tool row {entry.Key} hides its toggle until hover and has no hover bubble.");
+                    Raise(Avalonia.Input.InputElement.PointerEnteredEvent, line);
+                    E2eWorkspace.Settle();
+                    Require(toggle.Opacity == 1 && toggle.IsHitTestVisible && toggle.Text == "Turn off" && Heights().SequenceEqual(before),
+                        $"The pointer over {entry.Key} shows Turn off in place of the size and changes no row height.");
+                    edited.Clear();
+                    toggle.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(toggle, pointer, host, default, 0,
+                        new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.LeftMouseButton, Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
+                        Avalonia.Input.KeyModifiers.None));
+                    Require(edited.Count == 1 && edited[0] == actions[0].Edit, $"A click on the toggle of {entry.Key} runs the row's action.");
+                    line.ContextMenu!.Open(line);
+                    E2eWorkspace.Settle();
+                    Require(line.ContextMenu.IsOpen && line.ContextMenu.Items.OfType<MenuItem>().Select(item => (string?)item.Header).SequenceEqual(actions.Select(action => action.Label)) &&
+                        Heights().SequenceEqual(before), $"The right-click menu of {entry.Key} still holds the action and changes no row height.");
+                    line.ContextMenu.Close();
+                    Raise(Avalonia.Input.InputElement.PointerExitedEvent, line);
+                    E2eWorkspace.Settle();
+                    Require(toggle.Opacity == 0 && Heights().SequenceEqual(before), $"Leaving {entry.Key} hides the toggle again.");
+                    continue;
+                }
                 Raise(Avalonia.Input.InputElement.PointerEnteredEvent, line);
                 E2eWorkspace.Settle();
                 Require(Heights().SequenceEqual(before), $"Entering {entry.Key} changes no row height.");
@@ -440,17 +465,26 @@ internal static class ClaudeContextChecks
             "Every built-in tool in the table is mapped, an unknown name is not.");
         var known = new ClaudeConfigPanel.BaselineEntry("system-tools/Edit", "Edit", "terminal", -1, []);
         var unknown = new ClaudeConfigPanel.BaselineEntry("system-tools/Nope", "Nope", "terminal", -1, []);
+        Require(ClaudeSkillDocs.Urls.Values.All(url => url.StartsWith("https://code.claude.com/docs/", StringComparison.Ordinal)) && ClaudeSkillDocs.Url("dataviz") is not null &&
+            ClaudeSkillDocs.Url("doctor") == ClaudeSkillDocs.SkillsUrl + "#check-your-setup-with-/doctor" && ClaudeSkillDocs.Url("example:review") is null && ClaudeSkillDocs.Url("mine") is null,
+            "Every bundled skill maps under the docs, a plugin, user or unknown skill does not.");
+        var skill = new ClaudeConfigPanel.BaselineEntry("skills/dataviz", "dataviz", "sparkling", 480, []);
+        var fileSkill = new ClaudeConfigPanel.BaselineEntry("skills/debug", "debug", "sparkling", 20, []);
+        var pluginSkill = new ClaudeConfigPanel.BaselineEntry("skills/example:review", "review", "sparkling", 20, []);
         var opened = new List<string>();
         var stack = new StackPanel();
-        DockPanel Row(ClaudeConfigPanel.BaselineEntry entry)
+        DockPanel Row(ClaudeConfigPanel.BaselineEntry entry, bool hasFile = false)
         {
             var line = ClaudeConfigPanel.BaselineLine(entry, 0, false);
-            ClaudeConfigPanel.AttachToolLink(line, entry, false, opened.Add);
+            ClaudeConfigPanel.AttachToolLink(line, entry, false, opened.Add, hasFile);
             stack.Children.Add(line);
             return line;
         }
         var knownRow = Row(known);
         var unknownRow = Row(unknown);
+        var skillRow = Row(skill);
+        var fileSkillRow = Row(fileSkill, hasFile: true);
+        var pluginSkillRow = Row(pluginSkill);
         var host = new Window { Width = 400, Height = 200, Content = stack };
         host.Show();
         try
@@ -462,6 +496,12 @@ internal static class ClaudeContextChecks
                 Avalonia.Input.KeyModifiers.None));
             Click(unknownRow);
             Require(opened.Count == 0, "A click on an unknown tool row opens nothing.");
+            Click(fileSkillRow);
+            Click(pluginSkillRow);
+            Require(opened.Count == 0, "A click on a skill with a file, or a plugin skill, opens no docs.");
+            Click(skillRow);
+            Require(opened.SequenceEqual([ClaudeSkillDocs.ListUrl]), "A click on a bundled skill row asks to open its docs.");
+            opened.Clear();
             Click(knownRow);
             Require(opened.SequenceEqual([ClaudeToolDocs.DocsUrl + "#edit-tool-behavior"]), "A click on the Edit row asks to open its docs section.");
         }
@@ -502,6 +542,12 @@ internal static class ClaudeContextChecks
                     "A denied row strikes its name through in a dimmed tone and says Denied instead of the dash.");
             }
             Require(off.Bounds.Height == allowed.Bounds.Height, $"A denied row keeps its height ({off.Bounds.Height} against {allowed.Bounds.Height}).");
+            var offLine = (DockPanel)off;
+            ClaudeConfigPanel.AttachRowActions(offLine, ClaudeConfigPanel.RowActions(tool, new HashSet<string> { "WebSearch" }, none), _ => { });
+            E2eWorkspace.Settle();
+            Require(offLine.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextRowToggle").Text == "Turn on" &&
+                offLine.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextDenied").Text == "Denied" && off.Bounds.Height == allowed.Bounds.Height,
+                "A denied tool row offers Turn on, keeps its Denied label and its height.");
         }
         finally { host.Close(); }
     }

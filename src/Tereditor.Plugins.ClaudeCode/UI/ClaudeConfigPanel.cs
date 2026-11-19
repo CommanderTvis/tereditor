@@ -587,45 +587,77 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return [.. entries.OrderByDescending(entry => entry.Tokens)];
     }
 
-    /// <summary>Adds the row's context menu and the button that opens it. The button always takes its space, so the row never changes height.</summary>
+    /// <summary>Adds the row's context menu and the button that opens it. The button always takes its space, so the row never changes height. A built-in tool's row has no button: its action shows as "Turn off" or "Turn on" in place of the size while the pointer is over the row.</summary>
     internal static void AttachRowActions(DockPanel line, IReadOnlyList<RowAction> actions, Action<PendingEdit> edit)
     {
         if (actions.Count == 0) return;
+        var toolRow = line.Tag is string key && key.StartsWith("system-tools/", StringComparison.Ordinal);
         {
             var menu = new ContextMenu { Name = "ClaudeContextRowMenu" };
             foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => edit(action.Edit)));
             line.ContextMenu = menu;
             // Right-click is not something a row hints at: a small button shows while the pointer is over it and opens the same menu.
-            var more = new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
+            // A built-in tool's row has no button: its one action shows as a text in place of the size while the pointer is over the row.
+            var more = toolRow ? null : new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
             // The button always takes its space and only fades in, so a row never changes height when the pointer enters it.
-            void ShowMore(bool shown) { more.Opacity = shown ? 1 : 0; more.IsHitTestVisible = shown; }
-            ToolTip.SetTip(more, actions[0].Label);
-            more.Click += (_, _) => menu.Open(line); // Avalonia opens a context menu only on the control it is attached to
+            Action<bool> showMore = _ => { };
+            if (more is not null)
+            {
+                showMore = shown => { more.Opacity = shown ? 1 : 0; more.IsHitTestVisible = shown; };
+                ToolTip.SetTip(more, actions[0].Label);
+                more.Click += (_, _) => menu.Open(line); // Avalonia opens a context menu only on the control it is attached to
+            }
+            else
+            {
+                var size = line.Children.OfType<Border>().First(border => border.Name == "ClaudeContextSize");
+                var shownSize = size.Child!;
+                size.Child = null;
+                shownSize.HorizontalAlignment = HorizontalAlignment.Right;
+                var toggle = Ui.Text(IsOff(actions) ? "Turn on" : "Turn off", Ui.Muted, 11);
+                toggle.Name = "ClaudeContextRowToggle";
+                toggle.HorizontalAlignment = HorizontalAlignment.Right;
+                toggle.VerticalAlignment = VerticalAlignment.Center;
+                toggle.Opacity = 0;
+                toggle.IsHitTestVisible = false;
+                toggle.Cursor = new Cursor(StandardCursorType.Hand);
+                toggle.PointerPressed += (_, args) =>
+                {
+                    if (!args.GetCurrentPoint(toggle).Properties.IsLeftButtonPressed) return;
+                    edit(actions[0].Edit);
+                    args.Handled = true;
+                };
+                size.Child = new Grid { Children = { shownSize, toggle } };
+                showMore = shown => { toggle.Opacity = shown ? 1 : 0; toggle.IsHitTestVisible = shown; shownSize.Opacity = shown ? 0 : 1; };
+            }
             // The dots sit right after the title, and a hover bubble hugs both. The bubble keeps the title's place (negative margin
             // against its padding) and adds no height.
             var title = line.Children[^1];
-            SetDock(more, Dock.Right);
+            if (more is not null) SetDock(more, Dock.Right);
             DockPanel named;
             line.Children.Remove(title);
-            if (title is DockPanel { Name: "ClaudeContextNamed" } existing) { named = existing; named.Children.Insert(1, more); }
+            if (title is DockPanel { Name: "ClaudeContextNamed" } existing) { named = existing; if (more is not null) named.Children.Insert(1, more); }
             else
             {
-                named = new DockPanel { Name = "ClaudeContextNamed", HorizontalAlignment = HorizontalAlignment.Left, Children = { more, title } };
+                named = new DockPanel { Name = "ClaudeContextNamed", HorizontalAlignment = HorizontalAlignment.Left, Children = { title } };
+                if (more is not null) named.Children.Insert(0, more);
             }
             named.HorizontalAlignment = HorizontalAlignment.Left;
-            var bubble = new Border { Name = "ClaudeContextBubble", CornerRadius = new CornerRadius(4), Padding = new Thickness(4, 0, 2, 0), Margin = new Thickness(-4, 0, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent, Child = named };
-            line.Children.Add(bubble);
-            void Hover(bool shown) { ShowMore(shown); bubble.Background = shown ? Ui.Hover : Brushes.Transparent; }
+            // A tool row has no bubble: the docs link's own hover look is enough.
+            var bubble = toolRow ? null : new Border { Name = "ClaudeContextBubble", CornerRadius = new CornerRadius(4), Padding = new Thickness(4, 0, 2, 0), Margin = new Thickness(-4, 0, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent, Child = named };
+            line.Children.Add(toolRow ? named : bubble!);
+            void Hover(bool shown) { showMore(shown); if (bubble is not null) bubble.Background = shown ? Ui.Hover : Brushes.Transparent; }
             line.PointerEntered += (_, _) => Hover(true);
-            line.PointerExited += (_, _) => Hover(more.IsPressed || menu.IsOpen);
+            line.PointerExited += (_, _) => Hover((more?.IsPressed ?? false) || menu.IsOpen);
             menu.Closed += (_, _) => Hover(line.IsPointerOver);
         }
     }
 
-    /// <summary>A left click on a built-in tool's row opens its docs page; other rows get nothing. A turned-off row keeps its struck-through look.</summary>
-    internal static void AttachToolLink(DockPanel line, BaselineEntry entry, bool denied, Action<string> open)
+    /// <summary>A left click on a built-in tool's row, or a bundled skill's row (one with no file), opens its docs page; other rows get nothing. A turned-off row keeps its struck-through look.</summary>
+    internal static void AttachToolLink(DockPanel line, BaselineEntry entry, bool denied, Action<string> open, bool hasFile = false)
     {
-        if (!entry.Key.StartsWith("system-tools/", StringComparison.Ordinal) || ClaudeToolDocs.Url(entry.Key["system-tools/".Length..]) is not { } url) return;
+        var url = entry.Key.StartsWith("system-tools/", StringComparison.Ordinal) ? ClaudeToolDocs.Url(entry.Key["system-tools/".Length..])
+            : entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && !hasFile ? ClaudeSkillDocs.Url(entry.Key["skills/".Length..]) : null;
+        if (url is null) return;
         var name = line.GetLogicalDescendants().OfType<TextBlock>().First(block => block.Name == "ClaudeContextName");
         if (denied) line.Cursor = new Cursor(StandardCursorType.Hand); else HoverLink.Apply(name, line);
         ToolTip.SetTip(name, entry.Label + ": open its docs");
@@ -646,7 +678,8 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         var line = BaselineLine(entry, depth, open, denied: IsOff(actions));
         list.Children.Add(line);
         AttachRowActions(line, actions, Edit);
-        AttachToolLink(line, entry, IsOff(actions), url => TopLevel.GetTopLevel(line)?.Launcher.LaunchUriAsync(new Uri(url)));
+        var skillHasFile = entry.Key.StartsWith("skills/", StringComparison.Ordinal) && rowSkillFiles.ContainsKey(entry.Key["skills/".Length..]);
+        AttachToolLink(line, entry, IsOff(actions), url => TopLevel.GetTopLevel(line)?.Launcher.LaunchUriAsync(new Uri(url)), skillHasFile);
         if (entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && rowSkillFiles.TryGetValue(entry.Key["skills/".Length..], out var skillFile))
         {
             line.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
