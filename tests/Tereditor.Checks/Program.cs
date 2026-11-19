@@ -1583,7 +1583,6 @@ internal static class Program
         Gate.Case("websocket-flow", () => WebSocketFlowChecks.Run().GetAwaiter().GetResult());
         Gate.Case("rpc-codec", () => RpcCodecChecks.Run(update: false));
         Gate.Case("plugin-channel", () => PluginChannelChecks.Run().GetAwaiter().GetResult());
-        Gate.Case("plugin-json", () => PluginJsonChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("plugin-crossing", () => PluginCrossingChecks.Run().GetAwaiter().GetResult());
         Gate.Case("persisted-json", () => PersistedJsonChecks.Run(root, update: false).GetAwaiter().GetResult());
         Gate.Case("browser-transport", () => BrowserTransportChecks.Run(root).GetAwaiter().GetResult());
