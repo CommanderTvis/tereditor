@@ -30,7 +30,7 @@ public sealed record RuntimesSettings
 public sealed record RuntimeRow(string Kind, string Name, string Source, string Path, string Version, string Pinned, long DownloadBytes, bool Downloaded, string Message)
 {
     /// <summary>The program of the downloaded copy, whichever source is in use; empty when none.</summary>
-    public string DownloadedPath { get; init; } = "";
+    public string DownloadedPath { get; set; } = "";
 
     /// <summary>Whether the pinned copy is downloading right now.</summary>
     public bool Downloading { get; init; }

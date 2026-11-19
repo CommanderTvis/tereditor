@@ -32,7 +32,7 @@ public sealed record GitHubItem(int Number, string Title, string State, bool Dra
     string CreatedAt, string UpdatedAt, string? ClosedAt, string Url, string Checks, string Review)
 {
     /// <summary>Who the item is assigned to.</summary>
-    public IReadOnlyList<GitHubPerson> Assignees { get; init; } = [];
+    public IReadOnlyList<GitHubPerson> Assignees { get; set; } = [];
 }
 
 /// <summary>Kind is issues or pulls. Query is GitHub's search syntax without the repository and kind qualifiers. Revision is what the caller holds; the host answers Unchanged when it still matches.</summary>
@@ -134,7 +134,7 @@ public sealed record GitHubDetail(bool Unchanged, string Revision, string Repo, 
     /// <summary>Set when the header and body loaded but the timeline did not.</summary>
     public string? TimelineProblem { get; init; }
     /// <summary>The assignees with their avatars (the same people as Assignees).</summary>
-    public IReadOnlyList<GitHubPerson> People { get; init; } = [];
+    public IReadOnlyList<GitHubPerson> People { get; set; } = [];
 
     /// <summary>Not null when this answer is the saved copy.</summary>
     public GitHubCacheNote? Cached { get; init; }
