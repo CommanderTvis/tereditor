@@ -870,6 +870,7 @@ internal static class Program
             BoundaryChecks.Run(root);
             ActionIconChecks.Run();
             TabNameChecks.Run();
+            CiCoverageChecks.Run();
             return;
         }
         if (args.SequenceEqual(["--zig-deps"]))
@@ -1719,6 +1720,41 @@ internal static class Program
         Gate.Case("plugin-watch", () => PluginWatchChecks.Run(root));
         Gate.Case("visualize-ui", () => E2E.VisualizeE2E.Run(root));
         Gate.Case("visualize-selection", VisualizeSelectionChecks.Run);
+        // Cases for modes that had no gate case, appended so no earlier case changes its shard. CiCoverageChecks pins every mode to a case, a CI job or an exemption.
+        // Placed in triples (shard 3, 1, 2) by the cost the CI timings show: shard 1 already carries claude-chat-ui (20 minutes), so it gets the cheap ones; the heavy ones go to shard 2.
+        // These run after UiChecks.Run has started the headless Avalonia app on this thread, so an async host check runs through RunPumped: blocking on it here would deadlock whatever it posts to the dispatcher.
+        // The Metal renderers of --terminal-links open a real window (see --native-terminal-links), so terminal-links-ui leaves them out.
+        Gate.Case("lsp-settings", () => LanguageChecks.SettingsChecks(root));
+        Gate.Case("agent-session-ownership", () => RunPumped(() => AgentSessionOwnershipChecks.Run(root)));
+        Gate.Case("documents", () => ResourceChecks.RunDocuments(root));
+        Gate.Case("claude-code-launcher", () => ClaudeCodeChecks.Launcher(root));
+        Gate.Case("github-browser", () => { RunPumped(GitHubBrowserChecks.Run); GitHubBrowserChecks.RunUi(); });
+        Gate.Case("workspace-switch", () => E2E.WorkspaceSwitchProfile.Run(Path.Combine(root, "upstream-e2e")));
+        Gate.Case("pane-retarget", () => { PaneRetargetChecks.Run(root); PaneRetargetChecks.InstructionSections(); });
+        Gate.Case("content-ui", () => ContentChecks.RunUi(root));
+        Gate.Case("claude-chat-e2e", () => { ClaudeChatE2E.TabClicks(root); ClaudeChatE2E.Run(root); ClaudeChatE2E.StartWork(root); ClaudeChatDraftE2E.Run(root); });
+        Gate.Case("codex-terminals", () => E2E.CodexE2E.RunTerminals(root));
+        Gate.Case("workspace-views", WorkspaceViewChecks.Run);
+        Gate.Case("headless", () => RunPumped(() => HeadlessChecks.Run(root)));
+        Gate.Case("menu-layout-real", () =>
+        {
+            var menuRoot = CheckRoot.Create("menu-layout-real");
+            Directory.CreateDirectory(menuRoot);
+            File.WriteAllText(Path.Combine(menuRoot, "notes.txt"), "n");
+            MenuLayoutChecks.RealFileMenu(menuRoot);
+            MenuLayoutChecks.GroupAndReveal(menuRoot);
+        });
+        Gate.Case("tab-names", TabNameChecks.Run);
+        Gate.Case("rename-follows", () => E2E.FilesE2E.RenameFollows(root));
+        Gate.Case("lsp-dependencies", () => LanguageDependencyChecks.Run(root));
+        Gate.Case("ci-coverage", CiCoverageChecks.Run);
+        Gate.Case("plugins-settings", () => PluginsSettingsScrollChecks.Run(Path.Combine(root, "plugins-settings")));
+        Gate.Case("dialog-overlay", () => DialogOverlayChecks.Run(root));
+        Gate.Case("closed-chat-tabs", () => ClaudeChatUiChecks.ClosedTabsForgetWindowState(root));
+        Gate.Case("editor-settings", () => EditorSettingsChecks.Run(root));
+        Gate.Case("terminal-links-ui", () => { GhosttySkiaChecks.CheckUnderlinesBeforeFrame(); GhosttySkiaChecks.CheckFailedBadgesFollowContent(); TerminalFileLinkChecks.RunUi(root); TerminalFileLinkChecks.RunWorkbench(root); EditorWorkbenchChecks.FileLinkPosition(root); });
+        Gate.Case("plugin-json", () => RunPumped(() => PluginJsonChecks.Run(root)));
+        Gate.Case("keymap", () => { KeymapChecks.Model(); RunPumped(() => KeymapChecks.Host(root)); KeymapChecks.Runtime(root); KeymapChecks.Page(root); KeymapChecks.PluginActions(root); });
         Console.WriteLine("PASS prototype checks and open-world runtime");
     }
 
@@ -1769,6 +1805,13 @@ internal static class Program
             catch (RpcException error) when (error.StatusCode == StatusCode.Unauthenticated) { }
         }
         finally { await app.StopAsync(); }
+    }
+
+    private static void RunPumped(Func<Task> body)
+    {
+        var task = Task.Run(body);
+        while (!task.IsCompleted) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(1); }
+        task.GetAwaiter().GetResult();
     }
 
     private static void CheckOpenWorld()
