@@ -14,7 +14,7 @@ namespace Tereditor.Plugins.GitHub.UI;
 /// Avatar pictures, decoded small and kept in a least recently used cache of about 16 MB. They load off the UI thread over http and
 /// https only, send no credentials and never throw: a picture that cannot load stays a neutral circle.
 /// </summary>
-internal static class GitHubAvatars
+internal static class GitHubAvatarCache
 {
     internal const long Budget = 16L << 20;
     private const int Decoded = 80;
@@ -98,18 +98,18 @@ internal sealed class GitHubAvatar : Control
     public GitHubAvatar(string url, double size)
     {
         this.url = url; Width = size; Height = size;
-        picture = url.Length > 0 ? GitHubAvatars.TryGet(url) : null;
+        picture = url.Length > 0 ? GitHubAvatarCache.TryGet(url) : null;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (picture is not null || !GitHubAvatars.Allowed(url)) return;
+        if (picture is not null || !GitHubAvatarCache.Allowed(url)) return;
         lifetime = new();
         var token = lifetime.Token;
         _ = Task.Run(async () =>
         {
-            var loaded = await GitHubAvatars.LoadAsync(url, token).ConfigureAwait(false);
+            var loaded = await GitHubAvatarCache.LoadAsync(url, token).ConfigureAwait(false);
             if (loaded is not null) Dispatcher.UIThread.Post(() => { if (!token.IsCancellationRequested) { picture = loaded; InvalidateVisual(); } });
         }, token);
     }

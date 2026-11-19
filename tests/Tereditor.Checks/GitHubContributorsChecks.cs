@@ -133,9 +133,9 @@ internal static class GitHubContributorsChecks
         Require(big.Model.Ranked().Count == 5000 && live is > 0 and <= 40, "Five thousand contributors keep only the visible cards as controls (" + live + ")");
         host.Close();
 
-        for (var i = 0; i < 8; i++) GitHubAvatars.Add("https://a.example/" + i, new WriteableBitmap(new PixelSize(16, 16), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888), 3L << 20);
-        Require(GitHubAvatars.Used <= GitHubAvatars.Budget && GitHubAvatars.TryGet("https://a.example/0") is null && GitHubAvatars.TryGet("https://a.example/7") is not null, "The avatar cache drops the least recently used picture past 16 MB");
-        Require(GitHubAvatars.Allowed("https://avatars.githubusercontent.com/u/1") && GitHubAvatars.Allowed("http://x.example/a.png") && !GitHubAvatars.Allowed("file:///etc/passwd") && !GitHubAvatars.Allowed("ftp://x/a") && !GitHubAvatars.Allowed("https://user:pw@x.example/a"), "Avatars load over http and https only, without credentials");
+        for (var i = 0; i < 8; i++) GitHubAvatarCache.Add("https://a.example/" + i, new WriteableBitmap(new PixelSize(16, 16), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888), 3L << 20);
+        Require(GitHubAvatarCache.Used <= GitHubAvatarCache.Budget && GitHubAvatarCache.TryGet("https://a.example/0") is null && GitHubAvatarCache.TryGet("https://a.example/7") is not null, "The avatar cache drops the least recently used picture past 16 MB");
+        Require(GitHubAvatarCache.Allowed("https://avatars.githubusercontent.com/u/1") && GitHubAvatarCache.Allowed("http://x.example/a.png") && !GitHubAvatarCache.Allowed("file:///etc/passwd") && !GitHubAvatarCache.Allowed("ftp://x/a") && !GitHubAvatarCache.Allowed("https://user:pw@x.example/a"), "Avatars load over http and https only, without credentials");
         Console.WriteLine("PASS GitHub contributors page: ranking, period, empty states and virtualized cards");
     }
 }
