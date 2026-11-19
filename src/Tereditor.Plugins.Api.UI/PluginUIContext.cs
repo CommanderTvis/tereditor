@@ -410,6 +410,16 @@ public interface IPluginUIContext
     void OpenCommitChanges(string workspaceId, string sha);
 
     /// <summary>
+    /// Asks the active repo hosting provider (<see cref="RepoHostUI"/>) to open one of its own links inside the app, such as a workflow run
+    /// that Git Graph's CI status points at. Answers false when no provider is on or it does not know the link; the caller then opens the
+    /// browser. Only pass links the repo host gave out for the workspace's project.
+    /// </summary>
+    /// <param name="workspaceId">The workspace.</param>
+    /// <param name="url">The https link.</param>
+    [PluginAmbient]
+    ValueTask<bool> OpenRepoHostLinkAsync(string workspaceId, string url);
+
+    /// <summary>
     /// A control that shows the active repo hosting plugin's pull request review section (W28) and follows the active plugin while it is
     /// attached; empty while no repo hosting plugin is active. Meant for a review pane that wants the same section the host offers.
     /// </summary>

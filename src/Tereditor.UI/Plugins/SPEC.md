@@ -313,6 +313,8 @@ plugin deleted from disk.
   whether it was deleted, declined, refused or failed; remote-tracking branches are not handled.
 - `OpenCommitChanges` opens a kept, commit-keyed continuous review in the active workspace without
   changing the Changes sidebar scope; mismatched workspaces are ignored.
+- `OpenRepoHostLinkAsync` hands an https link the repo host gave out to the active provider's `RepoHostUIRegistration.OpenLink` and answers whether it opened it;
+  false when no provider is on or it does not know the link, and the caller then opens the browser.
 - Branch Graph exercises `SetDiffScope` with explicit commit ids. Changes uses the host's independent
   commit lookup rather than requiring the id to occur in its current comparison menu.
 

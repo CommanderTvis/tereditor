@@ -832,6 +832,7 @@ override Tereditor.Plugins.Api.UI.PluginDocumentRegistration.GetHashCode() -> in
 override Tereditor.Plugins.Api.UI.PluginDocumentRegistration.ToString() -> string!
 Tereditor.Plugins.Api.UI.IPluginUIContext.Document(Tereditor.Plugins.Api.UI.PluginDocumentRegistration! registration) -> void
 Tereditor.Plugins.Api.UI.IPluginUIContext.OpenDocumentAsync(string! workspaceId, string! scheme, string! id, string! title) -> System.Threading.Tasks.ValueTask
+Tereditor.Plugins.Api.UI.IPluginUIContext.OpenRepoHostLinkAsync(string! workspaceId, string! url) -> System.Threading.Tasks.ValueTask<bool>
 Tereditor.Plugins.Api.UI.PluginDocumentProps
 Tereditor.Plugins.Api.UI.PluginDocumentProps.<Clone>$() -> Tereditor.Plugins.Api.UI.PluginDocumentProps!
 Tereditor.Plugins.Api.UI.PluginDocumentProps.Deconstruct(out string! WorkspaceId, out string! Id, out string! Title) -> void
@@ -942,6 +943,8 @@ Tereditor.Plugins.Api.UI.RepoHostUIRegistration.<Clone>$() -> Tereditor.Plugins.
 Tereditor.Plugins.Api.UI.RepoHostUIRegistration.Deconstruct(out System.Func<Tereditor.Plugins.Api.UI.IRepoHostSurface!, Avalonia.Controls.Control!>! ReviewSection) -> void
 Tereditor.Plugins.Api.UI.RepoHostUIRegistration.Equals(Tereditor.Plugins.Api.UI.RepoHostUIRegistration? other) -> bool
 Tereditor.Plugins.Api.UI.RepoHostUIRegistration.RepoHostUIRegistration(System.Func<Tereditor.Plugins.Api.UI.IRepoHostSurface!, Avalonia.Controls.Control!>! ReviewSection) -> void
+Tereditor.Plugins.Api.UI.RepoHostUIRegistration.OpenLink.get -> System.Func<string!, string!, System.Threading.Tasks.ValueTask<bool>>?
+Tereditor.Plugins.Api.UI.RepoHostUIRegistration.OpenLink.init -> void
 Tereditor.Plugins.Api.UI.RepoHostUIRegistration.ReviewSection.get -> System.Func<Tereditor.Plugins.Api.UI.IRepoHostSurface!, Avalonia.Controls.Control!>!
 Tereditor.Plugins.Api.UI.RepoHostUIRegistration.ReviewSection.init -> void
 Tereditor.Plugins.Api.UI.RepoPrDraft

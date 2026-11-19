@@ -94,6 +94,7 @@ M:Tereditor.Plugins.Api.UI.IPluginUIContext.OnLaunchersChanged(System.Action{Sys
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OnWorkspaceRemoved(System.Action{System.String})
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenCommitChanges(System.String,System.String)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenDocumentAsync(System.String,System.String,System.String,System.String)
+M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenRepoHostLinkAsync(System.String,System.String)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenSettings(System.String)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.TurnOnRuntimeAsync(System.String,System.Threading.CancellationToken)
 M:Tereditor.Plugins.Api.UI.IPluginUIContext.OpenTerminalAsync(System.String,Tereditor.Plugins.Api.UI.TerminalOpenOptions)

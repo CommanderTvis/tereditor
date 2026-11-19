@@ -509,7 +509,7 @@ Gitea or anything else is another plugin, with no host change.
   removed on teardown, the cache for its branches is dropped, and workspaces re-route (another provider may now
   recognize the remote). Nothing else cascades.
 
-W28 is the UI side: a provider's UI half contributes its Review panel section (the header's status area carries no pull request)
+W28 is the UI side: a provider's UI half contributes its Review panel section (the header's status area carries no pull request) and an optional `OpenLink` that opens one of its links in its own tab (`IPluginUIContext.OpenRepoHostLinkAsync` routes to the active provider and answers false when none takes the link, so the caller opens the browser)
 (Plugin API W28, W23, W4).
 
 ## Language server refactoring hook (planned)

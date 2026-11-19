@@ -70,7 +70,7 @@ public sealed class GitHubCommitChecks(ToolRunner run, Action<string>? log = nul
         for (var index = 0; index < batch.Count; index++)
             query.Append(" c").Append(index.ToString(CultureInfo.InvariantCulture)).Append(": object(oid: \"").Append(batch[index]).Append("\") { ... on Commit { statusCheckRollup { contexts(first: ")
                 .Append(Names.ToString(CultureInfo.InvariantCulture)).Append(") { totalCount checkRunCountsByState { state count } statusContextCountsByState { state count } ")
-                .Append("nodes { __typename ... on CheckRun { name conclusion status } ... on StatusContext { context state } } } } } }");
+                .Append("nodes { __typename ... on CheckRun { name conclusion status checkSuite { workflowRun { databaseId } } } ... on StatusContext { context state } } } } } }");
         query.Append(" } }");
         Calls++;
         try
@@ -121,16 +121,23 @@ public sealed class GitHubCommitChecks(ToolRunner run, Action<string>? log = nul
                 else if (Good.Contains(state)) passed += count;
             }
         var names = new List<string>();
+        long? run = null, attention = null;
         foreach (var node in contexts.GetProperty("nodes").EnumerateArray())
         {
             var (name, bad, busy) = node.TryGetProperty("name", out var checkName)
                 ? (checkName.GetString() ?? "", Bad.Contains(Text(node, "conclusion")), Text(node, "status") is not "COMPLETED")
                 : (Text(node, "context"), Bad.Contains(Text(node, "state")), Active.Contains(Text(node, "state")));
             if (name.Length > 0 && (bad || busy)) names.Add(name);
+            if (WorkflowRun(node) is { } id) { run ??= id; if (name.Length > 0 && (bad || busy)) attention ??= id; }
         }
         var overall = failed > 0 ? "failure" : active > 0 ? "pending" : passed == total ? "success" : "neutral";
-        return new(sha, overall, passed, total, names, $"https://github.com/{repository}/commit/{sha}/checks");
+        // The click goes to the run of the first check that needs a look, else to the first run; a commit without a workflow run (only statuses or other apps) gets its checks page.
+        return new(sha, overall, passed, total, names, (attention ?? run) is { } runId ? $"https://github.com/{repository}/actions/runs/{runId}" : $"https://github.com/{repository}/commit/{sha}/checks");
     }
+
+    private static long? WorkflowRun(JsonElement node) =>
+        node.TryGetProperty("checkSuite", out var suite) && suite.ValueKind == JsonValueKind.Object && suite.TryGetProperty("workflowRun", out var flow) && flow.ValueKind == JsonValueKind.Object
+        && flow.TryGetProperty("databaseId", out var id) && id.ValueKind == JsonValueKind.Number && id.TryGetInt64(out var number) && number > 0 ? number : null;
 
     private static string Text(JsonElement element, string property) =>
         element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";

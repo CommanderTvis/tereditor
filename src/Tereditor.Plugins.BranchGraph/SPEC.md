@@ -84,7 +84,7 @@ A commit with checks shows one small icon at the right end of its row: a green c
 (failure), an amber loader (queued or running) or a grey dot (cancelled, skipped, neutral or unknown). A commit without checks, a
 repository without a supported host, and a host that is off, signed out or rate limited show nothing and no error. The tooltip
 reads "CI: 3 of 4 checks passed" and then the names of the failing or running checks, five at most, then "and N more". A click on the
-icon opens the commit's checks page in the system browser and does not select the row.
+icon opens the commit's workflow run in the repo host's own tab (GitHub's Actions tab) and does not select the row; the system browser opens the link only when the host has no tab for it.
 
 - There is no plugin dependency. Git Graph does not name GitHub: the host method `checks({ projectId, shas })` (at most 50) asks core
   (`IPluginHostContext.CommitChecksAsync`), which routes by the project's `origin` to the active repo hosting provider (H24). A
@@ -93,8 +93,10 @@ icon opens the commit's checks page in the system browser and does not select th
 - Only the commits on screen are asked, 300 ms after scrolling settles, once per commit (a commit without checks is not asked again
   until history is read again). The panel looks again every 30 seconds at the on-screen commits that are running, and stops when none are
   or the pane is detached or hidden. Answers are applied only when the panel's read generation still matches; the UI thread does no I/O.
-- Opening the Actions tab of the GitHub plugin filtered by commit is not offered, since a plugin may only open documents of its own scheme;
-  the click opens the commit's checks page on GitHub instead.
+- Git Graph does not open the Actions tab itself, since a plugin may only open documents of its own scheme. The click asks core
+  (`IPluginUIContext.OpenRepoHostLinkAsync`) to hand the check's link to the active repo hosting provider's UI (`RepoHostUIRegistration.OpenLink`, W28). GitHub
+  opens a run link as its `run:N` tab. With no provider on, or a link it does not know (a commit's checks page, when no workflow run exists), the answer
+  is false and the click opens the https link in the browser.
 
 ## Checks and remaining gates
 
@@ -112,7 +114,7 @@ content despite worktree edits and the absence of historical Keep/revert actions
 orphan's `docs-site` chip) and gutter scenarios (one lane at the tip, widening on scroll into dated
 branches), and cover two windows on different projects (no re-read, Copy patch from the background
 window), project-switch reset, empty history and a failed read that recovers; they need no Git source.
-`CommitChecksChecks` (in `--github-browser` and `--branch-graph`) cover each icon and tooltip, the empty cases, batching, caching and back-off against canned gh output.
+`CommitChecksChecks` (in `--github-browser` and `--branch-graph`) cover each icon and tooltip, a click through the real pointer event (repo host first, browser as the fallback), the empty cases, batching, caching and back-off against canned gh output.
 The UI checks also cover Git-only
 ref refresh with retained focus/menu, disable into a dormant tool tab, re-enable/remount and Gitless withholding.
 

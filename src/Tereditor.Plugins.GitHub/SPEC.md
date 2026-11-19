@@ -100,6 +100,10 @@ and running count as pending; success, neutral and skipped count as passed; canc
 finished ones for ten minutes, running ones for 30 seconds, commits without checks for two minutes. After a rate limit or any failed call
 (403, 429, not signed in, no network) it asks nothing for two minutes, doubling up to 30, answers only what it holds and logs once.
 `TEREDITOR_GH_OFFLINE=1` and non-GitHub remotes answer nothing.
+Each commit's link is its workflow run (`https://github.com/{repo}/actions/runs/{id}`, read from each check run's `checkSuite.workflowRun.databaseId`): the run of the first
+check that failed or is still running, else the first run; a commit with no workflow run (only statuses or other apps) links its checks page. The UI half's
+`RepoHostUI` registration has an `OpenLink` that opens a run, issue, pull request, discussion or releases link in the plugin's own `github` tab (a run as `run:{id}`) and answers
+false for anything else, so Git Graph's CI icon lands on the Actions tab (core routes through `OpenRepoHostLinkAsync`) and falls back to the browser.
 
 ## Failure and timeouts
 

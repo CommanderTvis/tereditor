@@ -89,4 +89,11 @@ public interface IRepoHostSurface
 /// The branch's pull request is shown only there, never in the header's status area.
 /// </summary>
 /// <param name="ReviewSection">Creates the Review panel section for a window; a new control each time.</param>
-public sealed record RepoHostUIRegistration(Func<IRepoHostSurface, Control> ReviewSection);
+public sealed record RepoHostUIRegistration(Func<IRepoHostSurface, Control> ReviewSection)
+{
+    /// <summary>
+    /// Opens a link this provider's own host half gave out inside the app, for example a workflow run in its Actions tab: called with the
+    /// workspace id and the link, it answers whether it opened it. A link it does not know answers false, and the caller opens the browser.
+    /// </summary>
+    public Func<string, string, ValueTask<bool>>? OpenLink { get; init; }
+}

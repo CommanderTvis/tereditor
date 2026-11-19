@@ -362,6 +362,9 @@ internal sealed class PluginUIContext : IPluginUIContext
 
     public void OpenCommitChanges(string workspaceId, string sha) => Workbench.ActiveWindow?.OpenCommitChanges(workspaceId, sha);
 
+    public async ValueTask<bool> OpenRepoHostLinkAsync(string workspaceId, string url) =>
+        Registry.ActiveRepoHostUi()?.Value.OpenLink is { } open && await open(workspaceId, url);
+
     public void SetDiffScope(string workspaceId, GitDiffScope scope) => Workbench.ActiveWindow?.SetDiffScope(workspaceId, scope);
 
     public async ValueTask<byte[]> ReadAssetAsync(string path, CancellationToken cancellationToken = default)

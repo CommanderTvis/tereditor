@@ -1,6 +1,11 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 
+using Avalonia;
+using Avalonia.Input;
+
 using Tereditor.Plugins.Api.Host;
+using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.BranchGraph;
 using Tereditor.Plugins.BranchGraph.UI;
 using Tereditor.Plugins.GitHub.Host;
@@ -33,8 +38,9 @@ internal static partial class CommitChecksChecks
         Counts("checkRunCountsByState", ("SUCCESS", success), ("FAILURE", failed), ("IN_PROGRESS", running), ("CANCELLED", cancelled)) + "," +
         Counts("statusContextCountsByState", ("SUCCESS", 0), ("PENDING", 0)) + ",\"nodes\":[" + nodes + "]}}}";
 
-    private static string Run(string name, string conclusion, string status = "COMPLETED") =>
-        $"{{\"__typename\":\"CheckRun\",\"name\":\"{name}\",\"conclusion\":{(conclusion.Length == 0 ? "null" : "\"" + conclusion + "\"")},\"status\":\"{status}\"}}";
+    private static string Run(string name, string conclusion, string status = "COMPLETED", long workflow = 0) =>
+        $"{{\"__typename\":\"CheckRun\",\"name\":\"{name}\",\"conclusion\":{(conclusion.Length == 0 ? "null" : "\"" + conclusion + "\"")},\"status\":\"{status}\"," +
+        $"\"checkSuite\":{{\"workflowRun\":{(workflow == 0 ? "null" : "{\"databaseId\":" + workflow + "}")}}}}}";
 
     private sealed partial class Gh
     {
@@ -89,6 +95,17 @@ internal static partial class CommitChecksChecks
         await checks.ReadAsync("o/r", "/w", [Sha(1)], default);
         Require(gh.Asked.Count == calls + 2, "A finished result is asked again after ten minutes.");
 
+        // The link goes to the workflow run of the first check that needs a look, else the first run; without any run it is the checks page.
+        var gh2 = new Gh();
+        var linked = new GitHubCommitChecks(gh2.Run, null, clock);
+        gh2.Answer = sha => sha == Sha(1) ? Node(3, 1, 0, Run("a", "SUCCESS", workflow: 101) + "," + Run("b", "FAILURE", workflow: 202) + "," + Run("c", "FAILURE", workflow: 303))
+            : sha == Sha(2) ? Node(1, 0, 1, Run("a", "SUCCESS", workflow: 11) + "," + Run("b", "", "IN_PROGRESS", 22))
+            : sha == Sha(3) ? Node(2, 0, 0, Run("a", "SUCCESS", workflow: 33) + "," + Run("b", "SUCCESS", workflow: 44))
+            : Node(1, 0, 0, Run("a", "SUCCESS"));
+        var runs = (await linked.ReadAsync("o/r", "/w", [Sha(1), Sha(2), Sha(3), Sha(4)], default)).ToDictionary(item => item.Sha);
+        Require(runs[Sha(1)].Url == "https://github.com/o/r/actions/runs/202" && runs[Sha(2)].Url == "https://github.com/o/r/actions/runs/22" && runs[Sha(3)].Url == "https://github.com/o/r/actions/runs/33"
+            && runs[Sha(4)].Url == "https://github.com/o/r/commit/" + Sha(4) + "/checks", "The link is the first failing or running check's run, else the first run, else the checks page: " + string.Join(' ', runs.Values.Select(item => item.Url)));
+
         var batching = new Gh();
         var many = new GitHubCommitChecks(batching.Run, null, clock);
         await many.ReadAsync("o/r", "/w", [.. Enumerable.Range(100, 120).Select(Sha)], default);
@@ -130,6 +147,52 @@ internal static partial class CommitChecksChecks
         public override string CompareUrl(RepoHostBranch branch, RepoHostRequest request) => "";
     }
 
+    public class Opens : DispatchProxy
+    {
+        internal readonly List<string> Calls = [];
+        internal bool Handled;
+
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+        {
+            Calls.Add(method!.Name + "(" + string.Join(", ", args ?? []) + ")");
+            return method.ReturnType == typeof(ValueTask<bool>) ? new ValueTask<bool>(Handled) : method.ReturnType == typeof(ValueTask) ? default(ValueTask) : null;
+        }
+    }
+
+    /// <summary>A left click on the icon asks the repo host to open the link in its own tab, the browser only when it has none; the GitHub side opens a run link in its Actions tab and leaves a checks page to the browser.</summary>
+    private static void Clicking()
+    {
+        const string RunLink = "https://github.com/o/r/actions/runs/202";
+        var commit = new GitGraphCommit(Sha(9), Sha(9)[..7], [], [], "subject", "ann", "2026-11-01T10:00:00Z");
+        var (rows, _) = GraphLanes.Layout([commit], null);
+        var proxy = DispatchProxy.Create<IPluginUIContext, Opens>();
+        var context = (Opens)(object)proxy;
+        var browser = new List<Uri>();
+        var row = new GraphCommitRow(null!, () => "w", rows[0], 1, 1, [], _ => { }, _ => { }, url => GraphPanel.OpenChecksAsync(proxy, "w", url, uri => { browser.Add(uri); return Task.CompletedTask; }).Wait());
+        row.SetChecks(new(Sha(9), "failure", 0, 1, ["lint"], RunLink));
+        var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, true);
+        void Click() => row.Checks.RaiseEvent(new PointerPressedEventArgs(row.Checks, pointer, row.Checks, new Point(1, 1), 1,
+            new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
+
+        context.Handled = true;
+        Click();
+        Require(context.Calls.SequenceEqual(["OpenRepoHostLinkAsync(w, " + RunLink + ")"]) && browser.Count == 0, "The click asks the repo host to open the run, not the browser: " + string.Join('|', context.Calls) + " browser " + browser.Count);
+        context.Handled = false;
+        Click();
+        Require(browser.Select(uri => uri.AbsoluteUri).SequenceEqual([RunLink]), "With no repo host tab the same click opens the browser.");
+        row.SetChecks(new(Sha(9), "failure", 0, 1, [], ""));
+        context.Calls.Clear();
+        Click();
+        Require(context.Calls.Count == 0 && browser.Count == 1, "A commit without a link does nothing.");
+
+        var github = (Opens)(object)DispatchProxy.Create<IPluginUIContext, Opens>();
+        var opened = Tereditor.Plugins.GitHub.UI.GitHubUI.OpenLinkAsync((IPluginUIContext)(object)github, "w", RunLink).AsTask().GetAwaiter().GetResult();
+        Require(opened && github.Calls.SequenceEqual(["OpenDocumentAsync(w, github, run:202, Run 202)"]), "GitHub opens a run link in its own tab, on the run: " + string.Join('|', github.Calls));
+        github.Calls.Clear();
+        Require(!Tereditor.Plugins.GitHub.UI.GitHubUI.OpenLinkAsync((IPluginUIContext)(object)github, "w", "https://github.com/o/r/commit/" + Sha(9) + "/checks").AsTask().GetAwaiter().GetResult() && github.Calls.Count == 0, "A checks page is not a GitHub tab, so the browser gets it.");
+        Console.WriteLine("PASS commit checks click: the icon asks the repo host to open the run (not the browser), falls back to the browser, and GitHub opens its Actions run tab");
+    }
+
     /// <summary>Headless: a commit row shows each icon with its tooltip, and nothing when there are no checks.</summary>
     internal static void RunUi()
     {
@@ -151,6 +214,7 @@ internal static partial class CommitChecksChecks
         Require(row.Checks.Tip == "CI: 0 of 7 checks passed\na\nb\nc\nd\ne\nand 2 more", "At most five names are listed, then 'and N more'.");
         row.SetChecks(null);
         Require(!row.Checks.IsVisible, "The icon goes when the checks do.");
+        Clicking();
         Console.WriteLine("PASS commit checks UI: each state's icon and tooltip, none without checks");
     }
 }

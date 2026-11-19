@@ -206,9 +206,15 @@ internal sealed partial class GraphPanel : UserControl
         return made;
     }
 
-    private void Open(string url)
+    private void Open(string url) =>
+        _ = OpenChecksAsync(context, workspaceId, url, uri => TopLevel.GetTopLevel(this)?.Launcher is { } launcher ? launcher.LaunchUriAsync(uri) : Task.FromResult(false));
+
+    /// <summary>The repo host's own tab when it has one for the link (the Actions tab on the commit's run); the browser only when it has none.</summary>
+    internal static async Task OpenChecksAsync(IPluginUIContext context, string workspaceId, string url, Func<Uri, Task> browser)
     {
-        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && TopLevel.GetTopLevel(this)?.Launcher is { } launcher) _ = launcher.LaunchUriAsync(uri);
+        try { if (await context.OpenRepoHostLinkAsync(workspaceId, url)) return; }
+        catch (Exception error) when (error is not OperationCanceledException) { context.Log.Warn("The repo host could not open the checks: " + error.Message); }
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps) await browser(uri);
     }
 
     // Only the commits on screen are asked about, after the scroll settles, at most 50 a call. The host remembers answers, so asking again is cheap.
