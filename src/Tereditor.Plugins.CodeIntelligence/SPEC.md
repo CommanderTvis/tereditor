@@ -12,7 +12,7 @@ tags: [plugins, language]
 ## Responsibility
 
 The plugin `code-intelligence` is the one switch for the language features of the app. Builtin, enabled by default, wire
-version 1, headless, no methods, channels, settings or UI half. Every language server plugin and Air Context require it.
+version 1, headless, no settings or UI half. Its contract declares the methods and channels the settings page will use (migration step 1: declared, not served yet; see the design below). Every language server plugin and Air Context require it.
 
 ## Where the line is
 

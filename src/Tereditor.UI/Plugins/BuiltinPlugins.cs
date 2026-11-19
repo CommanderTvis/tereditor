@@ -90,6 +90,6 @@ public static class BuiltinPlugins
         SpecDialectContract.Contract, BlueprintContract.Contract, ClaudeCodeContract.Contract, DiscordContract.Contract, BranchGraphContract.Contract, ReviewContract.Contract,
         ProcessesContract.Contract, RuntimesContract.Contract, VisualizeContract.Contract, CodexContract.Contract, OmpContract.Contract, PiContract.Contract, AcpContract.Contract,
         ProvidersContract.Contract, OpenAiManifest.Contract, BedrockManifest.Contract, VertexManifest.Contract, AirGatewayContract.Contract, AirContextContract.Contract, TailscaleContract.Contract, EpubContract.Contract,
-        GitHubContract.Contract, EnvContract.Contract
+        GitHubContract.Contract, EnvContract.Contract, CodeIntelligenceContract.Contract
     ];
 }
