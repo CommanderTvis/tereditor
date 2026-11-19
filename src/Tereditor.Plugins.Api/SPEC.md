@@ -1255,7 +1255,9 @@ The first plugin to run isolated has a UI half only, so the UI half comes first:
 `IPluginUIContext` is generated (`Id`, `Log`, `Settings`, `OnSettings`, `UpdateSettingsAsync`, `Preference`,
 `ReadAssetAsync`, `Host`, `WatchHost`, `SideTool`, `SettingsSection`, `FileViewer`, `HeaderItem`, `Notify`,
 `Invalidate`, `OnReconnect`, and the `Func<..., Control>` factories as surface handles). Every member of
-`IPluginHostContext` and the rest of `IPluginUIContext` is classified and pending.
+`IPluginHostContext` and the rest of `IPluginUIContext` is classified and pending. A settings section's `Create` and
+`CreateForWorkspace` factories are both surface handles; the second is called with the root of the workspace the Settings
+window belongs to, for a page whose content depends on it.
 
 Until the settings schema below lands, a UI-only plugin's `UpdateSettingsAsync` writes its own namespace
 unvalidated: the host has no contract to check it against. Two things hold already: a settings object that names

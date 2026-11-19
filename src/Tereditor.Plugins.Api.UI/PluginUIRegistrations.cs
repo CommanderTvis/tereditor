@@ -72,6 +72,12 @@ public sealed record SettingsSectionRegistration(string Label, string Icon, Func
 {
     /// <summary>The section's id within the plugin; defaults to the plugin's id.</summary>
     public string? Id { get; init; }
+
+    /// <summary>
+    /// When set, the host calls this instead of <see cref="Create"/>, with the root of the workspace the Settings window belongs to,
+    /// for a section whose content depends on it. Settings builds it again for another window's workspace.
+    /// </summary>
+    public Func<string, Control>? CreateForWorkspace { get; init; }
 }
 
 /// <summary>Registers the control for a side tool the manifest declares (W5).</summary>

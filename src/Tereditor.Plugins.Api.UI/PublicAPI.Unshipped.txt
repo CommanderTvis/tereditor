@@ -534,6 +534,8 @@ Tereditor.Plugins.Api.UI.SettingsSectionRegistration
 Tereditor.Plugins.Api.UI.SettingsSectionRegistration.<Clone>$() -> Tereditor.Plugins.Api.UI.SettingsSectionRegistration!
 Tereditor.Plugins.Api.UI.SettingsSectionRegistration.Create.get -> System.Func<Avalonia.Controls.Control!>!
 Tereditor.Plugins.Api.UI.SettingsSectionRegistration.Create.init -> void
+Tereditor.Plugins.Api.UI.SettingsSectionRegistration.CreateForWorkspace.get -> System.Func<string!, Avalonia.Controls.Control!>?
+Tereditor.Plugins.Api.UI.SettingsSectionRegistration.CreateForWorkspace.init -> void
 Tereditor.Plugins.Api.UI.SettingsSectionRegistration.Deconstruct(out string! Label, out string! Icon, out System.Func<Avalonia.Controls.Control!>! Create) -> void
 Tereditor.Plugins.Api.UI.SettingsSectionRegistration.Equals(Tereditor.Plugins.Api.UI.SettingsSectionRegistration? other) -> bool
 Tereditor.Plugins.Api.UI.SettingsSectionRegistration.Icon.get -> string!

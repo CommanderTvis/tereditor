@@ -213,7 +213,7 @@ public sealed partial class SettingsView : UserControl
         if (key == CodeIntelligenceUI.SectionKey) return LspSettings();
         var page = new StackPanel { Spacing = 8 };
         page.Children.Add(new TextBlock { Text = row.Value.Label, Classes = { "settings-heading" } });
-        page.Children.Add(WorkbenchWindow.Mount(row.PluginId, row.Value.Create));
+        page.Children.Add(WorkbenchWindow.Mount(row.PluginId, row.Value.CreateForWorkspace is { } createFor ? () => createFor(window.WorkspaceRoot) : row.Value.Create));
         return page;
     }
 
