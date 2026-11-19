@@ -903,10 +903,17 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
     }
 
     /// <summary>Whether an active plugin exposes this exact absolute file for a workspace.</summary>
-    public bool AllowsExternalFile(string workspaceRoot, string path)
+    public bool AllowsExternalFile(string workspaceRoot, string path) =>
+        Exposes(workspaceRoot, path, tables => tables.ExternalFiles) || IsReadOnlyExternalFile(workspaceRoot, path);
+
+    /// <summary>Whether an active plugin exposes this exact absolute file for reading only.</summary>
+    public bool IsReadOnlyExternalFile(string workspaceRoot, string path) =>
+        Exposes(workspaceRoot, path, tables => tables.ReadOnlyExternalFiles) && !Exposes(workspaceRoot, path, tables => tables.ExternalFiles);
+
+    private bool Exposes(string workspaceRoot, string path, Func<ActivationTables, ImmutableList<Func<string, IReadOnlyList<string>>>> providers)
     {
         foreach (var (entry, tables) in Active())
-            foreach (var provider in tables.ExternalFiles)
+            foreach (var provider in providers(tables))
             {
                 IReadOnlyList<string> files = [];
                 Guard(entry.Id, () => files = provider(workspaceRoot));

@@ -1012,12 +1012,15 @@ internal static partial class PluginHostChecks
         Directory.CreateDirectory(workspace);
         var exposed = Path.Combine(directory, "outside", "config.toml");
         var hidden = Path.Combine(directory, "outside", "secret.toml");
+        var readOnly = Path.Combine(directory, "outside", "plugin-skill.md");
         Directory.CreateDirectory(Path.GetDirectoryName(exposed)!);
+        File.WriteAllText(readOnly, "r = 1\n");
         File.WriteAllText(exposed, "a = 1\n");
         File.WriteAllText(hidden, "b = 2\n");
         Module Exposer() => new(Contract("exposer", Say), context =>
         {
             context.ExternalFiles(root => root == Path.GetFullPath(workspace) ? [exposed] : []);
+            context.ReadOnlyExternalFiles(root => root == Path.GetFullPath(workspace) ? [readOnly] : []);
             return ValueTask.FromResult<PluginDisposer?>(null);
         });
         async Task Exercise(string mode, IProjectServices project, Func<bool, Task> enable)
@@ -1027,6 +1030,14 @@ internal static partial class PluginHostChecks
             await project.SaveFileAsync(new(Path.GetFullPath(workspace), exposed, "a = 1\n", "a = 2\n"));
             Require(File.ReadAllText(exposed) == "a = 2\n", $"{mode}: an exposed absolute file saves.");
             File.WriteAllText(exposed, "a = 1\n");
+            Require((await project.ReadFileAsync(readOnly)).Text == "r = 1\n", $"{mode}: a read-only exposed file reads.");
+            try
+            {
+                await project.SaveFileAsync(new(Path.GetFullPath(workspace), readOnly, "r = 1\n", "r = 2\n"));
+                throw new InvalidOperationException($"{mode}: a read-only exposed file was saved.");
+            }
+            catch (Exception error) when (error is UnauthorizedAccessException or Tereditor.Host.Protocol.RpcException) { }
+            Require(File.ReadAllText(readOnly) == "r = 1\n", $"{mode}: a refused save leaves the read-only file as it was.");
             try
             {
                 await project.ReadFileAsync(hidden);
@@ -1043,7 +1054,7 @@ internal static partial class PluginHostChecks
         }
 
         await using (var composed = await Compose(Path.Combine(directory, "local"), [(Manifest("exposer", true), Exposer())]))
-            await Exercise("local", new LocalProjectAdapter(new ProjectServices(workspace, composed.State, composed.Runtime.AllowsExternalFile)),
+            await Exercise("local", new LocalProjectAdapter(new ProjectServices(workspace, composed.State, composed.Runtime.AllowsExternalFile, isReadOnlyExternalFile: composed.Runtime.IsReadOnlyExternalFile)),
                 enabled => composed.Enable("exposer", enabled));
 
         await using var server = RemoteServer.Create(workspace, IPAddress.Loopback, 0, "external-files", Path.Combine(directory, "remote"),

@@ -271,6 +271,10 @@ internal static partial class ClaudeResolver
         return allowed;
     }
 
+    /// <summary>The files a plugin ships: they open for reading and are never written from here.</summary>
+    public static IReadOnlyList<string> PluginFilePaths(string workspaceId, string root, IReadOnlyList<string>? promptFiles = null) =>
+        [.. Resolve(workspaceId, root, promptFiles).Capabilities.SelectMany(capability => capability.Parts ?? []).Select(part => part.Path).OfType<string>().Distinct()];
+
     private static string AllowedPath(string workspaceId, string root, string path, IReadOnlyList<string>? promptFiles) =>
         FilePaths(workspaceId, root, promptFiles).Contains(path) ? path : throw new InvalidOperationException("Not a file this workspace's Claude configuration reports");
 

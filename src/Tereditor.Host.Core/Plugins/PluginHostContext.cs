@@ -75,6 +75,8 @@ internal sealed class PluginHostContext(PluginRuntime runtime, PluginEntry entry
 
     public void ExternalFiles(Func<string, IReadOnlyList<string>> provider) => Register(table => table.ExternalFiles = table.ExternalFiles.Add(provider));
 
+    public void ReadOnlyExternalFiles(Func<string, IReadOnlyList<string>> provider) => Register(table => table.ReadOnlyExternalFiles = table.ReadOnlyExternalFiles.Add(provider));
+
     public void Tool(PluginToolDefinition definition)
     {
         if (!Live) return;

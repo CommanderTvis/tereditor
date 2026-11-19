@@ -30,6 +30,7 @@ internal sealed class ActivationTables(long id)
     public ImmutableList<Action<BranchStatusEvent>> BranchStatusObservers { get; set; } = [];
     public ImmutableList<Action<string, IReadOnlyList<WorkspaceEnvironmentFact>>> EnvironmentObservers { get; set; } = [];
     public ImmutableList<Func<string, IReadOnlyList<string>>> ExternalFiles { get; set; } = [];
+    public ImmutableList<Func<string, IReadOnlyList<string>>> ReadOnlyExternalFiles { get; set; } = [];
     public ImmutableList<Action<TerminalEvent>> TerminalObservers { get; set; } = [];
     public ImmutableList<Func<IReadOnlyList<AgentSession>>> AgentSessionSources { get; set; } = [];
     public ImmutableList<Func<string, AgentLaunchContribution?>> LaunchContributors { get; set; } = [];

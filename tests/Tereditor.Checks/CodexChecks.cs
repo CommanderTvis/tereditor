@@ -1001,6 +1001,7 @@ internal static class CodexChecks
         public void Route(Func<PluginHttpRequest, CancellationToken, ValueTask<PluginHttpResponse>> handler) => RouteHandler = handler;
         public string PublicBaseUrl() => "http://localhost:0/plugin/codex";
         public void ExternalFiles(Func<string, IReadOnlyList<string>> provider) { }
+        public void ReadOnlyExternalFiles(Func<string, IReadOnlyList<string>> provider) { }
         public void Tool(PluginToolDefinition definition) { }
         public void TerminalEnvironment(Func<TerminalRef, IReadOnlyDictionary<string, string>> contributor) { }
         public void WorkspaceEnvironment(IWorkspaceEnvironmentPolicy policy) { }

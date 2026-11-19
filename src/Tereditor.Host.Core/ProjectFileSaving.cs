@@ -14,6 +14,7 @@ public sealed partial class ProjectServices
         try
         {
             var saveRoot = SaveRoot(request.WorkspaceRoot);
+            if (ReadOnlyExternal(saveRoot, request.Path)) throw new UnauthorizedAccessException("This file is read-only here.");
             var external = External(saveRoot, request.Path);
             var path = external ?? Resolve(saveRoot, request.Path);
             if (GeneratedInstructions.Owns(path)) throw new UnauthorizedAccessException(GeneratedInstructions.Notice);

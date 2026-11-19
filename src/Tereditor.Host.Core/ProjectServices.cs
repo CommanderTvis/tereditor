@@ -11,7 +11,8 @@ namespace Tereditor.Host.Core;
 /// <paramref name="allowsExternalFile"/> admits exact absolute files outside the workspace for reading and saving.
 /// </summary>
 public sealed partial class ProjectServices(string initialRoot, HostStateStore? state = null, Func<string, string, bool>? allowsExternalFile = null,
-    Func<string, RepoHostRoute?>? repoHosts = null, Action<BranchStatusEvent>? branchStatusObserved = null) : IProjectServices
+    Func<string, RepoHostRoute?>? repoHosts = null, Action<BranchStatusEvent>? branchStatusObserved = null,
+    Func<string, string, bool>? isReadOnlyExternalFile = null) : IProjectServices
 {
     private string root = Path.GetFullPath(initialRoot);
     private readonly SemaphoreSlim mutations = new(1, 1);
@@ -19,6 +20,9 @@ public sealed partial class ProjectServices(string initialRoot, HostStateStore? 
     // An absolute path some active plugin exposes for this workspace, or null for an ordinary workspace path.
     private string? External(string currentRoot, string path) =>
         Path.IsPathFullyQualified(path) && (allowsExternalFile?.Invoke(currentRoot, path) == true || state?.Terminals?.AllowsFileLink(currentRoot, path) == true) ? path : null;
+
+    // A plugin exposes some outside files for reading only; saving one is refused here, whatever the client sends.
+    private bool ReadOnlyExternal(string currentRoot, string path) => Path.IsPathFullyQualified(path) && isReadOnlyExternalFile?.Invoke(currentRoot, path) == true;
 
     public async ValueTask<WorkspaceInfo> OpenProjectAsync(string path, CancellationToken cancellationToken = default)
     {

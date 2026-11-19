@@ -2150,6 +2150,9 @@ internal static class ClaudeCodeChecks
         Require(ClaudeResolver.FilePaths("plugin-ws", project).Contains(ownSkill) && ClaudeResolver.ReadFile("plugin-ws", project, ownSkill).Content.Contains("own body", StringComparison.Ordinal) &&
             unlistedRefused && !ClaudeResolver.FilePaths("plugin-ws", project).Contains(unlisted),
             "A listed skill's SKILL.md opens for the editor; a SKILL.md no row lists is still refused.");
+        var ownHash = ClaudeResolver.ReadFile("plugin-ws", project, ownSkill).Hash;
+        ClaudeResolver.WriteFile("plugin-ws", project, ownSkill, "---\nname: mine\n---\nedited body\n", ownHash);
+        Require(File.ReadAllText(ownSkill).Contains("edited body", StringComparison.Ordinal), "A project skill's SKILL.md saves.");
         var refused = false;
         try { ClaudeResolver.WriteFile("plugin-ws", project, skillFile, "changed", ClaudeResolver.ReadFile("plugin-ws", project, skillFile).Hash); }
         catch (UnauthorizedAccessException) { refused = true; }

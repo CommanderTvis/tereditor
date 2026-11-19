@@ -39,7 +39,7 @@ public static class RemoteServer
         loopback.Plugins = runtime;
         builder.Services.AddSingleton(runtime);
         builder.Services.AddSingleton<PluginSurfaceSessions>();
-        builder.Services.AddSingleton(new ProjectSessions(root, state, runtime.AllowsExternalFile, runtime.RepoHostFor, runtime.NotifyBranchStatus));
+        builder.Services.AddSingleton(new ProjectSessions(root, state, runtime.AllowsExternalFile, runtime.RepoHostFor, runtime.NotifyBranchStatus, runtime.IsReadOnlyExternalFile));
         builder.Services.AddSingleton<RequestReplayCache>();
         builder.Services.AddSingleton(services => services.GetRequiredService<ITerminalService>() as ITerminalCatalogService ?? new MemoryTerminalCatalog());
         var app = builder.Build();
@@ -90,7 +90,7 @@ public static class RemoteServer
         builder.Services.AddSingleton<RequestReplayCache>();
         builder.Services.AddSingleton(plugins);
         builder.Services.AddSingleton<PluginSurfaceSessions>();
-        builder.Services.AddSingleton(new ProjectSessions(root, state, plugins.AllowsExternalFile, plugins.RepoHostFor, plugins.NotifyBranchStatus));
+        builder.Services.AddSingleton(new ProjectSessions(root, state, plugins.AllowsExternalFile, plugins.RepoHostFor, plugins.NotifyBranchStatus, plugins.IsReadOnlyExternalFile));
         var app = builder.Build();
         browsers?.Map(app);
         Map(app, token, tailscale, browsers);

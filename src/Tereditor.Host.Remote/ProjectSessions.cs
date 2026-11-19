@@ -10,7 +10,7 @@ namespace Tereditor.Host.Remote;
 /// current project and a reconnecting client needs no server-side session to resume.
 /// </summary>
 public sealed class ProjectSessions(string defaultRoot, HostStateStore state, Func<string, string, bool>? allowsExternalFile = null,
-    Func<string, RepoHostRoute?>? repoHosts = null, Action<Tereditor.Plugins.Api.Host.BranchStatusEvent>? branchStatusObserved = null)
+    Func<string, RepoHostRoute?>? repoHosts = null, Action<Tereditor.Plugins.Api.Host.BranchStatusEvent>? branchStatusObserved = null, Func<string, string, bool>? isReadOnlyExternalFile = null)
 {
 
     private readonly ConcurrentDictionary<string, ProjectServices> roots = new(StringComparer.Ordinal);
@@ -18,9 +18,9 @@ public sealed class ProjectSessions(string defaultRoot, HostStateStore state, Fu
     public IProjectServices For(string? root)
     {
         if (string.IsNullOrEmpty(root) || root.Contains('\0') || !Path.IsPathFullyQualified(root)) root = defaultRoot;
-        return roots.GetOrAdd(Path.GetFullPath(root), path => new ProjectServices(path, state, allowsExternalFile, repoHosts, branchStatusObserved));
+        return roots.GetOrAdd(Path.GetFullPath(root), path => new ProjectServices(path, state, allowsExternalFile, repoHosts, branchStatusObserved, isReadOnlyExternalFile));
     }
 
     /// <summary>A session for resolving a project to open, leaving every cached workspace unchanged.</summary>
-    public IProjectServices Detached() => new ProjectServices(defaultRoot, state, allowsExternalFile, repoHosts, branchStatusObserved);
+    public IProjectServices Detached() => new ProjectServices(defaultRoot, state, allowsExternalFile, repoHosts, branchStatusObserved, isReadOnlyExternalFile);
 }

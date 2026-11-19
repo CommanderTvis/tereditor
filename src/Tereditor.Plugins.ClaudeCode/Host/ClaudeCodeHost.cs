@@ -196,11 +196,16 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         {
             context.Log.Warn("could not watch Claude Code's configuration directory: " + error.Message);
         }
+        IEnumerable<ConfigScope> ScopesOf(string workspaceId) => [ScopeOf(workspaceId), .. context.Terminals()
+            .Where(terminal => terminal.Terminal.WorkspaceId == workspaceId).Select(terminal => ScopeOf(workspaceId, terminal.Terminal.TabKey))];
+        // Every file Context lists opens; a plugin's own files open for reading only, the rest stay editable.
+        context.ReadOnlyExternalFiles(workspaceId =>
+            [.. ScopesOf(workspaceId).SelectMany(scope => ClaudeResolver.PluginFilePaths(workspaceId, scope.Root, scope.PromptFiles)).Distinct()]);
         context.ExternalFiles(workspaceId =>
         {
-            IEnumerable<ConfigScope> scopes = [ScopeOf(workspaceId), .. context.Terminals()
-                .Where(terminal => terminal.Terminal.WorkspaceId == workspaceId).Select(terminal => ScopeOf(workspaceId, terminal.Terminal.TabKey))];
-            return [.. scopes.SelectMany(scope => ClaudeResolver.FilePaths(workspaceId, scope.Root, scope.PromptFiles)).Append(SystemPrompt.FilePath()).Distinct()];
+            var scopes = ScopesOf(workspaceId).ToList();
+            var readOnly = scopes.SelectMany(scope => ClaudeResolver.PluginFilePaths(workspaceId, scope.Root, scope.PromptFiles)).ToHashSet();
+            return [.. scopes.SelectMany(scope => ClaudeResolver.FilePaths(workspaceId, scope.Root, scope.PromptFiles)).Append(SystemPrompt.FilePath()).Where(path => !readOnly.Contains(path)).Distinct()];
         });
         context.Method(ClaudeCodeContract.ReadFile, async (p, _, ct) =>
         {

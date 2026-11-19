@@ -70,7 +70,7 @@ internal sealed class TabHost : IDisposable
         if (!Current.PluginSettings.ContainsKey("pi")) await States.ChangeAsync([HostStateChange.PluginEnabled("pi", true)]);
     });
 
-    public IProjectServices Session() => new LocalProjectAdapter(new ProjectServices(ProjectRoot, local, runtime.AllowsExternalFile));
+    public IProjectServices Session() => new LocalProjectAdapter(new ProjectServices(ProjectRoot, local, runtime.AllowsExternalFile, isReadOnlyExternalFile: runtime.IsReadOnlyExternalFile));
 
     public void Dispose() => Task.Run(async () => await runtime.DisposeAsync()).GetAwaiter().GetResult();
 }

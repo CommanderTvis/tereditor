@@ -1461,7 +1461,8 @@ agent extensions and skills, chat, and their capabilities (H11, H16, chat hosts,
 `IPluginHostContext.ExternalFiles(provider)` registers a synchronous, workspace-scoped list of absolute paths the
 plugin exposes for text editing. The host checks current providers on every absolute file read or save; only
 active registrations count. This is an exact file allowlist, not directory access. Plugins own discovery; core
-owns reading, compare-and-swap saves, editor buffers, and restoration.
+owns reading, compare-and-swap saves, editor buffers, and restoration. `ReadOnlyExternalFiles(provider)` takes the
+same kind of list for files that open for reading only; the host refuses to save them.
 
 Host workspace watch hygiene: `WatchWorkspaceAsync` is idempotent per activation/workspace, including
 concurrent calls. Its lease shares the host's workspace watcher set with other plugins and clients;

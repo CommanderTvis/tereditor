@@ -69,6 +69,13 @@ public interface IPluginHostContext
     void ExternalFiles([PluginCrossing(PluginCrossing.Live)] Func<string, IReadOnlyList<string>> provider);
 
     /// <summary>
+    /// Like <see cref="ExternalFiles"/>, but the files open for reading only: the host refuses to save them.
+    /// </summary>
+    /// <param name="provider">Returns, synchronously, the absolute read-only paths exposed for a workspace id.</param>
+    [PluginPermission("files.external")]
+    void ReadOnlyExternalFiles([PluginCrossing(PluginCrossing.Live)] Func<string, IReadOnlyList<string>> provider);
+
+    /// <summary>
     /// Registers a tool on the per-terminal MCP surface (H4). While the plugin is disabled the tool is absent
     /// from listings and calls; a call already running finishes. Its parameters type must be named by a
     /// registered context (<see cref="PluginHostModule.Json"/>); otherwise registering it throws.

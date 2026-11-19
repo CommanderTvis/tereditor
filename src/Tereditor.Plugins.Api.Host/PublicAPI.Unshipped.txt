@@ -98,6 +98,7 @@ Tereditor.Plugins.Api.Host.IPluginHostContext.AgentRecord(Tereditor.Plugins.Api.
 Tereditor.Plugins.Api.Host.IPluginHostContext.AssetsDirectory.get -> string?
 Tereditor.Plugins.Api.Host.IPluginHostContext.Dependency(Tereditor.Plugins.Api.PluginContract! contract) -> Tereditor.Plugins.Api.IPluginDependencyHandle!
 Tereditor.Plugins.Api.Host.IPluginHostContext.ExternalFiles(System.Func<string!, System.Collections.Generic.IReadOnlyList<string!>!>! provider) -> void
+Tereditor.Plugins.Api.Host.IPluginHostContext.ReadOnlyExternalFiles(System.Func<string!, System.Collections.Generic.IReadOnlyList<string!>!>! provider) -> void
 Tereditor.Plugins.Api.Host.IPluginHostContext.GitAsync(string! cwd, System.Collections.Generic.IReadOnlyList<string!>! args, Tereditor.Plugins.Api.Host.GitRunOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Tereditor.Plugins.Api.Host.GitRunResult!>
 Tereditor.Plugins.Api.Host.IPluginHostContext.Id.get -> string!
 Tereditor.Plugins.Api.Host.IPluginHostContext.Log.get -> Tereditor.Plugins.Api.Host.IPluginLogger!
