@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 
 using Avalonia.Headless;
 using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 
 using Tereditor.Plugins.Acp;
 using Tereditor.Plugins.Acp.Host;
@@ -92,6 +93,22 @@ internal static class AcpChecks
         Require(master.SelectedId == "registry:b" && picked.Count == 1, "Filling the list keeps the selection and says nothing.");
         var texts = rows[3].GetLogicalDescendants().OfType<Avalonia.Controls.TextBlock>().Select(text => text.Text).ToList();
         Require(texts.SequenceEqual(["Beta", "v2", "Another line"]) && rows[3].GetLogicalDescendants().Contains(button), "A row has name, note, description and its action.");
+        // The list scrolls on its own: with many rows in a window of fixed height, scrolling it moves neither the header nor the pane.
+        var tall = new Tereditor.Plugins.UI.Kit.MasterDetail("Tall");
+        tall.Header.Children.Add(new Avalonia.Controls.TextBlock { Name = "TallHeader", Text = "Header" });
+        tall.Detail.Content = new Avalonia.Controls.TextBlock { Name = "TallPane", Text = "Pane" };
+        tall.SetRows([.. Enumerable.Range(0, 80).Select(at => Tereditor.Plugins.UI.Kit.MasterDetail.Row("r" + at, null, "Row " + at, null, "Line", null, null))], null);
+        var scrollHost = new Avalonia.Controls.Window { Width = 700, Height = 400, Content = tall };
+        scrollHost.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var scroller = tall.Rail.GetVisualDescendants().OfType<Avalonia.Controls.ScrollViewer>().First();
+        var headerAt = Avalonia.VisualExtensions.TranslatePoint(tall.Header.Children[0], default, scrollHost);
+        var paneAt = Avalonia.VisualExtensions.TranslatePoint((Avalonia.Controls.Control)tall.Detail.Content!, default, scrollHost);
+        Require(scroller.Extent.Height > scroller.Viewport.Height && scroller.Viewport.Height > 0, "The list is taller than its space, so it has a scroll bar.");
+        scroller.Offset = new Avalonia.Vector(0, 500);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Require(scroller.Offset.Y > 0 && Avalonia.VisualExtensions.TranslatePoint(tall.Header.Children[0], default, scrollHost) == headerAt && Avalonia.VisualExtensions.TranslatePoint((Avalonia.Controls.Control)tall.Detail.Content!, default, scrollHost) == paneAt, "Scrolling the list moves neither the header nor the pane.");
+        scrollHost.Close();
         // A narrow row with a long name: one version label, a badge, and no overlap between the version, the badge and the action.
         var install = new Avalonia.Controls.Button { Content = "Install ▷" };
         var narrow = Tereditor.Plugins.UI.Kit.MasterDetail.Row("registry:c", null, "A very long agent name that cannot fit", "v2026.11.13", "Description", null, install, "Not recommended", "Use the native chat.");
@@ -736,7 +753,7 @@ internal static class AcpChecks
         var detail = new Tereditor.Plugins.Acp.UI.AcpAgentDetail(entries[1], Tereditor.Plugins.Acp.UI.AcpRows.RegistryAgent(entries[1], view), problems["goose"]);
         Require(detail is { IsRegistry: true, License: "Apache-2.0", Website: "https://goose.example/", CanReinstall: true, CanUpdate: false, UpdateTo: null } && detail.Version == "Version 1.57.0" && detail.SourceLine.Contains("example.invalid", StringComparison.Ordinal) && detail.InstallStatus.Contains("missing", StringComparison.Ordinal) && detail.Location == "/x/goose", "The detail of a registry agent shows its version, source, links, license, status and where the program is.");
         var pi = new Tereditor.Plugins.Acp.UI.AcpAgentDetail(entries[0], Tereditor.Plugins.Acp.UI.AcpRows.RegistryAgent(entries[0], view), null);
-        Require(pi is { CanUpdate: true, CanReinstall: false, UpdateTo: "0.0.34" } && pi.InstallStatus.Contains("0.0.34", StringComparison.Ordinal) && pi.Location.StartsWith("bunx ", StringComparison.Ordinal), "An older install offers an update, and an npx agent says what runs it.");
+        Require(pi is { CanUpdate: true, CanReinstall: false, UpdateTo: "0.0.34" } && pi.InstallStatus == "Version 0.0.34 is available." && (pi.Version + " " + pi.InstallStatus).Split(pi.Entry.Version!).Length == 2 && pi.Location.StartsWith("bunx ", StringComparison.Ordinal), "An older install offers an update, and an npx agent says what runs it.");
         var custom = new Tereditor.Plugins.Acp.UI.AcpAgentDetail(entries[2], null, null);
         Require(custom is { IsRegistry: false, CanUpdate: false, CanReinstall: false, InstallStatus: "Custom" } && custom.SourceLine == "Added by you" && custom.CommandLine == "/bin/zed", "A custom agent has no update or reinstall.");
 

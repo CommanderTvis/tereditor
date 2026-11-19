@@ -15,7 +15,7 @@ namespace Tereditor.Plugins.Acp.UI;
 /// (registry installs and custom ones) are pinned to the top by name under an Installed heading, and the registry agents that are not installed
 /// follow under a Registry heading, each with an Install action. A search filters both groups.
 /// </summary>
-internal sealed partial class AcpSettingsView : StackPanel
+internal sealed partial class AcpSettingsView : Grid
 {
     private readonly IPluginUIContext context;
     private readonly TextBlock defaultNote;
@@ -50,12 +50,24 @@ internal sealed partial class AcpSettingsView : StackPanel
         DetachedFromVisualTree += (_, _) => { settingsWatch?.Dispose(); settingsWatch = null; };
         AttachedToVisualTree += (_, _) =>
         {
+            FillSettingsHeight();
             settingsWatch ??= context.OnSettings<AcpSettings>(_ => RenderAll(false));
             _ = RunAsync(() => context.RequestAsync(AcpContract.Agents, new AcpNoParams()).AsTask(), agents => Apply(agents, true), "Couldn't list the agents");
             if (registry is null) LoadRegistry(false);
         };
         RenderAll(true);
     }
+
+    /// <summary>The settings body scrolls its page, so the page is given the body's height: only the agent list then scrolls.</summary>
+    private void FillSettingsHeight()
+    {
+        if (Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<ScrollViewer>(this) is not { } scroller) return;
+        void Fit() => Height = Math.Max(MinPageHeight, scroller.Bounds.Height - scroller.Padding.Top - scroller.Padding.Bottom);
+        Fit();
+        scroller.GetObservable(BoundsProperty).Subscribe(new Avalonia.Reactive.AnonymousObserver<Rect>(_ => Fit()));
+    }
+
+    private const double MinPageHeight = 360;
 
     private async Task RunAsync<T>(Func<Task<T>> request, Action<T> apply, string failure, Action<string>? failed = null)
     {
@@ -313,7 +325,7 @@ internal sealed partial class AcpSettingsView : StackPanel
 
     private Control BuildPage()
     {
-        var panel = new StackPanel { Name = "AcpBrowser", Spacing = 8 };
+        var panel = new Grid { Name = "AcpBrowser", RowSpacing = 8, RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
         panel.Children.Add(TrustNotice("AcpBrowserTrust"));
         var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         controls.Children.Add(search);
@@ -325,8 +337,11 @@ internal sealed partial class AcpSettingsView : StackPanel
         Avalonia.Automation.AutomationProperties.SetName(add, "add custom agent");
         add.Click += (_, _) => AddCustom();
         controls.Children.Add(add);
+        Grid.SetRow(controls, 1);
         panel.Children.Add(controls);
+        Grid.SetRow(status, 2);
         panel.Children.Add(status);
+        Grid.SetRow(master, 3);
         panel.Children.Add(master);
         return panel;
     }

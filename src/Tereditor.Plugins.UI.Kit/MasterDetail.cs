@@ -22,8 +22,8 @@ public sealed class MasterDetail : Grid
     {
         Name = name;
         ColumnDefinitions = new ColumnDefinitions { new(new GridLength(railWidth)) { MinWidth = 160 }, new(GridLength.Auto), new(new GridLength(1, GridUnitType.Star)) };
-        Rail = new ListBox { Name = name + "Rail", Background = Brushes.Transparent, BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Top, AutoScrollToSelectedItem = false };
-        ScrollViewer.SetVerticalScrollBarVisibility(Rail, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
+        Rail = new ListBox { Name = name + "Rail", Background = Brushes.Transparent, BorderThickness = new Thickness(0), AutoScrollToSelectedItem = false };
+        ScrollViewer.SetVerticalScrollBarVisibility(Rail, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
         ScrollViewer.SetHorizontalScrollBarVisibility(Rail, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         Rail.SelectionChanged += (_, _) =>
         {
@@ -39,14 +39,27 @@ public sealed class MasterDetail : Grid
             previous = Rail.SelectedItem;
             Selected?.Invoke(SelectedId);
         };
-        var divider = new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 1, 0), Padding = new Thickness(0, 0, 8, 0), Child = new StackPanel { Spacing = 8, Children = { Header, Rail, Footer } } };
+        var divider = new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 1, 0), Padding = new Thickness(0, 0, 8, 0), Child = RailColumn() };
         Detail = new ContentControl { Name = name + "Detail", Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
+        var detailScroll = new ScrollViewer { Name = name + "DetailScroll", HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, Content = Detail };
         var splitter = new GridSplitter { Name = name + "Splitter", Width = 5, Background = Brushes.Transparent, ResizeDirection = GridResizeDirection.Columns };
         SetColumn(splitter, 1);
-        SetColumn(Detail, 2);
+        SetColumn(detailScroll, 2);
         Children.Add(divider);
         Children.Add(splitter);
-        Children.Add(Detail);
+        Children.Add(detailScroll);
+    }
+
+    /// <summary>Header and Footer keep their size and the list takes the rest and scrolls on its own, so the page around it does not move.</summary>
+    private Grid RailColumn()
+    {
+        var column = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), RowSpacing = 8 };
+        Grid.SetRow(Rail, 1);
+        Grid.SetRow(Footer, 2);
+        column.Children.Add(Header);
+        column.Children.Add(Rail);
+        column.Children.Add(Footer);
+        return column;
     }
 
     public ListBox Rail { get; }
