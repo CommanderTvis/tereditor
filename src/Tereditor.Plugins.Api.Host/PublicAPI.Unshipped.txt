@@ -1110,3 +1110,28 @@ Tereditor.Plugins.Api.Host.RuntimeStatus.RuntimeStatus(Tereditor.Plugins.Api.Hos
 static Tereditor.Plugins.Api.Host.RuntimeResolution.Unavailable(Tereditor.Plugins.Api.Host.RuntimeKind kind, string! message, bool offerEnable = false) -> Tereditor.Plugins.Api.Host.RuntimeResolution!
 Tereditor.Plugins.Api.Host.RuntimeResolution.RuntimeResolution(Tereditor.Plugins.Api.Host.RuntimeKind Kind, bool Available, string! Command, System.Collections.Generic.IReadOnlyList<string!>! Args, System.Collections.Generic.IReadOnlyDictionary<string!, string!>! Env, Tereditor.Plugins.Api.Host.RuntimeSource? Source, string! Message, bool OfferEnable) -> void
 Tereditor.Plugins.Api.Host.IPluginHostContext.PurgeRuntimeDownloadsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+override Tereditor.Plugins.Api.Host.HostLanguageSettings.Equals(object? obj) -> bool
+override Tereditor.Plugins.Api.Host.HostLanguageSettings.GetHashCode() -> int
+override Tereditor.Plugins.Api.Host.HostLanguageSettings.ToString() -> string!
+Tereditor.Plugins.Api.Host.HostLanguageSettings
+Tereditor.Plugins.Api.Host.HostLanguageSettings.<Clone>$() -> Tereditor.Plugins.Api.Host.HostLanguageSettings!
+Tereditor.Plugins.Api.Host.HostLanguageSettings.Deconstruct(out bool Enabled, out string! LanguageServers, out string! LanguageTools, out string! Limits, out string! JavaKotlinProvider) -> void
+Tereditor.Plugins.Api.Host.HostLanguageSettings.Enabled.get -> bool
+Tereditor.Plugins.Api.Host.HostLanguageSettings.Enabled.init -> void
+Tereditor.Plugins.Api.Host.HostLanguageSettings.Equals(Tereditor.Plugins.Api.Host.HostLanguageSettings? other) -> bool
+Tereditor.Plugins.Api.Host.HostLanguageSettings.HostLanguageSettings(bool Enabled, string! LanguageServers, string! LanguageTools, string! Limits, string! JavaKotlinProvider) -> void
+Tereditor.Plugins.Api.Host.HostLanguageSettings.JavaKotlinProvider.get -> string!
+Tereditor.Plugins.Api.Host.HostLanguageSettings.JavaKotlinProvider.init -> void
+Tereditor.Plugins.Api.Host.HostLanguageSettings.LanguageServers.get -> string!
+Tereditor.Plugins.Api.Host.HostLanguageSettings.LanguageServers.init -> void
+Tereditor.Plugins.Api.Host.HostLanguageSettings.LanguageTools.get -> string!
+Tereditor.Plugins.Api.Host.HostLanguageSettings.LanguageTools.init -> void
+Tereditor.Plugins.Api.Host.HostLanguageSettings.Limits.get -> string!
+Tereditor.Plugins.Api.Host.HostLanguageSettings.Limits.init -> void
+static Tereditor.Plugins.Api.Host.HostLanguageSettings.operator !=(Tereditor.Plugins.Api.Host.HostLanguageSettings? left, Tereditor.Plugins.Api.Host.HostLanguageSettings? right) -> bool
+static Tereditor.Plugins.Api.Host.HostLanguageSettings.operator ==(Tereditor.Plugins.Api.Host.HostLanguageSettings? left, Tereditor.Plugins.Api.Host.HostLanguageSettings? right) -> bool
+Tereditor.Plugins.Api.Host.IPluginHostContext.LanguageSettingsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Tereditor.Plugins.Api.Host.HostLanguageSettings!>
+Tereditor.Plugins.Api.Host.IPluginHostContext.OnLanguageChanged(System.Action<bool>! handler) -> void
+Tereditor.Plugins.Api.Host.IPluginHostContext.SetLanguageSettingAsync(string! key, string! value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Tereditor.Plugins.Api.Host.IPluginHostContext.LanguageCallAsync(string! operation, string! workspace, string! server = "", System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string!>
+Tereditor.Plugins.Api.Host.IPluginHostContext.LanguageTermsAsync(string! workspace, string! server, bool accept = false, string! artifactId = "", string! eulaSha256 = "", System.Collections.Generic.IReadOnlyDictionary<string!, string!>? answers = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string!>

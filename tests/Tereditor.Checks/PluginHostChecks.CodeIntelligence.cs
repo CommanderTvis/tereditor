@@ -81,6 +81,7 @@ internal static partial class PluginHostChecks
         LanguageSupport.Update(again);
         session.SetLanguageAvailable(LanguageSupport.Available);
         Require(LanguageSupport.Available && LanguageSupport.Serves("site.css") && session.IsToolAvailable("lsp"), "Back on: the language features and the Language tool return.");
+        await CodeIntelligenceHostMethods(root);
         Console.WriteLine("PASS code intelligence plugin: off removes the language UI and leaves dependents unavailable naming it, on brings back the ones it turned off; no dependency cycle");
     }
 }

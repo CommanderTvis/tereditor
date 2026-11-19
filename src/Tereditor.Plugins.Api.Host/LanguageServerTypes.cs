@@ -4,6 +4,14 @@ using Tereditor.Plugins.Api;
 
 namespace Tereditor.Plugins.Api.Host;
 
+/// <summary>The host settings the language features read.</summary>
+/// <param name="Enabled">Whether language services are on.</param>
+/// <param name="LanguageServers">Each server's launcher choices, as the host saves them (JSON).</param>
+/// <param name="LanguageTools">The host-wide tool paths (JSON).</param>
+/// <param name="Limits">The limits (JSON).</param>
+/// <param name="JavaKotlinProvider">The provider chosen for Java and Kotlin.</param>
+public sealed record HostLanguageSettings(bool Enabled, string LanguageServers, string LanguageTools, string Limits, string JavaKotlinProvider);
+
 /// <summary>How completely a language server's managed installation is pinned (H21).</summary>
 public enum LanguageServerPinning
 {

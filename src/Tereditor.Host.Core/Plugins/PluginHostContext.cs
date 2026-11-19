@@ -11,7 +11,7 @@ namespace Tereditor.Host.Core.Plugins;
 /// the one this context was built for before it writes, so a context kept past its dispose is a dead handle:
 /// a late publish reaches nobody and a late registration lands in no table.
 /// </summary>
-internal sealed class PluginHostContext(PluginRuntime runtime, PluginEntry entry, PluginContract contract, ActivationTables tables) : IPluginHostContext
+internal sealed partial class PluginHostContext(PluginRuntime runtime, PluginEntry entry, PluginContract contract, ActivationTables tables) : IPluginHostContext
 {
     private sealed class Logger(PluginRuntime runtime, string id) : IPluginLogger
     {

@@ -12,7 +12,7 @@ tags: [plugins, language]
 ## Responsibility
 
 The plugin `code-intelligence` is the one switch for the language features of the app. Builtin, enabled by default, wire
-version 1, headless, no settings or UI half. Its contract declares the methods and channels the settings page will use (migration step 1: declared, not served yet; see the design below). Every language server plugin and Air Context require it.
+version 1, headless, no settings or UI half. Its host half serves the methods and channels the settings page will use (migration steps 1 to 4; see the design below), and nothing calls them yet. Every language server plugin and Air Context require it.
 
 ## Where the line is
 
@@ -42,7 +42,7 @@ layout that names the Language tool restores without it and keeps its slot. Enab
 
 ## Design: the Code Intelligence page and its views move into the plugin
 
-Status: design only. No production code changed. Written from the code at commit 853be7ae7.
+Status: steps 1 to 4 below are done (the contract, the host context members, the host half's read and write methods and the settings and catalog channels, with checks); the page and its views still live in `Tereditor.UI` and steps 5 to 8 remain. Written from the code at commit 853be7ae7.
 
 ### Facts the design rests on
 
@@ -104,10 +104,11 @@ Channels (state channels, so a late subscriber gets a snapshot):
 - `settings`: `CodeIntelligenceSettingsState` (enabled, language servers JSON, tools JSON, limits JSON, provider). The host half publishes it from host state, so every client sees one state and the page updates on broadcast, never from a local copy. The host half never keeps the value; it re-reads host state.
 - `catalogChanged`: a small counter payload that makes the page reload the catalog when plugins activate or deactivate (replaces the page's reliance on `PluginRegistry.Changed`).
 
-Needed from `IPluginHostContext` (two narrow members, no Code Intelligence names):
+Needed from `IPluginHostContext` (five host-only members, built as plain methods; `language.settings` permission; pending in the isolated runtime):
 
-- `ValueTask<string> HostSettingAsync(string key)` and `ValueTask SetHostSettingAsync(string key, string value)`, limited by a permission `host.settings` and by an allow-list of keys the host publishes (`lsp-enabled`, `language-server:*`, `language-limits`, `java-kotlin-provider`). It goes through `IHostStateService`, so saved-state keys and broadcast stay as they are.
-- `IPluginLanguageAccess Language { get; }` with `ExecuteAsync(string operation, string json, CancellationToken)` returning JSON. It is a thin typed seam over `ProjectServices.LanguageAsync` and `LanguageTermsAsync`; no new language behaviour.
+- `LanguageSettingsAsync` reads the five language settings; `OnLanguageChanged(Action<bool>)` fires after they change (false) or after the catalog changes (true).
+- `SetLanguageSettingAsync(key, value)` writes through the host state, so saved keys and broadcast stay as they are. Only `lsp-enabled`, `java-kotlin-provider`, `language-limits` and `language-server:<id>` are accepted.
+- `LanguageCallAsync(operation, workspace, server)` runs `catalog`, `resolution`, `provision`, `configurationSchema` or `running` and returns the result as JSON text; `LanguageTermsAsync` does the same for terms. The host half parses them into the contract's records. No other operation is accepted.
 
 What stays in core: `LanguageService`, `LanguageServers`, the on-demand lifecycle, installation, the `lsp_*` MCP tools (`LanguageMcpTools`), headless hosting and the `language` wire operations. The host half is an adapter, not a second implementation.
 

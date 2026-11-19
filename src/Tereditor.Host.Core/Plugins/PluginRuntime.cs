@@ -99,6 +99,13 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
     {
         Seams.State.PublishPlugins(Roster());
         Seams.State.LanguageServersChanged();
+        NotifyLanguage(catalog: true);
+    }
+
+    private void NotifyLanguage(bool catalog)
+    {
+        foreach (var (entry, tables) in Active())
+            foreach (var observer in tables.LanguageObservers) Guard(entry.Id, () => observer(catalog));
     }
 
     private IReadOnlyList<PluginRosterEntry> Roster()
@@ -673,6 +680,7 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
                         }
                         _ = Schedule();
                     }
+                    if (PluginHostContext.LanguageSettingsOf(previous.Settings) != PluginHostContext.LanguageSettingsOf(state.Settings)) NotifyLanguage(catalog: false);
                     await WorkspaceEventsAsync(previous, state);
                 }
                 previous = state;

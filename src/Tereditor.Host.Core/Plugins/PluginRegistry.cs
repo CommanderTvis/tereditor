@@ -41,6 +41,7 @@ internal sealed class ActivationTables(long id)
     public ImmutableList<PromptContribution> Prompts { get; set; } = [];
     public ImmutableList<LanguageServerSpec> LanguageServers { get; set; } = [];
     public ImmutableList<Action<JsonElement>> SettingsObservers { get; set; } = [];
+    public ImmutableList<Action<bool>> LanguageObservers { get; set; } = [];
     // Dependency subscriptions and workspace watches, released when the activation ends.
     public ImmutableList<IDisposable> Resources { get; set; } = [];
     /// <summary>An external plugin's runner process, which this activation owns from spawn and ends when it ends.</summary>

@@ -302,6 +302,60 @@ public interface IPluginHostContext
     void LanguageServer(LanguageServerSpec spec);
 
     /// <summary>
+    /// The host settings the language features read (the Code Intelligence page): the on switch, each server's launcher choices,
+    /// the host-wide tool paths, the limits and the Java and Kotlin provider.
+    /// </summary>
+    [PluginPermission("language.settings")]
+    ValueTask<HostLanguageSettings> LanguageSettingsAsync(CancellationToken cancellationToken = default) => ValueTask.FromResult(new HostLanguageSettings(true, "", "", "", ""));
+
+    /// <summary>
+    /// Calls the handler after the language settings or the language server catalog change: the argument is true for a catalog
+    /// change (a plugin activated or deactivated), false for a settings change. Called on a pool thread.
+    /// </summary>
+    /// <param name="handler">The handler.</param>
+    [PluginPermission("language.settings")]
+    void OnLanguageChanged(Action<bool> handler) { }
+
+    /// <summary>
+    /// Saves one language setting through the host state, so every client sees it: <c>lsp-enabled</c>, <c>java-kotlin-provider</c>,
+    /// <c>language-limits</c> or <c>language-server:</c> and a server id. No other key is accepted.
+    /// </summary>
+    /// <param name="key">The setting's key.</param>
+    /// <param name="value">The value, as the host saves it.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <exception cref="ArgumentException">The key is not one of these.</exception>
+    [PluginPermission("language.settings")]
+    ValueTask SetLanguageSettingAsync(string key, string value, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Runs one of the language service's settings operations for a workspace and returns its result as JSON text. The
+    /// operations are <c>catalog</c>, <c>resolution</c>, <c>provision</c>, <c>configurationSchema</c> and <c>running</c>; no other is accepted.
+    /// </summary>
+    /// <param name="operation">The operation.</param>
+    /// <param name="workspace">The absolute workspace path.</param>
+    /// <param name="server">The server's catalog id; empty for an operation about no one server.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The result: <c>state</c>, <c>detail</c>, <c>configuration</c> and <c>servers</c>.</returns>
+    /// <exception cref="ArgumentException">The operation is not one of these.</exception>
+    [PluginPermission("language.settings")]
+    ValueTask<string> LanguageCallAsync(string operation, string workspace, string server = "", CancellationToken cancellationToken = default) => ValueTask.FromResult("{}");
+
+    /// <summary>
+    /// Reads the terms of one language server installation, or records the user's acceptance of exactly those terms. The
+    /// result is JSON text. Acceptance is the user's: a plugin calls this only for a click in its own page.
+    /// </summary>
+    /// <param name="workspace">The absolute workspace path.</param>
+    /// <param name="server">The server's catalog id.</param>
+    /// <param name="accept">True to record acceptance.</param>
+    /// <param name="artifactId">The installation the terms belong to.</param>
+    /// <param name="eulaSha256">The hash of the terms text.</param>
+    /// <param name="answers">The user's answers to the questions shown with the terms.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    [PluginPermission("language.settings")]
+    ValueTask<string> LanguageTermsAsync(string workspace, string server, bool accept = false, string artifactId = "", string eulaSha256 = "",
+        IReadOnlyDictionary<string, string>? answers = null, CancellationToken cancellationToken = default) => ValueTask.FromResult("{}");
+
+    /// <summary>
     /// Owns the workspace environment policy (H22): the order the registered steps run in. Before a shell starts for a
     /// tab with none running the host runs the enabled plugins' steps (<see cref="WorkspaceEnvironmentStep"/>) on a pool
     /// thread in the policy's order (ties by plugin id), each seeing what the earlier ones produced, and gives the shell
