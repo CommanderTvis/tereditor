@@ -209,6 +209,9 @@ and roster registration still precede reconciliation, preserving dormant tools a
   document id, so it survives restarts when the id does. The companions registered for terminals are offered there
   through the same `IsAvailable`/`Create` calls with the document id as the tab key; each registration's optional
   `HostChanged` hears when such a body mounts and when its tab goes away (terminals are never reported).
+  Closing a plugin document's tab drops its control but disposes none of the images inside it: they are the plugin's
+  (the GitHub avatars are one cache shared by every GitHub tab), and a disposed image drawn by another tab or a later open
+  fails the render.
 - File viewers (W7) are consulted by the document open path and by tab restoration; a viewer with read
   strategy `None` gets no text read, and a tab whose viewer has gone shows a placeholder offering to open the
   file as text.

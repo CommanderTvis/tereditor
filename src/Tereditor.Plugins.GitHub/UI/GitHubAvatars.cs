@@ -21,6 +21,9 @@ internal static class GitHubAvatars
     private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromSeconds(15) };
     private static readonly Dictionary<string, Bitmap> Cache = [];
 
+    /// <summary>Puts an image in the cache as if it had been downloaded, so checks need no network.</summary>
+    internal static void Remember(string url, Bitmap bitmap) { lock (Cache) Cache[url] = bitmap; }
+
     internal static Control Stack(IReadOnlyList<GitHubPerson> people, bool load = true)
     {
         var stack = new StackPanel { Name = "GitHubAssignees", Orientation = Orientation.Horizontal, Spacing = -4, VerticalAlignment = VerticalAlignment.Center };

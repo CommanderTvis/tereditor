@@ -86,6 +86,7 @@ internal static partial class CiCoverageChecks
         ["--git-host"] = Cases("git-host", "ChangesScopeE2E"),
         ["--github"] = Cases("github"),
         ["--github-browser"] = Cases("github-browser"),
+        ["--github-tab-close"] = Cases("GitHubTabCloseE2E"),
         ["--gitless-panes"] = Cases("gitless-panes"),
         ["--headless"] = Cases("headless"),
         ["--headscale"] = new Exempt("Opt-in and slow, never in the argument-free suite (docs/develop/agent-reference.md): needs a throwaway Headscale built by scripts/build-headscale-test.cs"),

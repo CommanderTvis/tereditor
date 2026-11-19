@@ -38,8 +38,10 @@ public sealed partial class WorkbenchWindow
     {
         if (!documentContent.Remove(key, out var control)) return;
         if (control is IDisposable disposable) disposable.Dispose();
-        else foreach (var image in control.GetLogicalDescendants().OfType<Image>())
-            (image.Source as Bitmap)?.Dispose();
+        // A plugin's images are the plugin's: they may be shared with its other tabs, so only the plugin releases them.
+        else if (control is not ContentControl { Name: { } name } || !name.StartsWith("PluginMount_", StringComparison.Ordinal))
+            foreach (var image in control.GetLogicalDescendants().OfType<Image>())
+                (image.Source as Bitmap)?.Dispose();
     }
 
     private void ReleaseProjectDocuments(string project)
