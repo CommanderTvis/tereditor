@@ -10,6 +10,7 @@ using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Styling;
 
 using Tereditor.Host.Abstractions;
@@ -86,7 +87,7 @@ public sealed partial class SettingsView : UserControl
         close.Click += (_, _) => Close();
         navigationList = this.FindControl<StackPanel>("SettingsNavigation")!;
         foreach (var item in new[] { ("Appearance", "palette"), ("Highlighting", "sparkling"), ("Editor", "pencil"), ("Layout", "layout"), ("Keymap", "code"), ("Projects", "folderTab"), ("Terminal", "terminal"), ("Notifications", "alertInfo"), ("Host", "server"), ("Plugins", "puzzle"), ("About", "alertInfo") })
-            Navigation(this.FindControl<Button>("Settings_" + item.Item1.Replace(' ', '_'))!, item.Item1, item.Item2.Length == 0 ? IndentedLabel(item.Item1) : Ui.Row(item.Item2, item.Item1));
+            Navigation(this.FindControl<Button>("Settings_" + item.Item1.Replace(' ', '_'))!, item.Item1, NavigationRow(item.Item2.Length == 0 ? null : Ui.Icon(item.Item2), item.Item1, item.Item2.Length == 0 ? PluginsLabelColumn - 12 : 0));
         SyncPluginSections();
         window.Workbench.PluginRegistry.Changed += PluginsChanged;
 #if !ANDROID && !BROWSER
@@ -126,19 +127,28 @@ public sealed partial class SettingsView : UserControl
         else Close();
     }
 
-    // No icon: the label keeps the column the other rows' labels start at.
-    private static StackPanel IndentedLabel(string label)
+    // The icon keeps its size and the label takes the rest of the row, trimmed with an ellipsis; a trimmed label shows in full as a tooltip.
+    // Without an icon, `indent` keeps the column the other rows' labels start at.
+    private static Grid NavigationRow(Control? icon, string label, double indent = 0)
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(Ui.Text(label));
-        row.Margin = new Thickness(PluginsLabelColumn - 12, 0, 0, 0);
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Margin = new Thickness(indent, 0, 0, 0) };
+        if (icon is not null) row.Children.Add(icon);
+        var text = Ui.Text(label);
+        text.TextTrimming = TextTrimming.CharacterEllipsis;
+        text.Margin = new Thickness(icon is null ? 0 : 8, 0, 0, 0);
+        Grid.SetColumn(text, 1);
+        row.Children.Add(text);
+        text.SizeChanged += (_, _) =>
+        {
+            var full = new TextLayout(label, new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch), text.FontSize, text.Foreground).Width;
+            ToolTip.SetTip(text, full > text.Bounds.Width + .5 ? label : null);
+        };
         return row;
     }
 
-    private void Navigation(Button button, string key, StackPanel content)
+    private void Navigation(Button button, string key, Panel content)
     {
         button.Content = content;
-        content.Spacing = 8;
         button.Click += (_, _) => ShowSection(key);
         navigation[key] = button;
     }
@@ -196,10 +206,7 @@ public sealed partial class SettingsView : UserControl
         {
             var key = SectionKey(row);
             var button = new Button { Name = "Settings_" + key.Replace(':', '_'), Classes = { "settings-navigation" } };
-            var content = new StackPanel { Orientation = Orientation.Horizontal };
-            content.Children.Add(PluginIcons.Resolve(row.Value.Icon, registry.Entry(row.PluginId), Ui.Muted));
-            content.Children.Add(Ui.Text(row.Value.Label));
-            Navigation(button, key, content);
+            Navigation(button, key, NavigationRow(PluginIcons.Resolve(row.Value.Icon, registry.Entry(row.PluginId), Ui.Muted), row.Value.Label));
             groupList.Children.Add(button);
         }
         if (section.StartsWith("plugin:", StringComparison.Ordinal) && !navigation.ContainsKey(section)) ShowSection("Plugins");

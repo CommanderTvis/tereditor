@@ -729,4 +729,6 @@ The Language pane is one control for every workspace and project of a window: a 
 
 Each language-server configuration view also offers a project-wide start-before-agent checkbox. It saves immediately and does not alter workspace settings; see [language services](../Tereditor.Host.Core/Language/SPEC.md).
 
+The Settings navigation column is 224 wide. A section label takes the row after its icon and ends in an ellipsis when it does not fit, with its full text as a tooltip; the icon, label and highlight never pass the item. `--settings-navigation` checks it.
+
 Settings names its language-service category “Code Intelligence”. Server rows abbreviate “Language Server” and “LSP” to “LS” in display names and convey runtime status only with the left-hand vector mark or spinner, with a status tooltip and accessible name. Error and configuration details and actions remain visible. Protocol names, server identifiers and acquisition metadata retain their original spelling.

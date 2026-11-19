@@ -982,6 +982,13 @@ internal static class Program
             SettingsTouchChecks.Run(root);
             return;
         }
+        if (args.SequenceEqual(["--settings-navigation"]))
+        {
+            AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
+            SettingsNavigationChecks.Run(root);
+            return;
+        }
         if (args.SequenceEqual(["--branch-graph"]))
         {
             BranchGraphChecks.RunHostAsync(root).GetAwaiter().GetResult();

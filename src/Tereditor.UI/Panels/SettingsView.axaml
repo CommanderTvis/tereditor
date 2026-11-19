@@ -505,7 +505,7 @@
                   ToolTip.Tip="Close settings (Escape)" AutomationProperties.Name="Close settings (Escape)" />
         </Grid>
       </Border>
-      <Grid x:Name="SettingsColumns" Grid.Row="1" ColumnDefinitions="192,*">
+      <Grid x:Name="SettingsColumns" Grid.Row="1" ColumnDefinitions="224,*">
         <Border x:Name="SettingsNavigationPane" Background="{x:Static rendering:Ui.Elevated}" BorderBrush="{x:Static rendering:Ui.BorderBrush}"
                 BorderThickness="0,0,1,0">
           <ScrollViewer>

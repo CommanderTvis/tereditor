@@ -460,7 +460,7 @@ internal static partial class PluginUiChecks
             "A plugin's settings page is listed under Plugins, as the fork groups them.");
         settings.UpdateLayout();
         var guide = Find<Border>(settings, "PluginSettingsGuide");
-        var parentIcon = ((StackPanel)Find<Button>(settings, "Settings_Plugins").Content!).Children[0];
+        var parentIcon = ((Panel)Find<Button>(settings, "Settings_Plugins").Content!).Children[0];
         var childButton = Find<Button>(settings, "Settings_plugin_fixture_fixture");
         Require(Math.Abs(guide.TranslatePoint(new Point(guide.Bounds.Width / 2, 0), navigationList)!.Value.X -
             parentIcon.TranslatePoint(new Point(parentIcon.Bounds.Width / 2, 0), navigationList)!.Value.X) <= .5,
