@@ -178,7 +178,8 @@ public sealed partial class GitHubBrowser(ToolRunner run)
         return new(node.GetProperty("number").GetInt32(), Text(node, "title"), State(node), pull && Bool(node, "isDraft"), Author(node), Labels(node),
             node.TryGetProperty("comments", out var comments) ? comments.GetProperty("totalCount").GetInt32() : 0,
             Text(node, "createdAt"), Text(node, "updatedAt"), node.TryGetProperty("closedAt", out var closed) && closed.ValueKind == JsonValueKind.String ? closed.GetString() : null,
-            Text(node, "url"), pull ? RollupState(node) : "none", pull ? ReviewState(node) : "none") { Assignees = People(node) };
+            Text(node, "url"), pull ? RollupState(node) : "none", pull ? ReviewState(node) : "none")
+        { Assignees = People(node) };
     }
 
     private static IReadOnlyList<GitHubPerson> People(JsonElement node) =>
