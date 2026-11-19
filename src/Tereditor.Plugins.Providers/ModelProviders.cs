@@ -105,7 +105,7 @@ public sealed record ProviderDefinition(string Id, string Name, ProviderGroup Gr
     /// The agent ids (`claude-code`, `codex`, `pi`) whose launch the contributor wires itself, with no API shared between the agent and the provider.
     /// Those agents are offered the provider; Model providers writes no file and adds no launch word for them, since the contributor's own launch contribution does.
     /// </summary>
-    public IReadOnlyList<string> WiredAgents { get; init; } = [];
+    public IReadOnlyList<string> WiredAgents { get; set; } = [];
 }
 
 /// <summary>One way an agent can use a provider: an API both declare, and the credential kind that fits.</summary>

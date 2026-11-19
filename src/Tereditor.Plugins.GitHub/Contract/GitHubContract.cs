@@ -35,7 +35,7 @@ public sealed record GitHubListParams(string WorkspaceId, string Kind, string Qu
 public sealed record GitHubList(bool Unchanged, string Revision, string Repo, IReadOnlyList<GitHubItem> Items, int Open, int Closed, bool HasMore, string? Problem = null)
 {
     /// <summary>The repository's labels, for the Label filter.</summary>
-    public IReadOnlyList<GitHubLabel> RepoLabels { get; init; } = [];
+    public IReadOnlyList<GitHubLabel> RepoLabels { get; set; } = [];
 }
 
 /// <summary>One filter chip a view offers; Value is what is chosen now ("" for none).</summary>
@@ -50,7 +50,7 @@ public sealed record GitHubRow(string Id, string Title, string State, string Met
 public sealed record GitHubCard(string Title, string Author, string At, string Note, string Body, string Badge = "", string Url = "")
 {
     /// <summary>The comment's numeric id, when it is one; lets a comment posted from here be told apart from the one a refresh brings back.</summary>
-    public string Id { get; init; } = "";
+    public string Id { get; set; } = "";
 }
 
 /// <summary>Kind: runs, discussions, releases, contributors, deployments or packages. Id is empty for the list, else the run id or discussion number.</summary>
@@ -65,7 +65,7 @@ public sealed record GitHubReviewComment(string Path, string Body);
 public sealed record GitHubEvent(string Kind, string Author, string At, string Body, string Detail, string Color = "", IReadOnlyList<GitHubReviewComment>? Comments = null)
 {
     /// <summary>The comment's numeric id (comments only).</summary>
-    public string Id { get; init; } = "";
+    public string Id { get; set; } = "";
 }
 
 /// <summary>Action: comment, close or reopen (the last two take an optional comment first). Kind is issues, pulls or discussions.</summary>
