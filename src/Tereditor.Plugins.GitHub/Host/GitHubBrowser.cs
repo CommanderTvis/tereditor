@@ -13,7 +13,7 @@ namespace Tereditor.Plugins.GitHub.Host;
 /// and a conversation with its timeline. It keeps only a revision (a hash of the last answer) per view, so a caller that
 /// polls gets <c>Unchanged</c> instead of the same payload again.
 /// </summary>
-public sealed partial class GitHubBrowser(ToolRunner run)
+public sealed partial class GitHubBrowser(ToolRunner run, GitHubCache? cache = null)
 {
     private static readonly TimeSpan Query = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan RepoTtl = TimeSpan.FromMinutes(10);
@@ -33,7 +33,7 @@ public sealed partial class GitHubBrowser(ToolRunner run)
 
     private static bool Offline => Environment.GetEnvironmentVariable("TEREDITOR_GH_OFFLINE") == "1";
 
-    public async Task<GitHubList> ListAsync(string directory, GitHubListParams p, CancellationToken ct)
+    private async Task<GitHubList> FetchListAsync(string directory, GitHubListParams p, CancellationToken ct)
     {
         try
         {
@@ -62,7 +62,7 @@ public sealed partial class GitHubBrowser(ToolRunner run)
         catch (Exception error) when (IsExpected(error)) { return Empty("", Describe(error)); }
     }
 
-    public async Task<GitHubDetail> DetailAsync(string directory, GitHubDetailParams p, CancellationToken ct)
+    private async Task<GitHubDetail> FetchDetailAsync(string directory, GitHubDetailParams p, CancellationToken ct)
     {
         try
         {

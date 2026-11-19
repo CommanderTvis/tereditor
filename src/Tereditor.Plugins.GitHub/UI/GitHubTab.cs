@@ -46,6 +46,7 @@ internal sealed class GitHubTab : Border
     private string? revision;
     private int generation;
     private CancellationTokenSource? lifetime;
+    private readonly GitHubFreshness freshness;
 
     internal static bool Handles(string id) => id is Issues or Pulls or Settings || id.StartsWith("issue:", StringComparison.Ordinal) || id.StartsWith("pull:", StringComparison.Ordinal);
 
@@ -60,7 +61,8 @@ internal sealed class GitHubTab : Border
         if (standalone) number = int.Parse(parts[1]);
         queryBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { limit = 25; revision = null; Refresh(); } };
         linker = new(() => repoSlug, HandleLink);
-        Child = page;
+        freshness = new(page, Refresh);
+        Child = freshness;
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) => { lifetime = new(); Interval(); poll.Start(); revision = null; Refresh(); };
         DetachedFromVisualTree += (_, _) => { poll.Stop(); lifetime?.Cancel(); generation++; };
@@ -117,6 +119,7 @@ internal sealed class GitHubTab : Border
         var current = revision;
         var list = await CallAsync(async ct => await context.RequestAsync(GitHubContract.List, new(workspace, kind, query, limit, current), ct).AsTask(), mine, token);
         if (list is null) return;
+        freshness.Apply(list.Cached);
         if (list.Problem is not null) { Show(Message(list.Problem)); return; }
         if (list.Unchanged) return;
         repoSlug = list.Repo;
@@ -248,6 +251,7 @@ internal sealed class GitHubTab : Border
         var current = revision;
         var detail = await CallAsync(async ct => await context.RequestAsync(GitHubContract.Detail, new(workspace, kind, n, current), ct).AsTask(), mine, token);
         if (detail is null) return;
+        freshness.Apply(detail.Cached);
         if (detail.Problem is not null) { Show(Message(detail.Problem, back: !standalone)); return; }
         if (detail.Unchanged) return;
         revision = detail.Revision;
@@ -462,10 +466,10 @@ internal sealed class GitHubTab : Border
         interval.ValueChanged += async (_, e) =>
         {
             if (e.NewValue is { } value && (int)value != info.PollSeconds)
-                try { await context.UpdateSettingsAsync(new GitHubSettings { PollSeconds = (int)value }); } catch (Exception error) when (error is not OperationCanceledException) { }
+                try { await context.UpdateSettingsAsync(context.Settings<GitHubSettings>() with { PollSeconds = (int)value }); } catch (Exception error) when (error is not OperationCanceledException) { }
         };
         root.Children.Add(interval);
-        root.Children.Add(Ui.Text($"Cache: {info.CachedRevisions} revisions (a short hash per view, so a refresh can skip an unchanged answer). Nothing from GitHub is stored.", Ui.Muted, 13));
+        root.Children.Add(new GitHubCacheSettings(context));
         root.Children.Add(Ui.Text("tereditor uses the GitHub CLI on this computer and stores no credentials. This pane reads only; it cannot post.", Ui.Muted, 13));
         Show(root);
     }

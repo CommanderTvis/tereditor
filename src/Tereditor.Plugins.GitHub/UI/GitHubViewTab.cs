@@ -39,6 +39,7 @@ internal sealed class GitHubViewTab : Border
     private string? revision;
     private int generation;
     private CancellationTokenSource? lifetime;
+    private readonly GitHubFreshness freshness;
 
     public GitHubViewTab(IPluginUIContext context, string workspace, string id)
     {
@@ -49,7 +50,8 @@ internal sealed class GitHubViewTab : Border
         kind = parts[0] switch { "run" => "runs", "discussion" => "discussions", var other => other };
         if (parts.Length == 2) { itemId = parts[1]; standalone = true; }
         linker = new(() => repoSlug, HandleLink);
-        Child = page;
+        freshness = new(page, Refresh);
+        Child = freshness;
         page.Show(null, Ui.Status("Loading…"));
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) => { lifetime = new(); poll.Interval = TimeSpan.FromSeconds(Math.Clamp(context.Settings<GitHubSettings>().PollSeconds, 15, 600)); poll.Start(); revision = null; Refresh(); };
@@ -89,6 +91,7 @@ internal sealed class GitHubViewTab : Border
         catch (OperationCanceledException) { return; }
         catch (Exception error) { if (mine == generation) page.Show(null, Message(error.Message)); return; }
         if (mine != generation || token.IsCancellationRequested) return;
+        freshness.Apply(view.Cached);
         if (view.Problem is not null) { page.Show(null, Message(view.Problem)); return; }
         if (view.Unchanged) return;
         revision = view.Revision;

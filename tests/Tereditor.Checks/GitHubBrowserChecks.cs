@@ -14,7 +14,7 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Checks;
 
 /// <summary>The GitHub issue and pull request browser against canned gh output; nothing reaches a network.</summary>
-internal static class GitHubBrowserChecks
+internal static partial class GitHubBrowserChecks
 {
     private const string Repo = """{"owner":{"login":"o"},"name":"r","url":"https://github.com/o/r","hasDiscussionsEnabled":true}""";
 

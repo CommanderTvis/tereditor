@@ -11,7 +11,7 @@ public sealed partial class GitHubBrowser
     private static readonly string[] Statuses = ["queued", "in_progress", "completed", "success", "failure", "cancelled", "skipped"];
     private static readonly string[] PackageTypes = ["container", "npm", "maven", "nuget", "rubygems"];
 
-    public async Task<GitHubView> ViewAsync(string directory, GitHubViewParams p, CancellationToken ct)
+    private async Task<GitHubView> FetchViewAsync(string directory, GitHubViewParams p, CancellationToken ct)
     {
         try
         {

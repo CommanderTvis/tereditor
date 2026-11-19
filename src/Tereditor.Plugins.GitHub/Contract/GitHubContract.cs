@@ -8,7 +8,13 @@ public sealed record GitHubSettings
 {
     /// <summary>Seconds between refreshes of an open GitHub tab; 15 to 600.</summary>
     public int PollSeconds { get; set; } = 60;
+
+    /// <summary>Keep a local copy of GitHub answers so a tab opens with the last data at once.</summary>
+    public bool KeepCache { get; set; } = true;
 }
+
+/// <summary>Set on an answer that came from the local copy. Refreshing: gh is being asked now. Reason: why gh could not be reached (the copy is all there is).</summary>
+public sealed record GitHubCacheNote(bool Refreshing, string FetchedAt, string? Reason = null);
 
 public sealed record GitHubSignInQuery;
 
@@ -36,6 +42,9 @@ public sealed record GitHubList(bool Unchanged, string Revision, string Repo, IR
 {
     /// <summary>The repository's labels, for the Label filter.</summary>
     public IReadOnlyList<GitHubLabel> RepoLabels { get; set; } = [];
+
+    /// <summary>Not null when this answer is the saved copy.</summary>
+    public GitHubCacheNote? Cached { get; init; }
 }
 
 /// <summary>One filter chip a view offers; Value is what is chosen now ("" for none).</summary>
@@ -57,7 +66,11 @@ public sealed record GitHubCard(string Title, string Author, string At, string N
 public sealed record GitHubViewParams(string WorkspaceId, string Kind, string Id, IReadOnlyList<GitHubFilterValue> Filters, int Limit = 30, string? Revision = null);
 
 public sealed record GitHubView(bool Unchanged, string Revision, string Title, string Subtitle, string State, IReadOnlyList<GitHubRow> Rows, IReadOnlyList<GitHubCard> Cards,
-    IReadOnlyList<GitHubFilter> Filters, bool HasMore, string Summary = "", string? Problem = null);
+    IReadOnlyList<GitHubFilter> Filters, bool HasMore, string Summary = "", string? Problem = null)
+{
+    /// <summary>Not null when this answer is the saved copy.</summary>
+    public GitHubCacheNote? Cached { get; init; }
+}
 
 public sealed record GitHubReviewComment(string Path, string Body);
 
@@ -122,12 +135,21 @@ public sealed record GitHubDetail(bool Unchanged, string Revision, string Repo, 
     public string? TimelineProblem { get; init; }
     /// <summary>The assignees with their avatars (the same people as Assignees).</summary>
     public IReadOnlyList<GitHubPerson> People { get; init; } = [];
+
+    /// <summary>Not null when this answer is the saved copy.</summary>
+    public GitHubCacheNote? Cached { get; init; }
 }
 
 public sealed record GitHubInfoParams(string WorkspaceId);
 
 /// <summary>What the Settings tab shows: the gh account, the repository, and how much the host remembers (revisions only, never content).</summary>
 public sealed record GitHubInfo(bool SignedIn, string Account, string Repo, string Url, bool DiscussionsEnabled, int PollSeconds, int CachedRevisions, string? Problem = null);
+
+/// <summary>Asks for the size of the local copy of GitHub answers; Clear deletes it first.</summary>
+public sealed record GitHubCacheQuery(bool Clear);
+
+/// <summary>Bytes the local copy takes on disk, or the bytes freed when it was cleared.</summary>
+public sealed record GitHubCacheSize(long Bytes);
 
 public static class GitHubContract
 {
@@ -140,7 +162,8 @@ public static class GitHubContract
     public static readonly PluginMethod<GitHubViewParams, GitHubView> View = new("view");
     public static readonly PluginMethod<GitHubPostParams, GitHubPostResult> Post = new("post");
     public static readonly PluginMethod<GitHubLogParams, GitHubLog> Log = new("log");
-    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View, Post, Log], [], GitHubJson.Default);
+    public static readonly PluginMethod<GitHubCacheQuery, GitHubCacheSize> Cache = new("cache");
+    public static readonly PluginContract Contract = PluginContract.Create<GitHubSettings>(Id, 1, [SignIn, List, Detail, Info, View, Post, Log, Cache], [], GitHubJson.Default);
 
     public const string Tool = "github";
     public const string Scheme = "github";
@@ -175,6 +198,8 @@ public static class GitHubContract
 [JsonSerializable(typeof(GitHubPostResult))]
 [JsonSerializable(typeof(GitHubLogParams))]
 [JsonSerializable(typeof(GitHubLog))]
+[JsonSerializable(typeof(GitHubCacheQuery))]
+[JsonSerializable(typeof(GitHubCacheSize))]
 public sealed partial class GitHubJson : JsonSerializerContext;
 
 /// <summary>Where a GitHub link points inside this repository; everything else is not ours to open.</summary>

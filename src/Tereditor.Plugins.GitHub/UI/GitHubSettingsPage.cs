@@ -32,6 +32,7 @@ internal sealed class GitHubSettingsPage : StackPanel
         row.Classes.Add("settings-row");
         Children.Add(description);
         Children.Add(row);
+        Children.Add(new GitHubCacheSettings(context));
         poll.Tick += async (_, _) => await CheckAsync();
         AttachedToVisualTree += async (_, _) =>
         {
