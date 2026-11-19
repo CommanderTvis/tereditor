@@ -38,7 +38,7 @@ internal static class UiErrorChecks
             Require(ran, "The dispatcher keeps processing jobs after the failure.");
 
             now += 1000; Click(); Dispatcher.UIThread.RunJobs(); guard.Flush();
-            Require(notices.Count == 1 && File.ReadAllText(log).Split("boom from a click").Length - 1 >= 4, "A repeat within 10 s is logged but not noticed again.");
+            Require(notices.Count == 1 && File.ReadAllText(log).Split("boom from a click").Length - 1 == 2, "A repeat within 10 s is logged but not noticed again.");
             now += 11_000; Click(); Dispatcher.UIThread.RunJobs();
             Require(notices.Count == 2, "After 10 s the same exception is noticed again.");
             window.Close();
