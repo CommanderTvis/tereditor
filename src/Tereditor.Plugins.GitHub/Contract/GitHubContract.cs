@@ -66,7 +66,7 @@ public sealed record GitHubCard(string Title, string Author, string At, string N
 public sealed record GitHubViewParams(string WorkspaceId, string Kind, string Id, IReadOnlyList<GitHubFilterValue> Filters, int Limit = 30, string? Revision = null)
 {
     /// <summary>The 1-based page of Limit rows to read; a list view answers only that page.</summary>
-    public int Page { get; init; } = 1;
+    public int Page { get; set; } = 1;
 }
 
 /// <summary>One workflow of the repository. State is active or a disabled kind; Path is the file under .github/workflows (or dynamic/... for GitHub's own).</summary>
@@ -83,13 +83,13 @@ public sealed record GitHubView(bool Unchanged, string Revision, string Title, s
     public GitHubCacheNote? Cached { get; init; }
 
     /// <summary>The runs of the asked page (Actions list only; Rows stays empty there).</summary>
-    public IReadOnlyList<GitHubRun> Runs { get; init; } = [];
+    public IReadOnlyList<GitHubRun> Runs { get; set; } = [];
 
     /// <summary>The repository's workflows (Actions list, first page only).</summary>
-    public IReadOnlyList<GitHubWorkflow> Workflows { get; init; } = [];
+    public IReadOnlyList<GitHubWorkflow> Workflows { get; set; } = [];
 
     /// <summary>The repository's web address, for workflow file links.</summary>
-    public string RepoUrl { get; init; } = "";
+    public string RepoUrl { get; set; } = "";
 
     /// <summary>All runs that match, as GitHub counts them.</summary>
     public int Total { get; init; }

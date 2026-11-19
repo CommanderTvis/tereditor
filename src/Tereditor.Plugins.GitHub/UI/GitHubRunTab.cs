@@ -38,6 +38,7 @@ internal sealed class GitHubRunTab : Border
     private string selectedJob = "";
     private int generation;
     private CancellationTokenSource? lifetime;
+    private readonly GitHubFreshness freshness;
 
     public GitHubRunTab(IPluginUIContext? context, string workspace, string id, Func<GitHubViewParams, CancellationToken, Task<GitHubView>>? loadView = null,
         Func<string, CancellationToken, Task<GitHubLog>>? loadLog = null, Func<DateTimeOffset>? now = null)
@@ -69,7 +70,8 @@ internal sealed class GitHubRunTab : Border
         var root = new Grid { RowDefinitions = new("Auto,*") };
         root.Children.Add(top); Grid.SetRow(body, 1); root.Children.Add(body);
         content.Child = root;
-        Child = content;
+        freshness = new(content, Refresh);
+        Child = freshness;
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) =>
         {
@@ -94,6 +96,7 @@ internal sealed class GitHubRunTab : Border
         catch (OperationCanceledException) { return; }
         catch (Exception error) { if (mine == generation) Show(error.Message); return; }
         if (mine != generation || token.IsCancellationRequested) return;
+        freshness.Apply(view.Cached);
         if (view.Problem is not null) { Show(view.Problem); return; }
         if (view.Unchanged) return;
         revision = view.Revision;

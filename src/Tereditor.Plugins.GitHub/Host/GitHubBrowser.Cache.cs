@@ -34,7 +34,7 @@ public sealed partial class GitHubBrowser
         l => JsonSerializer.Serialize(l, GitHubJson.Default.GitHubList), s => Parse(s, GitHubJson.Default.GitHubList));
 
     private static readonly Codec<GitHubView> ViewCodec = new(v => v.Problem, v => v.Revision, _ => true,
-        (v, have) => have == v.Revision ? v with { Unchanged = true, Rows = [], Cards = [] } : v, (v, note) => v with { Cached = note },
+        (v, have) => have == v.Revision ? v with { Unchanged = true, Rows = [], Cards = [], Runs = [], Workflows = [] } : v, (v, note) => v with { Cached = note },
         v => JsonSerializer.Serialize(v, GitHubJson.Default.GitHubView), s => Parse(s, GitHubJson.Default.GitHubView));
 
     private static readonly Codec<GitHubDetail> DetailCodec = new(d => d.Problem, d => d.Revision, d => d.TimelineProblem is null,
@@ -57,7 +57,7 @@ public sealed partial class GitHubBrowser
 
     public Task<GitHubView> ViewAsync(string directory, GitHubViewParams p, CancellationToken ct) =>
         ServeAsync(directory, "view:" + p.Kind, p.Id + "|" + string.Join(',', p.Filters.Where(f => f.Value.Length > 0).GroupBy(f => f.Key).Select(g => g.Key + "=" + g.Last().Value).Order(StringComparer.Ordinal))
-            + "|" + Math.Clamp(p.Limit, 1, 100).ToString(CultureInfo.InvariantCulture), p.Revision, ViewCodec, token => FetchViewAsync(directory, p with { Revision = null }, token), ct);
+            + "|" + Math.Clamp(p.Limit, 1, 100).ToString(CultureInfo.InvariantCulture) + "|" + Math.Max(1, p.Page).ToString(CultureInfo.InvariantCulture), p.Revision, ViewCodec, token => FetchViewAsync(directory, p with { Revision = null }, token), ct);
 
     /// <summary>Bytes the local copy takes on disk.</summary>
     public Task<long> CacheSizeAsync() => cache is null ? Task.FromResult(0L) : cache.SizeAsync();

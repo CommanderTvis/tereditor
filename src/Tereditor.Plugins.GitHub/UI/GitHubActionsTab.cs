@@ -60,6 +60,7 @@ internal sealed class GitHubActionsTab : Border
     private string? revision;
     private int generation;
     private CancellationTokenSource? lifetime;
+    private readonly GitHubFreshness freshness;
 
     public GitHubActionsTab(IPluginUIContext? context, string workspace, Func<GitHubViewParams, CancellationToken, Task<GitHubView>>? loadView = null,
         Func<DateTimeOffset>? now = null, TimeZoneInfo? zone = null)
@@ -108,7 +109,8 @@ internal sealed class GitHubActionsTab : Border
         var root = new Grid { ColumnDefinitions = new("Auto,*") };
         var side = new Grid { Children = { sidebar, collapsed } };
         root.Children.Add(side); Grid.SetColumn(main, 1); root.Children.Add(main);
-        Child = root;
+        freshness = new(root, () => { if (!busy) _ = PollAsync(); });
+        Child = freshness;
         UpdateRefreshButton();
 
         poll.Tick += (_, _) => { if (!busy) _ = PollAsync(); };
@@ -159,10 +161,12 @@ internal sealed class GitHubActionsTab : Border
         var mine = ++generation;
         busy = true;
         items.Clear(); pages = 0; hasMore = false; revision = null;
+        scroll.Offset = default;
         centre.Text = "Loading…"; centre.IsVisible = true;
         var view = await FetchAsync(1, null, mine);
         if (view is null) return;
         busy = false;
+        freshness.Apply(view.Cached);
         if (view.Problem is not null) { Problem(view.Problem); return; }
         Header(view);
         pages = 1;
@@ -198,6 +202,7 @@ internal sealed class GitHubActionsTab : Border
         busy = true;
         var view = await FetchAsync(1, revision, mine);
         busy = false;
+        if (view is not null) freshness.Apply(view.Cached);
         if (view is null || view.Problem is not null || view.Unchanged) return;
         revision = view.Revision;
         Header(view);
