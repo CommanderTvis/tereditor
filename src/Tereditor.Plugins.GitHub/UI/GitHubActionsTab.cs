@@ -234,7 +234,7 @@ internal sealed class GitHubActionsTab : Border
     {
         if (busy || !hasMore || RunCount >= MaxRuns || items.Count == 0) return;
         var left = scroll.Extent.Height - scroll.Offset.Y - scroll.Viewport.Height;
-        if (scroll.Viewport.Height > 0 && left < 400) _ = MoreAsync();
+        if (scroll.Viewport.Height > 0 && scroll.Extent.Height > 0 && left < 400) _ = MoreAsync();
     }
 
     private void SetFooter(bool loading = false)
