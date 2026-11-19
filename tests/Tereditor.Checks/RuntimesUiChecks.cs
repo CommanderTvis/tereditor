@@ -177,9 +177,10 @@ internal static class RuntimesUiChecks
                 case "RequestAsync":
                     {
                         var task = handler(((PluginMethodSpec)args![0]!).Name, args[1]!, (CancellationToken)args[2]!);
+                        // An answer returns the (now empty) list of waiting downloads, not a state.
+                        if (((PluginMethodSpec)args[0]!).Name == "answer") return Activator.CreateInstance(method.ReturnType, new RuntimeConsents([]));
                         return Activator.CreateInstance(method.ReturnType, task);
                     }
-                case "Subscribe": return new Stop(new bool[1]);
                 case "Subscribe": return new Stop(new bool[1]);
                 case "Prompt":
                     {

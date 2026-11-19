@@ -158,32 +158,33 @@ internal static class LanguageDependencyChecks
         finally { window.Close(); SynchronizationContext.SetSynchronizationContext(previous); }
     }
 
-    /// <summary>A server that needs Bun while Runtimes is off shows Needs Bun with Turn it on; the button switches the plugin on through host state.</summary>
-    private static void RuntimesOff(string root, string workspace)
+    /// <summary>A Bun that is missing only because Runtimes is off shows Turn it on; the click switches the plugin on through host state and tells the row to start again. A missing tool of any other kind shows none.</summary>
+    private static void RuntimesOff(string root, string unused)
     {
-        File.WriteAllText(Path.Combine(workspace, "main.ts"), "export {};\n");
-        var state = new HostStateStore(Path.Combine(root, "runtimes-off-state")) { RuntimesEnabled = () => false };
+        var state = new HostStateStore(Path.Combine(root, "runtimes-off-state"));
         using var shared = new SharedState(new LocalStateAdapter(state), new(), state.Current);
         shared.Start();
-        var pane = new Tereditor.UI.Panels.LanguagePanel(new LocalProjectAdapter(new ProjectServices(workspace, state)), workspace, _ => Task.CompletedTask, shared);
-        var window = new Window { Width = 520, Height = 900, Content = pane };
+        var list = new Tereditor.UI.Panels.LanguageDependencyList
+        {
+            Dependencies = [
+            new("bun", "Bun", "missing", "", "managed", "Install Bun", "Bun is not installed and Runtimes is off."),
+            new("go", "Go", "missing", "", "", "Install Go")]
+        };
+        Tereditor.UI.Panels.LanguageDependencyList.SetHostState(list, shared);
+        var turned = 0;
+        list.AddHandler(Tereditor.UI.Panels.LanguageDependencyList.TurnedOnEvent, (_, _) => turned++);
+        var window = new Window { Width = 520, Height = 400, Content = list };
         var previous = SynchronizationContext.Current; SynchronizationContext.SetSynchronizationContext(null);
         window.Show();
         try
         {
-            var servers = pane.FindControl<ListBox>("Servers")!;
-            ListBoxItem? Row()
-            {
-                for (var index = 0; index < servers.ItemCount; index++)
-                    if (servers.Items[index]?.ToString()?.StartsWith("JavaScript / TypeScript", StringComparison.Ordinal) == true && servers.ContainerFromIndex(index) is ListBoxItem item) return item;
-                return null;
-            }
-            Button? TurnOn() => Row()?.GetLogicalDescendants().OfType<Button>().FirstOrDefault(button => button.Name == "DependencyTurnOn" && button.IsEffectivelyVisible);
-            E2E.E2eWorkspace.Until(() => TurnOn() is not null, "The TypeScript row did not offer Turn it on while Runtimes is off. Rows: " + string.Join(" | ", servers.Items.Cast<object>().Select(item => item.ToString())) + " Row buttons: " + string.Join(",", Row()?.GetLogicalDescendants().OfType<Button>().Select(button => button.Name + (button.IsEffectivelyVisible ? "+" : "-")) ?? []));
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            var buttons = list.GetLogicalDescendants().OfType<Button>().Where(button => button.Name == "DependencyTurnOn" && button.IsEffectivelyVisible).ToArray();
+            Require(buttons.Length == 1 && buttons[0].DataContext is Tereditor.UI.Panels.LanguageDependencyList.DependencyRow { Dependency.Executable: "bun" }, "Turn it on shows once, on the Bun row only.");
             Require(!(shared.Current.PluginSettings.TryGetValue("runtimes", out var before) && before.ToString().Contains("true", StringComparison.Ordinal)), "Runtimes was on before the click.");
-            TurnOn()!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            E2E.E2eWorkspace.Until(() => shared.Current.PluginSettings.TryGetValue("runtimes", out var after) && after.ToString().Contains("true", StringComparison.Ordinal), "Turn it on did not switch Runtimes on in host state.");
-            Console.WriteLine("PASS a server that needs Bun while Runtimes is off offers Turn it on, and the click switches the plugin on");
+            buttons[0].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            E2E.E2eWorkspace.Until(() => turned == 1 && shared.Current.PluginSettings.TryGetValue("runtimes", out var after) && after.ToString().Contains("true", StringComparison.Ordinal), "Turn it on did not switch Runtimes on and tell the row.");
+            Console.WriteLine("PASS a missing Bun while Runtimes is off offers Turn it on, and the click switches the plugin on and restarts the row");
         }
         finally { window.Close(); SynchronizationContext.SetSynchronizationContext(previous); }
     }
