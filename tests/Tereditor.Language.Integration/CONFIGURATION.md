@@ -14,7 +14,7 @@ Public protocol/configuration references used for the controls:
 - Pyright 1.1.414: https://github.com/microsoft/pyright/blob/main/docs/settings.md
 - Roslyn 5.13.0-1.26507.4: https://github.com/dotnet/roslyn/tree/main/src/LanguageServer
 - Eclipse JDT LS 1.61.0: https://github.com/eclipse-jdtls/eclipse.jdt.ls
-- JetBrains Kotlin and IntelliJ 263.6379.0:
+- JetBrains Kotlin 271.2085.0 and IntelliJ 263.7084.0:
   https://github.com/Kotlin/kotlin-lsp/blob/main/vscode-extension-core/src/initializationSettings.ts
   and https://github.com/JetBrains/intellij-lsp.nvim/blob/main/lua/intellij-lsp/client.lua
 - gopls v0.23.0: https://github.com/golang/tools/blob/master/gopls/doc/settings.md

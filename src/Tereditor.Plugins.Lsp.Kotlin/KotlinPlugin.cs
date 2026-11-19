@@ -28,7 +28,7 @@ public sealed class KotlinPlugin() : LanguageServerPlugin(Id)
         Id = "kotlin",
         Name = "Kotlin (Kotlin LS)",
         Icon = LanguageServerIcon.Embedded(typeof(KotlinPlugin).Assembly, "Icon.svg"),
-        Version = "263.6379.0",
+        Version = "271.2085.0",
         Executable = "kotlin-lsp",
         Arguments = ["--stdio"],
         Extensions = [".kt", ".kts"],
@@ -50,15 +50,15 @@ public sealed class KotlinPlugin() : LanguageServerPlugin(Id)
         Artifacts = [
         .. new[]
         {
-            ("macos-x86_64", "", ".sit", "zip", "e69e0c9d27b915b2db9ee692ec08d097df1a394d9f21190457ef199f2905f77e"),
-            ("macos-aarch64", "-aarch64", ".sit", "zip", "ebef2e13cd4adc4ec9e04084b848000a3ec7a9d2917c64f269574ce2efe9ecad"),
-            ("linux-x86_64", "", ".tar.gz", "tar.gz", "ab8ca4455dc2fc5fe1a24db2bccc46c104254d2c465155c4251ee65df8f3f7cc"),
-            ("linux-aarch64", "-aarch64", ".tar.gz", "tar.gz", "50999901ef8bcfa1e58561b6a8d782a72dea5620fcf92a64130807f8924a56fc"),
-            ("windows-x86_64", "", ".win.zip", "zip", "72148fa0832c2a45a4b26c55f56197d8d8886bcdb732b910607efc5e2693b9df"),
-            ("windows-aarch64", "-aarch64", ".win.zip", "zip", "290f48cb564295239bb678bb66b1ebbd06755b14fd4890f3cdf822f41af011ef")
+            ("macos-x86_64", "", ".sit", "zip", "68457ab1825331e3eac85191b7c32737cbd8993867f5a9c50dfe012c5509e8f7"),
+            ("macos-aarch64", "-aarch64", ".sit", "zip", "2d22388f58be6f4dfa7a8f18c1e231871164dcacc16e407559029d7232816b4a"),
+            ("linux-x86_64", "", ".tar.gz", "tar.gz", "e398e799027f41749ea33faa57470307d13d40f910961858c7e30adbd778ae08"),
+            ("linux-aarch64", "-aarch64", ".tar.gz", "tar.gz", "877aee612a17dab48144466282a6414ec58ab428a10b97c7e13edd9b6b3dc96e"),
+            ("windows-x86_64", "", ".win.zip", "zip", "da210a7d84a06f855b8b7b04c5bd54936d270e79f3ea13a9c6ddc2f1046b2a98"),
+            ("windows-aarch64", "-aarch64", ".win.zip", "zip", "7cce2ebb1a28e2500e2093015f9f862f39c99c2a626073272604c57bb57ec23b")
         }.Select(item => new LanguageServerArtifact(item.Item1,
-            $"https://download.jetbrains.com/language-server/kotlin-server/263.6379.0/kotlin-server-263.6379.0{item.Item2}{item.Item3}", item.Item5, item.Item4,
-            $"https://download.jetbrains.com/language-server/kotlin-server/263.6379.0/kotlin-server-263.6379.0{item.Item2}{item.Item3}.sha256", JetBrains))
+            $"https://download.jetbrains.com/language-server/kotlin-server/271.2085.0/kotlin-server-271.2085.0{item.Item2}{item.Item3}", item.Item5, item.Item4,
+            $"https://download.jetbrains.com/language-server/kotlin-server/271.2085.0/kotlin-server-271.2085.0{item.Item2}{item.Item3}.sha256", JetBrains))
         ],
         ProjectKind = manifest => Path.GetFileName(manifest) switch
         {

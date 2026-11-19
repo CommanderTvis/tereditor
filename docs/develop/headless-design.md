@@ -387,7 +387,7 @@ What the code does today (verified by reading `LanguageServers*.cs`, `ManagedArt
 | C# (Roslyn 5.13.0-1.26507.4) | .NET SDK. `dotnet tool install` at install time, and the server needs an SDK to load MSBuild projects | `Dependencies = dotnet`, `HomeVariable DOTNET_ROOT`; `ConfigureLaunch` sets `DOTNET_ROOT` and prepends it to `PATH` from `FindDotnet()` |
 | TypeScript, Python (Pyright 1.1.414), PHP, CSS, Shell | Node.js 18+ and npm (`npm ci --ignore-scripts` from an embedded lockfile, then `node <package>/<file>`) | `RequireTool("node")`, `RequireTool("npm")` through `ProbeTool` |
 | Java (JDT LS 1.61.0) | JDK 21+ to run the server and for the project's Maven/Gradle import | `RequireTool("java")`, `HomeVariable JAVA_HOME`; `ProjectJava.cs` also reads `JAVA_HOME` and SDKMAN |
-| Kotlin LSP 263.6379.0, IntelliJ server 263.7084.0 | IntelliJ server: bundles JBR 25 (`jbr/` in the archive; read for linux-x86_64, linux-aarch64 and macOS). Kotlin LSP: not read | `Pinning.Archive` / `None` with the provider's own launcher |
+| Kotlin LSP 271.2085.0, IntelliJ server 263.7084.0 | IntelliJ server: bundles JBR 25 (`jbr/` in the archive; read for linux-x86_64, linux-aarch64 and macOS). Kotlin LSP: not read | `Pinning.Archive` / `None` with the provider's own launcher |
 | clangd, rust-analyzer | none | pinned archive |
 | Go, Ruby, R, PowerShell, Scala, Swift, Dart | the language's own tool (`go`, `gem`, `Rscript`, `pwsh`, `cs`, SDK) | `RequireTool` |
 | Python itself | not needed to start Pyright. Needed for import resolution of the project's packages (`python.pythonPath` setting) | the user's setting or PATH |
