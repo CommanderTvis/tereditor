@@ -293,6 +293,7 @@ internal static class ClaudeContextChecks
             deferredMcp.Children.All(server => server.Suffix == " if loaded"),
             "With every MCP tool deferred the MCP tools row stays, at 0 loaded with the deferred total in its tip, listing its servers \"if loaded\" and their tools.");
         BaselineLineLayout();
+        RowMoreButton();
         CapabilityTree();
         PluginPartsTree();
         Require(rows.Single(row => row.Key == "skills").Children.Select(skill => skill.Label).SequenceEqual(["dataviz", "example:review", "tidy"]),
@@ -360,6 +361,66 @@ internal static class ClaudeContextChecks
 
     // A long row name trims with an ellipsis before the chevron and the count; the chevron follows a name that fits,
     // and the count keeps its column at the right edge, in a narrow pane and a wide one.
+    // The row's "more" button goes through its real click: the menu opens on the row it is attached to, holds the row's
+    // actions, and closing it hides the button again. No row, with or without actions, changes height when the pointer
+    // enters it or the menu opens and closes.
+    private static void RowMoreButton()
+    {
+        static IEnumerable<ClaudeConfigPanel.BaselineEntry> Flatten(IEnumerable<ClaudeConfigPanel.BaselineEntry> entries) =>
+            entries.SelectMany(entry => new[] { entry }.Concat(Flatten(entry.Children)));
+        var none = new HashSet<string>();
+        var entries = Flatten(ClaudeConfigPanel.BaselineRows(Fixture(), claudePrompt: 1_300)).ToList();
+        var edited = new List<PendingEdit>();
+        var stack = new StackPanel();
+        var rows = entries.Select(entry =>
+        {
+            var line = ClaudeConfigPanel.BaselineLine(entry, depth: 0, open: false);
+            var actions = ClaudeConfigPanel.RowActions(entry, none, none);
+            ClaudeConfigPanel.AttachRowActions(line, actions, edited.Add);
+            stack.Children.Add(line);
+            return (entry, line, actions);
+        }).ToList();
+        var host = new Window { Width = 520, Height = 900, Content = new ScrollViewer { Content = stack } };
+        host.Show();
+        try
+        {
+            E2eWorkspace.Settle();
+            Require(rows.Any(row => row.actions.Count == 0) && rows.Any(row => row.actions.Count > 0) &&
+                rows.Any(row => row.entry.Key.StartsWith("skills/", StringComparison.Ordinal) && row.actions.Count > 0),
+                "The fixture has rows with and without actions, skills among them.");
+            var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), Avalonia.Input.PointerType.Mouse, true);
+            void Raise(Avalonia.Interactivity.RoutedEvent<Avalonia.Input.PointerEventArgs> routed, Control line) =>
+                line.RaiseEvent(new Avalonia.Input.PointerEventArgs(routed, line, pointer, host, default, 0,
+                    new Avalonia.Input.PointerPointProperties(), Avalonia.Input.KeyModifiers.None));
+            double[] Heights() => [.. rows.Select(row => row.line.Bounds.Height)];
+            var before = Heights();
+            foreach (var (entry, line, actions) in rows)
+            {
+                var more = line.GetLogicalDescendants().OfType<Button>().SingleOrDefault(button => button.Name == "ClaudeContextRowMore");
+                Require((more is not null) == (actions.Count > 0), $"Row {entry.Key} has the more button exactly when it has actions.");
+                Raise(Avalonia.Input.InputElement.PointerEnteredEvent, line);
+                E2eWorkspace.Settle();
+                Require(Heights().SequenceEqual(before), $"Entering {entry.Key} changes no row height.");
+                if (more is null) { Raise(Avalonia.Input.InputElement.PointerExitedEvent, line); continue; }
+                Require(more.Opacity == 1 && more.IsHitTestVisible && more.IsVisible, $"The pointer over {entry.Key} shows its more button.");
+                more.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                E2eWorkspace.Settle();
+                var menu = line.ContextMenu!;
+                Require(menu.IsOpen && ReferenceEquals(menu, line.ContextMenu) &&
+                    menu.Items.OfType<MenuItem>().Select(item => (string?)item.Header).SequenceEqual(actions.Select(action => action.Label)),
+                    $"Clicking the more button of {entry.Key} opens the row's menu with its actions.");
+                Require(Heights().SequenceEqual(before), $"Opening the menu of {entry.Key} changes no row height.");
+                Raise(Avalonia.Input.InputElement.PointerExitedEvent, line);
+                Require(more.Opacity == 1, "The button stays while its menu is open.");
+                menu.Close();
+                E2eWorkspace.Settle();
+                Require(!menu.IsOpen && more.Opacity == 0 && !more.IsHitTestVisible && Heights().SequenceEqual(before),
+                    $"Closing the menu of {entry.Key} hides the button again and changes no row height.");
+            }
+        }
+        finally { host.Close(); }
+    }
+
     private static void BaselineLineLayout()
     {
         var tool = new ClaudeConfigPanel.BaselineEntry("mcp-tools/long/tool", "tool", "code", 300, []);

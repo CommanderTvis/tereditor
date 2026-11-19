@@ -574,18 +574,13 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return [.. entries.OrderByDescending(entry => entry.Tokens)];
     }
 
-    // The same row as a file's: tokens docked right, a glyph, the name. A row with parts keeps its glyph, adds a
-    // chevron after its name and opens them below it, indented a step.
-    private void AddBaselineRow(Panel list, BaselineEntry entry, int depth)
+    /// <summary>Adds the row's context menu and the button that opens it. The button always takes its space, so the row never changes height.</summary>
+    internal static void AttachRowActions(DockPanel line, IReadOnlyList<RowAction> actions, Action<PendingEdit> edit)
     {
-        var open = expandedRows.Contains(entry.Key);
-        var line = BaselineLine(entry, depth, open);
-        list.Children.Add(line);
-        var actions = RowActions(entry, rowDenied, rowSkillsOff);
-        if (actions.Count > 0)
+        if (actions.Count == 0) return;
         {
             var menu = new ContextMenu { Name = "ClaudeContextRowMenu" };
-            foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => Edit(action.Edit)));
+            foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => edit(action.Edit)));
             line.ContextMenu = menu;
             // Right-click is not something a row hints at: a small button shows while the pointer is over it and opens the same menu.
             var more = new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), Margin = new Thickness(0, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
@@ -599,6 +594,16 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             SetDock(more, Dock.Right);
             line.Children.Insert(1, more);
         }
+    }
+
+    // The same row as a file's: tokens docked right, a glyph, the name. A row with parts keeps its glyph, adds a
+    // chevron after its name and opens them below it, indented a step.
+    private void AddBaselineRow(Panel list, BaselineEntry entry, int depth)
+    {
+        var open = expandedRows.Contains(entry.Key);
+        var line = BaselineLine(entry, depth, open);
+        list.Children.Add(line);
+        AttachRowActions(line, RowActions(entry, rowDenied, rowSkillsOff), Edit);
         if (entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && rowSkillFiles.TryGetValue(entry.Key["skills/".Length..], out var skillFile))
         {
             line.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
