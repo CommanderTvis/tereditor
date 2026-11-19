@@ -244,7 +244,7 @@ internal static class ClaudeContextChecks
         var none = new HashSet<string>();
         var skills = rows.Single(row => row.Key == "skills").Children;
         var dataviz = ClaudeConfigPanel.RowActions(skills.Single(row => row.Label == "dataviz"), none, none).Single();
-        var reviewing = ClaudeConfigPanel.RowActions(skills.Single(row => row.Label == "example:review"), none, none).Single();
+        var reviewing = ClaudeConfigPanel.RowActions(skills.SelectMany(row => row.Children.Prepend(row)).Single(row => row.Key == "skills/example:review"), none, none).Single();
         var docs = ClaudeConfigPanel.RowActions(rows.Single(row => row.Key == "mcp-tools").Children[0], none, none).Single();
         var docsTool = ClaudeConfigPanel.RowActions(rows.Single(row => row.Key == "mcp-tools").Children[0].Children[0], none, none).Single();
         var builtIn = rows.Single(row => row.Key == "system-tools").Children;
@@ -294,10 +294,11 @@ internal static class ClaudeContextChecks
             "With every MCP tool deferred the MCP tools row stays, at 0 loaded with the deferred total in its tip, listing its servers \"if loaded\" and their tools.");
         BaselineLineLayout();
         RowMoreButton();
+        DeniedRow();
         CapabilityTree();
         PluginPartsTree();
-        Require(rows.Single(row => row.Key == "skills").Children.Select(skill => skill.Label).SequenceEqual(["dataviz", "example:review", "tidy"]),
-            "Skills open into each skill, heaviest first.");
+        Require(rows.Single(row => row.Key == "skills").Children.Select(skill => skill.Label).SequenceEqual(["dataviz", "example", "tidy"]),
+            "Skills open into each skill and each plugin, heaviest first.");
 
         var view = new ClaudeContextUsageView();
         var window = new Window { Width = 520, Height = 200, Content = view };
@@ -417,6 +418,44 @@ internal static class ClaudeContextChecks
                 Require(!menu.IsOpen && more.Opacity == 0 && !more.IsHitTestVisible && Heights().SequenceEqual(before),
                     $"Closing the menu of {entry.Key} hides the button again and changes no row height.");
             }
+        }
+        finally { host.Close(); }
+    }
+
+    // A row turned off reads as off from its controls: struck-through dimmed name, dimmed icon, a Denied label where the
+    // size or dash was, and the same height as when it is on.
+    private static void DeniedRow()
+    {
+        var tool = ClaudeConfigPanel.BaselineRows(Fixture(), claudePrompt: 1_300).Single(row => row.Key == "system-tools").Children.Single(row => row.Label == "WebSearch");
+        var skill = ClaudeConfigPanel.BaselineRows(Fixture(), claudePrompt: 1_300).Single(row => row.Key == "skills").Children.Single(row => row.Label == "dataviz");
+        var none = new HashSet<string>();
+        var stack = new StackPanel();
+        Control Build(ClaudeConfigPanel.BaselineEntry entry, HashSet<string> denied, HashSet<string> skillsOff)
+        {
+            var actions = ClaudeConfigPanel.RowActions(entry, denied, skillsOff);
+            var line = ClaudeConfigPanel.BaselineLine(entry, 0, false, ClaudeConfigPanel.IsOff(actions));
+            stack.Children.Add(line);
+            return line;
+        }
+        var allowed = Build(tool, none, none);
+        var off = Build(tool, ["WebSearch"], none);
+        var skillOff = Build(skill, none, ["dataviz"]);
+        var host = new Window { Width = 400, Height = 200, Content = stack };
+        host.Show();
+        try
+        {
+            E2eWorkspace.Settle();
+            TextBlock Name(Control line) => line.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextName");
+            Require(Name(allowed).TextDecorations is null && !allowed.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Name == "ClaudeContextDenied"),
+                "An allowed row has no strikethrough and no Denied label.");
+            foreach (var line in new[] { off, skillOff })
+            {
+                var label = line.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextDenied");
+                Require(Name(line).TextDecorations == Avalonia.Media.TextDecorations.Strikethrough && label.Text == "Denied" &&
+                    !ReferenceEquals(Name(line).Foreground, Name(allowed).Foreground) && !line.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Text == "—"),
+                    "A denied row strikes its name through in a dimmed tone and says Denied instead of the dash.");
+            }
+            Require(off.Bounds.Height == allowed.Bounds.Height, $"A denied row keeps its height ({off.Bounds.Height} against {allowed.Bounds.Height}).");
         }
         finally { host.Close(); }
     }

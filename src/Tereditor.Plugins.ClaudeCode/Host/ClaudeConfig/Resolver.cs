@@ -259,6 +259,8 @@ internal static partial class ClaudeResolver
         foreach (var capability in snapshot.Capabilities)
         {
             Add(capability.Origin.Path);
+            // A skill's origin is its folder; the Context rows open its SKILL.md.
+            if (capability.Kind == ClaudeCapabilityKind.Skill && capability.Origin.Path is { } folder) Add(Path.Combine(folder, "SKILL.md"));
             foreach (var part in capability.Parts ?? []) Add(part.Path);
         }
         foreach (var setting in snapshot.Settings)

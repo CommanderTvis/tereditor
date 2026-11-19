@@ -395,10 +395,11 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return column;
     }
 
-    private static WrapPanel Title(string label)
+    private static WrapPanel Title(string label, bool denied = false)
     {
-        var name = Ui.Text(label, Ui.TextBrush, 13);
+        var name = Ui.Text(label, denied ? Ui.Hint : Ui.TextBrush, 13);
         name.Name = "ClaudeContextName";
+        if (denied) name.TextDecorations = TextDecorations.Strikethrough;
         name.TextTrimming = TextTrimming.CharacterEllipsis;
         return new WrapPanel { Name = "ClaudeContextTitle", Orientation = Orientation.Horizontal, ItemSpacing = 4, LineSpacing = 2, Children = { name } };
     }
@@ -421,6 +422,16 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         var text = Ui.Text("—", Ui.Hint, 11);
         text.VerticalAlignment = VerticalAlignment.Center;
         ToolTip.SetTip(text, "/context does not report a size for each built-in tool");
+        return text;
+    }
+
+    // A row the user turned off: said in words at the right, where the size would be, at the same 11px as the dash it replaces.
+    private static Control Denied()
+    {
+        var text = Ui.Text("Denied", Ui.Danger, 11);
+        text.Name = "ClaudeContextDenied";
+        text.VerticalAlignment = VerticalAlignment.Center;
+        ToolTip.SetTip(text, "Turned off in the Claude Code settings");
         return text;
     }
 
@@ -601,9 +612,10 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private void AddBaselineRow(Panel list, BaselineEntry entry, int depth)
     {
         var open = expandedRows.Contains(entry.Key);
-        var line = BaselineLine(entry, depth, open);
+        var actions = RowActions(entry, rowDenied, rowSkillsOff);
+        var line = BaselineLine(entry, depth, open, denied: IsOff(actions));
         list.Children.Add(line);
-        AttachRowActions(line, RowActions(entry, rowDenied, rowSkillsOff), Edit);
+        AttachRowActions(line, actions, Edit);
         if (entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && rowSkillFiles.TryGetValue(entry.Key["skills/".Length..], out var skillFile))
         {
             line.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
@@ -633,16 +645,19 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     // One row's line. The name trims with an ellipsis (its tooltip has it whole) so it never runs under the chevron
     // or the count: the chevron docks right inside a left-aligned panel, so it follows a short name and holds its
     // place at the end of the name's room when the name is long.
-    internal static DockPanel BaselineLine(BaselineEntry entry, int depth, bool open)
+    /// <summary>Whether the row's one action is the way back, so the row is turned off.</summary>
+    internal static bool IsOff(IReadOnlyList<RowAction> actions) => actions.Count > 0 && actions[0].Edit.Edit is DenyToolEdit { Denied: false } or SkillEdit { Enabled: true };
+
+    internal static DockPanel BaselineLine(BaselineEntry entry, int depth, bool open, bool denied = false)
     {
         var line = new DockPanel { Name = "ClaudeContextBaseline", Tag = entry.Key, Margin = new Thickness(8 + depth * 16, 4, 8, 4), Background = Brushes.Transparent };
-        line.Children.Add(SizeColumn(entry.Tokens < 0 ? NotReported() : Measure(entry.Tokens, Ui.Muted, entry.Suffix)));
-        var glyph = Ui.Icon(entry.Icon, Ui.Hint, 14);
+        line.Children.Add(SizeColumn(denied ? Denied() : entry.Tokens < 0 ? NotReported() : Measure(entry.Tokens, Ui.Muted, entry.Suffix)));
+        var glyph = Ui.Icon(entry.Icon, denied ? Ui.Muted : Ui.Hint, 14);
         glyph.Margin = new Thickness(0, 0, 8, 0);
         glyph.VerticalAlignment = VerticalAlignment.Center;
         SetDock(glyph, Dock.Left);
         line.Children.Add(glyph);
-        var title = Title(entry.Label);
+        var title = Title(entry.Label, denied);
         ToolTip.SetTip(title.Children[0], entry.Label);
         if (entry.Children.Count > 0)
         {

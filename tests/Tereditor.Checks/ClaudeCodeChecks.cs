@@ -2139,6 +2139,17 @@ internal static class ClaudeCodeChecks
             plugins["gone@fake-market"].Parts is null, "A snapshot carries the parts of every plugin, a disabled one included, and none for a plugin without files.");
         var skillFile = Path.Combine(full, "skills", "alpha", "SKILL.md");
         Require(ClaudeResolver.ReadFile("plugin-ws", project, skillFile).Content.Contains("body", StringComparison.Ordinal), "A plugin's file opens for reading.");
+        // A user or project skill's SKILL.md opens (Context lists it, whatever folder it lives in); a file no row names does not.
+        var ownSkill = Path.Combine(project, ".claude", "skills", "mine", "SKILL.md");
+        Write(ownSkill, "---\nname: mine\n---\nown body\n");
+        var unlisted = Path.Combine(directory, "unlisted", "SKILL.md");
+        Write(unlisted, "---\nname: unlisted\n---\n");
+        var unlistedRefused = false;
+        try { ClaudeResolver.ReadFile("plugin-ws", project, unlisted); }
+        catch (InvalidOperationException) { unlistedRefused = true; }
+        Require(ClaudeResolver.FilePaths("plugin-ws", project).Contains(ownSkill) && ClaudeResolver.ReadFile("plugin-ws", project, ownSkill).Content.Contains("own body", StringComparison.Ordinal) &&
+            unlistedRefused && !ClaudeResolver.FilePaths("plugin-ws", project).Contains(unlisted),
+            "A listed skill's SKILL.md opens for the editor; a SKILL.md no row lists is still refused.");
         var refused = false;
         try { ClaudeResolver.WriteFile("plugin-ws", project, skillFile, "changed", ClaudeResolver.ReadFile("plugin-ws", project, skillFile).Hash); }
         catch (UnauthorizedAccessException) { refused = true; }
