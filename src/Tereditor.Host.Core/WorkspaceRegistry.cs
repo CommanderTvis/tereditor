@@ -221,6 +221,7 @@ public sealed partial class ProjectServices
     private static void DropIndexes(string path)
     {
         SpecCatalog.Evict(path);
+        lock (WorkspaceSizes) WorkspaceSizes.Remove(path, out _);
         WorkspaceWatches.Forget(path);
     }
 
@@ -230,16 +231,36 @@ public sealed partial class ProjectServices
         return workspaces.FirstOrDefault(workspace => workspace.Id == id) ?? throw new InvalidOperationException($"Unknown workspace: {id}");
     }
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Bytes, long At)> WorkspaceSizes = new();
+    /// <summary>One measurement per path, shared by every caller (a hover and a menu asking together); it outlives a caller that stops waiting, so the next ask finds it done.</summary>
+    private sealed class SizeMeasurement
+    {
+        public Task<long>? Task;
+        public long FinishedAt;
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SizeMeasurement> WorkspaceSizes = new();
     private const long WorkspaceSizeLifetime = 30_000;
 
     public async ValueTask<long?> GetWorkspaceSizeAsync(string path, CancellationToken cancellationToken = default)
     {
         if (registry.Current.Workspaces.FirstOrDefault(known => known.Path == path) is not { Kind: not WorkspaceKinds.Default }) return null;
-        if (WorkspaceSizes.TryGetValue(path, out var cached) && Environment.TickCount64 - cached.At < WorkspaceSizeLifetime) return cached.Bytes;
-        var bytes = await Task.Run(() => WorkspaceDiskUsage.Measure(path, cancellationToken), cancellationToken);
-        WorkspaceSizes[path] = (bytes, Environment.TickCount64);
-        return bytes;
+        SizeMeasurement measurement;
+        lock (WorkspaceSizes)
+        {
+            if (!WorkspaceSizes.TryGetValue(path, out measurement!) || measurement.Task is { IsFaulted: true } or { IsCanceled: true } ||
+                measurement.Task is { IsCompleted: true } && Environment.TickCount64 - measurement.FinishedAt >= WorkspaceSizeLifetime)
+            {
+                var fresh = measurement = new SizeMeasurement();
+                fresh.Task = Task.Run(() =>
+                {
+                    var bytes = WorkspaceDiskUsage.Measure(path, CancellationToken.None);
+                    fresh.FinishedAt = Environment.TickCount64;
+                    return bytes;
+                });
+                WorkspaceSizes[path] = fresh;
+            }
+        }
+        return await measurement.Task!.WaitAsync(cancellationToken);
     }
 
     private WorkspaceRecord Reveal(string path)

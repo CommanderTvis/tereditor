@@ -518,6 +518,7 @@ public sealed partial class WorkbenchWindow
         }
         finally { LocationChanged -= Left; }
         if (!removingWorkspaces.Add(worktree.Path)) return;
+        removeSizes?.Forget(worktree.Path);
         UpdateRailSelection();
         var removed = false;
         try
@@ -562,17 +563,22 @@ public sealed partial class WorkbenchWindow
         catch (Exception error) when (error is not OperationCanceledException) { Report(new IOException("Couldn't reveal the workspace. " + error.Message)); }
     }
 
-    private const string RemoveWorktreeHeader = "Remove worktree…";
+    private const string RemoveWorktreeHeader = RemoveSizeLabels.Plain;
 
-    private async Task ShowRemoveSizeAsync(MenuItem remove, string path, CancellationToken token)
+    private RemoveSizeLabels? removeSizes;
+    private RemoveSizeLabels RemoveSizes => removeSizes ??= new((location, token) => host.GetWorkspaceSizeAsync(location, token));
+
+    /// <summary>Hovering a worktree row for a moment starts the measurement, so the menu usually opens with the size; the host keeps it for later.</summary>
+    private void PrefetchRemoveSizeOnHover(Control row, string path)
     {
-        try
+        CancellationTokenSource? hover = null;
+        row.PointerEntered += (_, _) =>
         {
-            if (await host.GetWorkspaceSizeAsync(path, token) is { } bytes && !token.IsCancellationRequested)
-                remove.Header = $"Remove worktree ({WorkspaceSizeText(bytes)})…";
-        }
-        // The size only decorates the item: a failed or cancelled measurement leaves the plain label.
-        catch (Exception error) when (error is not OutOfMemoryException) { }
+            hover?.Cancel();
+            hover = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+            _ = RemoveSizes.PrefetchAsync(path, TimeSpan.FromMilliseconds(250), hover.Token);
+        };
+        row.PointerExited += (_, _) => hover?.Cancel();
     }
 
     /// <summary>GiB with one decimal from 1 GiB, else whole MiB, and "&lt;1 MiB" below one.</summary>
@@ -590,6 +596,7 @@ public sealed partial class WorkbenchWindow
             PlacementConstraintAdjustment = Avalonia.Controls.Primitives.PopupPositioning.PopupPositionerConstraintAdjustment.SlideX | Avalonia.Controls.Primitives.PopupPositioning.PopupPositionerConstraintAdjustment.FlipY
         };
         var openIn = AddWorkspaceActions(menu, worktree);
+        if (worktree.Kind == WorkspaceKinds.Managed) PrefetchRemoveSizeOnHover(row, worktree.Path);
         // The Open in submenu lists the host's editors; the menu opens once they are read.
         MenuFill.FillBeforeOpening(menu, row, async token => editors ?? await host.ListEditorsAsync(token), found =>
         {
@@ -653,7 +660,7 @@ public sealed partial class WorkbenchWindow
             {
                 sizing?.Cancel();
                 sizing = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-                _ = ShowRemoveSizeAsync(remove, worktree.Path, sizing.Token);
+                _ = RemoveSizes.ShowAsync(text => remove.Header = text, worktree.Path, sizing.Token);
             };
             menu.Closed += (_, _) => { sizing?.Cancel(); remove.Header = RemoveWorktreeHeader; };
         }

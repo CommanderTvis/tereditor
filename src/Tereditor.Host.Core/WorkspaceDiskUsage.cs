@@ -13,39 +13,52 @@ internal static partial class WorkspaceDiskUsage
 {
     private const int FallbackBlock = 4096;
 
-    internal static long Measure(string root, CancellationToken cancellationToken)
+    /// <summary>
+    /// Walks the tree with a few threads, one directory per task, and reports the running total after each directory
+    /// (<paramref name="progress"/> may run on any thread). The returned figure is exact.
+    /// </summary>
+    internal static long Measure(string root, CancellationToken cancellationToken, Action<long>? progress = null)
     {
         var total = 0L;
-        var options = new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = true, RecurseSubdirectories = false };
-        var pending = new Stack<string>();
-        pending.Push(root);
-        while (pending.Count > 0)
+        var options = new ParallelOptions { MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 2, 8), CancellationToken = cancellationToken };
+        var level = new[] { root };
+        while (level.Length > 0)
         {
-            var directory = pending.Pop();
-            IEnumerable<FileSystemInfo> entries;
-            try { entries = new DirectoryInfo(directory).EnumerateFileSystemInfos("*", options).ToList(); }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { continue; }
-            foreach (var entry in entries)
+            var next = new System.Collections.Concurrent.ConcurrentBag<string>();
+            Parallel.ForEach(level, options, directory =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (entry.Attributes.HasFlag(FileAttributes.ReparsePoint)) continue;
-                if (entry is DirectoryInfo) pending.Push(entry.FullName);
-                else total += PrivateBytes(entry.FullName, ((FileInfo)entry).Length);
-            }
+                var sum = 0L;
+                foreach (var entry in Entries(directory))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (entry is DirectoryInfo) next.Add(entry.FullName);
+                    else sum += PrivateBytes((FileInfo)entry);
+                }
+                var running = Interlocked.Add(ref total, sum);
+                progress?.Invoke(running);
+            });
+            level = [.. next];
         }
         return total;
     }
 
-    private static long PrivateBytes(string path, long length)
+    private static List<FileSystemInfo> Entries(string directory)
+    {
+        var options = new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = true, RecurseSubdirectories = false };
+        try { return new DirectoryInfo(directory).EnumerateFileSystemInfos("*", options).Where(entry => !entry.Attributes.HasFlag(FileAttributes.ReparsePoint)).ToList(); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return []; }
+    }
+
+    private static long PrivateBytes(FileInfo file)
     {
         try
         {
-            if (OperatingSystem.IsMacOS() && MacPrivateSize(path) is { } mac) return mac;
-            if (OperatingSystem.IsLinux() && LinuxUnsharedSize(path) is { } linux) return linux;
-            if (OperatingSystem.IsWindows() && WindowsAllocatedSize(path) is { } windows) return windows;
+            if (OperatingSystem.IsMacOS() && MacPrivateSize(file.FullName) is { } mac) return mac;
+            if (OperatingSystem.IsLinux() && LinuxUnsharedSize(file.FullName) is { } linux) return linux;
+            if (OperatingSystem.IsWindows() && WindowsAllocatedSize(file.FullName) is { } windows) return windows;
+            return (file.Length + FallbackBlock - 1) / FallbackBlock * FallbackBlock;
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
-        return (length + FallbackBlock - 1) / FallbackBlock * FallbackBlock;
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return 0; }
     }
 
     // ---- macOS: getattrlist with FSOPT_ATTR_CMN_EXTENDED and ATTR_CMNEXT_PRIVATESIZE (bytes freed if the file were deleted).

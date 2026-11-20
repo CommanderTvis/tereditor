@@ -50,6 +50,70 @@ internal static class WorkspaceCloneChecks
             "The size text is GiB with one decimal, whole MiB, or <1 MiB.");
     }
 
+    // The Remove item shows a placeholder, then the size; a size seen a moment ago shows at once; an answer for a menu that moved on is dropped.
+    private static async Task RemoveSizeLabel()
+    {
+        var clock = 0L;
+        var release = new TaskCompletionSource<long?>();
+        var calls = 0;
+        var labels = new Tereditor.UI.RemoveSizeLabels((path, token) => { calls++; return new ValueTask<long?>(release.Task.WaitAsync(token)); }, () => clock);
+        string? shown = null;
+        using var open = new CancellationTokenSource();
+        var pending = labels.ShowAsync(text => shown = text, "w", open.Token);
+        Require(shown == Tereditor.UI.RemoveSizeLabels.Measuring && !pending.IsCompleted, $"While the host measures the item shows the placeholder, got {shown}.");
+        release.SetResult(3L << 29);
+        await pending;
+        Require(shown == "Remove worktree (1.5 GiB)…", $"The size replaces the placeholder, got {shown}.");
+        shown = null;
+        await labels.ShowAsync(text => shown = text, "w", CancellationToken.None);
+        Require(shown == "Remove worktree (1.5 GiB)…" && calls == 1, "A size seen a moment ago shows at once without asking the host.");
+        clock += Tereditor.UI.RemoveSizeLabels.Lifetime;
+        release = new TaskCompletionSource<long?>();
+        using var closed = new CancellationTokenSource();
+        var stale = labels.ShowAsync(text => shown = text, "w", closed.Token);
+        Require(calls == 2 && shown == Tereditor.UI.RemoveSizeLabels.Measuring, "An old size is measured again.");
+        closed.Cancel();
+        release.SetResult(1L << 20);
+        await stale;
+        Require(shown == Tereditor.UI.RemoveSizeLabels.Measuring, $"An answer after the menu closed must not touch the label, got {shown}.");
+        labels.Forget("w");
+        release = new TaskCompletionSource<long?>();
+        var again = labels.ShowAsync(text => shown = text, "w", CancellationToken.None);
+        Require(calls == 3, "A worktree that changed or was removed is measured again.");
+        release.SetResult(null);
+        await again;
+        Require(shown == Tereditor.UI.RemoveSizeLabels.Plain, $"A failed measurement leaves the plain label, got {shown}.");
+        // A hover that leaves before its delay starts nothing; one that stays measures and keeps the answer for the menu.
+        using var left = new CancellationTokenSource();
+        labels.Forget("w");
+        var hover = labels.PrefetchAsync("w", TimeSpan.FromMilliseconds(50), left.Token);
+        left.Cancel();
+        await hover;
+        Require(calls == 3, "A pointer that left before the delay starts no measurement.");
+        release = new TaskCompletionSource<long?>(); release.SetResult(2L << 20);
+        await labels.PrefetchAsync("w", TimeSpan.Zero, CancellationToken.None);
+        shown = null;
+        await labels.ShowAsync(text => shown = text, "w", CancellationToken.None);
+        Require(shown == "Remove worktree (2 MiB)…" && calls == 4, $"A hovered worktree's menu shows its size at once, got {shown}.");
+
+        // Parallel and progressive: a tree of many small directories gives the same total, and the running total never falls.
+        var tree = Path.Combine(Path.GetTempPath(), "tereditor-size-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            for (var index = 0; index < 40; index++)
+            {
+                Directory.CreateDirectory(Path.Combine(tree, "d" + index, "inner"));
+                File.WriteAllBytes(Path.Combine(tree, "d" + index, "inner", "f.bin"), new byte[10_000]);
+                File.WriteAllBytes(Path.Combine(tree, "d" + index, "g.bin"), new byte[10_000]);
+            }
+            var seen = new List<long>();
+            var exact = WorkspaceDiskUsage.Measure(tree, CancellationToken.None, total => { lock (seen) seen.Add(total); });
+            Require(exact >= 80 * 10_000 && exact == WorkspaceDiskUsage.Measure(tree, CancellationToken.None), $"A parallel walk counts every file once, got {exact}.");
+            Require(seen.Count >= 40 && seen.Max() == exact && seen.All(total => total <= exact), "Progress reports running totals that end at the exact one.");
+        }
+        finally { Directory.Delete(tree, true); }
+    }
+
     // True when the filesystem shared the blocks: clonefile on macOS, a reflink that must not fall back to a copy on Linux.
     private static bool ProbeClone(string source, string destination)
     {
@@ -67,6 +131,7 @@ internal static class WorkspaceCloneChecks
         await ClangdIndex(root);
         await IntelliJIndex(root);
         await WorkspaceSize(Path.Combine(root, "workspace-size"));
+        await RemoveSizeLabel();
         var fixture = Path.Combine(root, "workspace-clone");
         var source = IsolatedGit.Repository(Path.Combine(fixture, "main"), (".gitignore", "obj/\nbin/\n.tools/\nnode_modules/\n.venv/\n"));
         foreach (var (path, text) in new[] { ("src/App/App.cs", "class App {}\n"), ("tracked/bin/keep.txt", "tracked\n") })
