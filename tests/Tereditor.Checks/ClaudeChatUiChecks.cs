@@ -979,7 +979,10 @@ internal static class ClaudeChatUiChecks
         string[] entries = ["first", "second"];
         var nav = new InputHistory();
         const string draft = "my draft";
-        Require(nav.Down(draft, 8, true, entries).Step == InputHistoryStep.None, "Down outside history does nothing.");
+        Require(nav.Down(draft, 8, true, entries).Step == InputHistoryStep.None, "Down at the end outside history does nothing.");
+        Require(nav.Down(draft, 3, true, entries).Step == InputHistoryStep.CaretToEnd && nav.State == InputHistoryState.Idle, "Down on the last line moves the caret to the end.");
+        Require(nav.Down(draft, 3, false, entries).Step == InputHistoryStep.None, "Down off the last line is caret movement.");
+        Require(new InputHistory().Up(draft, 8, 8, 8, true, []).Step == InputHistoryStep.CaretToStart, "Up on the first line moves the caret to the start even without history.");
         Require(nav.Up(draft, 8, 8, 8, false, entries).Step == InputHistoryStep.None && nav.State == InputHistoryState.Idle, "Up off the first line is caret movement.");
         Require(nav.Up(draft, 8, 8, 8, true, entries).Step == InputHistoryStep.CaretToStart && nav.State == InputHistoryState.Idle, "The first Up on a draft only moves to the start.");
         var move = nav.Up(draft, 0, 0, 0, true, entries);
@@ -1052,6 +1055,22 @@ internal static class ClaudeChatUiChecks
             Require(view.Input.Text == "edited recall" && view.Input.CaretIndex == 13, $"Editing a recalled entry keeps it; Down only moves the caret to the end (got '{view.Input.Text}').");
             Press(Key.Escape);
             Require(view.Input.Text == "my draft", $"Esc while browsing restores the stashed draft, not the edit (got '{view.Input.Text}').");
+            // Down on the last visual line jumps to the end; mid-text it is plain one-line movement. Newline and soft-wrapped lines both count.
+            foreach (var text in new[] { "alpha\nbeta\ngamma", string.Join(' ', Enumerable.Repeat("wrapping words", 60)) })
+            {
+                view.Input.Text = text; Frame(window); Frame(window);
+                TextLayout Layout() => view.Input.GetVisualDescendants().OfType<TextPresenter>().First().TextLayout;
+                var layout = Layout();
+                Require(layout.TextLines.Count >= 3, $"The sample has several visual lines (got {layout.TextLines.Count}).");
+                view.Input.CaretIndex = text.Length - 2; Frame(window);
+                Press(Key.Down);
+                Require(view.Input.CaretIndex == text.Length && view.Input.Text == text, $"Down on the last line moves the caret to the end (caret {view.Input.CaretIndex} of {text.Length}).");
+                view.Input.CaretIndex = 1; Frame(window);
+                var first = layout.GetLineIndexFromCharacterIndex(1, false);
+                Press(Key.Down); Frame(window);
+                var after = Layout().GetLineIndexFromCharacterIndex(view.Input.CaretIndex, false);
+                Require(first == 0 && after == 1 && view.Input.Text == text, $"Down mid-text moves one line only (line {first} to {after}).");
+            }
         }
         catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
         finally { window.Close(); ChatView.Histories.Remove((Workspace, Chat)); ChatView.ForgetLocalDrafts(); }

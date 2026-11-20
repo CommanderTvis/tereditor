@@ -117,6 +117,9 @@ record's `Attachments` stays null (reserved for path-only attachments later).
   Input history is one state machine (`InputHistory`, per chat, kept across tab switches): Up recalls only from the first line and Down only
   from the last; on a draft or an edited recalled entry the first Up only moves the caret to the start, a second recalls; the draft (text and
   selection) is stashed and comes back on Down past the newest entry or on Esc; editing a recalled entry never touches the stash; sending clears it.
+  "First" and "last" line are the text layout's visual lines, so soft-wrapped lines count. When not browsing, Up on the first line with the caret
+  after the start moves the caret to the start (then recalls, if there is history), and Down on the last line with the caret before the end moves
+  the caret to the end; elsewhere Up and Down are plain caret movement, one line.
   The view
   shows a quiet note under the input when a send is refused as already sent.
 

@@ -38,10 +38,11 @@ internal sealed class InputHistory
 
     public InputHistoryMove Up(string text, int selectionStart, int selectionEnd, int caret, bool onFirstLine, IReadOnlyList<string> entries)
     {
-        if (entries.Count == 0 || !onFirstLine) return default;
+        if (!onFirstLine) return default;
         if (State == InputHistoryState.Idle)
         {
             if (text.Length > 0 && caret > 0) { before = (text, selectionStart, selectionEnd); return new(InputHistoryStep.CaretToStart); }
+            if (entries.Count == 0) return default;
             (stashText, stashStart, stashEnd) = before is { } kept && kept.Text == text ? (text, kept.Start, kept.End) : (text, selectionStart, selectionEnd);
             at = entries.Count - 1;
         }
@@ -55,7 +56,8 @@ internal sealed class InputHistory
 
     public InputHistoryMove Down(string text, int caret, bool onLastLine, IReadOnlyList<string> entries)
     {
-        if (State == InputHistoryState.Idle || !onLastLine) return default;
+        if (!onLastLine) return default;
+        if (State == InputHistoryState.Idle) return caret < text.Length ? new(InputHistoryStep.CaretToEnd) : default;
         if (State == InputHistoryState.BrowsingEdited && caret < text.Length) return new(InputHistoryStep.CaretToEnd);
         if (at + 1 < entries.Count) { at++; return Show(entries[at]); }
         return Restore();
