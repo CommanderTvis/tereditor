@@ -322,9 +322,9 @@ public sealed partial class SettingsView : UserControl
         {
             var active = showSectionList is null && entry.Key == section;
             entry.Value.Background = active ? Ui.PrimarySubtle : Ui.Elevated;
-            foreach (var text in ((StackPanel)entry.Value.Content!).Children.OfType<TextBlock>()) text.Foreground = active ? Ui.Accent : Ui.Muted;
+            foreach (var text in ((Panel)entry.Value.Content!).Children.OfType<TextBlock>()) text.Foreground = active ? Ui.Accent : Ui.Muted;
             // Only a drawn icon (its glyph is the mask of this border) takes the row colour; a plugin without an icon keeps an empty slot, not a filled square.
-            if (((StackPanel)entry.Value.Content!).Children[0] is Border { OpacityMask: not null } glyph) glyph.Background = active ? Ui.Accent : Ui.Muted;
+            if (((Panel)entry.Value.Content!).Children[0] is Border { OpacityMask: not null } glyph) glyph.Background = active ? Ui.Accent : Ui.Muted;
         }
     }
 
