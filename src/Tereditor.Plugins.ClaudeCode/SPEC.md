@@ -425,9 +425,9 @@ default are the row's accessible description). A key matches exactly first, then
 whose `*` segment stands for any one key segment, then its nearest documented ancestor, which gives the summary but no
 type or default. A key the reference does not list shows no description and no placeholder.
 
-Settings tereditor sets itself for a session it starts carry a "SET BY TEREDITOR" chip beside the scope chip, with the
+Settings tereditor sets itself for a session it starts carry a small info icon after the value (not a second chip), with the
 tip "Tereditor sets this for sessions it starts. The value in this file is not used there." The file value stays shown and
-Remove still works; the chip adds no row height to other rows. `ClaudeLaunchOverrides.All` is the one list, each key with
+Remove still works; rows without it keep their look and height. The footer (path, scope chip, Remove) never overflows: Remove and the chip keep the right edge, the path takes the rest with an ellipsis and its full path as tip; a check reads the real bounds at the narrowest width. `ClaudeLaunchOverrides.All` is the one list, each key with
 its launch words and the case that sets it: `model` (`--model`), `effortLevel` (`--effort`), `permissions.defaultMode`
 (`--permission-mode`), `advisorModel` (`--advisor`) and `claudeInChromeDefaultEnabled` (`--chrome`, `--no-chrome`), each only when
 the matching plugin setting, preset or chat choice is set; and `apiKeyHelper` and `env` (including `env.*`) when a Model

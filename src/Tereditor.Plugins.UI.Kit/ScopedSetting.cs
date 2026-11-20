@@ -72,21 +72,13 @@ public static partial class ScopedSetting
         };
     }
 
-    /// <summary>The pill beside a scope chip for a key the product sets itself; the tip says why the file value is not used.</summary>
-    public static Border OverrideChip(string tip, string name = "OverrideChip")
+    /// <summary>The small info icon after a value for a key the product sets itself; the tip says why the file value is not used.</summary>
+    public static Control OverrideMark(string tip, string name = "OverrideMark")
     {
-        var chip = new Border
-        {
-            Name = name,
-            Background = Ui.Elevated,
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(4, 0),
-            Margin = new Thickness(4, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = Ui.Text("SET BY TEREDITOR", Ui.Accent, 10)
-        };
-        ToolTip.SetTip(chip, tip);
-        return chip;
+        var mark = new Border { Name = name, Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Child = Ui.Icon("alertInfo", Ui.Accent, 12) };
+        ToolTip.SetTip(mark, tip);
+        AutomationProperties.SetName(mark, tip);
+        return mark;
     }
 
     /// <summary>A home-abbreviated path that opens its file when clicked, with the whole path on hover.</summary>
@@ -94,6 +86,8 @@ public static partial class ScopedSetting
     {
         var text = Ui.Text(AbbreviateHomePath(path), Ui.Muted, 12);
         text.FontFamily = Ui.CodeFont;
+        text.TextTrimming = TextTrimming.CharacterEllipsis;
+        text.TextWrapping = TextWrapping.NoWrap;
         var button = new Button
         {
             Name = name,
@@ -181,6 +175,7 @@ public static partial class ScopedSetting
         key.Margin = new Thickness(0, 0, 4, 0);
         head.Children.Add(key);
         head.Children.Add(value);
+        if (overrideTip is not null) head.Children.Add(OverrideMark(overrideTip, namePrefix + "OverrideMark"));
         row.Children.Add(head);
         // What the key does, then its type and default: muted lines that wrap, and the row's accessible description.
         if (description is { Length: > 0 })
@@ -209,16 +204,17 @@ public static partial class ScopedSetting
             }
         }
 
-        var meta = new DockPanel { LastChildFill = false };
-        if (source.Path is { } path) meta.Children.Add(SourcePath(path, onOpen, namePrefix + "OpenSource"));
-        var chip = ScopeChip(source.Scope, namePrefix + "ScopeChip");
-        chip.Margin = new Thickness(4, 0, 0, 0);
-        meta.Children.Add(chip);
-        if (overrideTip is not null) meta.Children.Add(OverrideChip(overrideTip, namePrefix + "OverrideChip"));
+        // The actions and the scope chip keep the right edge; the path takes what is left and trims with an ellipsis.
+        var meta = new DockPanel { LastChildFill = source.Path is not null };
         var end = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
         foreach (var action in actions ?? []) end.Children.Add(action);
         DockPanel.SetDock(end, Dock.Right);
         meta.Children.Add(end);
+        var chip = ScopeChip(source.Scope, namePrefix + "ScopeChip");
+        chip.Margin = new Thickness(4, 0, 4, 0);
+        DockPanel.SetDock(chip, Dock.Right);
+        meta.Children.Add(chip);
+        if (source.Path is { } path) meta.Children.Add(SourcePath(path, onOpen, namePrefix + "OpenSource"));
         row.Children.Add(meta);
 
         foreach (var shadow in shadowed)

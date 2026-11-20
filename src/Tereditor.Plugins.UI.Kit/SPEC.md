@@ -302,7 +302,7 @@ Themes that replace the selected foreground keep Avalonia's existing styled-sele
 | `./visualization`: `MermaidView`, `PanZoomView`, `renderMermaid`, `zoomGesture` | `Visualization.MermaidRenderer`, `MermaidDialog` |
 | `./visualization`: `VisualizationCard`, `DiagramCard`, `ComparisonCard` | absent for now: the visualize tool card is an AI chat surface not built yet |
 | `ToolFileLink` | absent: a chat tool card's file link |
-| `ScopedSetting`, `SettingValueDialog`, `SettingsToolbar` | shared configuration rows, typed value composer, `ScopedSetting.SettingsToolbar` |
+| `ScopedSetting`, `SettingValueDialog`, `SettingsToolbar` | shared configuration rows (the footer keeps Remove and the scope chip at the right and trims the path; an overridden key gets a small info mark after its value), typed value composer, `ScopedSetting.SettingsToolbar` |
 
 Stays in the app: the theme catalogue and resolution (`Rendering/Themes.cs`, `Themes.SPEC.md`, `Assets/Themes`),
 `DiffView`, `MarkdownDiff`, `RenderedDiffs.cs`, `CodeDocumentView`, `Panels/Dialogs.cs` (built on

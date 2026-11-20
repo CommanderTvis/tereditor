@@ -540,8 +540,10 @@ internal static class ClaudeCodeChecks
             .OfType<TextBlock>().Any(text => text.Name is "ClaudeSettingSummary" or "ClaudeSettingHint"), "A row with no note draws no description and no placeholder.");
         var marked = Tereditor.Plugins.UI.Kit.ScopedSetting.SettingRow("Claude", "model", new TextBlock(), new("user", null), [], _ => { }, overrideTip: ClaudeLaunchOverrides.Tooltip);
         var unmarked = Tereditor.Plugins.UI.Kit.ScopedSetting.SettingRow("Claude", "permissions.allow", new TextBlock(), new("user", null), [], _ => { });
-        Require(marked.GetLogicalDescendants().OfType<Border>().Count(border => border.Name == "ClaudeOverrideChip" && Avalonia.Controls.ToolTip.GetTip(border) as string == ClaudeLaunchOverrides.Tooltip) == 1 &&
-            !unmarked.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "ClaudeOverrideChip"), "A row for an overridden key shows the chip with its tip; any other row does not.");
+        Require(marked.GetLogicalDescendants().OfType<Border>().Count(border => border.Name == "ClaudeOverrideMark" && Avalonia.Controls.ToolTip.GetTip(border) as string == ClaudeLaunchOverrides.Tooltip) == 1 &&
+            !unmarked.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "ClaudeOverrideMark") &&
+            marked.GetLogicalDescendants().OfType<Border>().Count(border => border.Name == "ClaudeScopeChip") == 1, "A row for an overridden key shows one info mark with its tip and no second chip; any other row has no mark.");
+        foreach (var width in new[] { 240d, 600d }) { FooterFitsNarrowPane(true, width); FooterFitsNarrowPane(false, width); }
         app.Click(deny.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "ClaudeSettingSet"));
         E2eWorkspace.Until(() => Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Any(dialog => Equals(dialog.Tag, "ClaudeValueDialog")));
         var composer = Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Single(dialog => Equals(dialog.Tag, "ClaudeValueDialog"));
@@ -570,6 +572,45 @@ internal static class ClaudeCodeChecks
     /// The edit dialog names the third scope "local", marks each option with the same scope chip the pane uses, and
     /// shows each option's description whole inside its option.
     /// </summary>
+    /// <summary>At the narrowest pane the footer's path, chip and Remove all sit inside the row; Remove is fully visible and the path trims.</summary>
+    private static void FooterFitsNarrowPane(bool marked, double narrow)
+    {
+        var path = "/Users/someone/.claude/a/very/long/folder/name/for/the/settings/file/settings.json";
+        var row = Tereditor.Plugins.UI.Kit.ScopedSetting.SettingRow("Claude", "advisorModel", new TextBlock { Text = "\"fable\"" }, new("user", path), [], _ => { },
+            [Tereditor.Plugins.UI.Kit.ScopedSetting.RowAction("ClaudeSettingRemove", "Remove", () => { }, danger: true)], overrideTip: marked ? ClaudeLaunchOverrides.Tooltip : null);
+        var window = new Window { Width = narrow, Height = 200, Content = row };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs(); Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        try
+        {
+            Rect In(Control control) => new(control.TranslatePoint(new(0, 0), row)!.Value, control.Bounds.Size);
+            var all = row.GetLogicalDescendants().OfType<Control>().ToArray();
+            var open = all.OfType<Button>().Single(button => button.Name == "ClaudeOpenSource");
+            var chip = all.Single(control => control.Name == "ClaudeScopeChip");
+            var remove = all.OfType<Button>().Single(button => button.Name == "ClaudeSettingRemove");
+            var bounds = new Rect(row.Bounds.Size);
+            var label = open.GetVisualDescendants().OfType<TextBlock>().Single();
+            foreach (var part in new Control[] { open, chip, remove })
+                Require(part.Bounds.Width > 0 && bounds.Contains(In(part).TopLeft) && In(part).Right <= bounds.Right + 0.5 && In(part).Bottom <= bounds.Bottom + 0.5,
+                    $"Footer control {part.Name} must sit inside the row at {narrow}px (marked: {marked}): {In(part)} in {bounds}.");
+            Require(remove.Bounds.Width >= remove.DesiredSize.Width - 0.5 && In(remove).Right <= bounds.Right + 0.5 && !In(open).Intersects(In(remove)) && !In(chip).Intersects(In(remove)),
+                "Remove keeps its full size at the right and nothing overlaps it.");
+            Require(label.Bounds.Width <= open.Bounds.Width + 0.5 && FullWidth(label) > open.Bounds.Width && Avalonia.Controls.ToolTip.GetTip(open) as string == path,
+                "The long path trims inside the space left and keeps the full path as its tip.");
+            Require(all.Any(control => control.Name == "ClaudeOverrideMark") == marked && (!marked || In(all.Single(control => control.Name == "ClaudeOverrideMark")).Right <= bounds.Right + 0.5),
+                "The info mark is inside the row for a marked key and absent otherwise.");
+        }
+        finally { window.Close(); }
+    }
+
+    private static double FullWidth(TextBlock text)
+    {
+        var probe = new TextBlock { Text = text.Text, FontFamily = text.FontFamily, FontSize = text.FontSize };
+        probe.Measure(Size.Infinity);
+        return probe.DesiredSize.Width;
+    }
+
     private static void ScopeChoices(E2eWorkspace app)
     {
         // Choosing a scope would ask the host for a plan; this only inspects the options, so no context is needed.
