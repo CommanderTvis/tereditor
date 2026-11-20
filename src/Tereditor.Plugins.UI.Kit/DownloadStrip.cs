@@ -10,7 +10,7 @@ public sealed class DownloadStrip : StackPanel
     public DownloadStrip(string message, Action cancel)
     {
         Name = "DownloadStrip";
-        Spacing = 6;
+        Spacing = 8;
         text.Foreground = Ui.TextBrush;
         text.Text = message;
         Children.Add(text);
