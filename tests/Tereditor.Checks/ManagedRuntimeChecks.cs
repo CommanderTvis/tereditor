@@ -271,10 +271,12 @@ internal static class ManagedRuntimeChecks
         Require(source.Requests == before + 1, "A cached Bun was downloaded again.");
         Console.WriteLine("PASS Bun missing from PATH is downloaded once into the managed cache and found there");
 
-        // A Bun on PATH wins under the host's PATH, never one inside the workspace; the managed-only toolchain ignores PATH.
+        // A downloaded Bun that passes its check outranks one on PATH; with nothing downloaded a Bun on PATH is used, never one inside the workspace; the managed-only toolchain ignores PATH.
         var onPath = Fake(Path.Combine(root, "bun-path"), "bun", "echo path");
         Env("PATH", Path.GetDirectoryName(onPath)!);
-        Require(servers.ProbeTool("bun", workspace, fresh: true) is { State: "found", Source: "path" } probe && probe.Path == onPath, "The default toolchain did not prefer Bun on PATH.");
+        Require(servers.ProbeTool("bun", workspace, fresh: true) is { State: "found", Source: "managed" }, "The default toolchain did not prefer the downloaded Bun.");
+        var noDownload = new LanguageServers(Path.Combine(root, "bun-no-download"), null, http);
+        Require(noDownload.ProbeTool("bun", workspace, fresh: true) is { State: "found", Source: "path" } probe && probe.Path == onPath, "With nothing downloaded the default toolchain did not use Bun on PATH.");
         servers.ToolchainSetting = () => "managed";
         Require(servers.ProbeTool("bun", workspace, fresh: true).Source == "managed", "The managed toolchain used Bun from PATH.");
         servers.ToolchainSetting = () => "";
@@ -282,7 +284,7 @@ internal static class ManagedRuntimeChecks
         Env("PATH", Path.GetDirectoryName(planted)!);
         var other = new LanguageServers(Path.Combine(root, "bun-other"), null, http);
         Require(other.ProbeTool("bun", workspace, fresh: true).State == "download", "A Bun inside the workspace was accepted from PATH, or the pinned one was not offered.");
-        Console.WriteLine("PASS Bun follows the PATH opt-in rules: PATH first by default, pinned only when managed, never from the workspace");
+        Console.WriteLine("PASS Bun follows the toolchain rules: the downloaded copy first, PATH when none is downloaded, only the pin when managed, never from the workspace");
 
         // Node-based servers install and launch with Bun alone: no node or npm is on PATH, the lockfile installs with --frozen-lockfile, scripts off.
         var log = Path.Combine(root, "bun-calls.log");
