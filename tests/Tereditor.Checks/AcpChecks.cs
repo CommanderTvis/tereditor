@@ -1295,6 +1295,8 @@ internal static class AcpChecks
         EntryText();
         phase = "Logo";
         Logo();
+        // The UI cases above leave the headless dispatcher's context on this thread; the host cases below are async and nothing pumps that context while this thread blocks on them.
+        SynchronizationContext.SetSynchronizationContext(null);
         phase = "DefaultMode";
         await DefaultMode();
         phase = "TereditorSetup";
