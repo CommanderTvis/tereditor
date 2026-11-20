@@ -1213,8 +1213,16 @@ internal static class AcpChecks
     internal static void UpdateButton()
     {
         UiChecks.EnsureHeadlessApp();
-        // As in the app, continuations of the page's async work return to the dispatcher; without this they run on the pool.
+        // As in the app, continuations of the page's async work return to the dispatcher; without this they run on the pool. The caller blocks on the
+        // async checks that follow, so the previous context is restored before returning (a dispatcher context nobody pumps would deadlock them).
+        var previousContext = SynchronizationContext.Current;
         SynchronizationContext.SetSynchronizationContext(new Avalonia.Threading.AvaloniaSynchronizationContext(Avalonia.Threading.Dispatcher.UIThread, Avalonia.Threading.DispatcherPriority.Normal));
+        try { UpdateRounds(); }
+        finally { SynchronizationContext.SetSynchronizationContext(previousContext); }
+    }
+
+    private static void UpdateRounds()
+    {
         foreach (var fail in new[] { false, true })
         {
             var view = (Tereditor.Plugins.Acp.UI.AcpSettingsView)UpdateHost.Create(out _);
@@ -1225,6 +1233,7 @@ internal static class AcpChecks
             void Settle() { Avalonia.Threading.Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }
             void Until(Func<bool> done, string what)
             {
+                phase = "UpdateButton waiting for: " + what;
                 for (var tries = 0; tries < 500 && !done(); tries++) { Settle(); Thread.Sleep(10); }
                 Require(done(), what);
             }
@@ -1259,34 +1268,62 @@ internal static class AcpChecks
         }
     }
 
+    private static volatile string phase = "";
+
     internal static async Task Run(string root)
     {
+        using var guard = new Timer(_ => { Console.Error.WriteLine("acp: no progress for 5 minutes, stuck in " + phase); Environment.Exit(1); }, null, TimeSpan.FromMinutes(5), Timeout.InfiniteTimeSpan);
+        phase = "Manifest";
         Manifest();
+        phase = "UpdateButton";
         UpdateButton();
+        phase = "Rows";
         Rows();
+        phase = "MasterList";
         MasterList();
+        phase = "CombinedList";
         CombinedList();
+        phase = "AgentList";
         AgentList();
+        phase = "CustomForm";
         CustomForm();
+        phase = "Confirmation";
         Confirmation();
+        phase = "Launcher";
         Launcher();
+        phase = "EntryText";
         EntryText();
+        phase = "Logo";
         Logo();
+        phase = "DefaultMode";
         await DefaultMode();
+        phase = "TereditorSetup";
         await TereditorSetup();
+        phase = "Protocol";
         await Protocol();
+        phase = "Session";
         await Session();
         Directory.CreateDirectory(root);
+        phase = "Prompts";
         await Prompts(Path.Combine(root, "prompts"));
+        phase = "Pickers";
         await Pickers();
+        phase = "Approvals";
         await Approvals();
         Directory.CreateDirectory(root);
+        phase = "ClientMethods";
         await ClientMethods(root);
+        phase = "Registry";
         await Registry(Path.Combine(root, "registry"));
+        phase = "Icons";
         await Icons(Path.Combine(root, "icons"));
+        phase = "TabIcons";
         TabIcons();
+        phase = "ChatIcons";
         await ChatIcons(Path.Combine(root, "chat-icons"));
+        phase = "Verification";
         await Verification(Path.Combine(root, "verify"));
+        phase = "SignIn";
         await SignIn(Path.Combine(root, "signin"));
     }
 }
