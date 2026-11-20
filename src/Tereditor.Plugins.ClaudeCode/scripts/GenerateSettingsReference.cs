@@ -30,7 +30,7 @@ static string Clause(string text)
     var cut = Regex.Match(text, @";|\.\s");
     var clause = (cut.Success ? text[..cut.Index] : text).TrimEnd(':', '.', ' ');
     if (clause.Count(character => character == '"') % 2 == 1) clause = clause.TrimEnd('"', ' ');
-    return clause.Length > 140 ? clause[..139].TrimEnd() + "…" : clause;
+    return clause;
 }
 
 var anchors = Regex.Matches(html, "<h[2-6][^>]*\\sid=\"([^\"]+)\"").Select(match => match.Groups[1].Value).Distinct().Order(StringComparer.Ordinal).ToList();

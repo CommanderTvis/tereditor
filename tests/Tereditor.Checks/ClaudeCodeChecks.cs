@@ -529,8 +529,8 @@ internal static class ClaudeCodeChecks
             .GetLogicalDescendants().OfType<TextBlock>().ToArray();
         var typeIndex = Array.FindIndex(longType, text => text.Name == "ClaudeSettingHint");
         Require(advisor is { Default: { Length: > 0 } } && advisor.Hint is { Length: > 0 } && !advisor.Hint.Contains("Default:", StringComparison.Ordinal) &&
-            typeIndex >= 0 && longType[typeIndex + 1] is { Name: "ClaudeSettingDefault", TextWrapping: TextWrapping.Wrap, TextTrimming: TextTrimming.None } preset &&
-            preset.Text == "Default: " + advisor.Default,
+            typeIndex >= 0 && longType[typeIndex + 1] is { Name: "ClaudeSettingDefault", TextWrapping: Avalonia.Media.TextWrapping.Wrap } preset &&
+            preset.TextTrimming == Avalonia.Media.TextTrimming.None && preset.Text == "Default: " + advisor.Default,
             "A set key's default is its own wrapping line after its type, even when the type text is long.");
         var nested = ClaudeSettingsReference.NoteFor("modelSettings.opus.effortLevel");
         Require(nested is { Hint: null } && nested.Summary == ClaudeSettingsReference.Find("modelSettings")!.Summary &&
