@@ -397,7 +397,7 @@ internal static partial class PluginUiChecks
         // and a language server beside the plugin that activates the same language's environments.
         var names = settings.GetLogicalDescendants().OfType<Tereditor.UI.Panels.PluginsSettings>().Single().Listing().ToList();
         var headings = names.Where(name => name.StartsWith("PluginCategory_", StringComparison.Ordinal)).Select(name => name["PluginCategory_".Length..]).ToArray();
-        Require(headings.SequenceEqual(["C & C++", "C#", "CSS", "Dart", "Go", "JavaScript & TypeScript", "JVM", "PHP", "PowerShell", "Python", "R", "Ruby", "Rust", "Shell", "Swift", "Environment", "Agents", "Model providers", "Version Control", "Specs & Documents", "Integrations", "Other", "Unavailable"]),
+        Require(headings.SequenceEqual(["C & C++", "C#", "CSS", "Dart", "Go", "JavaScript & TypeScript", "JVM", "PHP", "PowerShell", "Python", "R", "Ruby", "Rust", "Shell", "Swift", "Environment", "Code Intelligence", "Agents", "Model providers", "Version Control", "Specs & Documents", "Integrations", "Other", "Unavailable"]),
             "Plugins are grouped by category, languages first, then tool groups, with Other, then Unavailable, last: " + string.Join(", ", headings));
         int At(string name) => names.IndexOf(name);
         foreach (var category in PluginCategories.Order.Where(PluginCategories.Icons.ContainsKey))
