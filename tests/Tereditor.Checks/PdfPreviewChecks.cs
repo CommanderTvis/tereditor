@@ -215,6 +215,12 @@ internal static class PdfPreviewChecks
         Require(page.Boxes[first] is { Width: > 0, Height: > 0 } box && box.Left is > 15 and < 30 && box.Bottom is > 50 and < 65,
             "A character's box is in points from the top-left corner: " + page.Boxes[first]);
         Require(PdfEngine.Render(MinimalPdf(), 2).Single() is { Width: 400, Height: 240 }, "A page rasterizes at the requested scale.");
+        using (var stale = new CancellationTokenSource())
+        {
+            stale.Cancel();
+            try { PdfEngine.Render(MinimalPdf(), 6, stale.Token); Require(false, "A cancelled render must not draw."); }
+            catch (OperationCanceledException) { }
+        }
         var rotated = PdfEngine.Read(PagesPdf(["Turned"], rotation: 90)).Single();
         Require(rotated is { Width: 120, Height: 200 } && rotated.Boxes[0] is { Left: > 50 and < 65, Top: > 15 and < 30, Height: > 5, Width: > 5 },
             "Rotated text boxes follow the rendered page: " + rotated.Boxes[0]);
@@ -294,7 +300,7 @@ internal static class PdfPreviewChecks
         var preview = all.OfType<PdfPreview>().FirstOrDefault();
         var rasters = all.OfType<Image>().Where(image => image.Name == "PdfPage").Select(image => image.Source is Bitmap bitmap ? $"{bitmap.PixelSize.Width}x{bitmap.PixelSize.Height}" : "none");
         var names = all.Where(item => !string.IsNullOrEmpty(item.Name) && item.Name.StartsWith("Pdf", StringComparison.Ordinal)).Select(item => item.Name + (item.IsEffectivelyVisible ? "" : "(hidden)"));
-        return $"controls [{string.Join(", ", names)}]; loading {preview?.Loading}; idle {preview?.Idle}; scale {preview?.Scale}; renders {preview?.Renders}; text layers {all.OfType<PdfTextLayer>().Count()}; rasters [{string.Join(", ", rasters)}]; first text \"{FirstPageText(scope)}\"";
+        return $"controls [{string.Join(", ", names)}]; loading {preview?.Loading}; pending stage {preview?.Stage}; idle {preview?.Idle}; scale {preview?.Scale}; renders {preview?.Renders}; text layers {all.OfType<PdfTextLayer>().Count()}; rasters [{string.Join(", ", rasters)}]; first text \"{FirstPageText(scope)}\"";
     }
 
     private static T Find<T>(Control scope, string name) where T : Control

@@ -31,7 +31,8 @@ internal sealed partial class PdfPreview : UserControl, IResourceBody, IDisposab
     private readonly ScrollViewer scroll;
     private readonly DispatcherTimer settle;
     private readonly List<(PdfPage Page, Border Box, Image Image)> shown = [];
-    private CancellationTokenSource? loading;
+    private CancellationTokenSource? loading, rendering;
+    private string loadStage = "read";
     private IDisposable? revisionWatch;
     private byte[]? bytes;
     private double scale = 1;
@@ -84,6 +85,7 @@ internal sealed partial class PdfPreview : UserControl, IResourceBody, IDisposab
         DetachedFromVisualTree += (_, _) =>
         {
             loading?.Cancel();
+            rendering?.Cancel();
             settle.Stop();
         };
     }
@@ -94,6 +96,7 @@ internal sealed partial class PdfPreview : UserControl, IResourceBody, IDisposab
         if (disposed) return;
         disposed = true;
         loading?.Cancel();
+        rendering?.Cancel();
         revisionWatch?.Dispose();
         revisionWatch = null;
         settle.Stop();
@@ -103,6 +106,8 @@ internal sealed partial class PdfPreview : UserControl, IResourceBody, IDisposab
 
     internal bool Loading => loadingText.IsVisible;
     /// <summary>No read, rasterization or pending re-rasterization is under way, for the checks.</summary>
+    /// <summary>Which step is pending, for the checks' timeout messages: the file read, the PDF parse, a page render, or none.</summary>
+    internal string Stage => rasterizing > 0 ? "render" : loading is null ? "idle" : loadStage;
     internal bool Idle => loading is null && rasterizing == 0 && !settle.IsEnabled;
     internal bool Released => disposed && bytes is null && shown.Count == 0 && revisionWatch is null;
 
@@ -130,6 +135,7 @@ internal sealed partial class PdfPreview : UserControl, IResourceBody, IDisposab
         zoomLevel.Text = $"{Math.Round(scale * 100)}%";
         // The pixels drawn last are stretched at once; the sharp ones arrive when the scale stops moving.
         foreach (var (page, box, _) in shown) (box.Width, box.Height) = (page.Width * scale, page.Height * scale);
+        rendering?.Cancel();
         settle.Stop();
         settle.Start();
     }
@@ -143,7 +149,9 @@ internal sealed partial class PdfPreview : UserControl, IResourceBody, IDisposab
         loadingText.IsVisible = shown.Count == 0;
         try
         {
+            loadStage = "read";
             var read = await this.read(cancel.Token);
+            loadStage = "parse";
             var parsed = await PdfEngine.ReadAsync(read, cancel.Token);
             if (cancel.IsCancellationRequested) return;
             bytes = read;
@@ -214,9 +222,18 @@ internal sealed partial class PdfPreview : UserControl, IResourceBody, IDisposab
         var target = scale;
         var density = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
         IReadOnlyList<PdfRaster> rasters;
+        // A render for a scale or a file that has moved on would only hold the PDFium lock against the next read.
+        rendering?.Cancel();
+        var cancel = rendering = new CancellationTokenSource();
         rasterizing++;
-        try { rasters = await PdfEngine.RenderAsync(source, target * density); }
-        finally { rasterizing--; }
+        try { rasters = await PdfEngine.RenderAsync(source, target * density, cancel.Token); }
+        catch (OperationCanceledException) when (cancel.IsCancellationRequested) { return; }
+        finally
+        {
+            rasterizing--;
+            if (ReferenceEquals(rendering, cancel)) rendering = null;
+            cancel.Dispose();
+        }
         // A newer read or zoom has superseded this one.
         if (!ReferenceEquals(source, bytes) || target != scale || rasters.Count != shown.Count) return;
         for (var index = 0; index < rasters.Count; index++)

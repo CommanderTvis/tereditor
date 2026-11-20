@@ -11,9 +11,9 @@ internal static partial class PdfEngine
         return pages.Select(page => new PdfPage(page.Width, page.Height, page.Text, page.Boxes.Select(box => new Rect(box[0], box[1], box[2], box[3])).ToArray())).ToArray();
     }
 
-    public static async Task<IReadOnlyList<PdfRaster>> RenderAsync(byte[] bytes, double scale)
+    public static async Task<IReadOnlyList<PdfRaster>> RenderAsync(byte[] bytes, double scale, CancellationToken cancellationToken = default)
     {
-        if (PdfPlatform.Render is not { } platform) return await Task.Run(() => Render(bytes, scale));
+        if (PdfPlatform.Render is not { } platform) return await Task.Run(() => Render(bytes, scale, cancellationToken), cancellationToken);
         return (await platform(bytes, scale)).Select(raster => new PdfRaster(raster.Pixels, raster.Width, raster.Height, raster.Stride)).ToArray();
     }
 

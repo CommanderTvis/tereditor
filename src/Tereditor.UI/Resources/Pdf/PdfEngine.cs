@@ -24,7 +24,7 @@ internal static unsafe partial class PdfEngine
     private static readonly Lock Gate = new();
     private static bool initialized;
 
-    public static IReadOnlyList<PdfPage> Read(byte[] bytes) => WithDocument(bytes, document =>
+    public static IReadOnlyList<PdfPage> Read(byte[] bytes) => WithDocument(bytes, default, document =>
     {
         var pages = new PdfPage[FPDF_GetPageCount(document)];
         for (var index = 0; index < pages.Length; index++)
@@ -76,11 +76,13 @@ internal static unsafe partial class PdfEngine
     });
 
     /// <param name="scale">Device pixels per point.</param>
-    public static IReadOnlyList<PdfRaster> Render(byte[] bytes, double scale) => WithDocument(bytes, document =>
+    /// <param name="cancellationToken">Checked once the lock is held and before each page, so a render nobody waits for any more leaves the library to the next call.</param>
+    public static IReadOnlyList<PdfRaster> Render(byte[] bytes, double scale, CancellationToken cancellationToken = default) => WithDocument(bytes, cancellationToken, document =>
     {
         var rasters = new PdfRaster[FPDF_GetPageCount(document)];
         for (var index = 0; index < rasters.Length; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var page = FPDF_LoadPage(document, index);
             if (page == 0) throw new PdfException($"Page {index + 1} could not be read.");
             try
@@ -105,10 +107,11 @@ internal static unsafe partial class PdfEngine
         return rasters;
     });
 
-    private static T WithDocument<T>(byte[] bytes, Func<nint, T> read)
+    private static T WithDocument<T>(byte[] bytes, CancellationToken cancellationToken, Func<nint, T> read)
     {
         lock (Gate)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!initialized) { FPDF_InitLibrary(); initialized = true; }
             fixed (byte* data = bytes)
             {
