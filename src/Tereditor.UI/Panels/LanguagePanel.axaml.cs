@@ -53,6 +53,16 @@ internal sealed partial class LanguagePanel : UserControl
             }
         }
         public bool HasLicenseNotice => LicenseNotice.Length > 0;
+        /// <summary>Whether the plugin says the server has no usable license, which is when the row offers to activate one.</summary>
+        public bool NeedsLicense
+        {
+            get
+            {
+                if (Server.PluginState.Length == 0) return false;
+                try { return System.Text.Json.Nodes.JsonNode.Parse(Server.PluginState)?["kind"]?.ToString() is "unlicensed" or "parked"; }
+                catch (System.Text.Json.JsonException) { return false; }
+            }
+        }
         public bool RestartRequired => Server.ActiveConfiguration.Length > 0 && Server.Configuration != Server.ActiveConfiguration;
         public string SettingsTooltip => RestartRequired ? "Workspace settings · restart needed" : "Workspace settings";
         public Control SettingsIcon => Ui.Icon("settings", RestartRequired ? Ui.Accent : Ui.Muted);
@@ -384,6 +394,15 @@ internal sealed partial class LanguagePanel : UserControl
     {
         if (TopLevel.GetTopLevel(this) is Window owner)
             new LanguageLogsWindow(host, workspace, row.Server.Id).Show(owner);
+    }
+
+    private void ActivateClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is not Button { DataContext: ServerRow row } || TopLevel.GetTopLevel(this) is not Window owner) return;
+        var id = row.Server.Id;
+        var root = workspace;
+        new LicenseActivationWindow((action, arguments, token) => LicenseActivationWindow.HostSubmitAsync(host, root, id, action, arguments, token), LanguageConfigurationView.CanBrowseHostPaths(host), RefreshNow).Show(owner);
     }
 
     private async void SettingsClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

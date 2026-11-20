@@ -37,22 +37,13 @@
             <Button x:Name="StartTrial" Content="Start free trial" Margin="0,0,8,8" ToolTip.Tip="Starts the 30-day trial JetBrains gives every build." />
             <Button x:Name="SignIn" Content="Sign in with JetBrains…" Margin="0,0,8,8" ToolTip.Tip="Opens your browser to sign in to your JetBrains Account." />
             <Button x:Name="CancelLicense" Content="Cancel" Margin="0,0,8,8" IsVisible="False" />
+            <Button x:Name="EnterCode" Content="Enter activation code…" Margin="0,0,8,8" ToolTip.Tip="Activate with an activation code, the offline activation zip or a license server." />
+            <Button x:Name="ReconnectServer" Content="Reconnect to license server" Margin="0,0,8,8" />
             <Button x:Name="RefreshLicense" Content="Refresh" Margin="0,0,8,8" />
             <Button x:Name="RemoveLicense" Content="Remove license" Margin="0,0,8,8" ToolTip.Tip="Removes the license from this computer's JetBrains license store." />
             <Button x:Name="SignOut" Content="Sign out" Margin="0,0,8,8" ToolTip.Tip="Signs out of the JetBrains Account." />
           </WrapPanel>
           <StackPanel x:Name="Subscriptions" Spacing="4" />
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <TextBox x:Name="ActivationCode" PlaceholderText="Activation code" AcceptsReturn="True" TextWrapping="Wrap" />
-            <Button x:Name="UseCode" Grid.Column="1" Content="Activate" VerticalAlignment="Top" />
-          </Grid>
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <TextBox x:Name="LicenseServer" PlaceholderText="License server, for example https://licenses.example.com" />
-            <WrapPanel Grid.Column="1">
-              <Button x:Name="AddServer" Content="Connect" Margin="0,0,8,0" />
-              <Button x:Name="ReconnectServer" Content="Reconnect" Margin="0,0,8,0" />
-            </WrapPanel>
-          </Grid>
         </StackPanel>
         <StackPanel x:Name="InstallationOptions" Spacing="8">
           <TextBlock Text="Installation directory on the workspace host" />

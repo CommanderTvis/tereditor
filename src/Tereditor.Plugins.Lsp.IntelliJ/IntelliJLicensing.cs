@@ -195,7 +195,7 @@ internal static class IntelliJLicensing
     {
         var tracker = Of(session);
         string Argument(string key) => Text(arguments?[key]) ?? throw new ArgumentException($"The {name} action needs {key}.");
-        if (name is "trial" or "signIn" or "useSubscription" or "code" or "serverAdd" && EnvironmentLicense() is { } variable)
+        if (name is "trial" or "signIn" or "useSubscription" or "code" or "codeFile" or "serverAdd" && EnvironmentLicense() is { } variable)
             return Result(false, $"The license is set through {variable}, which overrides any license activated here. Unset it and restart the server to activate a license from tereditor.");
         lock (tracker.Gate) tracker.Busy = name;
         Publish(session, tracker);
@@ -223,6 +223,13 @@ internal static class IntelliJLicensing
     {
         Task<JsonNode?> Send(string method, JsonObject? parameters, TimeSpan timeout) => session.RequestAsync(Prefix + method, parameters ?? new JsonObject(), token, timeout);
         string? Authenticated() { lock (tracker.Gate) return tracker.State?["jbaLicensingState"]?["authenticationStatus"]?.ToString(); }
+        async Task<JsonNode?> UseCodeAsync(string code)
+        {
+            if (await Send("activationCode/use", new JsonObject { ["activationCode"] = code }, Timeouts.Medium) is not JsonValue accepted || !accepted.TryGetValue<bool>(out var ok) || !ok)
+                return Result(false, "That activation code isn't valid. Check the code and try again.");
+            if (Authenticated() == "Authenticated") await Send("jba/logout", null, Timeouts.Short);
+            return Result(true);
+        }
         try
         {
             switch (name)
@@ -250,11 +257,12 @@ internal static class IntelliJLicensing
                     await Send("jba/logout", null, Timeouts.Short);
                     return Result(true);
                 case "code":
-                    var code = Clean(argument("activationCode"));
-                    if (await Send("activationCode/use", new JsonObject { ["activationCode"] = code }, Timeouts.Medium) is not JsonValue accepted || !accepted.TryGetValue<bool>(out var ok) || !ok)
-                        return Result(false, "That activation code isn't valid. Check the code and try again.");
-                    if (Authenticated() == "Authenticated") await Send("jba/logout", null, Timeouts.Short);
-                    return Result(true);
+                    return await UseCodeAsync(Clean(argument("activationCode")));
+                case "codeFile":
+                    // The file is on this host. It is read like a mounted licence (the downloaded zip, its text files or one bare file).
+                    var path = argument("licenseFile").Trim();
+                    if (!File.Exists(path) && !Directory.Exists(path)) return Result(false, "That file does not exist on this computer.");
+                    return IntelliJLicenseMount.Read(path, out var unreadable) is { } fromFile ? await UseCodeAsync(Clean(fromFile)) : Result(false, unreadable);
                 case "serverAdd":
                     var address = argument("serverAddress").Trim();
                     if (!ValidServerUrl(address)) return Result(false, "A license server URL starts with http:// or https://.");

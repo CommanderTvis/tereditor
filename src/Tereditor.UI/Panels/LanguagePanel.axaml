@@ -70,6 +70,8 @@
               <TextBlock Name="ServerNeeds" FontSize="12" IsVisible="{Binding ShowNeeds}" Text="{Binding Needs}" Foreground="{x:Static kit:Ui.Danger}" TextWrapping="Wrap" />
               <kit:LinkedTextBlock Name="ServerDetail" FontSize="12" IsVisible="{Binding ShowDetail}" Source="{Binding DetailText}" Foreground="{Binding DetailBrush}" TextWrapping="Wrap" />
               <TextBlock Name="ServerNotice" FontSize="12" IsVisible="{Binding HasLicenseNotice}" Text="{Binding LicenseNotice}" Foreground="{x:Static kit:Ui.Warning}" TextWrapping="Wrap" />
+              <Button Name="ServerActivateAction" Content="Enter activation code…" Classes="link" HorizontalAlignment="Left" IsVisible="{Binding NeedsLicense}" Click="ActivateClicked"
+                      ToolTip.Tip="Activate with an activation code, the offline activation zip or a license server." />
               <local:LanguageDependencyList Name="ServerDependencies" OmitMissingText="True" IsVisible="{Binding ShowDependencies}" Dependencies="{Binding Server.Dependencies}" />
               <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding ShowExit}">
                 <Button Name="ServerExitDetailsAction" Content="{Binding ExitToggle}" Classes="link" Click="ExitDetailsClicked" />

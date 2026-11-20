@@ -94,6 +94,17 @@ internal static class IntelliJLicenseMount
         return path;
     }
 
+    /// <summary>
+    /// Reads the code of a file, directory or zip the user chose in a window, the same way a mounted licence is read. Returns the code, or <see langword="null"/>
+    /// with a sentence that never holds the code. An expired licence still returns its code: the server's own verdict decides.
+    /// </summary>
+    internal static string? Read(string path, out string problem)
+    {
+        var outcome = Resolve(path, DateOnly.FromDateTime(DateTime.UtcNow));
+        problem = outcome.Message;
+        return outcome.Code?.Text;
+    }
+
     private sealed record Outcome(Code? Code, string Kind, string Message);
 
     private static Outcome Bad(string kind, string message) => new(null, kind, message);

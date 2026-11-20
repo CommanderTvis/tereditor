@@ -21,15 +21,24 @@ internal sealed partial class LanguageConfigurationView
         Find<Button>("RefreshLicense").Click += async (_, _) => await RunLicenseAsync("refresh");
         Find<Button>("RemoveLicense").Click += async (_, _) => await RunLicenseAsync("removeLicense");
         Find<Button>("SignOut").Click += async (_, _) => await RunLicenseAsync("signOut");
-        Find<Button>("UseCode").Click += async (_, _) =>
-        {
-            if (await RunLicenseAsync("code", new() { ["activationCode"] = Find<TextBox>("ActivationCode").Text ?? "" })) Find<TextBox>("ActivationCode").Text = "";
-        };
-        Find<Button>("AddServer").Click += async (_, _) => await RunLicenseAsync("serverAdd", new() { ["serverAddress"] = Find<TextBox>("LicenseServer").Text ?? "" });
+        Find<Button>("EnterCode").Click += (_, _) => OpenActivation();
         Find<Button>("ReconnectServer").Click += async (_, _) => await RunLicenseAsync("serverReconnect");
         // Cancelling stops the pending host call, which ends the server's wait on the browser sign-in.
         Find<Button>("CancelLicense").Click += (_, _) => licenseCall?.Cancel();
         DetachedFromVisualTree += (_, _) => licenseCall?.Cancel();
+    }
+
+    /// <summary>Opens the shared activation window; its action runs through the same call as the other license buttons, so the state refreshes after it.</summary>
+    private void OpenActivation()
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+        new LicenseActivationWindow(async (action, arguments, token) =>
+        {
+            // Closing the window while a license server waits for its sign-in ends that wait.
+            using var stop = token.Register(() => licenseCall?.Cancel());
+            if (await RunLicenseAsync(action, arguments)) return null;
+            return Find<TextBlock>("ConfigurationMessage").Text is { Length: > 0 } failure ? failure : "That did not work. Try again.";
+        }, CanBrowseHostPaths(host)).Show(owner);
     }
 
     private JsonObject? LicenseContents()
@@ -78,8 +87,7 @@ internal sealed partial class LanguageConfigurationView
         var environment = state["environment"] is not null;
         Find<Button>("StartTrial").IsEnabled = idle && !environment;
         Find<Button>("SignIn").IsEnabled = idle && !environment;
-        Find<Button>("UseCode").IsEnabled = idle && !environment;
-        Find<Button>("AddServer").IsEnabled = idle && !environment;
+        Find<Button>("EnterCode").IsEnabled = idle && !environment;
         Find<Button>("RefreshLicense").IsEnabled = idle;
         Find<Button>("RemoveLicense").IsVisible = licensed && state["source"]?.ToString() is "subscription" or "activationCode" or "licenseServer";
         Find<Button>("SignOut").IsVisible = state["account"] is not null;

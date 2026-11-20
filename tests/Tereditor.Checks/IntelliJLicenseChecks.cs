@@ -59,6 +59,7 @@ internal static class IntelliJLicenseChecks
         var saved = IntelliJLicensing.EnvironmentLicense();
         Require(saved is null, "The check needs an environment without an environment license; unset " + saved + ".");
         var server = new FakeServer();
+        var fileCode = "0FILECODE0-" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"licenseId\":\"0FILECODE0\",\"products\":[]}")) + "-QUJDREVGRw==-U1lOVEhFVElD";
         server.Handler = (method, arguments, token) => Task.FromResult<JsonNode?>(method switch
         {
             "discovery/autoActivate" => new JsonObject { ["activated"] = false },
@@ -75,7 +76,7 @@ internal static class IntelliJLicenseChecks
             _ => throw new IOException("Unexpected request " + method)
         });
         JsonNode? Start() { server.Push(Licensed("trial", 30)); return new JsonObject { ["isSuccess"] = true }; }
-        JsonNode? Code(JsonNode? arguments) { if (arguments?["activationCode"]?.ToString() != "ABC-123") return false; server.Push(Licensed("activationCode", 300)); return true; }
+        JsonNode? Code(JsonNode? arguments) { var sent = arguments?["activationCode"]?.ToString(); if (sent != "ABC-123" && sent != fileCode) return false; server.Push(Licensed("activationCode", 300)); return true; }
         JsonNode? Logout() { var next = (JsonObject)server.State.DeepClone(); next["jbaLicensingState"] = new JsonObject { ["authenticationStatus"] = "NotAuthenticated" }; server.Push(next); return null; }
         JsonNode? AddServer(JsonNode? arguments) { server.Push(new JsonObject { ["activeLicense"] = new JsonObject { ["source"] = "licenseServer", ["status"] = "Valid", ["product"] = "intellij-server", ["serverAddress"] = arguments!["serverAddress"]!.ToString() }, ["licenseServerFlowState"] = new JsonObject { ["kind"] = "configured", ["serverAddress"] = arguments["serverAddress"]!.ToString(), ["floatingTicketStatus"] = "Obtained" } }); return new JsonObject { ["status"] = "Connected" }; }
         JsonNode? Removed() { server.Push(new JsonObject { ["featuresDeclined"] = true, ["parkedReason"] = "LicenseRemoved" }); return null; }
@@ -109,6 +110,28 @@ internal static class IntelliJLicenseChecks
         Require(!rejected["ok"]!.GetValue<bool>() && rejected["message"]!.ToString().Contains("isn't valid", StringComparison.Ordinal), "A rejected code was not reported.");
         var accepted = await Run(server, "code", new() { ["activationCode"] = " ABC -\n123 " });
         Require(accepted["ok"]!.GetValue<bool>() && View(server)["source"]!.ToString() == "activationCode", "An activation code did not license.");
+        // The downloaded offline activation zip: the host reads the code of its "for 2018.2 or later" entry and sends it as an activation code.
+        server.Push(new JsonObject { ["featuresDeclined"] = true });
+        var scratch = Path.Combine(Path.GetTempPath(), "tereditor-license-file-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(scratch);
+        try
+        {
+            var zipPath = Path.Combine(scratch, "0FILECODE0 - ada@example.com.zip");
+            using (var zip = System.IO.Compression.ZipFile.Open(zipPath, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                using (var later = new StreamWriter(zip.CreateEntry("0FILECODE0 - ada@example.com - for 2018.2 or later.txt").Open())) later.Write(fileCode);
+                using (var earlier = new StreamWriter(zip.CreateEntry("0FILECODE0 - ada@example.com - for 2018.1 or earlier.txt").Open())) earlier.Write("old");
+            }
+            var fromZip = await Run(server, "codeFile", new() { ["licenseFile"] = zipPath });
+            Require(fromZip["ok"]!.GetValue<bool>() && View(server)["source"]!.ToString() == "activationCode", "A license zip did not license.");
+            var missing = await Run(server, "codeFile", new() { ["licenseFile"] = Path.Combine(scratch, "nope.zip") });
+            Require(!missing["ok"]!.GetValue<bool>() && missing["message"]!.ToString().Contains("does not exist", StringComparison.Ordinal), "A missing license file was not reported.");
+            var notes = Path.Combine(scratch, "notes.txt");
+            File.WriteAllText(notes, "not a code");
+            var wrong = await Run(server, "codeFile", new() { ["licenseFile"] = notes });
+            Require(!wrong["ok"]!.GetValue<bool>() && !wrong["message"]!.ToString().Contains("not a code", StringComparison.Ordinal), "A file that is not a code was accepted or echoed.");
+        }
+        finally { Directory.Delete(scratch, true); }
         var removed = await Run(server, "removeLicense");
         Require(removed["ok"]!.GetValue<bool>() && server.Requests.Last().StartsWith("jetbrains/licensing/activationCode/disable", StringComparison.Ordinal) && View(server)["kind"]!.ToString() == "parked", "Removing an activation-code license used the wrong request.");
 
@@ -184,6 +207,13 @@ internal static class IntelliJLicenseChecks
         Console.WriteLine("PASS IntelliJ license state, hold, trial/sign-in/code/license-server/remove actions, cancellation, timeout and environment license against a fake licensing server");
     }
 
+    private static void Submit(Tereditor.UI.Panels.LicenseActivationWindow dialog, int kind, string value)
+    {
+        Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.ComboBox>(dialog, "ActivationKind")!.SelectedIndex = kind;
+        Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.TextBox>(dialog, "ActivationInput")!.Text = value;
+        Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(dialog, "ActivationSubmit")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+    }
+
     /// <summary>The settings block: state, days left, the trial-ending notice, the offered actions and the call a click makes.</summary>
     internal static void Ui(string fixture)
     {
@@ -191,13 +221,14 @@ internal static class IntelliJLicenseChecks
         E2E.E2eWorkspace.Until(() => app.State!.Current.Workspaces.Any(item => item.Path == app.Root));
         var calls = new List<LanguageRequest>();
         string? rowState = null;
+        var actionFails = false;
         app.Host.LanguageReply = request =>
         {
             if (request.Operation == "servers" && rowState is not null)
                 return new("ready", "") { Servers = [new("intellij", "", "ready", "Ready", "263.7084.0") { PluginState = rowState, Presentation = new("Java / Kotlin (IntelliJ)") }] };
             if (request.Operation != "action") return null;
             calls.Add(request);
-            return new("ready", """{"ok":true,"message":null}""");
+            return new("ready", actionFails ? """{"ok":false,"message":"That activation code isn't valid. Check the code and try again."}""" : """{"ok":true,"message":null}""");
         };
         var trial = Licensing(new JsonObject { ["activeLicense"] = new JsonObject { ["source"] = "trial", ["status"] = "Valid", ["product"] = "intellij-server", ["daysLeft"] = 3, ["validThrough"] = "2026-11-05" } });
         var view = new Tereditor.UI.Panels.LanguageConfigurationView(app.Host, app.Root, new("intellij", "", "ready", "Ready", "263.7084.0") { PluginState = trial });
@@ -212,13 +243,41 @@ internal static class IntelliJLicenseChecks
             view.Update(new("intellij", "", "actionRequired", "No active license.", "263.7084.0") { PluginState = Licensing(new JsonObject { ["featuresDeclined"] = true }) });
             Require(Find<Avalonia.Controls.TextBlock>("LicenseState").Text!.Contains("No active license", StringComparison.Ordinal) && Find<Avalonia.Controls.TextBlock>("LicenseNotice").IsVisible, "An unlicensed server did not say so.");
             Require(!Find<Avalonia.Controls.Button>("RemoveLicense").IsVisible && Find<Avalonia.Controls.Button>("StartTrial").IsEnabled && Find<Avalonia.Controls.Button>("SignIn").IsEnabled, "Unlicensed actions were not offered.");
+            // The host answers the inventory read that follows an action with the state it holds.
+            rowState = Licensing(new JsonObject { ["featuresDeclined"] = true });
             Find<Avalonia.Controls.Button>("StartTrial").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
             E2E.E2eWorkspace.Until(() => calls.Count > 0 && Find<Avalonia.Controls.TextBlock>("ConfigurationMessage").Text == "License updated.");
             Require(calls[0].Server == "intellij" && calls[0].Query == "trial", "Start trial did not request the trial action.");
-            Find<Avalonia.Controls.TextBox>("ActivationCode").Text = " AB-12 ";
-            Find<Avalonia.Controls.Button>("UseCode").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
-            E2E.E2eWorkspace.Until(() => calls.Count > 1);
+            // Enter activation code opens the shared window. A code the host refuses shows its error and keeps the window; a good one reaches the host, closes it and refreshes the state.
+            var enter = Find<Avalonia.Controls.Button>("EnterCode");
+            E2E.E2eWorkspace.Until(() => enter.IsEnabled, "Enter activation code stayed disabled after the trial.");
+            Require(enter.IsEnabled && enter.Content?.ToString() == "Enter activation code…", "The unlicensed block did not offer Enter activation code.");
+            Tereditor.UI.Panels.LicenseActivationWindow Opened()
+            {
+                enter.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+                E2E.E2eWorkspace.Until(() => Tereditor.UI.Panels.LicenseActivationWindow.Current is not null, "Enter activation code opened no window.");
+                return Tereditor.UI.Panels.LicenseActivationWindow.Current!;
+            }
+            actionFails = true;
+            var code = Opened();
+            Submit(code, 0, " AB-12 ");
+            E2E.E2eWorkspace.Until(() => calls.Count > 1 && Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.TextBlock>(code, "ActivationError")!.IsVisible, "A refused code showed no error.");
             Require(calls[1].Query == "code" && JsonNode.Parse(calls[1].Configuration!)!["activationCode"]!.ToString() == " AB-12 ", "The activation code was not sent.");
+            Require(Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.TextBlock>(code, "ActivationError")!.Text!.Contains("isn't valid", StringComparison.Ordinal) && Tereditor.UI.Panels.LicenseActivationWindow.Current == code, "A refused code lost its error or closed the window.");
+            actionFails = false;
+            rowState = Licensing(new JsonObject { ["activeLicense"] = new JsonObject { ["source"] = "activationCode", ["status"] = "Valid", ["product"] = "intellij-server", ["daysLeft"] = 90, ["validThrough"] = "2027-02-01" } });
+            Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(code, "ActivationSubmit")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            E2E.E2eWorkspace.Until(() => Tereditor.UI.Panels.LicenseActivationWindow.Current is null && Find<Avalonia.Controls.TextBlock>("LicenseState").Text!.Contains("90", StringComparison.Ordinal), "A good code did not close the window and refresh the state.");
+            Require(Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.TextBox>(code, "ActivationInput")!.Text == "", "The code stayed in the window after it closed.");
+            // The offline activation zip and a license server go through the same host action, each with its own argument.
+            var file = Opened();
+            Submit(file, 1, "/license/offline.zip");
+            E2E.E2eWorkspace.Until(() => calls.Count > 3, "A license file was not sent.");
+            Require(calls[3].Query == "codeFile" && JsonNode.Parse(calls[3].Configuration!)!["licenseFile"]!.ToString() == "/license/offline.zip", "The license file path was not sent as codeFile.");
+            var licenseServer = Opened();
+            Submit(licenseServer, 2, "https://licenses.example.com");
+            E2E.E2eWorkspace.Until(() => calls.Count > 4, "A license server was not sent.");
+            Require(calls[4].Query == "serverAdd" && JsonNode.Parse(calls[4].Configuration!)!["serverAddress"]!.ToString() == "https://licenses.example.com", "The license server address was not sent as serverAdd.");
             // The Code Intelligence row itself shows the notice, without opening the settings.
             rowState = trial;
             var pane = new Tereditor.UI.Panels.LanguagePanel(app.Host, app.Root, _ => Task.CompletedTask, app.Workbench.State);
@@ -232,6 +291,23 @@ internal static class IntelliJLicenseChecks
                     return Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(pane).OfType<Avalonia.Controls.TextBlock>()
                         .Any(text => text.Name == "ServerNotice" && text.IsEffectivelyVisible && (text.Text ?? "").Contains("3 days", StringComparison.Ordinal));
                 }, "The Code Intelligence row did not show the trial notice.");
+                // A row without a usable license offers the same window; the host call it makes refreshes the row.
+                Avalonia.Controls.Button? Activate() => Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(pane).OfType<Avalonia.Controls.Button>().FirstOrDefault(button => button.Name == "ServerActivateAction" && button.IsEffectivelyVisible);
+                Require(Activate() is null, "A licensed row offered to activate a license.");
+                rowState = Licensing(new JsonObject { ["featuresDeclined"] = true });
+                E2E.E2eWorkspace.Until(() =>
+                {
+                    if (pane.Idle) pane.RefreshNow();
+                    return Activate() is not null;
+                }, "An unlicensed row did not offer Enter activation code.");
+                Activate()!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+                E2E.E2eWorkspace.Until(() => Tereditor.UI.Panels.LicenseActivationWindow.Current is not null, "The row's Enter activation code opened no window.");
+                var rowDialog = Tereditor.UI.Panels.LicenseActivationWindow.Current!;
+                var before = calls.Count;
+                rowState = trial;
+                Submit(rowDialog, 0, "ROW-1");
+                E2E.E2eWorkspace.Until(() => calls.Count == before + 1 && Tereditor.UI.Panels.LicenseActivationWindow.Current is null && Activate() is null, "The row's activation did not reach the host, close the window and refresh the row.");
+                Require(calls[^1].Query == "code" && calls[^1].Server == "intellij", "The row sent the wrong action.");
             }
             finally { paneWindow.Close(); }
             var plain = new Tereditor.UI.Panels.LanguageConfigurationView(app.Host, app.Root, new("typescript", "", "idle", "Fixture", "fixture"));
