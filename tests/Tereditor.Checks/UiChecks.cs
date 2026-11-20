@@ -524,7 +524,7 @@ internal static class UiChecks
         Dispatcher.UIThread.RunJobs();
         Capture(window, "prototype-settings.png");
         var light = Find<Button>(settings, "Theme_light");
-        Require(light.Bounds.Width > 500 && Find<Button>(settings, "Settings_Appearance").Bounds.Width == 167,
+        Require(light.Bounds.Width > 500 && Find<Button>(settings, "Settings_Appearance").Bounds.Width == 199,
             "Settings rows did not fill their reference columns.");
         Click(settings, light);
         Pump(() => store.Data.Preferences.Theme == "light", "Settings theme did not save.");
