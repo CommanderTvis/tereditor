@@ -123,7 +123,9 @@ internal static class PaneRetargetChecks
             return Panes(name).Single();
         }
         List<Control> Panes(string name) { Dispatcher.UIThread.RunJobs(); return [.. window.GetLogicalDescendants().OfType<Control>().Where(item => item.Name == name)]; }
-        bool Loaded(string signature) => !signature.Contains("Reading", StringComparison.Ordinal) && signature.Contains(window.WorkspaceRoot, StringComparison.Ordinal);
+        // A pane prints a path under the home folder as ~/..., so a workspace is shown by either spelling.
+        bool Shows(string signature, string path) => signature.Contains(path, StringComparison.Ordinal) || signature.Contains(Tereditor.Plugins.UI.Kit.ScopedSetting.AbbreviateHomePath(path), StringComparison.Ordinal);
+        bool Loaded(string signature) => !signature.Contains("Reading", StringComparison.Ordinal) && Shows(signature, window.WorkspaceRoot);
 
         var panes = new Dictionary<string, Control>();
         var firstVisit = new Dictionary<string, string>();
@@ -159,7 +161,7 @@ internal static class PaneRetargetChecks
                 Until(() => Loaded(Signature(pane)));
                 var shown = Signature(pane);
                 foreach (var other in new[] { a, b, c }.Where(path => path != target && !target.StartsWith(path, StringComparison.Ordinal) && !path.StartsWith(target, StringComparison.Ordinal)))
-                    Require(!shown.Contains(other, StringComparison.Ordinal), $"{tool} in {target} must not show {other}:\n{shown}");
+                    Require(!Shows(shown, other), $"{tool} in {target} must not show {other}:\n{shown}");
                 if (target == a && tool != "lsp") Require(shown == firstVisit[tool], $"{tool} back in A must equal its first visit:\n--- first\n{firstVisit[tool]}\n--- now\n{shown}");
             }
         }
