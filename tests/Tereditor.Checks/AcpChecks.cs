@@ -1139,9 +1139,128 @@ internal static class AcpChecks
         Require(secrets.All(text => !text.Contains(Secret, StringComparison.Ordinal)), "No token value shows in a line, a reason, a method, the failure card, its command or the log.");
     }
 
+    // Settings > ACP: the refresh mark on an installed row with a newer registry version is a real button. A press (through the pointer, as a user does it) asks the host to
+    // plan and install that agent only, the row says Updating… while the host works and shows the new version after; a failure shows its reason on the row and the button returns.
+    private class UpdateHost : System.Reflection.DispatchProxy
+    {
+        internal static List<string> Requests = [];
+        internal static TaskCompletionSource Gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal static bool Fail;
+        private static AcpAgentList current = new([]);
+
+        internal static Avalonia.Controls.Control Create(out AcpSettingsViewHandle handle)
+        {
+            Requests = [];
+            Gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            current = new([
+                new AcpAgentEntry("junie", "Junie", "npx") { Origin = "registry", Version = "4020.10.0" },
+                new AcpAgentEntry("github-copilot-cli", "GitHub Copilot", "npx") { Origin = "registry", Version = "1.0.112" }]);
+            var view = new Tereditor.Plugins.Acp.UI.AcpSettingsView(Create<IPluginUIContext, UpdateHost>());
+            handle = new(view);
+            return view;
+        }
+
+        protected override object? Invoke(System.Reflection.MethodInfo? method, object?[]? args)
+        {
+            switch (method!.Name)
+            {
+                case "get_Id": return AcpManifest.Id;
+                case "Settings": return new AcpSettings();
+                case "OnSettings": return new Stop();
+                case "Notify": throw new InvalidOperationException("acp: the page reported an error instead of showing it on the row: " + string.Join(" / ", args!.OfType<string>()));
+                case "RequestAsync":
+                    {
+                        var name = ((PluginMethodSpec)args![0]!).Name;
+                        object result;
+                        switch (name)
+                        {
+                            case "agents": result = current; break;
+                            case "registry":
+                                result = new AcpRegistryView([
+                                    new("junie", "Junie", "4100.8.0", "JetBrains agent") { Installable = true, Kinds = ["npx"] },
+                                    new("github-copilot-cli", "GitHub Copilot", "1.0.112", "GitHub agent") { Installable = true, Kinds = ["npx"] }], "built-in");
+                                break;
+                            case "installPlan":
+                                {
+                                    var id = ((AcpInstallPlanParams)args[1]!).AgentId;
+                                    lock (Requests) Requests.Add("plan " + id);
+                                    result = new AcpInstallPlan(id, id, id == "junie" ? "4100.8.0" : "1.0.112", "npx");
+                                    break;
+                                }
+                            case "install":
+                                {
+                                    var request = (AcpInstallRequest)args[1]!;
+                                    lock (Requests) Requests.Add($"install {request.AgentId} {request.Version} {request.Kind} {request.Confirmed}");
+                                    Gate.Task.GetAwaiter().GetResult();
+                                    if (Fail) throw new InvalidOperationException("The download failed.");
+                                    current = new([.. current.Agents.Select(entry => entry.Id == request.AgentId ? entry with { Version = request.Version } : entry)]);
+                                    result = current;
+                                    break;
+                                }
+                            default: throw new NotSupportedException(name);
+                        }
+                        return Activator.CreateInstance(method.ReturnType, result);
+                    }
+                default: throw new NotSupportedException(method.Name);
+            }
+        }
+
+        private sealed class Stop : IDisposable { public void Dispose() { } }
+    }
+
+    private sealed record AcpSettingsViewHandle(Tereditor.Plugins.Acp.UI.AcpSettingsView View);
+
+    internal static void UpdateButton()
+    {
+        UiChecks.EnsureHeadlessApp();
+        foreach (var fail in new[] { false, true })
+        {
+            var view = (Tereditor.Plugins.Acp.UI.AcpSettingsView)UpdateHost.Create(out _);
+            UpdateHost.Fail = fail;
+            view.Confirm = _ => Task.FromResult(true);
+            var window = new Avalonia.Controls.Window { Width = 900, Height = 600, Content = view };
+            window.Show();
+            void Settle() { Avalonia.Threading.Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }
+            void Until(Func<bool> done, string what)
+            {
+                for (var tries = 0; tries < 500 && !done(); tries++) { Settle(); Thread.Sleep(10); }
+                Require(done(), what);
+            }
+            T? Named<T>(string name) where T : Avalonia.Controls.Control => view.GetVisualDescendants().OfType<T>().FirstOrDefault(control => control.Name == name);
+            string[] Seen() { lock (UpdateHost.Requests) return [.. UpdateHost.Requests]; }
+            try
+            {
+                Until(() => Named<Avalonia.Controls.Button>("AcpUpdate_junie") is not null, "an installed agent with a newer registry version shows the update button");
+                Require(Named<Avalonia.Controls.Button>("AcpUpdate_github-copilot-cli") is null, "an agent without a newer version has no update button");
+                Require(Seen().Length == 0, "nothing is requested before a press");
+                var button = Named<Avalonia.Controls.Button>("AcpUpdate_junie")!;
+                Require(Avalonia.Controls.ToolTip.GetTip(button) as string == "Update to 4100.8.0", "the update button's tooltip names the version");
+                var at = Avalonia.VisualExtensions.TranslatePoint(button, new Avalonia.Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(at, Avalonia.Input.MouseButton.Left);
+                window.MouseUp(at, Avalonia.Input.MouseButton.Left);
+                Until(() => Named<Avalonia.Controls.TextBlock>("AcpUpdating_junie") is not null && Seen().Contains("install junie 4100.8.0 npx True"), "a press asks the host to install the update and the row says Updating…");
+                Require(Named<Avalonia.Controls.Button>("AcpUpdate_junie") is null && Named<Avalonia.Controls.Button>("AcpUpdate_github-copilot-cli") is null, "the button is gone while updating");
+                UpdateHost.Gate.SetResult();
+                if (!fail)
+                {
+                    Until(() => Named<Avalonia.Controls.TextBlock>("MasterNote_junie")?.Text == "v4100.8.0" && Named<Avalonia.Controls.TextBlock>("AcpUpdating_junie") is null, "the row shows the new version when the update is done");
+                    Require(Named<Avalonia.Controls.Button>("AcpUpdate_junie") is null, "no update is offered after the update");
+                    Require(Seen().SequenceEqual(["plan junie", "install junie 4100.8.0 npx True"]), "exactly one plan and one install were requested, for that agent only: " + string.Join(", ", Seen()));
+                }
+                else
+                {
+                    Until(() => Named<Avalonia.Controls.TextBlock>("AcpUpdating_junie") is null && view.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Any(text => text.Text == "Update failed: The download failed."), "a failed update shows its reason on the row");
+                    Require(Named<Avalonia.Controls.TextBlock>("MasterNote_junie")?.Text == "v4020.10.0" && Named<Avalonia.Controls.Button>("AcpUpdate_junie") is not null && Named<Avalonia.Controls.Control>("MasterProblem_junie") is not null, "after a failure the old version stays, the problem dot shows and the update button is back");
+                }
+            }
+            finally { window.Close(); }
+        }
+    }
+
     internal static async Task Run(string root)
     {
         Manifest();
+        UpdateButton();
         Rows();
         MasterList();
         CombinedList();

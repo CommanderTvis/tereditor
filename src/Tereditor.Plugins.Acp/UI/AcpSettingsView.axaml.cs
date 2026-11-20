@@ -33,6 +33,12 @@ internal sealed partial class AcpSettingsView : Grid
     // across list refreshes so typing is not interrupted.
     private string? selectedId;
     private string? paneId;
+    // Agents being updated right now, and why the last update of an agent failed.
+    private readonly HashSet<string> updating = [];
+    private readonly Dictionary<string, string> updateErrors = [];
+
+    /// <summary>Asks whether to install a plan; null shows the dialog over this window. A check sets it so no window is needed.</summary>
+    internal Func<AcpInstallPlan, Task<bool>>? Confirm { get; set; }
 
     internal AcpSettingsView(IPluginUIContext context)
     {
@@ -256,12 +262,26 @@ internal sealed partial class AcpSettingsView : Grid
         panel.Children.Add(runs);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        if (detail.CanUpdate) actions.Children.Add(Ui.Button("Update to " + detail.UpdateTo, () => Install(entry.Id)));
+        if (detail.CanUpdate)
+        {
+            var isUpdating = updating.Contains(entry.Id);
+            var update = Ui.Button(isUpdating ? "Updating…" : "Update to " + detail.UpdateTo, () => Update(entry.Id));
+            update.Name = "AcpUpdatePane";
+            update.IsEnabled = !isUpdating;
+            actions.Children.Add(update);
+        }
         if (detail.CanReinstall) actions.Children.Add(Ui.Button("Reinstall", () => Install(entry.Id)));
         var remove = Ui.Button("Remove", () => _ = RemoveAsync(entry));
         remove.Name = "AcpRemove";
         actions.Children.Add(remove);
         panel.Children.Add(actions);
+        if (updateErrors.GetValueOrDefault(entry.Id) is { } updateFailed)
+        {
+            var line = Text("Update failed: " + updateFailed, detail: true);
+            line.Name = "AcpUpdateError";
+            line.Foreground = Ui.Danger;
+            panel.Children.Add(line);
+        }
         return panel;
     }
 
@@ -310,6 +330,30 @@ internal sealed partial class AcpSettingsView : Grid
     {
         if (TopLevel.GetTopLevel(this) is not Window owner || !await AcpInstallConfirm.ShowRemoveAsync(owner, entry)) return;
         await RunAsync(() => context.RequestAsync(AcpContract.RemoveAgent, new AcpChooseParams("", "", entry.Id)).AsTask(), agents => Apply(agents, true), "Couldn't remove the agent");
+    }
+
+    /// <summary>Updates an installed agent from its row or pane: plan, confirmation, install. The row shows Updating… meanwhile and the reason when it fails.</summary>
+    private void Update(string agentId)
+    {
+        if (!updating.Add(agentId)) return;
+        updateErrors.Remove(agentId);
+        RenderAll(true);
+        _ = UpdateAsync(agentId);
+    }
+
+    private async Task UpdateAsync(string agentId)
+    {
+        AcpAgentList? agents = null;
+        try
+        {
+            var plan = await Task.Run(() => context.RequestAsync(AcpContract.InstallPlan, new AcpInstallPlanParams(agentId)).AsTask());
+            var confirmed = Confirm is { } ask ? await ask(plan) : TopLevel.GetTopLevel(this) is Window owner && await AcpInstallConfirm.ShowAsync(owner, plan);
+            if (confirmed) agents = await Task.Run(() => context.RequestAsync(AcpContract.Install, new AcpInstallRequest(plan.AgentId, plan.Kind, plan.Version, true)).AsTask());
+        }
+        catch (Exception error) when (error is not OperationCanceledException) { updateErrors[agentId] = error.Message; }
+        updating.Remove(agentId);
+        if (agents is { } list) { configured = list.Agents; problems = list.Problems; }
+        RenderAll(true);
     }
 
     private void Install(string agentId) =>
@@ -402,9 +446,21 @@ internal sealed partial class AcpSettingsView : Grid
     {
         var entry = row.Entry;
         var detail = new AcpAgentDetail(entry, AcpRows.RegistryAgent(entry, registry), row.Problem);
-        var mark = row.Problem is { } problem ? StatusIcon("alertWarning", Ui.Danger, problem) : detail.CanUpdate ? StatusIcon("refresh", Ui.Muted, "Update available") : StatusIcon("check", Ui.Success, "Installed");
+        var failed = updateErrors.GetValueOrDefault(entry.Id);
+        Control mark;
+        if (updating.Contains(entry.Id)) mark = new TextBlock { Name = "AcpUpdating_" + entry.Id, Text = "Updating…", FontSize = 12, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
+        else if (detail.CanUpdate)
+        {
+            var tip = "Update to " + detail.UpdateTo;
+            var update = new Button { Name = "AcpUpdate_" + entry.Id, Content = Ui.Icon("refresh", Ui.Muted), Classes = { "link" }, Padding = new Thickness(4, 2) };
+            ToolTip.SetTip(update, tip);
+            Avalonia.Automation.AutomationProperties.SetName(update, tip);
+            update.Click += (_, _) => Update(entry.Id);
+            mark = update;
+        }
+        else mark = row.Problem is { } problem ? StatusIcon("alertWarning", Ui.Danger, problem) : StatusIcon("check", Ui.Success, "Installed, no update available");
         var note = entry.Origin == "registry" ? entry.Version is { } version ? "v" + version : null : "Custom";
-        return MasterDetail.Row(entry.Id, AcpIconFor(entry.Id), entry.Name, note, detail.Description.Length > 0 ? detail.Description : row.Subtitle, null, mark, detail.Registry?.NotRecommended is null ? null : "Not recommended", detail.Registry?.NotRecommended);
+        return MasterDetail.Row(entry.Id, AcpIconFor(entry.Id), entry.Name, note, failed is null ? detail.Description.Length > 0 ? detail.Description : row.Subtitle : "Update failed: " + failed, failed, mark, detail.Registry?.NotRecommended is null ? null : "Not recommended", detail.Registry?.NotRecommended);
     }
 
     private Control RegistryAgentRow(AcpRegistryRowModel model)

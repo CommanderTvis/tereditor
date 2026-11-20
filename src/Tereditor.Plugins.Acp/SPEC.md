@@ -92,13 +92,13 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
   appears once, in the pinned group. The search filters both groups by name, description or id, and installed matches stay on top. A row shows the
   agent's icon, name, version (Custom for a custom agent), one line of description and, at the right, Install (or Not on this machine) for a registry row, or
   a mark for an installed one (a red alert when the host knows something is wrong: the program path does not exist, or the last start of a chat failed,
-  `AcpAgentList.Problems`; a refresh mark for Update available; a check otherwise). Selecting a row shows its pane; nothing expands under the row. A registry row's pane shows the
+  `AcpAgentList.Problems`; an Update button for Update available, a refresh icon with the tooltip "Update to <version>"; a check otherwise, tooltip "Installed, no update available"). Selecting a row shows its pane; nothing expands under the row. A registry row's pane shows the
   description, version, kinds, links, license, the trust notice and Install; a finished install selects the installed row. If the registry cannot be read, installed agents still show with a plain message. An installed agent's pane holds:
   name, tags (Registry or Custom, Not recommended, Update available, Off, Default), description, version, source, website and repository links (https only), license,
   install status and location, what was verified, the trust notice for registry agents, a switch to offer it in the launcher, a switch to make
   it the launcher's default, the executable override with a Use default arguments switch and the arguments one per line (a registry agent), or
   its command and arguments (a custom agent), environment, working directory, the command line that will run, Update to or Reinstall, and
-  Remove. Fields save when they lose focus. Update and Reinstall keep the user's overrides, working directory and environment. Remove asks in
+  Remove. Fields save when they lose focus. Update and Reinstall keep the user's overrides, working directory and environment. The row's Update button and the pane's Update to button do the same: plan, confirm, install that one agent; the row says Updating… (the pane button is off) until the host answers, then shows the new version; a failure shows "Update failed: <reason>" on the row (with the problem dot) and in the pane, keeps the old version and brings the button back. An agent without a newer registry version has no update button and nothing is requested for it. Remove asks in
   the overlay and deletes a registry install's files under `~/.tereditor/acp/agents/<id>` (nothing outside it). There is no "use the program on
   PATH" choice: a registry binary has no name to look up, and uvx agents already run through the PATH.
 - Add custom agent: a popup in the overlay with name, command, arguments, environment and working directory. It refuses an empty name or command,
