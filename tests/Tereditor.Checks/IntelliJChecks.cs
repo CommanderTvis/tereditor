@@ -340,6 +340,8 @@ internal static class IntelliJChecks
     private static async Task Protocol(string root)
     {
         Directory.CreateDirectory(Path.Combine(root, ".tools"));
+        // The Maven import needs a Maven; a project wrapper stands in so the check does not depend on mvn being installed.
+        File.WriteAllText(Path.Combine(root, OperatingSystem.IsWindows() ? "mvnw.cmd" : "mvnw"), "");
         var executable = Environment.ProcessPath!;
         string[] arguments = Path.GetFileNameWithoutExtension(executable) == "dotnet" ? [typeof(IntelliJChecks).Assembly.Location, "--fake-lsp"] : ["--fake-lsp"];
         var server = LanguageServers.Catalog.Single(item => item.Id == "intellij");
