@@ -81,8 +81,13 @@ internal static class PreviewTabsE2E
         });
         Case("a newer tab click cancels an older preview-tab settle timer", app =>
         {
+            // The older timer is fired by hand after the newer click, so the outcome does not depend on how fast the runner clicks.
+            var armed = new List<Func<bool>>();
+            app.Window.GetLogicalDescendants().OfType<Tereditor.UI.Docking.DockSurface>().Single().ScheduleKeep = (keep, _) => { armed.Add(keep); return new NoTimer(); };
             app.Open("notes.txt", true); app.Open("README.md");
-            app.Click(app.Tab("README.md")); app.Click(app.Tab("notes.txt"), freshGesture: false); Settle();
+            app.Click(app.Tab("README.md")); Require(armed.Count == 1, "Clicking the selected preview tab must arm its keep timer.");
+            app.Click(app.Tab("notes.txt"), freshGesture: false);
+            foreach (var keep in armed) keep();
             Require(app.Window.Layout.Selected(app.Center)?.Path == "notes.txt" && app.Tabs.Single(tab => tab.Path == "README.md").Preview,
                 "A newer selection must defeat the preview keep timer.");
         });
@@ -100,5 +105,10 @@ internal static class PreviewTabsE2E
             app.ShowTool("files"); app.Open("notes.txt");
             Require(app.Tabs.Count == 2 && app.Tabs[1].Path == "notes.txt" && app.Tabs[1].Preview, "Browsing must refill the released preview slot.");
         });
+    }
+
+    private sealed class NoTimer : IDisposable
+    {
+        public void Dispose() { }
     }
 }

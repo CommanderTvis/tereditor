@@ -335,7 +335,7 @@ public sealed partial class DockSurface
                 SelectTab();
                 if (!keep) return;
                 var gesture = previewGesture; var epoch = Session.Epoch;
-                DispatcherTimer.Run(() =>
+                ScheduleKeep(() =>
                 {
                     if (gesture == previewGesture && epoch == Session.Epoch) Session.Keep(group.Id, tab.Id);
                     return false;

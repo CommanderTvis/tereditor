@@ -119,6 +119,8 @@ public sealed partial class DockSurface : Grid
         Action[] Modified, Action[] CenterActions);
     private long previewGesture;
     internal void InvalidatePreviewKeep() => previewGesture++;
+    /// <summary>Runs the keep that follows a click on the selected preview tab after its delay; checks replace it to fire the keep by hand.</summary>
+    internal Func<Func<bool>, TimeSpan, IDisposable> ScheduleKeep { get; set; } = (action, delay) => DispatcherTimer.Run(action, delay);
     public DockSurface(LayoutSession session, Func<DockTab?, Control> renderContent, bool build = true)
     {
         Name = "WorkspaceWorkbench"; Session = session; this.renderContent = renderContent;
