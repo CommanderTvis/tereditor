@@ -636,11 +636,18 @@ internal static class ShellChecks
         subscription.Dispose();
         Dispatcher.UIThread.RunJobs();
         Require(ReferenceEquals(received, service.Failure), "Disposal cancellation does not replace the reported failure.");
+
+        var disposed = new SharedState(new FailingSubscription(new ObjectDisposedException("Tereditor.Host.Client.RpcChannel")), new Preferences()) { RetryDelay = TimeSpan.FromMilliseconds(1) };
+        disposed.Start();
+        Dispatcher.UIThread.RunJobs();
+        Until(() => disposed.Watching?.IsCompleted == true);
+        Require(disposed.Watching!.IsCompletedSuccessfully, "A subscription on a disposed channel stops instead of retrying for as long as its owner lives.");
+        disposed.Dispose();
     }
 
-    private sealed class FailingSubscription : Tereditor.Host.Abstractions.IHostStateService
+    private sealed class FailingSubscription(Exception? failure = null) : Tereditor.Host.Abstractions.IHostStateService
     {
-        public Exception Failure { get; } = new IOException("WebSocket host subscription disconnected");
+        public Exception Failure { get; } = failure ?? new IOException("WebSocket host subscription disconnected");
         public ValueTask<Tereditor.Host.Abstractions.HostHandshake> GetHandshakeAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public ValueTask<Tereditor.Host.Abstractions.HostState> GetStateAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public ValueTask<Tereditor.Host.Abstractions.HostState> ChangeAsync(IReadOnlyList<Tereditor.Host.Abstractions.HostStateChange> changes, CancellationToken cancellationToken = default) => throw new NotSupportedException();

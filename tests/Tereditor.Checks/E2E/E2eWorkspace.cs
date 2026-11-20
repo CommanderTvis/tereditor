@@ -350,34 +350,41 @@ internal sealed class E2eWorkspace : IDisposable
             Window.MouseMove(new Point(Window.Bounds.Width - 2, Window.Bounds.Height - 2));
             Settle(550);
         }
-        if (TopLevel.GetTopLevel(control) is null)
+        TopLevel input;
+        Point point;
+        while (true)
         {
-            if (name is not null && rowName is not null)
+            if (TopLevel.GetTopLevel(control) is null)
             {
-                var currentRow = Window.GetLogicalDescendants().OfType<Control>().Single(item => item.Name == rowName && Equals(item.Tag, rowTag));
-                control = currentRow.GetLogicalDescendants().OfType<Control>().Single(item => item.Name == name && (tag is null || Equals(item.Tag, tag)));
+                if (name is not null && rowName is not null)
+                {
+                    var currentRow = Window.GetLogicalDescendants().OfType<Control>().Single(item => item.Name == rowName && Equals(item.Tag, rowTag));
+                    control = currentRow.GetLogicalDescendants().OfType<Control>().Single(item => item.Name == name && (tag is null || Equals(item.Tag, tag)));
+                }
+                else if (name is not null && owner is not null) control = Find<Control>(owner).GetLogicalDescendants().OfType<Control>().Single(item => item.Name == name);
+                else if (name is not null && tag is not null)
+                {
+                    Dispatcher.UIThread.RunJobs(); Window.UpdateLayout();
+                    control = Window.GetLogicalDescendants().OfType<Control>().Single(item => item.Name == name && Equals(item.Tag, tag));
+                }
+                else if (name is not null) control = Find<Control>(name);
+                else if (filePath is not null) control = FileRow(filePath);
             }
-            else if (name is not null && owner is not null) control = Find<Control>(owner).GetLogicalDescendants().OfType<Control>().Single(item => item.Name == name);
-            else if (name is not null && tag is not null)
-            {
-                Dispatcher.UIThread.RunJobs(); Window.UpdateLayout();
-                control = Window.GetLogicalDescendants().OfType<Control>().Single(item => item.Name == name && Equals(item.Tag, tag));
-            }
-            else if (name is not null) control = Find<Control>(name);
-            else if (filePath is not null) control = FileRow(filePath);
+            Window.UpdateLayout();
+            control.BringIntoView();
+            Dispatcher.UIThread.RunJobs();
+            TopLevel.GetTopLevel(control)!.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            input = TopLevel.GetTopLevel(control)!;
+            var targetX = control is DrawnTreeLabel label ? label.Entry.Depth * 12 + 52 : 24;
+            point = control.TranslatePoint(new Point(Math.Min(targetX, control.Bounds.Width / 2), control.Bounds.Height / 2), input)!.Value;
+            Require(control.Bounds.Width > 0 && control.Bounds.Height > 0, "E2E input target is not arranged.");
+            input.MouseMove(point);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            // A deferred refresh (a tab strip rebuilt by a preview settle timer) can replace the target while the pointer moves onto it; aim at its successor.
+            if (TopLevel.GetTopLevel(control) is not null) break;
         }
-        Window.UpdateLayout();
-        control.BringIntoView();
-        Dispatcher.UIThread.RunJobs();
-        TopLevel.GetTopLevel(control)!.UpdateLayout();
-        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-        var input = TopLevel.GetTopLevel(control)!;
-        var targetX = control is DrawnTreeLabel label ? label.Entry.Depth * 12 + 52 : 24;
-        var point = control.TranslatePoint(new Point(Math.Min(targetX, control.Bounds.Width / 2), control.Bounds.Height / 2), input)!.Value;
-        Require(control.Bounds.Width > 0 && control.Bounds.Height > 0, "E2E input target is not arranged.");
-        input.MouseMove(point);
-        Dispatcher.UIThread.RunJobs();
-        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         var hit = input.InputHitTest(point) as Control;
         Require(hit is not null && (ReferenceEquals(hit, control) || hit.GetVisualAncestors().Contains(control)),
             $"E2E target {control.Name ?? control.GetType().Name} ({control.Bounds}) is occluded at {point} by {hit?.GetType().Name}/{hit?.Name} ({hit?.Bounds}, classes {hit?.Classes}, background {(hit as Border)?.Background}/{(hit as Border)?.Background == Ui.Overlay}, z {hit?.ZIndex}, row span {(hit is null ? 0 : Grid.GetRowSpan(hit))}, owned windows {string.Join("|", Tereditor.Plugins.UI.Kit.DialogWindow.On(Window).Select(owned => owned.GetType().Name + "/" + owned.Title + "/" + owned.Tag))}, in {hit?.Parent?.GetType().Name}/{(hit?.Parent as Control)?.Name}); ancestors: {string.Join(",", hit?.GetVisualAncestors().OfType<Control>().Select(item => item.GetType().Name + "/" + item.Name) ?? [])}.");
@@ -478,6 +485,8 @@ internal sealed class E2eWorkspace : IDisposable
             foreach (var other in Workbench.Windows.Where(window => window != Window).ToArray()) other.Close();
         Window.Close();
         if (peer) return;
+        // The workbench owns the state, terminal and plugin watches; they must end before the channels they read from.
+        if (remoteState is not null) Workbench.Dispose();
         remoteState?.Dispose();
         remotePlugins?.Dispose();
         if (pluginRuntime is not null || loopback is not null)

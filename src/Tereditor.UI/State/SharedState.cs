@@ -57,8 +57,11 @@ public sealed class SharedState : IDisposable
         if (started) return;
         started = true;
         if (Connected) _ = FetchHandshakeAsync();
-        Dispatcher.UIThread.Post(() => _ = WatchAsync());
+        Dispatcher.UIThread.Post(() => Watching = WatchAsync());
     }
+
+    /// <summary>The subscription loop; it ends when this is disposed or when the service itself is disposed, which never recovers.</summary>
+    internal Task? Watching { get; private set; }
 
     public Task ChangeAsync(params HostStateChange[] changes) => service.ChangeAsync(changes, lifetime.Token).AsTask();
 
@@ -68,6 +71,7 @@ public sealed class SharedState : IDisposable
     {
         while (!lifetime.IsCancellationRequested)
         {
+            var serviceDisposed = false;
             try
             {
                 await foreach (var state in service.WatchAsync(lifetime.Token))
@@ -79,8 +83,9 @@ public sealed class SharedState : IDisposable
                 }
             }
             catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return; }
-            catch (Exception error) { ConnectionFailed?.Invoke(error); Console.Error.WriteLine("Host state subscription dropped: " + error.Message); }
+            catch (Exception error) { serviceDisposed = error is ObjectDisposedException; ConnectionFailed?.Invoke(error); Console.Error.WriteLine("Host state subscription dropped: " + error.Message); }
             if (Connected) { Connection.Report(false); SetHandshake(null); ConnectionChanged?.Invoke(false); }
+            if (serviceDisposed) return;
             try { await Task.Delay(RetryDelay, lifetime.Token); }
             catch (OperationCanceledException) { return; }
         }
