@@ -419,8 +419,9 @@ documented keys. Every documented key links to `settings-reference#<anchor>` wit
 unknown key has no link. The checks verify each anchor against the pinned heading ids offline.
 
 Every set key's row shows the reference's one-line summary under the key, muted, wrapping, with the key never cut,
-and under it the type and default (`ClaudeSettingsReference.NoteFor`, drawn by the shared `ScopedSetting.SettingRow`;
-the summary and the hint are the row's accessible description). A key matches exactly first, then a documented pattern
+and under it the type, then the default on a line of its own, so a long type never hides it
+(`ClaudeSettingsReference.NoteFor`, drawn by the shared `ScopedSetting.SettingRow`; the summary, the type and the
+default are the row's accessible description). A key matches exactly first, then a documented pattern
 whose `*` segment stands for any one key segment, then its nearest documented ancestor, which gives the summary but no
 type or default. A key the reference does not list shows no description and no placeholder.
 

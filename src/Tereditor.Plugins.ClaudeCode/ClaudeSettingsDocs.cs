@@ -37,8 +37,8 @@ public static partial class ClaudeSettingsReference
         }
     }
 
-    /// <summary>What a set key's row says about it: the reference's one-line summary and, for the key's own entry, its type and default.</summary>
-    public sealed record Note(string Summary, string? Hint);
+    /// <summary>What a set key's row says about it: the reference's one-line summary and, for the key's own entry, its type and, apart, its default.</summary>
+    public sealed record Note(string Summary, string? Hint, string? Default = null);
 
     /// <summary>
     /// The note for a set key, or null for a key the reference does not list. A key is matched exactly, then against a
@@ -60,7 +60,7 @@ public static partial class ClaudeSettingsReference
         pattern.Length == segments.Length && pattern.Zip(segments).All(pair => pair.First == "*" || pair.First == pair.Second);
 
     private static Note Describe(ClaudeDocumentedSetting entry, bool own) =>
-        new(entry.Summary, !own || entry.Kind.Length == 0 ? null : entry.Default is { } fallback ? $"{entry.Type} · Default: {fallback}" : entry.Type);
+        new(entry.Summary, !own || entry.Kind.Length == 0 ? null : entry.Type, !own || entry.Kind.Length == 0 ? null : entry.Default);
 
     /// <summary>
     /// The settings files the reference lets the key go in, among those the pane writes. Empty for keys only managed

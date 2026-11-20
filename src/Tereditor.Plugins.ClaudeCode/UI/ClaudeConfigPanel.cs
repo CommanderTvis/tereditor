@@ -995,7 +995,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return ScopedSetting.SettingRow("Claude", entry.Key, value, new(entry.Origin.Scope.Name(), entry.Origin.Path),
             [.. entry.Shadowed.Select(shadow => new ScopedSettingShadow(shadow.Origin.Scope.Name(), shadow.Origin.Path, Json(shadow.Value)))],
             path => OpenSource(path, entry.Origin.KeyPath), actions, entry.DocsUrl, "What this key does, in Claude Code's reference",
-            reference?.Summary, reference?.Hint, ClaudeLaunchOverrides.For(entry.Key) is null ? null : ClaudeLaunchOverrides.Tooltip);
+            reference?.Summary, reference?.Hint, ClaudeLaunchOverrides.For(entry.Key) is null ? null : ClaudeLaunchOverrides.Tooltip, reference?.Default);
     }
 
     private static string Json(JsonElement value) => JsonSerializer.Serialize(value, ClaudeUIJson.Relaxed.JsonElement);

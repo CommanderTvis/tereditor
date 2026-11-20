@@ -145,7 +145,7 @@ public static partial class ScopedSetting
     /// </summary>
     public static Control SettingRow(string namePrefix, string settingKey, Control value, ScopedSettingSource source,
         IReadOnlyList<ScopedSettingShadow> shadowed, Action<string> onOpen, IEnumerable<Control>? actions = null,
-        string? docsUrl = null, string? docsTitle = null, string? description = null, string? hint = null, string? overrideTip = null)
+        string? docsUrl = null, string? docsTitle = null, string? description = null, string? hint = null, string? overrideTip = null, string? fallback = null)
     {
         var row = new StackPanel { Name = namePrefix + "Setting", Tag = settingKey, Spacing = 2, Margin = new Thickness(8, 4) };
         var head = new WrapPanel { Orientation = Orientation.Horizontal };
@@ -190,7 +190,7 @@ public static partial class ScopedSetting
             summary.TextWrapping = TextWrapping.Wrap;
             summary.TextTrimming = TextTrimming.None;
             row.Children.Add(summary);
-            AutomationProperties.SetHelpText(row, hint is { Length: > 0 } ? $"{description}. {hint}" : description);
+            AutomationProperties.SetHelpText(row, string.Join(". ", new[] { description, hint, fallback is { Length: > 0 } ? "Default: " + fallback : null }.Where(part => part is { Length: > 0 })));
             if (hint is { Length: > 0 })
             {
                 var detail = Ui.Text(hint, Ui.Hint, 11);
@@ -198,6 +198,14 @@ public static partial class ScopedSetting
                 detail.TextWrapping = TextWrapping.Wrap;
                 detail.TextTrimming = TextTrimming.None;
                 row.Children.Add(detail);
+            }
+            if (fallback is { Length: > 0 })
+            {
+                var preset = Ui.Text("Default: " + fallback, Ui.Hint, 11);
+                preset.Name = namePrefix + "SettingDefault";
+                preset.TextWrapping = TextWrapping.Wrap;
+                preset.TextTrimming = TextTrimming.None;
+                row.Children.Add(preset);
             }
         }
 

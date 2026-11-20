@@ -524,6 +524,14 @@ internal static class ClaudeCodeChecks
             allowNote.Hint is { Length: > 0 } hint && allow.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "ClaudeSettingHint").Text == hint &&
             Avalonia.Automation.AutomationProperties.GetHelpText(allow)!.StartsWith(allowNote.Summary, StringComparison.Ordinal),
             "A set documented key shows its summary and its type and default under the key, and says so to assistive tools.");
+        var advisor = ClaudeSettingsReference.NoteFor("advisorModel");
+        var longType = Tereditor.Plugins.UI.Kit.ScopedSetting.SettingRow("Claude", "advisorModel", new TextBlock(), new("user", null), [], _ => { }, description: advisor!.Summary, hint: advisor.Hint, fallback: advisor.Default)
+            .GetLogicalDescendants().OfType<TextBlock>().ToArray();
+        var typeIndex = Array.FindIndex(longType, text => text.Name == "ClaudeSettingHint");
+        Require(advisor is { Default: { Length: > 0 } } && advisor.Hint is { Length: > 0 } && !advisor.Hint.Contains("Default:", StringComparison.Ordinal) &&
+            typeIndex >= 0 && longType[typeIndex + 1] is { Name: "ClaudeSettingDefault", TextWrapping: TextWrapping.Wrap, TextTrimming: TextTrimming.None } preset &&
+            preset.Text == "Default: " + advisor.Default,
+            "A set key's default is its own wrapping line after its type, even when the type text is long.");
         var nested = ClaudeSettingsReference.NoteFor("modelSettings.opus.effortLevel");
         Require(nested is { Hint: null } && nested.Summary == ClaudeSettingsReference.Find("modelSettings")!.Summary &&
             ClaudeSettingsReference.NoteFor("zzNewerKey") is null && ClaudeSettingsReference.NoteFor("zzNewerKey.inner") is null,
