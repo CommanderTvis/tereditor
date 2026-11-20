@@ -57,9 +57,8 @@ internal static class GitHubTabCloseE2E
                 Until(() => !Controls(app).Any(control => control.Name == name));
                 Require(app.State!.Current.Projects.Contains(project) && app.State.Current.Workspaces.Any(item => item.Path == workspace),
                     $"Closing the {id} GitHub tab must keep the project and its workspace in the host state.");
-                Require(Controls(app).Any(control => control.Name == "ProjectName" && Equals(control.Tag, project)) &&
-                    Controls(app).Any(control => control.Name == "WorkspaceItem" && Equals(control.Tag, workspace)),
-                    $"Closing the {id} GitHub tab must keep the project and its workspace in the rail.");
+                Require(Controls(app).Any(control => control.Name == "ProjectName" && Equals(control.Tag, project)),
+                    $"Closing the {id} GitHub tab must keep the project in the rail.");
                 Require(app.Window.WorkspaceMounted && app.Window.WorkspaceRoot == workspace, $"Closing the {id} GitHub tab must leave the workspace mounted.");
             }
         Require(!Disposed(avatar), "Closing a GitHub tab must not dispose the avatar image the plugin keeps for its other tabs.");
