@@ -141,6 +141,7 @@
   </Expander>
   </ScrollViewer>
   <StackPanel Grid.Row="1" Spacing="8" Margin="0,16,0,0">
+      <local:LanguageBlockedNotice x:Name="StartNotice" />
       <TextBlock x:Name="ConfigurationMessage" TextWrapping="Wrap" Foreground="{x:Static kit:Ui.Muted}" />
       <WrapPanel HorizontalAlignment="Right">
         <Button x:Name="SaveConfiguration" Content="Save" Margin="0,0,8,8" />

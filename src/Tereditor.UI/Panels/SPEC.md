@@ -340,6 +340,8 @@ title before its buttons, so no pane title runs under + or −. `--lsp-narrow` (
 action columns align across rows, the name stays on one line, detail text is no narrower than its
 longest word, row actions stay visible inside the row, and pane titles end before their buttons.
 
+Start never fails silently. When the provider choice or the license terms block a server (IntelliJ for Java and Kotlin), the pane and the server's configuration window show one shared notice (`LanguageBlockedNotice`): a short reason and inline buttons, "Use <server>" (writes the provider through the host as `setJavaKotlinProvider`, then starts again) and "Review and accept terms" (the terms window; accepting starts the server). Start with unaccepted terms opens that window itself. A start the host refuses keeps its error in the status line through the list refresh that follows. `--settings-terms-ui` covers it.
+
 A row whose server declares host tools lists them when expanded, and always while a required one is missing: the row
 then reads `Needs <name>` once, in red, before any start: the tool list leaves out that line in the pane
 (Settings, which has no row status, keeps it), and both build it with one helper. Each tool the next launch needs shows where it was found, that it is downloaded on first use (Bun, no error), or its install hint (selectable, with

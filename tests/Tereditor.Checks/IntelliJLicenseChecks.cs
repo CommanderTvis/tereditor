@@ -344,6 +344,94 @@ internal static class IntelliJLicenseChecks
         finally { Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(settings).OfType<Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligencePage>().FirstOrDefault()?.TermsWindow?.Close(); }
         Console.WriteLine("PASS Settings terms: status, review dialog records acceptance via the host, Install now with error and Retry, nothing for a server without terms");
         TermsOutcomes(fixture);
+        BlockedStart(fixture);
+    }
+
+    /// <summary>
+    /// Start on an IntelliJ row that the provider choice or the license terms block never fails silently: the pane says why and offers the fix
+    /// inline (use it as the provider, review and accept the terms), accepting through the host lets the server start, and a start the host
+    /// refuses shows its error even after the list refreshes.
+    /// </summary>
+    private static void BlockedStart(string fixture)
+    {
+        const string Hash = "0123456789012345678901234567890123456789012345678901234567890123";
+        E2E.E2eWorkspace? holder = null;
+        using var app = holder = new E2E.E2eWorkspace(Path.Combine(fixture, "blocked-start"), openFiles: false, hostPlugins: FakeCodeIntelligence.HostPlugins(() => holder!.Host));
+        var provider = "standard";
+        var accepted = false;
+        var started = new List<LanguageRequest>();
+        string? startFailure = null;
+        var providerWrites = new List<string>();
+        app.Host.TermsReply = request =>
+        {
+            if (request.Accept) accepted = true;
+            return new(accepted ? "accepted" : "requiresAcceptance", "Fixture", "263.7084.0", Hash, Hash, "Fixture terms", accepted, accepted ? "2026-11-07T10:00:00.0000000+00:00" : "");
+        };
+        app.Host.LanguageReply = request =>
+        {
+            switch (request.Operation)
+            {
+                case "servers":
+                    return new("ready", "") { Servers = [new("intellij", "/fixture/build.gradle.kts", "idle", "Not started", "263.7084.0") { Presentation = new("Java / Kotlin (IntelliJ)", HasTerms: true, Replaces: ["java", "kotlin"]) }] };
+                case "javaKotlinProvider": return new("ready", "") { Configuration = provider };
+                case "setJavaKotlinProvider": provider = request.Configuration!; providerWrites.Add(provider); return new("ready", "") { Configuration = provider };
+                case "retry": started.Add(request); return startFailure is null ? new("ready", "Started.", request.Server) : new("error", startFailure, request.Server);
+                default: return null;
+            }
+        };
+        var pane = new Tereditor.UI.Panels.LanguagePanel(app.Host, app.Root, _ => Task.CompletedTask, app.Workbench.State);
+        var window = new Avalonia.Controls.Window { Width = 520, Height = 700, Content = pane };
+        window.Show();
+        try
+        {
+            // The notice builds its controls in code, so they are not in the pane's name scope.
+            T Find<T>(string name) where T : Avalonia.Controls.Control => Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(pane).OfType<T>().Single(control => control.Name == name);
+            var servers = Find<Avalonia.Controls.ListBox>("Servers");
+            var notice = Find<Tereditor.UI.Panels.LanguageBlockedNotice>("StartNotice");
+            E2E.E2eWorkspace.Until(() => servers.ItemCount == 1, "The pane did not list the fixture server.");
+            void Start()
+            {
+                servers.SelectedIndex = 0;
+                servers.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter });
+            }
+            void Click(string name) => Find<Avalonia.Controls.Button>(name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            // The provider is not chosen: Start says so and offers the choice; the refresh after it does not hide the notice.
+            Start();
+            E2E.E2eWorkspace.Until(() => notice.IsVisible && Find<Avalonia.Controls.TextBlock>("BlockedMessage").Text!.Contains("not your Java and Kotlin provider", StringComparison.Ordinal), "Start with another provider chosen showed nothing.");
+            Require(started.Count == 0 && Find<Avalonia.Controls.Button>("BlockedUseProvider").IsVisible, "A blocked start must not start and must offer the provider choice.");
+            pane.RefreshNow();
+            E2E.E2eWorkspace.Until(() => pane.Idle);
+            Require(notice.IsVisible, "The refresh hid the reason the start was blocked.");
+            // Choosing the provider writes it through the host, then Start goes on to the terms and opens their review.
+            Click("BlockedUseProvider");
+            E2E.E2eWorkspace.Until(() => providerWrites.SequenceEqual(["intellij"]) && notice.IsVisible && Find<Avalonia.Controls.Button>("BlockedReviewTerms").IsVisible && !Find<Avalonia.Controls.Button>("BlockedUseProvider").IsVisible,
+                "Choosing the provider did not lead to the terms.");
+            Require(started.Count == 0, "The server started before its terms were accepted.");
+            Click("BlockedReviewTerms");
+            E2E.E2eWorkspace.Until(() => notice.TermsWindow is not null, "Review and accept terms opened no window.");
+            var dialog = notice.TermsWindow!;
+            E2E.E2eWorkspace.Until(() => Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.CheckBox>(dialog, "TermsConsent")!.IsEnabled, "The terms did not load.");
+            Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.CheckBox>(dialog, "TermsConsent")!.IsChecked = true;
+            E2E.E2eWorkspace.Until(() => Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(dialog, "AcceptTerms")!.IsEnabled);
+            Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(dialog, "AcceptTerms")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            E2E.E2eWorkspace.Until(() => accepted && dialog is Tereditor.UI.Panels.LanguageTermsWindow { Result.Accepted: true }, "Accepting did not record the terms through the host.");
+            E2E.E2eWorkspace.Until(() => Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(dialog, "AcceptTerms")!.IsEnabled);
+            Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(dialog, "AcceptTerms")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            E2E.E2eWorkspace.Until(() => started.Count == 1 && started[0].Server == "intellij" && !notice.IsVisible, "After accepting, the blocked server did not start.");
+            // A start the host refuses shows its error, and the list refresh that follows keeps it.
+            startFailure = "Fixture start failed";
+            Start();
+            E2E.E2eWorkspace.Until(() => started.Count == 2 && Find<Avalonia.Controls.TextBlock>("Status").Text!.Contains("Fixture start failed", StringComparison.Ordinal), "A refused start showed no error: " + Find<Avalonia.Controls.TextBlock>("Status").Text);
+            pane.RefreshNow();
+            E2E.E2eWorkspace.Until(() => pane.Idle);
+            Require(Find<Avalonia.Controls.TextBlock>("Status").Text!.Contains("Fixture start failed", StringComparison.Ordinal), "The refresh wiped the start error.");
+        }
+        finally
+        {
+            foreach (var owned in window.OwnedWindows.ToArray()) owned.Close();
+            window.Close();
+        }
+        Console.WriteLine("PASS Blocked start: the pane names the provider or terms block, offers the fix inline, accepting starts the server, a refused start keeps its error");
     }
 
     /// <summary>

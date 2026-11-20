@@ -37,6 +37,7 @@ internal sealed partial class LanguageConfigurationView : UserControl
     {
         this.host = host; this.workspace = workspace; this.server = server;
         AvaloniaXamlLoader.Load(this);
+        Find<LanguageBlockedNotice>("StartNotice").Attach(host, () => this.workspace);
         Classes.Set("host-path-entry-only", !CanBrowseHostPaths(host));
         Find<TextBlock>("ConfigurationScope").Text = "This workspace only";
         ToolTip.SetTip(Find<TextBlock>("ConfigurationScope"), workspace);
@@ -255,6 +256,7 @@ internal sealed partial class LanguageConfigurationView : UserControl
         saving = true;
         saves++;
         Find<TextBlock>("ConfigurationMessage").Text = restart ? "Starting language server…" : "Saving settings…";
+        Find<LanguageBlockedNotice>("StartNotice").Hide();
         Find<Button>("ReviewTerms").IsEnabled = false;
         Find<Button>("SaveConfiguration").IsEnabled = Find<Button>("RestartConfiguration").IsEnabled = false;
         try
@@ -268,7 +270,8 @@ internal sealed partial class LanguageConfigurationView : UserControl
             }
             if (restart && replaces && !selected)
             {
-                Find<TextBlock>("ConfigurationMessage").Text = $"Select {LanguageServerNameConverter.Display(server.Id)} as the provider in Settings → Code Intelligence before starting it.";
+                Find<TextBlock>("ConfigurationMessage").Text = "";
+                Find<LanguageBlockedNotice>("StartNotice").Show(server.Id, needsProvider: true, needsTerms: hasTerms, reviewed => SaveAsync(true, reviewed));
                 return;
             }
             var options = new LanguageConfigurationDraft(
@@ -296,7 +299,8 @@ internal sealed partial class LanguageConfigurationView : UserControl
                 Configuration: share ? null : serialized);
             var result = await Task.Run(async () => share && request.Operation == "configure" ? new LanguageResult("ready") : await host.LanguageAsync(request, token), token);
             if (lifetime != current) return;
-            if (result.State is "error" or "disabled" or "unavailable" or "requiresAcceptance") { Find<TextBlock>("ConfigurationMessage").Text = result.Detail; return; }
+            if (result.State == "requiresAcceptance") { Find<TextBlock>("ConfigurationMessage").Text = ""; Find<LanguageBlockedNotice>("StartNotice").Show(server.Id, needsProvider: false, needsTerms: true, reviewed => SaveAsync(true, reviewed)); return; }
+            if (result.State is "error" or "disabled" or "unavailable") { Find<TextBlock>("ConfigurationMessage").Text = result.Detail; return; }
             var saved = await Task.Run(async () => await host.LanguageAsync(new(workspace, Operation: "configuration", Server: server.Id), token), token);
             if (lifetime != current) return;
             server = server with { Configuration = saved.Configuration, ActiveConfiguration = saved.ActiveConfiguration };
@@ -307,7 +311,8 @@ internal sealed partial class LanguageConfigurationView : UserControl
             {
                 if (replaces && !selected)
                 {
-                    Find<TextBlock>("ConfigurationMessage").Text = $"Select {LanguageServerNameConverter.Display(server.Id)} as the provider before starting it.";
+                    Find<TextBlock>("ConfigurationMessage").Text = "";
+                    Find<LanguageBlockedNotice>("StartNotice").Show(server.Id, needsProvider: true, needsTerms: hasTerms, reviewed => SaveAsync(true, reviewed));
                     return;
                 }
                 var acknowledgement = await Task.Run(async () => await host.LanguageTermsAsync(new(workspace, server.Id), token), token);

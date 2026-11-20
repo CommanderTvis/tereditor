@@ -138,6 +138,7 @@ internal sealed partial class LanguagePanel : UserControl
         AvaloniaXamlLoader.Load(this);
         AddHandler(global::Tereditor.Plugins.UI.Kit.LinkedTextBlock.LinkClickedEvent, LanguageProviderLinks.OnLinkClicked);
         Name = "LspPanel";
+        this.FindControl<LanguageBlockedNotice>("StartNotice")!.Attach(host, () => this.workspace);
         Log.Info("pane.created", ("workspace", workspace));
         this.FindControl<Button>("RetryRead")!.Click += (_, _) => { Log.Info("pane.retry-clicked", ("workspace", this.workspace)); ShowRetry(false); RefreshNow(); };
         this.FindControl<ScrollViewer>("PaneScroll")!.ScrollChanged += (_, _) =>
@@ -391,13 +392,19 @@ internal sealed partial class LanguagePanel : UserControl
         e.Handled = true;
     }
 
+    // What stopped the last Start, kept so the refresh that follows it does not wipe it: a Start never fails silently.
+    private bool startBlocked;
+    private string startFailure = "";
+
+    private async Task StartAsync(LanguageServerState server, bool acceptanceReviewed = false)
+    {
+        await RunAsync("retry", server, acceptanceReviewed);
+        if (!startBlocked) await RunAsync("servers");
+    }
+
     private async Task ActivateAsync(ServerRow row)
     {
-        if (row.CanStart)
-        {
-            await RunAsync("retry", row.Server);
-            await RunAsync("servers");
-        }
+        if (row.CanStart) await StartAsync(row.Server);
         else Toggle(row);
     }
 
@@ -464,7 +471,7 @@ internal sealed partial class LanguagePanel : UserControl
         list.SelectedItem = row;
         var start = new MenuItem { Header = "Start / Retry" };
         var stop = new MenuItem { Header = "Stop", IsEnabled = row.Server.State is not ("idle" or "stopped" or "disabled") };
-        start.Click += async (_, _) => await RunAsync("retry", row.Server);
+        start.Click += async (_, _) => await StartAsync(row.Server);
         stop.Click += async (_, _) => await RunAsync("stop", row.Server);
         var logs = new MenuItem { Header = "View logs" };
         logs.Click += (_, _) => ShowLogs(row);
@@ -495,6 +502,8 @@ internal sealed partial class LanguagePanel : UserControl
         try
         {
             var token = current.Token;
+            var notice = this.FindControl<LanguageBlockedNotice>("StartNotice")!;
+            if (operation == "retry") { notice.Hide(); startBlocked = false; startFailure = ""; }
             if (operation == "retry" && !acceptanceReviewed && (target ?? selected) is { Presentation.HasTerms: true } gated)
             {
                 if (gated.Presentation.Replaces is { Count: > 0 })
@@ -503,7 +512,9 @@ internal sealed partial class LanguagePanel : UserControl
                     if (current != lifetime || token.IsCancellationRequested) return;
                     if (saved.Configuration != gated.Id)
                     {
-                        SetStatus($"Select {LanguageServerNameConverter.Display(gated.Id)} in Settings → Code Intelligence → provider choice, then choose Apply.");
+                        SetStatus("");
+                        startBlocked = true;
+                        notice.Show(gated.Id, needsProvider: true, needsTerms: true, reviewed => StartAsync(gated, reviewed));
                         return;
                     }
                 }
@@ -511,10 +522,14 @@ internal sealed partial class LanguagePanel : UserControl
                 if (current != lifetime || token.IsCancellationRequested) return;
                 if (!acknowledgement.Accepted)
                 {
+                    // Start opens the review itself; the notice stays for a user who closes it.
+                    SetStatus("");
+                    startBlocked = true;
+                    notice.Show(gated.Id, needsProvider: false, needsTerms: true, reviewed => StartAsync(gated, reviewed));
                     if (TopLevel.GetTopLevel(this) is Window owner)
                     {
                         var terms = new LanguageTermsWindow(host, workspace, gated.Id, startAfterAcceptance: true);
-                        terms.Closed += async (_, _) => { if (terms.StartRequested) await RunAsync("retry", gated, acceptanceReviewed: true); };
+                        terms.Closed += async (_, _) => { if (terms.StartRequested) { notice.Hide(); await StartAsync(gated, true); } };
                         terms.Show(owner);
                     }
                     return;
@@ -526,13 +541,20 @@ internal sealed partial class LanguagePanel : UserControl
             if (current != lifetime || token.IsCancellationRequested) { outcome = "superseded"; return; }
             ShowRetry(false);
             SetStatus(Brief(result.State + ": " + result.Detail));
+            if (operation == "retry" && result.State == "requiresAcceptance" && (target ?? selected) is { } needing)
+            {
+                SetStatus("");
+                startBlocked = true;
+                notice.Show(needing.Id, needsProvider: false, needsTerms: true, reviewed => StartAsync(needing, reviewed));
+            }
+            else if (operation == "retry" && result.State is "error" or "unavailable" or "disabled") startFailure = Brief(result.State + ": " + result.Detail);
             if (operation == "servers")
             {
                 LanguageServerNameConverter.Remember(result.Servers);
                 inventory = result.Servers;
                 inventorySaves = saves;
                 RefreshRows(selected?.Id);
-                if (result.State == "ready") SetStatus("");
+                if (result.State == "ready") SetStatus(startFailure);
                 LogLayout("data");
             }
         }
