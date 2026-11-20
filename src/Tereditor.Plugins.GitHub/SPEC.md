@@ -67,6 +67,7 @@ The lookup returns the open pull request of the branch, else the newest in any s
 
 A second, read-only surface next to the repo hosting provider (host half `GitHubBrowser`, UI half `GitHubPane` and `GitHubTab`):
 
+- Every tab of the `github` document scheme wears the GitHub icon (the scheme's registered icon); a tab restored before the plugin registers gets it as soon as it does, because registering a document scheme redraws the tab strip.
 - A side tool `github` is only buttons: Issues, Pull requests, Settings. Each opens a tab of the plugin's document scheme `github`
   (ids `issues`, `pulls`, `settings`, `issue:N`, `pull:N`).
 - The list tabs show GitHub's layout: Open and Closed counts, a query box that takes GitHub's own search syntax (the host adds

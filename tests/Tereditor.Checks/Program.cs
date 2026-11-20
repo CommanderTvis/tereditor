@@ -751,6 +751,8 @@ internal static class Program
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
             GitHubBrowserChecks.RunUi();
             CommitChecksChecks.RunUi();
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
+            GitHubBrowserChecks.RunTabIcon(root);
             return;
         }
         if (args.SequenceEqual(["--content"]))
@@ -1728,7 +1730,7 @@ internal static class Program
         Gate.Case("agent-session-ownership", () => RunPumped(() => AgentSessionOwnershipChecks.Run(root)));
         Gate.Case("documents", () => ResourceChecks.RunDocuments(root));
         Gate.Case("claude-code-launcher", () => ClaudeCodeChecks.Launcher(root));
-        Gate.Case("github-browser", () => { RunPumped(GitHubBrowserChecks.Run); GitHubBrowserChecks.RunUi(); });
+        Gate.Case("github-browser", () => { RunPumped(GitHubBrowserChecks.Run); GitHubBrowserChecks.RunUi(); GitHubBrowserChecks.RunTabIcon(root); });
         Gate.Case("workspace-switch", () => E2E.WorkspaceSwitchProfile.Run(Path.Combine(root, "upstream-e2e")));
         Gate.Case("pane-retarget", () => { PaneRetargetChecks.Run(root); PaneRetargetChecks.InstructionSections(); });
         Gate.Case("content-ui", () => ContentChecks.RunUi(root));

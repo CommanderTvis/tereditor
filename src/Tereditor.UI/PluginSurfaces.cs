@@ -57,7 +57,7 @@ public sealed partial class WorkbenchWindow
     {
         if ((tables & PluginTables.Roster) != 0) Layout.SetLanguageAvailable(LanguageSupport.Available);
         if ((tables & (PluginTables.Roster | PluginTables.Active | PluginTables.Manifests | PluginTables.SideTools)) != 0) { SyncPluginTools(); ResolveRailDefaults(); }
-        if ((tables & (PluginTables.Roster | PluginTables.Active | PluginTables.TabDecorators | PluginTables.FileIconSlots)) != 0) RefreshDecorations();
+        if ((tables & (PluginTables.Roster | PluginTables.Active | PluginTables.TabDecorators | PluginTables.FileIconSlots | PluginTables.Documents)) != 0) RefreshDecorations();
         if (tables.HasFlag(PluginTables.WorkspaceActions)) surface.RefreshCenterActions();
         if (tables.HasFlag(PluginTables.ProjectActions)) surface.RefreshEmptyContents();
         if (tables.HasFlag(PluginTables.FileIconSlots))
@@ -279,8 +279,7 @@ public sealed partial class WorkbenchWindow
     // them; a layout change re-renders tabs itself and only records the answers.
     private void RefreshDecorations()
     {
-        var signature = DecorationSignature();
-        if (signature != decorationSignature)
+        var signature = DecorationSignature(); if (signature != decorationSignature)
         {
             decorationSignature = signature;
             surface.Rebuild();
@@ -294,7 +293,7 @@ public sealed partial class WorkbenchWindow
     private string TabDecorationSignature(DockTab tab, string? workspace = null)
     {
         var decoration = Decoration(tab, workspace);
-        var icon = tab.IsTool ? Plugins.Tool(tab.Id)?.Icon : tab.Path.Length > 0 ? FileIconAnswer(tab.Path)?.Icon : null;
+        var icon = tab.IsTool ? Plugins.Tool(tab.Id)?.Icon : tab.Kind == PluginDocumentKind ? PluginDocumentOwner(tab)?.Value.Icon : tab.Path.Length > 0 ? FileIconAnswer(tab.Path)?.Icon : null;
         return decoration is null && icon is null ? "" : $"{tab.Id}\t{decoration?.PluginId}\t{decoration?.Decoration.Icon}\t{decoration?.Decoration.IconSvg?.GetHashCode()}\t{decoration?.Decoration.Adornment is not null}\t{icon}";
     }
 
