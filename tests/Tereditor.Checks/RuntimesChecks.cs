@@ -72,11 +72,83 @@ internal static class RuntimesChecks
         try
         {
             await Resolution(root);
+            await Verification(root);
             await Consent(root);
             await Jdk(root);
             await Disabling(root);
         }
         finally { foreach (var (name, value) in saved) Env(name, value); ManagedRuntimes.UsePins(null); }
+    }
+
+    // The pins ship with a SHA-256 for every platform a runtime supports; a damaged download is refused and never used; the verified record follows the file.
+    private static async Task Verification(string root)
+    {
+        ManagedRuntimes.UsePins(null);
+        string[] all = ["linux-aarch64", "linux-x86_64", "macos-aarch64", "macos-x86_64", "windows-aarch64", "windows-x86_64"];
+        foreach (var (id, platforms) in new[] { ("bun", all), ("uv", all), ("jdk", all.Where(item => item != "windows-aarch64").ToArray()) })
+        {
+            var pins = ManagedRuntimes.Pins.Where(pin => pin.Id == id).ToArray();
+            Require(pins.Select(pin => pin.Platform).Order().SequenceEqual(platforms), $"{id} is not pinned for exactly {string.Join(", ", platforms)}.");
+            Require(pins.All(pin => pin.Sha256.Length == 64 && pin.Sha256.All(char.IsAsciiHexDigitLower) && pin.Url.StartsWith("https://", StringComparison.Ordinal) && pin.Url.Contains(pin.Version, StringComparison.Ordinal)), $"A {id} pin lacks a 64-hex SHA-256.");
+        }
+        Console.WriteLine("PASS Bun, uv and Temurin JDK 21 each have a 64-hex SHA-256 for every supported platform");
+
+        var archive = Archive("bun-fake", "bun");
+        ManagedRuntimes.UsePins([Pin("bun", archive)]);
+        var source = new FakeSource { Bodies = { ["bun-"] = archive } };
+        using var http = new HttpClient(source);
+        var workspace = Path.Combine(root, "verify-workspace");
+        Directory.CreateDirectory(workspace);
+        var withTools = Path.Combine(root, "verify-bin-with");
+        var systemBun = Tool(withTools, "bun");
+        var without = Path.Combine(root, "verify-bin-without");
+        Directory.CreateDirectory(without);
+        var directory = Path.Combine(root, "verify");
+        var servers = new LanguageServers(directory, null, http);
+        Env("PATH", without + ":/usr/bin:/bin");
+        var first = await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default);
+        Require(first is { Available: true, Source: RuntimeSource.Downloaded }, "The fixture download did not install.");
+        var program = first.Command;
+        var record = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(program))!, ".tereditor-verified.json");
+        var good = File.ReadAllBytes(program);
+        void Write(byte[] bytes)
+        {
+            File.SetUnixFileMode(program, (UnixFileMode)0x1ff);
+            File.WriteAllBytes(program, bytes);
+            File.SetUnixFileMode(program, (UnixFileMode)0x1ed);
+        }
+        Require(File.Exists(record) && File.ReadAllText(record).Contains(Convert.ToHexStringLower(SHA256.HashData(good)), StringComparison.Ordinal), "The installer did not record the program's hash.");
+
+        // A touched file that still hashes the same is accepted and the record follows its new time; a changed file is refused.
+        var before = File.ReadAllText(record);
+        File.SetLastWriteTimeUtc(program, DateTime.UtcNow.AddHours(-3));
+        Require((await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default)).Source == RuntimeSource.Downloaded && File.ReadAllText(record) != before, "A new modified time with the same bytes must be hashed, accepted and recorded again.");
+        var recorded = File.ReadAllText(record);
+        Require((await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default)).Source == RuntimeSource.Downloaded && File.ReadAllText(record) == recorded, "An unchanged file must be trusted without a new record.");
+        Write("#!/bin/sh\necho evil\n"u8.ToArray());
+        var bad = await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default);
+        Require(!bad.Available && bad.Source is null && bad.Message.Contains("checksum", StringComparison.Ordinal) && bad.Message.Contains("Remove the download", StringComparison.Ordinal) && source.Requests == 1, "A corrupted download must be refused with a clear message and not downloaded again: " + bad.Message);
+        Require(ManagedRuntimes.FindInstalled(directory, "bun", ManagedArtifacts.Platform(), workspace) is null, "A corrupted download was still found.");
+        var status = await servers.StatusAsync(RuntimeKind.Bun, default);
+        Require(status is { Source: null, Downloaded: true } && status.DownloadProblem.Contains("checksum", StringComparison.Ordinal) && status.Message.Length > 0, "The status must show the failed check on the row.");
+
+        Env("PATH", withTools + ":/usr/bin:/bin");
+        var fallback = await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default);
+        Require(fallback is { Available: true, Source: RuntimeSource.System } && fallback.Command == systemBun, "With a corrupted download the computer's Bun is used.");
+        status = await servers.StatusAsync(RuntimeKind.Bun, default);
+        Require(status is { Source: RuntimeSource.System } && status.DownloadProblem.Length > 0, "The fallback must still say why the download is not used.");
+        Require(servers.ProbeTool("bun", workspace, "", true) is { State: "found", Source: "path" }, "A language server must not start from a corrupted download.");
+        Write(good);
+        File.SetLastWriteTimeUtc(program, DateTime.UtcNow.AddHours(-1));
+        Require((await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default)).Source == RuntimeSource.Downloaded, "The repaired file must be accepted again.");
+
+        // A record that names another pin, or no record, is not trusted.
+        File.WriteAllText(record, File.ReadAllText(record).Replace(Convert.ToHexStringLower(SHA256.HashData(archive)), new string('0', 64), StringComparison.Ordinal));
+        Require((await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default)).Source != RuntimeSource.Downloaded, "A record that does not match the pinned checksum was trusted.");
+        File.Delete(record);
+        Require((await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default)).Source == RuntimeSource.System, "A copy without a verification record was trusted.");
+        servers.RemoveRuntimeDownload(RuntimeKind.Bun);
+        Console.WriteLine("PASS a corrupted download is refused and never used, the verified record follows the file, and the computer's copy is the fallback");
     }
 
     // The question before a plugin's request downloads: asked once per runtime, remembered No for the session, never asked when the runtime is already there.
@@ -292,6 +364,18 @@ internal static class RuntimesChecks
         Require(uv.Env["UV_CACHE_DIR"] == Path.Combine(uvHome, "cache") && uv.Env["UV_TOOL_DIR"] == Path.Combine(uvHome, "tools") && uv.Env["UV_PYTHON_INSTALL_DIR"] == Path.Combine(uvHome, "python") && uv.Env["UV_NO_CONFIG"] == "1",
             "A downloaded uv keeps its cache, tools and Pythons in the cache folder it is removed with, and ignores configuration files.");
         Console.WriteLine("PASS the downloaded copy is the last choice, downloads once and keeps its caches in one place");
+
+        // Once downloaded the copy stays preferred: a program on PATH no longer outranks it.
+        Env("PATH", withTools + ":/usr/bin:/bin");
+        bun = await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default);
+        Require(bun is { Available: true, Source: RuntimeSource.Downloaded } && bun.Command.StartsWith(Path.Combine(directory, "runtimes", "bun"), StringComparison.Ordinal) && source.Requests == 2, "A downloaded Bun must outrank the one on PATH.");
+        var shown = await servers.StatusAsync(RuntimeKind.Bun, default);
+        Require(shown is { Source: RuntimeSource.Downloaded, DownloadProblem: "", OtherPath: var other } && other == systemBun && shown.Version == "9.9.9", "The status must say the download is in use and the computer's Bun is beside it.");
+        servers.RuntimePin = name => name == "bun" ? pinned : "";
+        Require((await servers.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, default)) is { Source: RuntimeSource.Pinned }, "The path the user set must still outrank the download.");
+        servers.RuntimePin = _ => "";
+        Console.WriteLine("PASS a downloaded copy outranks the one on PATH; the pinned path outranks both");
+        Env("PATH", without + ":/usr/bin:/bin");
 
         // Plugin off: no download, a message that offers to turn it on; a program that is already there still works.
         var fresh = new LanguageServers(Path.Combine(root, "resolve-off"), null, http) { RuntimesEnabled = () => false };

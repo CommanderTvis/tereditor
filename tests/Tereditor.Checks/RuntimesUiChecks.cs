@@ -22,8 +22,9 @@ internal static class RuntimesUiChecks
         if (!condition) throw new InvalidOperationException("runtimes-ui: " + message);
     }
 
-    private static RuntimeRow Row(string kind, string source = "", string pinned = "", bool downloaded = false, long bytes = 0, string downloadedPath = "", string message = "") =>
-        new(kind, kind == "bun" ? "Bun" : "uv", source, source.Length > 0 ? "/x/" + kind : "", source.Length > 0 ? "1.4.4" : "", pinned, bytes, downloaded, message) { DownloadedPath = downloadedPath };
+    private static RuntimeRow Row(string kind, string source = "", string pinned = "", bool downloaded = false, long bytes = 0, string downloadedPath = "", string message = "", string otherPath = "", string problem = "") =>
+        new(kind, kind == "bun" ? "Bun" : "uv", source, source.Length > 0 ? "/x/" + kind : "", source.Length > 0 ? "1.4.4" : "", pinned, bytes, downloaded, message)
+        { DownloadedPath = downloadedPath, DownloadedVersion = downloaded ? "1.4.4" : "", OtherPath = otherPath, OtherVersion = otherPath.Length > 0 ? "1.3.0" : "", DownloadProblem = problem };
 
     internal static void Run(string root)
     {
@@ -109,28 +110,37 @@ internal static class RuntimesUiChecks
             pending.SetResult(state);
             Until(() => Line() == "Bun is downloaded." && !Find("RuntimesDownload")!.IsEnabled && Find("RuntimesRemove")!.IsEnabled, "done: the row says so, Download now off, Remove download on: " + Line());
             Require(Named<TextBlock>("RuntimesProgressText")!.Foreground != Kit.Ui.Danger && Slot().Bounds.Height == slotHeight, "done: normal colour and the same height");
-            Require(view.GetVisualDescendants().OfType<TextBlock>().Any(text => (text.Text ?? "").Contains("225 MB", StringComparison.Ordinal)) && Named<TextBlock>("RuntimesAlso") is null && Find("RuntimesUseDownload") is null,
+            Require(view.GetVisualDescendants().OfType<TextBlock>().Any(text => (text.Text ?? "").Contains("225 MB", StringComparison.Ordinal)) && Named<TextBlock>("RuntimesAlso") is null && Find("RuntimesClearPin") is null,
                 "installed and in use: the size shows, no 'also downloaded' line");
 
-            // The download exists but the one on the computer wins: the page says so and offers both ways round.
-            state = new([Row("bun", "system", downloaded: true, bytes: 225L * 1024 * 1024, downloadedPath: "/cache/bun"), Row("uv", "system")]);
+            // Downloaded and verified wins over the computer's: both lines say so, nothing offers to switch.
+            state = new([Row("bun", "downloaded", downloaded: true, bytes: 225L * 1024 * 1024, downloadedPath: "/cache/bun", otherPath: "/opt/homebrew/bin/bun"), Row("uv", "system")]);
             var again = Fake.Refresh!;
             again();
-            Until(() => Named<TextBlock>("RuntimesAlso") is not null, "system wins: the page says the download is used only when none is found");
-            Require((Named<TextBlock>("RuntimesAlso")!.Text ?? "").Contains("only when none is found on your computer", StringComparison.Ordinal) && Find("RuntimesUseDownload") is not null && Find("RuntimesUseComputer") is null,
-                "system wins: Use the download is offered, Use the one on my computer is not (nothing is pinned)");
-            Find("RuntimesUseDownload")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Until(() => saved.Count == 1, "Use the download saves a setting");
-            Require(saved[0].BunPath == "/cache/bun", "Use the download pins the downloaded program: " + saved[0].BunPath);
-            state = new([Row("bun", "pinned", pinned: "/cache/bun", downloaded: true, bytes: 1, downloadedPath: "/cache/bun"), Row("uv", "system")]);
+            Until(() => Named<TextBlock>("RuntimesAlso") is not null, "downloaded wins: the page names the computer's copy");
+            string Texts() => string.Join("\n", view.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text));
+            Require(Texts().Contains("In use: the downloaded copy, version 1.4.4 (verified).", StringComparison.Ordinal) && (Named<TextBlock>("RuntimesAlso")!.Text ?? "") == "Also found on your computer: /opt/homebrew/bin/bun, version 1.3.0. It is not used."
+                && Named<TextBlock>("RuntimesAlsoDownloaded") is null && Find("RuntimesRemove")!.Content is Control && Find("RuntimesClearPin") is null,
+                "downloaded wins: the in-use line and the 'also found' line: " + Texts());
+            Require(((TextBlock)Find("RuntimesRemove")!.Content!).Text == "Remove download", "the button keeps its text");
+
+            // A path of the user's wins; the download is beside it and a button clears the path.
+            state = new([Row("bun", "pinned", pinned: "/my/bun", downloaded: true, bytes: 1, downloadedPath: "/cache/bun"), Row("uv", "system")]);
             again();
-            Until(() => Find("RuntimesUseComputer") is not null && Find("RuntimesUseDownload") is null, "pinned: Use the one on my computer replaces Use the download");
-            Find("RuntimesUseComputer")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Until(() => saved.Count == 2 && saved[1].BunPath == "", "Use the one on my computer clears the pin");
+            Until(() => Named<TextBlock>("RuntimesAlsoDownloaded") is not null && Find("RuntimesClearPin") is not null, "pinned: the download is named beside it and the path can be cleared");
+            Require((Named<TextBlock>("RuntimesAlsoDownloaded")!.Text ?? "") == "Also downloaded, version 1.4.4. It is not used.", "pinned: the also-downloaded line");
+            Find("RuntimesClearPin")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Until(() => saved.Count == 1 && saved[0].BunPath == "", "Stop using my path clears the pin");
+
+            // A download that failed its check is not used: a red line, the computer's copy in use, Remove download on.
+            state = new([Row("bun", "system", downloaded: true, bytes: 1, downloadedPath: "/cache/bun", problem: "The downloaded Bun failed its checksum check, so it is not used."), Row("uv", "system")]);
+            again();
+            Until(() => Named<TextBlock>("RuntimesDownloadProblem") is not null, "damaged: the row shows the error");
+            Require(Named<TextBlock>("RuntimesDownloadProblem")!.Foreground == Kit.Ui.Danger && Find("RuntimesRemove")!.IsEnabled && Named<TextBlock>("RuntimesAlsoDownloaded") is null && Texts().Contains("In use: the one found on your computer", StringComparison.Ordinal), "damaged: danger colour, Remove download on, the computer's copy in use");
         }
         finally { window.Close(); }
         Prompts();
-        Console.WriteLine("PASS runtimes-ui: rows, not installed, start, midway (size unknown and known), cancelled, failed, done, steady row height, download beside a system install, use the download");
+        Console.WriteLine("PASS runtimes-ui: rows, not installed, start, midway (size unknown and known), cancelled, failed, done, steady row height, the download in use beside a computer install, a path of the user's, a failed check");
     }
 
     // The consent prompt: one per waiting download, with Download and Not now; an answer takes it down; the same list never shows a second prompt.

@@ -267,8 +267,11 @@ The JDK is the one Temurin 21 (Adoptium API, `api.adoptium.net/v3/assets/latest/
 
 Bun, uv and the JDK are downloaded only while the Runtimes for tooling plugin ([its SPEC](../../Tereditor.Plugins.Runtimes/SPEC.md)) is on, and only
 when a plugin asks (`IPluginHostContext.ResolveRuntimeAsync`, or a server that needs Bun starting), never at startup. That
-request resolves in this order: the path the user pinned (the host tool path, else the plugin's setting), then an install on the hardened PATH (skipped under
-`toolchains.source = managed`, which means only the host's own copies), then the downloaded copy, downloaded now when none exists.
+request resolves in this order: the path the user pinned (the host tool path, else the plugin's setting), then the downloaded copy whenever one exists and passes its checksum
+check (the SHA-256 of each archive is pinned in `ManagedRuntimes`, checked before extraction, and the program's own hash is recorded in `.tereditor-verified.json` with its size and
+modified time and checked again when it is used, by hashing only when the size or time changed), then an install on the hardened PATH (skipped under
+`toolchains.source = managed`, which means only the host's own copies), then a download now when none exists. Once downloaded, the copy stays preferred until Remove download.
+A copy that fails the check is never used: the answer falls back to PATH and the status says why.
 With the plugin off, and no pinned or PATH install, a server that needs Bun says `Needs Bun.` and that Runtimes for tooling is off and where to
 turn it on; the downloaded copy is not used. Turning the plugin off removes `runtimes/bun`, `runtimes/uv`, `runtimes/jdk`, `bun-home` and `uv-home`
 (`LanguageService.PurgeRuntimeDownloadsAsync`) after stopping the language servers that run on Bun or declare a `java` dependency and the processes plugins reported with

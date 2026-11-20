@@ -1065,6 +1065,14 @@ override Tereditor.Plugins.Api.Host.RuntimeOffer.Equals(object? obj) -> bool
 Tereditor.Plugins.Api.Host.RuntimeOffer.Equals(Tereditor.Plugins.Api.Host.RuntimeOffer? other) -> bool
 Tereditor.Plugins.Api.Host.RuntimeOffer.<Clone>$() -> Tereditor.Plugins.Api.Host.RuntimeOffer!
 Tereditor.Plugins.Api.Host.IPluginHostContext.SetRuntimeConsent(System.Func<Tereditor.Plugins.Api.Host.RuntimeOffer!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>>? ask) -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadProblem.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadProblem.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedVersion.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedVersion.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.OtherPath.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.OtherPath.init -> void
+Tereditor.Plugins.Api.Host.RuntimeStatus.OtherVersion.get -> string!
+Tereditor.Plugins.Api.Host.RuntimeStatus.OtherVersion.init -> void
 Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedPath.get -> string!
 Tereditor.Plugins.Api.Host.RuntimeStatus.DownloadedPath.init -> void
 Tereditor.Plugins.Api.Host.RuntimeStatus.Downloading.get -> bool

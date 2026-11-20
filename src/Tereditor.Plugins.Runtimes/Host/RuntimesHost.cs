@@ -57,5 +57,5 @@ public sealed class RuntimesHost : PluginHostModule
         new([.. (await Task.Run(() => context.RuntimeStatusAsync(token).AsTask(), token)).Select(status => new RuntimeRow(status.Kind switch { RuntimeKind.Bun => "bun", RuntimeKind.Uv => "uv", _ => "jdk" }, status.Name,
             status.Source switch { RuntimeSource.Pinned => "pinned", RuntimeSource.System => "system", RuntimeSource.Downloaded => "downloaded", _ => "" },
             status.Path, status.Version, status.Pinned, status.DownloadBytes, status.Downloaded, status.Message)
-            { DownloadedPath = status.DownloadedPath, Downloading = status.Downloading, ReceivedBytes = status.ReceivedBytes, TotalBytes = status.TotalBytes })], error);
+            { DownloadedPath = status.DownloadedPath, DownloadProblem = status.DownloadProblem, DownloadedVersion = status.DownloadedVersion, OtherPath = status.OtherPath, OtherVersion = status.OtherVersion, Downloading = status.Downloading, ReceivedBytes = status.ReceivedBytes, TotalBytes = status.TotalBytes })], error);
 }

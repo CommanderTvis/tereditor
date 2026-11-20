@@ -126,8 +126,9 @@ internal sealed partial class LanguageServers
         new(kind, true, path, kind switch { RuntimeKind.Bun => ["x"], RuntimeKind.Uv => ["tool", "run"], _ => [] }, RuntimeEnvironment(kind, source), source, "", false);
 
     /// <summary>
-    /// Finds a runtime: the path the user pinned, then an install on PATH (not under a managed toolchain, which means only the host's copies),
-    /// then the downloaded copy, downloading it when the Runtimes for tooling plugin is on and has none yet.
+    /// Finds a runtime: the path the user pinned, then the downloaded copy whenever one exists and passes its checksum check (the Runtimes for tooling plugin must be on),
+    /// then an install on PATH (not under a managed toolchain, which means only the host's copies), then a download when the plugin is on and there is none yet.
+    /// A downloaded copy that fails its check is never used; the PATH install is used in its place and the status says why.
     /// </summary>
     internal async Task<RuntimeResolution> ResolveRuntimeAsync(RuntimeKind kind, string workspace, CancellationToken token)
     {
@@ -139,10 +140,12 @@ internal sealed partial class LanguageServers
                 ? RuntimeResolution.Unavailable(kind, $"The {name} path you set cannot run. {problem}")
                 : Ready(kind, pinned, RuntimeSource.Pinned);
         var rejected = new List<string>();
+        var platform = ManagedArtifacts.Platform();
+        var damaged = "";
+        if (RuntimesEnabled() && ManagedRuntimes.Check(directory, tool, platform, workspace, out damaged) is { } copy && damaged.Length == 0) return Ready(kind, copy, RuntimeSource.Downloaded);
         if (Toolchain != ToolchainSource.Managed && LanguageExecutables.FindOnPath(tool, workspace, rejected) is { } found && (kind != RuntimeKind.Jdk || ManagedRuntimes.JdkMajor(found) >= JdkMajor)) return Ready(kind, found, RuntimeSource.System);
         if (!RuntimesEnabled()) return RuntimeResolution.Unavailable(kind, OffProblem(runtime), offerEnable: true);
-        var platform = ManagedArtifacts.Platform();
-        if (ManagedRuntimes.FindInstalled(directory, tool, platform, workspace) is { } copy) return Ready(kind, copy, RuntimeSource.Downloaded);
+        if (damaged.Length > 0) return RuntimeResolution.Unavailable(kind, damaged);
         if (ManagedRuntimes.Choose(runtime.Id, platform, workspace) is not { } pin) return RuntimeResolution.Unavailable(kind, ManagedRuntimes.NotPinned(runtime, platform, workspace));
         if (Toolchains.Offline) return RuntimeResolution.Unavailable(kind, $"{name} is not installed, and tereditor is offline, so it cannot be downloaded.");
         if (!await ConsentAsync(runtime, pin, token)) return RuntimeResolution.Unavailable(kind, DeclinedProblem(runtime));
@@ -178,7 +181,10 @@ internal sealed partial class LanguageServers
         var platform = ManagedArtifacts.Platform();
         var pinned = ToolOverride(tool);
         var bytes = PluginDownloads.Size(DownloadRoot(kind)) + PluginDownloads.Size(HomeOf(ManagedRuntimes.CacheRoot(directory), kind));
-        var downloaded = Directory.Exists(DownloadRoot(kind)) && ManagedRuntimes.FindInstalled(directory, tool, platform, directory) is not null;
+        var damaged = "";
+        var copy = Directory.Exists(DownloadRoot(kind)) ? ManagedRuntimes.Check(directory, tool, platform, directory, out damaged) : null;
+        var downloaded = copy is not null;
+        var usable = downloaded && damaged.Length == 0 && RuntimesEnabled();
         RuntimeSource? source = null;
         string path = "", message = "";
         if (pinned.Length > 0)
@@ -186,25 +192,35 @@ internal sealed partial class LanguageServers
             if (LanguageExecutables.Reject(pinned, directory) is { } problem) message = $"The {name} path you set cannot run. {problem}";
             else (source, path) = (RuntimeSource.Pinned, pinned);
         }
-        if (source is null && Toolchain != ToolchainSource.Managed && LanguageExecutables.FindOnPath(tool, directory) is { } system && (kind != RuntimeKind.Jdk || ManagedRuntimes.JdkMajor(system) >= JdkMajor)) (source, path) = (RuntimeSource.System, system);
-        if (source is null && downloaded && ManagedRuntimes.FindInstalled(directory, tool, platform, directory) is { } copy) (source, path) = (RuntimeSource.Downloaded, copy);
+        if (source is null && usable) (source, path) = (RuntimeSource.Downloaded, copy!);
+        var systemPath = Toolchain != ToolchainSource.Managed && LanguageExecutables.FindOnPath(tool, directory) is { } system && (kind != RuntimeKind.Jdk || ManagedRuntimes.JdkMajor(system) >= JdkMajor) ? system : "";
+        if (source is null && systemPath.Length > 0) (source, path) = (RuntimeSource.System, systemPath);
         if (source is null && message.Length == 0)
             message = RuntimesEnabled() ? $"{name} is not installed. It is downloaded the first time a plugin needs it." : OffProblem(runtime);
-        var version = "";
-        if (source == RuntimeSource.Downloaded) version = ManagedRuntimes.Choose(runtime.Id, platform, directory)?.Version ?? "";
-        else if (path.Length > 0)
+        async Task<string> VersionOf(string program)
         {
             try
             {
-                var run = await ChildProcess.RunAsync(path, directory, ["--version"], TimeSpan.FromSeconds(5), token, new Dictionary<string, string?> { ["UV_NO_CONFIG"] = "1" });
-                if (VersionPattern.Match(run.Output) is { Success: true } match) version = match.Value;
+                var run = await ChildProcess.RunAsync(program, directory, ["--version"], TimeSpan.FromSeconds(5), token, new Dictionary<string, string?> { ["UV_NO_CONFIG"] = "1" });
+                if (VersionPattern.Match(run.Output) is { Success: true } match) return match.Value;
             }
             catch (Exception error) when (error is TimeoutException or System.ComponentModel.Win32Exception or IOException) { }
+            return "";
         }
+        var version = "";
+        if (source == RuntimeSource.Downloaded) version = ManagedRuntimes.Choose(runtime.Id, platform, directory)?.Version ?? "";
+        else if (path.Length > 0) version = await VersionOf(path);
+        // The one on the computer that is not in use, so the page can say it is there and not used.
+        var other = source is RuntimeSource.Downloaded or RuntimeSource.Pinned && systemPath.Length > 0 ? systemPath : "";
+        if (damaged.Length > 0 && source is null && message.Length == 0) message = damaged;
         var active = receiving.TryGetValue(kind, out var progress);
         return new(kind, name, source, path, version, pinned, bytes, downloaded, message)
         {
-            DownloadedPath = downloaded ? ManagedRuntimes.FindInstalled(directory, tool, platform, directory) ?? "" : "",
+            DownloadedPath = downloaded ? copy ?? "" : "",
+            DownloadProblem = damaged,
+            DownloadedVersion = downloaded ? ManagedRuntimes.Choose(runtime.Id, platform, directory)?.Version ?? "" : "",
+            OtherPath = other,
+            OtherVersion = other.Length > 0 ? await VersionOf(other) : "",
             Downloading = active,
             ReceivedBytes = active ? progress.Received : 0,
             TotalBytes = active ? progress.Total : 0

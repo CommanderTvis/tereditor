@@ -188,12 +188,68 @@ internal static class ManagedRuntimes
             : $"No {kind.Name} is pinned for {platform} ({list}).";
     }
 
-    /// <summary>The installed tool for a workspace, or null.</summary>
-    internal static string? FindInstalled(string directory, string tool, string platform, string workspace)
+    /// <summary>The installed tool for a workspace when it is present and passes <see cref="Verify"/>, or null.</summary>
+    internal static string? FindInstalled(string directory, string tool, string platform, string workspace) =>
+        Check(directory, tool, platform, workspace, out var problem) is { } file && problem.Length == 0 ? file : null;
+
+    private const string VerifiedFile = ".tereditor-verified.json";
+
+    private static string ProgramOf(string directory, ManagedRuntimeKind kind, ManagedRuntimePin pin, string tool) =>
+        Path.Combine(BinDirectoryOf(InstallDirectory(directory, pin), kind), tool + (OperatingSystem.IsWindows() ? ".exe" : ""));
+
+    /// <summary>
+    /// The downloaded program of a tool and, when it is there but cannot be trusted, why not (<paramref name="problem"/>, plain words). Null when nothing is downloaded.
+    /// With a problem the program must not be used.
+    /// </summary>
+    internal static string? Check(string directory, string tool, string platform, string workspace, out string problem)
     {
+        problem = "";
         if (KindOf(tool) is not { } kind || Choose(kind.Id, platform, workspace) is not { } pin || !IsInstalled(directory, pin)) return null;
-        var file = Path.Combine(BinDirectoryOf(InstallDirectory(directory, pin), kind), tool + (OperatingSystem.IsWindows() ? ".exe" : ""));
-        return File.Exists(file) ? file : null;
+        var file = ProgramOf(directory, kind, pin, tool);
+        problem = Verify(InstallDirectory(directory, pin), pin, file, kind.Name);
+        return file;
+    }
+
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> VerifyGates = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Whether the downloaded program is still the one that came out of the archive whose SHA-256 is pinned in the source. The installer records the program's own SHA-256 with its size
+    /// and modified time in <c>.tereditor-verified.json</c> after the archive matched the pin. Here the record must name the same pin; when the size and time still match the program is
+    /// trusted without reading it, and when either changed the program is hashed again and must equal the recorded hash. Returns "" when it is fine, else a plain sentence.
+    /// </summary>
+    internal static string Verify(string root, ManagedRuntimePin pin, string program, string name)
+    {
+        const string Damaged = " Remove the download in Settings > Runtimes and download it again.";
+        var record = Path.Combine(root, VerifiedFile);
+        try
+        {
+            if (!File.Exists(program)) return $"The downloaded {name} is damaged: its program is missing.{Damaged}";
+            if (!File.Exists(record)) return $"The downloaded {name} has no verification record, so it is not used.{Damaged}";
+            var values = JsonSerializer.Deserialize(File.ReadAllText(record), HostJson.Default.DictionaryStringString);
+            if (values is null || values.GetValueOrDefault("pin") != pin.Sha256 || (values.GetValueOrDefault("sha256") ?? "").Length != 64)
+                return $"The downloaded {name} does not match the checksum built into tereditor, so it is not used.{Damaged}";
+            var info = new FileInfo(program);
+            if (info.LinkTarget is not null) return $"The downloaded {name} is damaged: its program is a link.{Damaged}";
+            if (values.GetValueOrDefault("size") == info.Length.ToString() && values.GetValueOrDefault("modified") == info.LastWriteTimeUtc.Ticks.ToString()) return "";
+            var gate = VerifyGates.GetOrAdd(root, _ => new(1));
+            gate.Wait();
+            try
+            {
+                if (ManagedArtifacts.Hash(program) != values["sha256"]) return $"The downloaded {name} failed its checksum check, so it is not used.{Damaged}";
+                Record(root, pin, program);
+                return "";
+            }
+            finally { gate.Release(); }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { return $"The downloaded {name} could not be checked ({error.Message}), so it is not used.{Damaged}"; }
+    }
+
+    /// <summary>Writes the verified record for a program that was just extracted from, or just checked against, the pinned archive.</summary>
+    private static void Record(string root, ManagedRuntimePin pin, string program)
+    {
+        var info = new FileInfo(program);
+        var values = new Dictionary<string, string> { ["pin"] = pin.Sha256, ["sha256"] = ManagedArtifacts.Hash(program), ["size"] = info.Length.ToString(), ["modified"] = info.LastWriteTimeUtc.Ticks.ToString() };
+        File.WriteAllText(Path.Combine(root, VerifiedFile), JsonSerializer.Serialize(values, HostJson.Default.DictionaryStringString));
     }
 
     /// <summary>
@@ -206,7 +262,7 @@ internal static class ManagedRuntimes
         var bins = new List<string>();
         var variables = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var kind in Kinds)
-            if (Choose(kind.Id, platform, workspace) is { } pin && IsInstalled(directory, pin))
+            if (Choose(kind.Id, platform, workspace) is { } pin && IsInstalled(directory, pin) && Verify(InstallDirectory(directory, pin), pin, ProgramOf(directory, kind, pin, kind.Tools[0]), kind.Name).Length == 0)
             {
                 var root = InstallDirectory(directory, pin);
                 bins.Add(BinDirectoryOf(root, kind));
@@ -243,7 +299,12 @@ internal static class ManagedRuntimes
             progress?.Invoke($"Downloading {kind.Name} {pin.Version} ({pin.Platform}) from {new Uri(pin.Url).Host}.");
             var artifact = new ManagedArtifact(pin.Id, pin.Version, pin.Platform, pin.Url, pin.Sha256, pin.Format, pin.Source, pin.Hosts ?? OfficialHosts);
             var installLog = CodeIntelligenceLog.Begin("host.runtime-install", ("runtime", kind.Name), ("version", pin.Version), ("root", root));
-            try { await ArtifactInstaller.InstallAsync(artifact, root, http, token, bytes); installLog.Succeed(); }
+            try
+            {
+                await ArtifactInstaller.InstallAsync(artifact, root, http, token, bytes);
+                Record(root, pin, ProgramOf(directory, kind, pin, kind.Tools[0]));
+                installLog.Succeed();
+            }
             catch (Exception error) { installLog.Fail(error); throw; }
             progress?.Invoke($"Installed {kind.Name} {pin.Version} at {root}, SHA-256 verified.");
         }
@@ -311,6 +372,8 @@ internal static class ManagedRuntimes
         "cd2c0fccc78f3ede1f50ca827a15f063eda13d4d150a3d0674f4f6e323d864a5", "", "zip", BunSource, BunHosts),
     new("uv", "0.13.9", "macos-aarch64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-aarch64-apple-darwin.tar.gz",
         "5aeca67f2283f75235de40d0bd9c0a5bbc5fce23b6d48b3bf9fa1b2db08382ca", "", "tar.gz", UvSource, BunHosts),
+    new("uv", "0.13.9", "macos-x86_64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-x86_64-apple-darwin.tar.gz",
+        "617a3211261b0fc739562f0071aa34e9739797c510208ede8e2977c30903d041", "", "tar.gz", UvSource, BunHosts),
     new("uv", "0.13.9", "linux-x86_64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-x86_64-unknown-linux-gnu.tar.gz",
         "a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5", "", "tar.gz", UvSource, BunHosts),
     new("uv", "0.13.9", "linux-aarch64", "https://github.com/astral-sh/uv/releases/download/0.13.9/uv-aarch64-unknown-linux-gnu.tar.gz",

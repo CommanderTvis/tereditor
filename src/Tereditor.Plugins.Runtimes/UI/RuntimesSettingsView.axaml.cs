@@ -164,7 +164,7 @@ internal sealed partial class RuntimesSettingsView : StackPanel
         {
             "pinned" => $"In use: the program you chose ({row.Path}){version}.",
             "system" => $"In use: the one found on your computer ({row.Path}){version}.",
-            "downloaded" => $"In use: the copy tereditor downloaded{version}.",
+            "downloaded" => $"In use: the downloaded copy{version} (verified).",
             _ => row.Message
         };
     }
@@ -183,8 +183,12 @@ internal sealed partial class RuntimesSettingsView : StackPanel
         panel.Children.Add(new TextBlock { Text = row.Name, FontSize = 14, FontWeight = Avalonia.Media.FontWeight.SemiBold });
         panel.Children.Add(new TextBlock { Text = InUse(row) });
         if (row.Source.Length > 0 && row.Message.Length > 0) panel.Children.Add(new TextBlock { Text = row.Message, Classes = { "detail" } });
-        if (row.Downloaded && row.Source is not ("downloaded" or ""))
-            panel.Children.Add(new TextBlock { Name = "RuntimesAlso", Text = "Also downloaded. It is used only when none is found on your computer.", Classes = { "detail" } });
+        if (row.DownloadProblem.Length > 0)
+            panel.Children.Add(new TextBlock { Name = "RuntimesDownloadProblem", Text = row.DownloadProblem, Foreground = Ui.Danger, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+        else if (row.Downloaded && row.Source != "downloaded")
+            panel.Children.Add(new TextBlock { Name = "RuntimesAlsoDownloaded", Text = "Also downloaded" + (row.DownloadedVersion.Length > 0 ? ", version " + row.DownloadedVersion : "") + ". It is not used.", Classes = { "detail" } });
+        if (row.OtherPath.Length > 0)
+            panel.Children.Add(new TextBlock { Name = "RuntimesAlso", Text = $"Also found on your computer: {row.OtherPath}" + (row.OtherVersion.Length > 0 ? ", version " + row.OtherVersion : "") + ". It is not used.", Classes = { "detail" } });
         panel.Children.Add(new TextBlock { Text = row.Downloaded || row.DownloadBytes > 0 ? "Downloaded files take " + Size(row.DownloadBytes) + " on disk." : "Nothing is downloaded.", Classes = { "detail" } });
 
         var pin = new TextBox { Text = row.Pinned, PlaceholderText = "Full path of the program, to use it instead" };
@@ -217,17 +221,11 @@ internal sealed partial class RuntimesSettingsView : StackPanel
         remove.IsEnabled = row.Downloaded;
         actions.Children.Add(download);
         actions.Children.Add(remove);
-        if (row.Downloaded && row.DownloadedPath.Length > 0 && row.Source != "downloaded" && row.Pinned != row.DownloadedPath)
-        {
-            var use = Ui.Button("Use the download", () => _ = SavePinAsync(row.Kind, row.DownloadedPath));
-            use.Name = "RuntimesUseDownload";
-            actions.Children.Add(use);
-        }
         if (row.Pinned.Length > 0)
         {
-            var computer = Ui.Button("Use the one on my computer", () => _ = SavePinAsync(row.Kind, ""));
-            computer.Name = "RuntimesUseComputer";
-            actions.Children.Add(computer);
+            var clear = Ui.Button("Stop using my path", () => _ = SavePinAsync(row.Kind, ""));
+            clear.Name = "RuntimesClearPin";
+            actions.Children.Add(clear);
         }
         group.Children.Add(actions);
         panel.Children.Add(group);

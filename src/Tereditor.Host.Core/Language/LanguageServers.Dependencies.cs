@@ -88,12 +88,13 @@ internal sealed partial class LanguageServers
         if (homeVariable.Length > 0 && Environment.GetEnvironmentVariable(homeVariable) is { Length: > 0 } home && Path.IsPathFullyQualified(home))
             foreach (var candidate in new[] { Path.Combine(home, "bin", file), Path.Combine(home, file) })
                 if (File.Exists(candidate) && LanguageExecutables.Reject(candidate, workspace) is null && !TooOld(executable, candidate, minimumMajor, workspace, unknownIsOld: false)) return new("found", candidate, "home", "");
+        // A downloaded copy that passes its checksum check outranks PATH (the Runtimes for tooling order); one that fails is passed over.
+        if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } && RuntimesEnabled() && ManagedRuntimes.FindInstalled(directory, executable, ManagedArtifacts.Platform(), workspace) is { } preferred)
+            return new("found", preferred, "managed", "");
         var rejected = new List<string>();
         if (LanguageExecutables.FindOnPath(executable, workspace, rejected) is { } found && !TooOld(executable, found, minimumMajor, workspace, unknownIsOld: true)) return new("found", found, "path", "");
         // Under the host's PATH a provisioned runtime (Bun) that is not on it is the pinned one in the cache, once downloaded.
         if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } && !RuntimesEnabled()) return new("missing", "", "managed", OffProblem(ManagedRuntimes.KindOf(executable)!));
-        if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } && ManagedRuntimes.FindInstalled(directory, executable, ManagedArtifacts.Platform(), workspace) is { } cached)
-            return new("found", cached, "managed", "");
         if (source == ToolchainSource.Path && ManagedRuntimes.KindOf(executable) is { Provisioned: true } fetch && !Toolchains.Offline && ManagedRuntimes.Choose(fetch.Id, ManagedArtifacts.Platform(), workspace) is { } wanted)
             return new("download", "", "managed", $"{fetch.Name} {wanted.Version} is downloaded on first use.");
         return new("missing", "", "", rejected.FirstOrDefault() ?? "");

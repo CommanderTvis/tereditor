@@ -32,6 +32,18 @@ public sealed record RuntimeRow(string Kind, string Name, string Source, string 
     /// <summary>The program of the downloaded copy, whichever source is in use; empty when none.</summary>
     public string DownloadedPath { get; set; } = "";
 
+    /// <summary>Why the downloaded copy is not used (it failed its checksum check or is damaged); empty when it is fine or absent.</summary>
+    public string DownloadProblem { get; set; } = "";
+
+    /// <summary>The version of the downloaded copy; empty when none.</summary>
+    public string DownloadedVersion { get; set; } = "";
+
+    /// <summary>The program found on the computer that is not in use; empty when none.</summary>
+    public string OtherPath { get; set; } = "";
+
+    /// <summary>The version of <see cref="OtherPath"/>; empty when unknown.</summary>
+    public string OtherVersion { get; set; } = "";
+
     /// <summary>Whether the pinned copy is downloading right now.</summary>
     public bool Downloading { get; init; }
 

@@ -13,7 +13,7 @@ public enum RuntimeKind
     Jdk
 }
 
-/// <summary>Where a runtime came from, in the order the host tries them.</summary>
+/// <summary>Where a runtime came from, in the order the host tries them: the path the user set, the verified downloaded copy, then the computer's own.</summary>
 public enum RuntimeSource
 {
     /// <summary>The path the user pinned in Settings › Runtimes for tooling.</summary>
@@ -63,6 +63,18 @@ public sealed record RuntimeStatus(RuntimeKind Kind, string Name, RuntimeSource?
 {
     /// <summary>The program of the downloaded copy, whichever source is in use; empty when none is downloaded.</summary>
     public string DownloadedPath { get; init; } = "";
+
+    /// <summary>Why the downloaded copy is not used (it failed its checksum check or is damaged), in plain words; empty when it is fine or absent.</summary>
+    public string DownloadProblem { get; init; } = "";
+
+    /// <summary>The version of the downloaded copy; empty when none is downloaded.</summary>
+    public string DownloadedVersion { get; init; } = "";
+
+    /// <summary>The program found on the computer that is not in use because the downloaded copy or a path the user set is; empty when none.</summary>
+    public string OtherPath { get; init; } = "";
+
+    /// <summary>The version of <see cref="OtherPath"/>; empty when unknown.</summary>
+    public string OtherVersion { get; init; } = "";
 
     /// <summary>Whether the pinned copy is downloading right now.</summary>
     public bool Downloading { get; init; }
