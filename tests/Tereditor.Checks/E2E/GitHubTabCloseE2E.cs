@@ -37,7 +37,8 @@ internal static class GitHubTabCloseE2E
                 if (!answered && Environment.TickCount64 - Interlocked.Read(ref since) > Seconds * 1000)
                     Environment.FailFast($"The UI thread stopped serving its queue for {Seconds} s after: {step}");
             }
-        }) { IsBackground = true, Name = "GitHubTabCloseWatchdog" }.Start();
+        })
+        { IsBackground = true, Name = "GitHubTabCloseWatchdog" }.Start();
 
         internal void Probe(string after)
         {
