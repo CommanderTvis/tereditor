@@ -63,7 +63,7 @@ internal static class GitHubTabCloseE2E
         var project = app.Window.ProjectRoot;
         var workspace = app.Window.WorkspaceRoot;
         // The avatar cache is shared by every GitHub tab, so a tab's close must leave its images alone.
-        const string avatarUrl = "https://avatars.example/ann.png";
+        const string avatarUrl = "https://avatars.githubusercontent.com/u/1";
         var avatar = new WriteableBitmap(new PixelSize(2, 2), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
         GitHubAvatars.Remember(avatarUrl, avatar);
         using var watchdog = new Watchdog();
