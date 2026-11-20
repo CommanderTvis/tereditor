@@ -919,6 +919,11 @@ internal static class Program
             ResultsChecks.Run(root);
             return;
         }
+        if (args.SequenceEqual(["--plugin-lock-order"]))
+        {
+            PluginHostChecks.StartupLockOrder(Path.Combine(root, "plugin-lock-order")).GetAwaiter().GetResult();
+            return;
+        }
         if (args.SequenceEqual(["--plugins"]))
         {
             PluginHostChecks.Run(root).GetAwaiter().GetResult();

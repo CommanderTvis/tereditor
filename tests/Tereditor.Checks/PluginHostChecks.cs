@@ -181,7 +181,33 @@ internal static partial class PluginHostChecks
         await External(Path.Combine(directory, "external"));
         await ExternalFiles(Path.Combine(directory, "external-files"));
         await Terminals(Path.Combine(directory, "terminals"));
+        await StartupLockOrder(Path.Combine(directory, "startup-lock-order"));
         Console.WriteLine("PASS plugin host: generation pin, manifests, discovery, registry, activation ids, drain, reconciler, dispatch, settings, tools, tool guidance, terminals, the fixture plugin and external refusal locally and over WebSocket RPC");
+    }
+
+    // Before the first reconcile settles, the runtime lists the builtin language servers under its own lock while a settings change
+    // validates a namespace under the state's lock. Taking the two in opposite orders hung both threads, and with them every host call.
+    internal static async Task StartupLockOrder(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        var release = new TaskCompletionSource();
+        var builtins = Enumerable.Range(0, 6).Select(index => ("lock-order-" + index, Module: (PluginHostModule)new Module(Contract("lock-order-" + index), async _ => { await release.Task; return null; })))
+            .Select(pair => (Manifest(pair.Item1, enabledByDefault: true), (PluginHostModule?)pair.Module)).ToArray();
+        var state = new HostStateStore(directory);
+        var runtime = new PluginRuntime(new PluginHostSeams { StateDirectory = directory, State = state, Builtins = builtins, Log = (_, _, _) => { } });
+        var starting = runtime.Start();
+        try
+        {
+            var listing = Task.Run(() => { for (var round = 0; round < 3000; round++) runtime.LanguageServerSpecs(); });
+            var changing = Task.Run(async () => { for (var round = 0; round < 300; round++) await state.ChangeAsync([HostStateChange.PluginEnabled("lock-order-0", round % 2 == 0)]); });
+            try { await Task.WhenAll(listing, changing).WaitAsync(TimeSpan.FromSeconds(30)); }
+            catch (TimeoutException) { throw new InvalidOperationException("Listing language servers while a settings change validates a namespace before the first reconcile hung."); }
+        }
+        finally { release.TrySetResult(); }
+        await starting.WaitAsync(TimeSpan.FromSeconds(30));
+        // A deadlock leaves the runtime's lock held, so only a runtime that did not hang is disposed.
+        await runtime.DisposeAsync();
+        Console.WriteLine("PASS plugin host start-up: listing language servers and changing settings before the first reconcile never wait on each other");
     }
 
     internal const string ExternalRefusal = "External plugins are not supported in this version.";

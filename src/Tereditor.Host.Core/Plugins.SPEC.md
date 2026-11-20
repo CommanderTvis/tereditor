@@ -71,6 +71,11 @@ entry takes its place; the reverse (valid to invalid) tears down any live activa
 a refused placeholder the same way. `Failed` is terminal until `RetryAsync(id)` moves it back to `Disabled`, or until its settings turn it off: the
 reconciler never retries a failed plugin on its own, so one plugin's crash cannot become a retry storm.
 
+The runtime's lock and the host state's lock are never nested the other way round. The state validates a settings namespace
+through the runtime while it holds its own lock, so the runtime reads the state (the plugin settings the start-up language
+server list needs) before it takes its own lock, never under it. The opposite order hung both threads forever when a settings
+change met a language server request before the first reconcile settled, and every host call behind them waited.
+
 Upserting an unchanged manifest (a rescan re-discovering an external plugin whose directory is untouched) is a
 no-op beyond refreshing its directory. A genuinely different manifest resets the state to `Disabled`, so the
 next pass decides again.

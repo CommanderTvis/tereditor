@@ -960,10 +960,14 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
         // Until the first reconcile settles, serve the builtin servers that are about to activate, so a request made at
         // startup is not refused as naming an unknown server.
         if (!started.IsCompleted)
+        {
+            // The state takes its lock first and then validates a namespace under this runtime's lock, so the state is never read under it.
+            var settings = Seams.State.Current.PluginSettings;
             lock (gate)
-                return [.. registry.All.Where(entry => entry.Origin == PluginOrigin.Builtin && Enabled(entry, Seams.State.Current.PluginSettings, Seams.Kind)
-                        && entry.Manifest.DependsOn.All(dependency => registry.Get(dependency.Id) is { } required && Enabled(required, Seams.State.Current.PluginSettings, Seams.Kind)))
+                return [.. registry.All.Where(entry => entry.Origin == PluginOrigin.Builtin && Enabled(entry, settings, Seams.Kind)
+                        && entry.Manifest.DependsOn.All(dependency => registry.Get(dependency.Id) is { } required && Enabled(required, settings, Seams.Kind)))
                     .Select(entry => entry.Module).OfType<LanguageServerPlugin>().Select(plugin => plugin.Spec)];
+        }
         return ActiveLanguageServerSpecs();
     }
 
