@@ -381,7 +381,8 @@ internal static class CodexChecks
         int Probes() => File.Exists(log) ? File.ReadAllLines(log).Count(line => line == "daemon-version") : 0;
         var probe = new CodexDaemonProbe(() => executable, TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5));
         WriteControl(control, new() { DaemonVersion = """{"status":"running","cliVersion":"1","appServerVersion":"1"}""" });
-        Require((await probe.ReadAsync()).Attach, "the fake daemon is attachable");
+        var first = await probe.ReadAsync();
+        Require(first.Attach, $"the fake daemon is attachable (reason: {first.Reason ?? "none"}; probes: {Probes()}; log: {(File.Exists(log) ? File.ReadAllText(log).Trim() : "missing")})");
         await probe.ReadAsync();
         Equal(Probes(), 1, "a second read within the lifetime is cached");
         probe.Invalidate();
