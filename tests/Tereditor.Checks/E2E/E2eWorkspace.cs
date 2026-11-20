@@ -509,8 +509,13 @@ internal sealed class E2eHost(IProjectServices inner) : IProjectServices
     public ValueTask<LanguageResult> LanguageAsync(LanguageRequest request, CancellationToken cancellationToken = default) =>
         LanguageReply?.Invoke(request) is { } result ? ValueTask.FromResult(result) : inner.LanguageAsync(request, cancellationToken);
     internal Func<LanguageTermsRequest, LanguageTermsResult?>? TermsReply { get; set; }
-    public ValueTask<LanguageTermsResult> LanguageTermsAsync(LanguageTermsRequest request, CancellationToken cancellationToken = default) =>
-        TermsReply?.Invoke(request) is { } result ? ValueTask.FromResult(result) : inner.LanguageTermsAsync(request, cancellationToken);
+    /// <summary>Awaited before every terms read answers, so a check can hold a read open or let it fail.</summary>
+    internal Func<LanguageTermsRequest, CancellationToken, Task>? TermsBefore { get; set; }
+    public async ValueTask<LanguageTermsResult> LanguageTermsAsync(LanguageTermsRequest request, CancellationToken cancellationToken = default)
+    {
+        if (TermsBefore is { } before) await before(request, cancellationToken);
+        return TermsReply?.Invoke(request) is { } result ? result : await inner.LanguageTermsAsync(request, cancellationToken);
+    }
     private TaskCompletionSource? watchGate;
     internal TaskCompletionSource HoldWatch() => watchGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public async IAsyncEnumerable<WorkspaceFileChanges> WatchFilesAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)

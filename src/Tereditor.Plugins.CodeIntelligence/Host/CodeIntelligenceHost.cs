@@ -20,6 +20,9 @@ public sealed class CodeIntelligenceHost : PluginHostModule
     /// <summary>Replaces the terms call, as <see cref="LanguageCall"/> does.</summary>
     internal Func<LanguageTermsParams, CancellationToken, ValueTask<string>>? TermsCall { get; init; }
 
+    /// <summary>How long reading the terms may take before the page is told they are unavailable; the read hashes the whole installation.</summary>
+    internal TimeSpan TermsReadDeadline { get; init; } = TimeSpan.FromSeconds(90);
+
     public override PluginContract Contract => CodeIntelligenceContract.Contract;
 
     public override ValueTask<PluginDisposer?> ActivateAsync(IPluginHostContext context)
@@ -40,8 +43,18 @@ public sealed class CodeIntelligenceHost : PluginHostModule
         context.Method(CodeIntelligenceContract.Running, async (request, _, token) => Running(await Call(context, "running", request, token)));
         context.Method(CodeIntelligenceContract.Terms, async (request, _, token) =>
         {
-            using var document = JsonDocument.Parse(TermsCall is { } terms ? await terms(request, token) : await context.LanguageTermsAsync(request.Workspace, request.Server, request.Accept, request.ArtifactId, request.EulaSha256, request.Answers, token));
-            return Terms(document.RootElement);
+            // Reading the terms hashes the installation: it gets a deadline, and a read that outlasts it is answered, never left open.
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+            if (!request.Accept) deadline.CancelAfter(TermsReadDeadline);
+            try
+            {
+                using var document = JsonDocument.Parse(TermsCall is { } terms ? await terms(request, deadline.Token) : await context.LanguageTermsAsync(request.Workspace, request.Server, request.Accept, request.ArtifactId, request.EulaSha256, request.Answers, deadline.Token));
+                return Terms(document.RootElement);
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                return new("unavailable", $"Reading the license terms took longer than {TermsReadDeadline.TotalSeconds:0} seconds.", "", "", "", "", false, "", [], new Dictionary<string, string>());
+            }
         });
         context.Method(CodeIntelligenceContract.SetServerOptions, async (request, _, token) =>
         {

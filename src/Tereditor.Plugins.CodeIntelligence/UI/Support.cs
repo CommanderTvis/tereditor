@@ -11,15 +11,15 @@ namespace Tereditor.Plugins.CodeIntelligence.UI;
 /// <summary>What the page knows about a server's license terms; only a known state may offer Review and accept terms.</summary>
 internal enum TermsKnowledge { Checking, NotInstalled, NotAccepted, Accepted, Unavailable }
 
-/// <summary>How a terms state is shown: the status line, whether it is an error, and the review button.</summary>
-internal readonly record struct TermsStatusView(string Text, bool Failed, bool ShowReview, bool ReviewEnabled)
+/// <summary>How a terms state is shown: the status line, whether it is an error, the review button and the retry button.</summary>
+internal readonly record struct TermsStatusView(string Text, bool Failed, bool ShowReview, bool ReviewEnabled, bool ShowRetry = false)
 {
     internal static TermsStatusView Of(TermsKnowledge knowledge, string acceptedAtUtc = "", string version = "", string detail = "") => knowledge switch
     {
         TermsKnowledge.Accepted => new($"Terms accepted on {acceptedAtUtc}" + (version.Length > 0 ? $" (version {version})." : "."), false, true, false),
         TermsKnowledge.NotAccepted => new("Terms not accepted. Choose Review and accept terms. Nothing starts until you accept.", false, true, true),
         TermsKnowledge.NotInstalled => new("Terms not accepted. Reading them downloads the pinned managed server first.", false, true, true),
-        TermsKnowledge.Unavailable => new("Terms unavailable: " + detail, true, true, true),
+        TermsKnowledge.Unavailable => new("Terms unavailable: " + detail, true, true, true, true),
         _ => new("Checking license terms…", false, false, false),
     };
 }

@@ -41,6 +41,7 @@
         <TextBlock x:Name="LspTermsStatus" TextWrapping="Wrap" Classes="settings-description" />
         <WrapPanel>
           <Button x:Name="LspReviewTerms" Content="Review and accept terms" Margin="0,0,8,0" />
+          <Button x:Name="LspTermsRetry" Content="Retry" Margin="0,0,8,0" IsVisible="False" />
           <Button x:Name="LspInstall" Content="Install now" Margin="0,0,8,0" IsVisible="False" />
           <Button x:Name="LspInstallRetry" Content="Retry" IsVisible="False" />
         </WrapPanel>

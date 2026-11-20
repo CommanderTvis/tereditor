@@ -343,6 +343,92 @@ internal static class IntelliJLicenseChecks
         }
         finally { Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(settings).OfType<Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligencePage>().FirstOrDefault()?.TermsWindow?.Close(); }
         Console.WriteLine("PASS Settings terms: status, review dialog records acceptance via the host, Install now with error and Retry, nothing for a server without terms");
+        TermsOutcomes(fixture);
+    }
+
+    /// <summary>
+    /// The terms row of an installed IntelliJ server leaves "Checking license terms…" for every outcome: accepted, not accepted, a failed read (with Retry),
+    /// a read the host gives up on, a host that never answers (the page's own deadline), and a page rebuilt while the read is open.
+    /// </summary>
+    private static void TermsOutcomes(string fixture)
+    {
+        const string Hash = "0123456789012345678901234567890123456789012345678901234567890123";
+        var result = (bool accepted) => new LanguageTermsResult(accepted ? "accepted" : "requiresAcceptance", "Fixture", "263.7084.0", Hash, Hash, "Fixture terms", accepted, accepted ? "2026-11-07T10:00:00.0000000+00:00" : "");
+        void Scenario(string name, TimeSpan hostDeadline, TimeSpan pageTimeout, Action<Func<string>, Func<string, Avalonia.Controls.Button>, E2E.E2eWorkspace, Avalonia.Controls.Control> act, Action<E2E.E2eWorkspace> arrange)
+        {
+            Tereditor.Plugins.CodeIntelligence.UI.TermsAcceptanceCache.Forget("intellij");
+            Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligencePage.TermsTimeout = pageTimeout;
+            E2E.E2eWorkspace? holder = null;
+            using var app = holder = new E2E.E2eWorkspace(Path.Combine(fixture, "settings-terms-" + name), openFiles: false, hostPlugins: FakeCodeIntelligence.HostPlugins(() => holder!.Host, hostDeadline));
+            app.Host.LanguageReply = request => request.Operation switch
+            {
+                "catalog" => new("ready", "storage") { Servers = [new("intellij", "", "available", "IntelliJ Java and Kotlin · JetBrains", "263.7084.0") { Presentation = new("Java / Kotlin (IntelliJ)", HasTerms: true) }] },
+                "resolution" => new("ready", "Ready", request.Server) { Configuration = new JsonObject { ["path"] = "/fixture/idea", ["version"] = "", ["warning"] = "", ["source"] = "managed", ["pathCapable"] = false, ["pinning"] = "" }.ToJsonString() },
+                _ => null
+            };
+            arrange(app);
+            var settings = new Tereditor.UI.Panels.SettingsView(app.Window, () => { }, section: "Code Intelligence");
+            app.Window.ShowInOverlay(settings);
+            try
+            {
+                T Find<T>(string part) where T : Avalonia.Controls.Control => Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(settings).OfType<T>().Single(control => control.Name == part);
+                act(() => Find<Avalonia.Controls.TextBlock>("LspTermsStatus").Text ?? "", Find<Avalonia.Controls.Button>, app, settings);
+            }
+            finally
+            {
+                Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(settings).OfType<Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligencePage>().FirstOrDefault()?.TermsWindow?.Close();
+                Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligencePage.TermsTimeout = TimeSpan.FromSeconds(120);
+            }
+        }
+        var longWait = TimeSpan.FromSeconds(90);
+        void StartsWith(Func<string> status, string prefix, string why) => E2E.E2eWorkspace.Until(() => status().StartsWith(prefix, StringComparison.Ordinal), why + " Status: " + status());
+        void Plain(string name, bool accepted) => Scenario(name, longWait, longWait,
+            (status, button, _, _) =>
+            {
+                StartsWith(status, accepted ? "Terms accepted on 2026-11-07" : "Terms not accepted", "The row stayed unresolved.");
+                Require(!button("LspTermsRetry").IsVisible && button("LspReviewTerms").IsEnabled == !accepted, "A known state must offer no Retry and Review only while not accepted.");
+            }, app => app.Host.TermsReply = _ => result(accepted));
+        Plain("accepted", true);
+        Plain("not-accepted", false);
+        Scenario("fails", longWait, longWait, (status, button, app, _) =>
+        {
+            StartsWith(status, "Terms unavailable: Fixture read failed", "A failed read left the row unresolved.");
+            Require(button("LspTermsRetry").IsVisible, "A failed read must offer Retry.");
+            app.Host.TermsBefore = null; app.Host.TermsReply = _ => result(true);
+            button("LspTermsRetry").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            StartsWith(status, "Terms accepted on 2026-11-07", "Retry did not read the terms again.");
+            Require(!button("LspTermsRetry").IsVisible, "Retry stayed visible after the terms were read.");
+        }, app => app.Host.TermsBefore = (_, _) => throw new IOException("Fixture read failed"));
+        Scenario("host-deadline", TimeSpan.FromSeconds(1), longWait, (status, button, app, _) =>
+        {
+            StartsWith(status, "Terms unavailable: Reading the license terms took longer than 1 seconds.", "A slow read left the row unresolved after the host's deadline.");
+            Require(button("LspTermsRetry").IsVisible, "A read past the host's deadline must offer Retry.");
+            app.Host.TermsBefore = null; app.Host.TermsReply = _ => result(false);
+            button("LspTermsRetry").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            StartsWith(status, "Terms not accepted", "Retry did not read the terms again.");
+        }, app => app.Host.TermsBefore = async (_, token) => await Task.Delay(Timeout.Infinite, token));
+        Scenario("page-deadline", longWait, TimeSpan.FromSeconds(1), (status, button, _, _) =>
+        {
+            StartsWith(status, "Terms unavailable: The host did not answer within 1 seconds.", "A host that never answers left the row unresolved after the page's deadline.");
+            Require(button("LspTermsRetry").IsVisible, "A read past the page's deadline must offer Retry.");
+        }, app => app.Host.TermsBefore = async (_, _) => await new TaskCompletionSource().Task);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reads = 0;
+        Scenario("rebuilt", longWait, longWait, (status, _, _, settings) =>
+        {
+            E2E.E2eWorkspace.Until(() => Volatile.Read(ref reads) > 0 && status() == "Checking license terms…", "The first read did not start.");
+            var before = Volatile.Read(ref reads);
+            ((Tereditor.UI.Panels.SettingsView)settings).ShowSection("Code Intelligence");
+            E2E.E2eWorkspace.Until(() => Volatile.Read(ref reads) > before, "The rebuilt section did not ask for the terms itself.");
+            Require(status() == "Checking license terms…", "The rebuilt section must be checking, not show an answer of the old one.");
+            gate.SetResult();
+            StartsWith(status, "Terms accepted on 2026-11-07", "The rebuilt section stayed unresolved.");
+        }, app =>
+        {
+            app.Host.TermsReply = _ => result(true);
+            app.Host.TermsBefore = async (_, token) => { Interlocked.Increment(ref reads); await gate.Task.WaitAsync(token); };
+        });
+        Console.WriteLine("PASS Settings terms outcomes: accepted, not accepted, failed read with Retry, host deadline, page deadline, section rebuilt mid-read");
     }
 
     private static string Licensing(JsonObject state) => Plugin(IntelliJLicensing.Project(state));

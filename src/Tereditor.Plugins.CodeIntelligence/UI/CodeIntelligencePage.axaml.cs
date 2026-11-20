@@ -34,6 +34,9 @@ internal sealed partial class CodeIntelligencePage : UserControl
     /// <summary>How long Install now waits before saying it is still running; the host keeps installing.</summary>
     internal static TimeSpan InstallTimeout { get; set; } = TimeSpan.FromSeconds(120);
 
+    /// <summary>How long a terms check (the executable, then the terms) waits before it shows an error with Retry; the host has its own, shorter deadline.</summary>
+    internal static TimeSpan TermsTimeout { get; set; } = TimeSpan.FromSeconds(120);
+
     private readonly IPluginUIContext context;
     private readonly string workspace;
     private readonly CancellationTokenSource lifetime = new();
@@ -43,6 +46,7 @@ internal sealed partial class CodeIntelligencePage : UserControl
     private Action? load;
     private Func<Task>? loadCatalog;
     private LanguageLimitsView? limits;
+    private CancellationTokenSource? termsCheck;
 
     /// <summary>The terms window Review and accept terms opened, while it is open.</summary>
     internal Window? TermsWindow { get; private set; }
@@ -98,6 +102,7 @@ internal sealed partial class CodeIntelligencePage : UserControl
         var termsSection = Part<StackPanel>("LspTermsSection");
         var termsStatus = Part<TextBlock>("LspTermsStatus");
         var reviewTerms = Part<Button>("LspReviewTerms");
+        var retryTerms = Part<Button>("LspTermsRetry");
         var install = Part<Button>("LspInstall");
         var installRetry = Part<Button>("LspInstallRetry");
         var installStatus = Part<TextBlock>("LspInstallStatus");
@@ -190,9 +195,13 @@ internal sealed partial class CodeIntelligencePage : UserControl
         async Task LoadResolution(string id, bool justAccepted = false)
         {
             resolved.Text = "Resolving the executable…"; resolved.Foreground = Ui.Muted; pathWarning.IsVisible = false;
+            // A newer check replaces this one; this one ends with a result or an error, never a spinner.
+            termsCheck?.Cancel();
+            var check = termsCheck = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+            check.CancelAfter(TermsTimeout);
             try
             {
-                var result = await Call(CodeIntelligenceContract.Resolution, new LanguageServerParams(workspace, id), lifetime.Token);
+                var result = await Call(CodeIntelligenceContract.Resolution, new LanguageServerParams(workspace, id), check.Token);
                 if (lifetime.IsCancellationRequested || selector.SelectedItem is not LspServerItem { Id: var selected } || selected != id) return;
                 var source = result.Source switch { "managed" => "Managed", "path" => "PATH", "override" => "Executable override", _ => "None" };
                 resolved.Foreground = result.State == "ready" ? Ui.Muted : Ui.Danger;
@@ -203,16 +212,17 @@ internal sealed partial class CodeIntelligencePage : UserControl
                     installed = result.State == "ready" && result.Path.Length > 0;
                     if (!installed && justAccepted) UpdateTerms();
                     else if (!installed) { TermsAcceptanceCache.Forget(id); termsConfirmed = false; ShowStatus(TermsKnowledge.NotInstalled); }
-                    else _ = LoadTerms(id);
+                    else _ = LoadTerms(id, check);
                 }
                 pathWarning.Foreground = Ui.Danger; pathWarning.Text = result.Warning; pathWarning.IsVisible = result.Warning.Length > 0;
             }
-            catch (OperationCanceledException) { }
-            catch (Exception failure) when (!lifetime.IsCancellationRequested)
+            catch (Exception failure) when (!lifetime.IsCancellationRequested && termsCheck == check && (failure is not OperationCanceledException || check.IsCancellationRequested))
             {
-                resolved.Foreground = Ui.Danger; resolved.Text = "Executable unavailable: " + failure.Message;
-                if (termsSection.IsVisible) { termsConfirmed = true; ShowStatus(TermsKnowledge.Unavailable, detail: failure.Message); }
+                var detail = failure is OperationCanceledException ? $"The host did not answer within {TermsTimeout.TotalSeconds:0} seconds." : failure.Message;
+                resolved.Foreground = Ui.Danger; resolved.Text = "Executable unavailable: " + detail;
+                if (termsSection.IsVisible) { termsConfirmed = true; ShowStatus(TermsKnowledge.Unavailable, detail: detail); }
             }
+            catch (OperationCanceledException) { }
         }
         void UpdateTerms()
         {
@@ -222,17 +232,21 @@ internal sealed partial class CodeIntelligencePage : UserControl
             installRetry.IsEnabled = !installing;
         }
         // Reading the terms of a server that is not installed downloads it, so only an installed one is read without the user asking.
-        async Task LoadTerms(string id)
+        async Task LoadTerms(string id, CancellationTokenSource check)
         {
             if (!installed) { UpdateTerms(); return; }
             try
             {
-                var read = await Call(CodeIntelligenceContract.Terms, new LanguageTermsParams(workspace, id), lifetime.Token);
+                var read = await Call(CodeIntelligenceContract.Terms, new LanguageTermsParams(workspace, id), check.Token);
                 if (lifetime.IsCancellationRequested || selector.SelectedItem is not LspServerItem { Id: var selected } || selected != id) return;
                 ShowTerms(read);
             }
+            catch (Exception failure) when (!lifetime.IsCancellationRequested && termsCheck == check && (failure is not OperationCanceledException || check.IsCancellationRequested))
+            {
+                termsConfirmed = true;
+                ShowStatus(TermsKnowledge.Unavailable, detail: failure is OperationCanceledException ? $"The host did not answer within {TermsTimeout.TotalSeconds:0} seconds." : failure.Message);
+            }
             catch (OperationCanceledException) { }
-            catch (Exception failure) when (!lifetime.IsCancellationRequested) { termsConfirmed = true; ShowStatus(TermsKnowledge.Unavailable, detail: failure.Message); }
         }
         void ShowStatus(TermsKnowledge knowledge, string acceptedAtUtc = "", string version = "", string detail = "")
         {
@@ -241,6 +255,7 @@ internal sealed partial class CodeIntelligencePage : UserControl
             termsStatus.Foreground = view.Failed ? Ui.Danger : Ui.Muted;
             termsStatus.Text = view.Text;
             reviewTerms.IsVisible = view.ShowReview;
+            retryTerms.IsVisible = view.ShowRetry;
             UpdateTerms();
             reviewTerms.IsEnabled = view.ReviewEnabled;
         }
@@ -252,6 +267,13 @@ internal sealed partial class CodeIntelligencePage : UserControl
             if (read.Accepted) TermsAcceptanceCache.Store(id, serverVersion, read.AcceptedAtUtc, read.Version); else TermsAcceptanceCache.Forget(id);
             ShowStatus(read.Accepted ? TermsKnowledge.Accepted : TermsKnowledge.NotAccepted, read.AcceptedAtUtc, read.Version);
         }
+        retryTerms.Click += (_, _) =>
+        {
+            if (selector.SelectedItem is not LspServerItem { Id: var id }) return;
+            termsConfirmed = false;
+            ShowStatus(TermsKnowledge.Checking);
+            _ = LoadResolution(id);
+        };
         reviewTerms.Click += (_, _) =>
         {
             if (selector.SelectedItem is not LspServerItem { Id: var id } || TopLevel.GetTopLevel(reviewTerms) is not Window owner) return;
