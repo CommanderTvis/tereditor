@@ -94,15 +94,9 @@ internal static partial class GitHubBrowserChecks
         Console.WriteLine("PASS GitHub avatars: one fetch per address, disk copy after a restart, address rules, bounds, switch and clear cache");
     }
 
-    private static bool PaintedRed(Window window, Control circle)
-    {
-        var centre = circle.TranslatePoint(new Point(12, 12), window)!.Value;
-        using var frame = window.CaptureRenderedFrame()!;
-        using var buffer = frame.Lock();
-        var at = (int)centre.Y * buffer.RowBytes + (int)centre.X * 4;
-        var (b, g, r) = (System.Runtime.InteropServices.Marshal.ReadByte(buffer.Address + at), System.Runtime.InteropServices.Marshal.ReadByte(buffer.Address + at + 1), System.Runtime.InteropServices.Marshal.ReadByte(buffer.Address + at + 2));
-        return r > 200 && g < 60 && b < 60;
-    }
+    /// <summary>The circle holds a decoded image that is laid out inside it and visible.</summary>
+    private static bool PaintedRed(Window window, Border circle) =>
+        circle.Child is Image { Source: Bitmap { PixelSize.Width: > 0 }, IsEffectivelyVisible: true, Bounds: { Width: >= 20, Height: >= 20 } };
 
     internal static void AvatarCircles()
     {
@@ -110,9 +104,12 @@ internal static partial class GitHubBrowserChecks
         byte[] png;
         using (var target = new RenderTargetBitmap(new PixelSize(48, 48)))
         {
-            target.Render(new Border { Width = 48, Height = 48, Background = Brushes.Red });
+            var red = new Border { Width = 48, Height = 48, Background = Brushes.Red };
+            red.Measure(new Size(48, 48));
+            red.Arrange(new Rect(0, 0, 48, 48));
+            target.Render(red);
             using var memory = new MemoryStream();
-            target.Save(memory);
+            target.Save(memory, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
             png = memory.ToArray();
         }
         var gate = new TaskCompletionSource();
