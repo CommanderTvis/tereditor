@@ -69,7 +69,7 @@ internal sealed partial class CodeIntelligencePage : UserControl
 
     // The host's own thread, never the UI thread: the in-process adapter runs the host half on its caller until its first real await.
     private Task<TResult> Call<TParams, TResult>(PluginMethod<TParams, TResult> method, TParams parameters, CancellationToken token = default) =>
-        Task.Run(async () => await context.RequestAsync(method, parameters, token), token);
+        Task.Run(async () => await context.RequestAsync(method, parameters, token), token).WaitAsync(token);
 
     private static (bool AllowPath, string Command, string[]? Arguments) Options(string json, string id)
     {
