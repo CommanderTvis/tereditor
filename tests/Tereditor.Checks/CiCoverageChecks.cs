@@ -155,6 +155,7 @@ internal static partial class CiCoverageChecks
         ["--plugin-crossing"] = Cases("plugin-crossing"),
         ["--plugin-isolated-ui"] = Cases("plugin-isolated-ui"),
         ["--plugin-json"] = Cases("plugin-json"),
+        ["--plugin-lock-order"] = Cases("plugin-host"),
         ["--plugin-surface"] = Cases("plugin-surface"),
         ["--plugin-surface-remote"] = Cases("plugin-surface-remote"),
         ["--plugins"] = Cases("plugin-host", "plugin-json", "spec-dialect", "review-plugin", "blueprint", "claude-code", "DiscordChecks-RunHostAsync", "workspace-watch", "BranchGraphChecks-RunHostAsync", "processes", "VisualizeChecks-Host", "FileIconsChecks-Host", "codex-host", "plugin-ui", "ProcessesPaneChecks", "file-actions", "plugin-watch", "spec-dialect-ui", "review-plugin-ui", "blueprint-ui", "claude-code-ui", "claude-code-launcher", "DiscordChecks-RunUi", "PdfPreviewChecks-Run", "epub-reader", "BranchGraphChecks-RunUi", "visualize-ui", "FileIconsChecks-UiChecks", "codex-ui", "away-notifications"),
