@@ -81,7 +81,13 @@ internal static class GitHubTabCloseE2E
                     var tab = Controls(app).OfType<Border>().Single(control => control.Name == "GitHubTab");
                     var item = new GitHubItem(1, "Title", "open", false, "ann", [], 0, "2026-11-01T10:00:00Z", "2026-11-02T10:00:00Z", null, "https://github.com/o/r/issues/1", "none", "none")
                     { Assignees = [new("ann", avatarUrl)] };
-                    ((GitHubTab)tab).RenderList(new(false, "r", "o/r", [item], 1, 0, false));
+                    var list = new GitHubList(false, "r", "o/r", [item], 1, 0, false);
+                    // A refreshed answer draws the page again; the search box lives on and must move to the new header.
+                    ((GitHubTab)tab).RenderList(list);
+                    ((GitHubTab)tab).RenderList(list with { Cached = new(true, "2026-11-01T10:00:00Z") });
+                    ((GitHubTab)tab).RenderList(list);
+                    Require(Controls(app).OfType<TextBox>().Count(box => box.Name == "GitHubQuery") == 1, "A redrawn Issues list must keep exactly one search box.");
+                    watchdog.Probe("redrawn " + id);
                     Until(() => tab.GetLogicalDescendants().OfType<Image>().Any(image => ReferenceEquals(image.Source, avatar)));
                 }
                 var chrome = Controls(app).First(control => control.Name == name && control.IsEffectivelyVisible);

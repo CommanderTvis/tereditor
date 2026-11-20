@@ -137,6 +137,8 @@ internal sealed class GitHubTab : Border
         title.Margin = new Thickness(0, 0, 0, 12);
         header.Children.Add(title);
         var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 0, 0, 12) };
+        // The box outlives every rebuild, so it leaves the page it was on before it joins the new one.
+        (queryBox.Parent as Panel)?.Children.Remove(queryBox);
         bar.Children.Add(queryBox);
         bar.Children.Add(Ui.Button("Search", () => { limit = 25; revision = null; Refresh(); }, GitHubIcons.Search));
         header.Children.Add(bar);
