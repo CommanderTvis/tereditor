@@ -1191,7 +1191,7 @@ internal static class AcpChecks
                                 {
                                     var request = (AcpInstallRequest)args[1]!;
                                     lock (Requests) Requests.Add($"install {request.AgentId} {request.Version} {request.Kind} {request.Confirmed}");
-                                    Gate.Task.GetAwaiter().GetResult();
+                                    if (!Gate.Task.Wait(TimeSpan.FromSeconds(20))) throw new InvalidOperationException("acp: the check never released the install of " + request.AgentId);
                                     if (Fail) throw new InvalidOperationException("The download failed.");
                                     current = new([.. current.Agents.Select(entry => entry.Id == request.AgentId ? entry with { Version = request.Version } : entry)]);
                                     result = current;
@@ -1213,6 +1213,8 @@ internal static class AcpChecks
     internal static void UpdateButton()
     {
         UiChecks.EnsureHeadlessApp();
+        // As in the app, continuations of the page's async work return to the dispatcher; without this they run on the pool.
+        SynchronizationContext.SetSynchronizationContext(new Avalonia.Threading.AvaloniaSynchronizationContext(Avalonia.Threading.Dispatcher.UIThread, Avalonia.Threading.DispatcherPriority.Normal));
         foreach (var fail in new[] { false, true })
         {
             var view = (Tereditor.Plugins.Acp.UI.AcpSettingsView)UpdateHost.Create(out _);
