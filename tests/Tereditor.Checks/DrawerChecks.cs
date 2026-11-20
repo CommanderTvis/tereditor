@@ -309,7 +309,7 @@ internal static class DrawerChecks
         Require(window.Workbench.Compact && Shown(window, "PageBar") && window.Layout.State.ActiveWorkspace == workspace &&
             window.Layout.Selected(window.Layout.State.Center.Leaves().First())?.Id == tab, "The phone pages must open on the same workspace and tab.");
         Require(Tereditor.Plugins.UI.Kit.InterfaceZoom.Current == 1 && window.Preferences.CompactZoom == 1 && window.Preferences.Zoom == 1.1,
-            "The phone pages must open at their own zoom, not the desktop frame's.");
+            $"The phone pages must open at their own zoom, not the desktop frame's: applied {Tereditor.Plugins.UI.Kit.InterfaceZoom.Current}, CompactZoom {window.Preferences.CompactZoom}, Zoom {window.Preferences.Zoom}, compact {window.Workbench.Compact}.");
         // The phone's Settings steps and resets the zoom with buttons, through the same command as the keyboard.
         var settings = new SettingsView(window, () => { }) { Width = 400, Height = 600 };
         window.ShowInOverlay(settings);
