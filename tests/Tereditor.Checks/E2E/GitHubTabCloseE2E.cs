@@ -18,6 +18,37 @@ internal static class GitHubTabCloseE2E
 {
     private static readonly string[] Ids = ["issues", "pulls", "runs", "discussions", "contributors", "releases", "issue:7", "pull:7"];
 
+    /// <summary>
+    /// Proves the UI thread keeps serving its queue: a probe posted at Background priority must run. A thread that never returns cannot
+    /// report itself, so a second thread names the step that stopped answering and ends the process.
+    /// </summary>
+    private sealed class Watchdog : IDisposable
+    {
+        private const int Seconds = 20;
+        private volatile bool answered = true, stopped;
+        private volatile string step = "";
+        private long since;
+
+        internal Watchdog() => new Thread(() =>
+        {
+            while (!stopped)
+            {
+                Thread.Sleep(500);
+                if (!answered && Environment.TickCount64 - Interlocked.Read(ref since) > Seconds * 1000)
+                    Environment.FailFast($"The UI thread stopped serving its queue for {Seconds} s after: {step}");
+            }
+        }) { IsBackground = true, Name = "GitHubTabCloseWatchdog" }.Start();
+
+        internal void Probe(string after)
+        {
+            step = after; answered = false; Interlocked.Exchange(ref since, Environment.TickCount64);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => answered = true, Avalonia.Threading.DispatcherPriority.Background);
+            Until(() => answered, "the UI thread to run a Background probe after " + after);
+        }
+
+        public void Dispose() => stopped = true;
+    }
+
     private static bool Disposed(Bitmap bitmap)
     {
         try { _ = bitmap.PixelSize; return false; }
@@ -34,7 +65,9 @@ internal static class GitHubTabCloseE2E
         const string avatarUrl = "https://avatars.example/ann.png";
         var avatar = new WriteableBitmap(new PixelSize(2, 2), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
         GitHubAvatars.Remember(avatarUrl, avatar);
-        foreach (var middle in new[] { false, true })
+        using var watchdog = new Watchdog();
+        // Open, close, open, close, open, close: the button, then the middle click, then the button again.
+        foreach (var middle in new[] { false, true, false })
             foreach (var id in Ids)
             {
                 Until(() => app.Window.WorkspaceMounted);
@@ -42,6 +75,7 @@ internal static class GitHubTabCloseE2E
                 var name = "DockTab_plugin_github_" + id.Replace(':', '_');
                 Until(() => Controls(app).Any(control => control.Name == name && control.IsEffectivelyVisible));
                 Settle(400);
+                watchdog.Probe("opened " + id);
                 if (id == "issues")
                 {
                     var tab = Controls(app).OfType<Border>().Single(control => control.Name == "GitHubTab");
@@ -55,6 +89,7 @@ internal static class GitHubTabCloseE2E
                 else app.Click(chrome.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "CloseTab"));
                 Settle(1500);
                 Until(() => !Controls(app).Any(control => control.Name == name));
+                watchdog.Probe("closed " + id);
                 Require(app.State!.Current.Projects.Contains(project) && app.State.Current.Workspaces.Any(item => item.Path == workspace),
                     $"Closing the {id} GitHub tab must keep the project and its workspace in the host state.");
                 Require(Controls(app).Any(control => control.Name == "ProjectName" && Equals(control.Tag, project)),
