@@ -113,9 +113,9 @@ internal static class RuntimesChecks
         var good = File.ReadAllBytes(program);
         void Write(byte[] bytes)
         {
-            File.SetUnixFileMode(program, (UnixFileMode)0x1ff);
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(program, (UnixFileMode)0x1ff);
             File.WriteAllBytes(program, bytes);
-            File.SetUnixFileMode(program, (UnixFileMode)0x1ed);
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(program, (UnixFileMode)0x1ed);
         }
         Require(File.Exists(record) && File.ReadAllText(record).Contains(Convert.ToHexStringLower(SHA256.HashData(good)), StringComparison.Ordinal), "The installer did not record the program's hash.");
 
@@ -397,7 +397,7 @@ internal static class RuntimesChecks
     {
         var bunArchive = Archive("bun-fake", "bun");
         var uvArchive = Archive("uv-fake", "uv");
-        var jdkArchive = JdkArchive("bin", 21);
+        var jdkArchive = JdkArchive("Contents/Home", 21);
         ManagedRuntimes.UsePins([Pin("bun", bunArchive), Pin("uv", uvArchive), Pin("jdk", jdkArchive)]);
         var source = new FakeSource { Bodies = { ["bun-"] = bunArchive, ["uv-"] = uvArchive, ["jdk-"] = jdkArchive } };
         using var http = new HttpClient(source);
