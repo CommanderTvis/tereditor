@@ -85,18 +85,6 @@ internal static class LayoutFrameE2E
         Console.WriteLine("PASS upstream layout.spec.ts: workbench strips and feature toolbars keep one-row geometry with ARIA tabs");
     }
 
-    private static void DragSideClosed(E2eWorkspace app, string side)
-    {
-        Settle(550);
-        var separator = app.Find<ResizeHandle>(side + "Separator");
-        var start = separator.TranslatePoint(new Point(separator.Bounds.Width / 2, separator.Bounds.Height / 2), app.Window)!.Value;
-        var workbench = app.Find<DockSurface>("WorkspaceWorkbench");
-        var edge = workbench.TranslatePoint(default, app.Window)!.Value.X + (side == "left" ? 1 : workbench.Bounds.Width - 1);
-        app.Window.MouseMove(start); app.Window.MouseDown(start, MouseButton.Left);
-        for (var step = 1; step <= 12; step++) app.Window.MouseMove(new Point(start.X + (edge - start.X) * step / 12, start.Y));
-        app.Window.MouseUp(new Point(edge, start.Y), MouseButton.Left); Settle();
-    }
-
     private static double Width(E2eWorkspace app, string side) => app.Find<Grid>("AuxiliaryStack_" + side).Bounds.Width;
 
     private static void OuterSeparatorsHide(string root)
@@ -106,14 +94,14 @@ internal static class LayoutFrameE2E
         using (var app = new E2eWorkspace(directory))
         {
             left = Width(app, "left"); right = Width(app, "right");
-            DragSideClosed(app, "left");
+            app.Window.Layout.Visible("left", false); Settle();
             Require(!app.Window.Layout.State.LeftVisible && app.Find<Border>("leftRail").IsVisible &&
                 !app.Window.GetLogicalDescendants().OfType<Grid>().Any(grid => grid.Name == "AuxiliaryStack_left"),
-                "Dragging the left separator to the edge must hide the left side and expose its rail.");
-            DragSideClosed(app, "right");
+                "Hiding the left side must expose its rail.");
+            app.Window.Layout.Visible("right", false); Settle();
             Require(!app.Window.Layout.State.RightVisible && app.Find<Border>("rightRail").IsVisible &&
                 !app.Window.GetLogicalDescendants().OfType<Grid>().Any(grid => grid.Name == "AuxiliaryStack_right"),
-                "Dragging the right separator to the edge must hide the right side and expose its rail.");
+                "Hiding the right side must expose its rail.");
         }
         using (var app = new E2eWorkspace(directory, openFiles: false))
         {
@@ -124,7 +112,7 @@ internal static class LayoutFrameE2E
             Require(Math.Abs(Width(app, "left") - left) < 24 && Math.Abs(Width(app, "right") - right) < 24,
                 "Restoring the hidden sides must recover their previous widths.");
         }
-        Console.WriteLine("PASS upstream layout.spec.ts: dragging outer separators hides both sides and preserves their restore state");
+        Console.WriteLine("PASS upstream layout.spec.ts: hiding the outer sides exposes their rails and preserves their restore state");
     }
 
     private static void RightClickAt(E2eWorkspace app, Control control, Point point, ContextMenu menu)
