@@ -84,7 +84,8 @@ what makes remoteness an adapter choice rather than a mandatory daemon.
   separate row repair would have to cover.
 - The state watch yields complete snapshots and ends with an exception when the
   transport drops; the caller (`SharedState`) resubscribes and receives a fresh
-  snapshot, so nothing missed while disconnected stays stale.
+  snapshot, so nothing missed while disconnected stays stale. A watch on a disposed channel
+  (`ObjectDisposedException`) never recovers, so the caller stops instead of resubscribing.
 - A remote terminal session attaches, retrying a connection that fails before
   the host's reply with the same fresh attach, so a lost reply still yields one
   shell and one replay. After a mid-stream loss it reconnects from its last read
