@@ -214,10 +214,11 @@ internal static class PluginSurfaceRemoteChecks
             var flooded = recordedB.Opened[^1];
             PluginSurfaceChecks.Click(b.Window, boardB, shownB.Bounds["OutsiderFlood"]);
             var blocked = Stopwatch.StartNew();
-            while (!(sessions.Count == 1 && flooded.Calls.Completion.IsCompleted) && blocked.Elapsed < PluginChannelChecks.Patience) Thread.Sleep(20);
-            Require(sessions.Count == 1, "A plugin that floods a client whose UI thread is blocked ends that client's session on the host.");
+            while (!flooded.Calls.Completion.IsCompleted && blocked.Elapsed < PluginChannelChecks.Patience) Thread.Sleep(20);
             Require(flooded.Calls.Completion is { IsFaulted: true, Exception.InnerException: IOException { Message: "The plugin sent more than its client could take." } },
                 "The flooded client's session ends with the reason.");
+            // B reopens at once, so the host may never rest at one session: A, the flooded session and B's new one make three until the host
+            // ends the flooded one, and two with B's second session opened proves it did.
             // B's new session greets with a write of the plugin's whole settings, which a click written meanwhile would be lost to:
             // A clicks once B's has activated and written.
             E2eWorkspace.Until(() => recordedB.Opened.Count == 2 && sessions.Count == 2 && b.Workbench.PluginLoader.Registry.Active.Contains(Id) && Activations(a) > activations);
