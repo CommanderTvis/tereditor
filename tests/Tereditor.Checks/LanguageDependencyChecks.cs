@@ -192,9 +192,19 @@ internal static class LanguageDependencyChecks
     /// <summary>Settings › Code Intelligence shows the same rows as the pane, marks the server in its rail, and both follow one host-wide path.</summary>
     private static void Settings(string root, string bin, string? savedPath)
     {
-        // The workbench runs Git; keep its directory on the fixture PATH unless go lives there too.
-        var git = (savedPath ?? "").Split(Path.PathSeparator).FirstOrDefault(directory => directory.Length > 0 && File.Exists(Path.Combine(directory, OperatingSystem.IsWindows() ? "git.exe" : "git")));
-        if (git is not null && !File.Exists(Path.Combine(git, OperatingSystem.IsWindows() ? "go.exe" : "go"))) Environment.SetEnvironmentVariable("PATH", bin + Path.PathSeparator + git);
+        // The workbench runs Git and the Go row must stay missing. A runner keeps go beside git (/usr/bin), so then git alone gets a directory of its own.
+        var git = (savedPath ?? "").Split(Path.PathSeparator).Where(directory => directory.Length > 0).Select(directory => Path.Combine(directory, OperatingSystem.IsWindows() ? "git.exe" : "git")).FirstOrDefault(File.Exists);
+        if (git is not null)
+        {
+            var directory = Path.GetDirectoryName(git)!;
+            if (!File.Exists(Path.Combine(directory, OperatingSystem.IsWindows() ? "go.exe" : "go"))) Environment.SetEnvironmentVariable("PATH", bin + Path.PathSeparator + directory);
+            else if (!OperatingSystem.IsWindows())
+            {
+                directory = Path.Combine(root, "git-only"); Directory.CreateDirectory(directory);
+                File.CreateSymbolicLink(Path.Combine(directory, "git"), git);
+                Environment.SetEnvironmentVariable("PATH", bin + Path.PathSeparator + directory);
+            }
+        }
         using var app = new E2E.E2eWorkspace(Path.Combine(root, "settings-workspace"), openFiles: false);
         var shared = app.Workbench.State;
         var pane = new Tereditor.UI.Panels.LanguagePanel(new LocalProjectAdapter(new ProjectServices(app.Root, app.State!)), app.Root, _ => Task.CompletedTask, shared);
