@@ -190,6 +190,7 @@ internal static partial class CiCoverageChecks
         ["--secure-input"] = new Matrix("terminals"),
         ["--serving"] = Cases("host-listener", "HostServingE2E"),
         ["--settings"] = Cases("SettingsGitHubE2E"),
+        ["--settings-navigation"] = Cases("settings-navigation"),
         ["--settings-terms-status"] = Cases("settings-terms-status"),
         ["--settings-terms-ui"] = Cases("settings-terms-ui"),
         ["--settings-touch"] = Cases("settings-touch"),
