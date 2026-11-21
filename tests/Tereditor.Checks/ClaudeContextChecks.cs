@@ -707,7 +707,7 @@ internal static class ClaudeContextChecks
             (ClaudeMcpStatus.Failed, "Failed", Tereditor.Plugins.UI.Kit.Ui.Danger), (ClaudeMcpStatus.Disabled, "Disabled", Tereditor.Plugins.UI.Kit.Ui.Muted), (ClaudeMcpStatus.Unknown, "? odd", Tereditor.Plugins.UI.Kit.Ui.Muted)
         ];
         var servers = states.Select(state => new ClaudeCapability(ClaudeCapabilityKind.Mcp, "claude.ai " + state.Status, new(ClaudeConfigScope.User), true)
-            { Detail = "https://api.example.com/mcp", Status = state.Status, StatusText = "? odd" }).ToArray();
+        { Detail = "https://api.example.com/mcp", Status = state.Status, StatusText = "? odd" }).ToArray();
         var badges = new ClaudeCapabilitiesSurface(host, servers).View.GetLogicalDescendants().OfType<TextBlock>().Where(block => block.Name == "ClaudeMcpStatus").ToArray();
         Require(badges.Length == states.Length && badges.Zip(states).All(pair => pair.First.Text == pair.Second.Word && ReferenceEquals(pair.First.Foreground, pair.Second.Brush)),
             "A server row shows its status as a badge worded and coloured by state; an unknown status shows Claude's text, muted.");
