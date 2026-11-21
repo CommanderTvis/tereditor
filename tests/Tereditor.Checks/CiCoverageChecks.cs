@@ -95,6 +95,7 @@ internal static partial class CiCoverageChecks
         ["--intellij-license-mount"] = Cases("intellij-license-mount"),
         ["--intellij-license-ui"] = Cases("intellij-license-ui"),
         ["--intellij-maven"] = Cases("intellij-maven"),
+        ["--language-stall"] = Cases("language-stall"),
         ["--keymap"] = Cases("keymap"),
         ["--linux"] = new Job("ci.yml", "check:packaged -- --linux"),
         ["--live-diffs"] = Cases("RenderedDiffE2E"),

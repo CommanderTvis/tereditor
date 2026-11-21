@@ -26,7 +26,7 @@ internal sealed partial class LanguageSession : IAsyncDisposable, ILanguageServe
     private readonly TaskCompletionSource projectActionReported = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ConcurrentDictionary<string, string> indexing = new();
     internal bool IsIndexing => projectLoading || !indexing.IsEmpty || projectRestores.Values.Any(task => !task.IsCompleted) || Reloading || Settling;
-    internal string Status => ActionText.Length > 0 ? ActionText : detail;
+    internal string Status => ActionText.Length > 0 ? ActionText : detail + (indexing.IsEmpty ? "" : StallText(detail, Stopwatch.GetElapsedTime(progressChanged)));
     /// <summary>What an answer held back while the project graph loads says, with what the server is doing.</summary>
     internal string LoadingDetail => "The project graph is still loading (" + (Reloading ? "reloading projects after watched project files changed" : detail + StallNote()) + "), so this answer could be incomplete; call again. " + projectModel.Description;
     internal string ProjectDetail => (ActionText.Length > 0 ? ActionText : detail) + StallNote() + ". " + projectModel.Description;
