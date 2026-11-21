@@ -20,6 +20,7 @@ public static class ClaudeLaunchOverrides
         new("model", ["--model"], "The Model setting, a model preset or the chat's model is set."),
         new("effortLevel", ["--effort"], "The Effort setting or the chat's effort is set."),
         new("permissions.defaultMode", ["--permission-mode"], "The Permission mode setting or the chat's mode is set, and the command has no permission flag of its own."),
+        new("permissions.deny", ["--disallowedTools"], "Always: the built-in EnterWorktree tool is denied, because tereditor has its own workspace tools. The file's own denials still apply."),
         new("advisorModel", ["--advisor"], "The Advisor setting or the chat's advisor is set."),
         new("claudeInChromeDefaultEnabled", ["--chrome", "--no-chrome"], "The Chrome setting or the chat's Chrome choice is set."),
         // The model source writes a settings file passed with --settings; a cloud platform source sets variables instead.

@@ -1466,14 +1466,14 @@ internal static class ClaudeCodeChecks
         // The overridden-settings list is the launcher's truth: every default flag it passes is listed, and every listed flag is passed.
         var fixedFlags = new[] { "--append-system-prompt-file", "--plugin-dir", "--add-dir", "--session-id" };
         var passed = new[] { true, false }.SelectMany(withChrome => System.Text.RegularExpressions.Regex.Matches(
-            ClaudeLaunch.SessionCommand("claude", "", false, true, model: "opus", effort: "high", sessionId: "s", permissionMode: "plan", advisor: "fable", chrome: withChrome), @"(?<= )--[a-z-]+"))
+            ClaudeLaunch.SessionCommand("claude", "", false, true, model: "opus", effort: "high", sessionId: "s", permissionMode: "plan", advisor: "fable", chrome: withChrome), @"(?<= )--[A-Za-z-]+"))
             .Select(match => match.Value).Where(flag => !fixedFlags.Contains(flag)).ToHashSet();
         var listed = ClaudeLaunchOverrides.All.SelectMany(entry => entry.Flags).Where(flag => flag != "--settings").ToHashSet();
         Require(passed.SetEquals(listed), $"The launcher's default flags match the overridden-settings list: {string.Join(' ', passed.Except(listed).Concat(listed.Except(passed)))}.");
         var sourceProvider = new Tereditor.Plugins.Providers.ProviderDefinition("p", "P", Tereditor.Plugins.Providers.ProviderGroup.JetBrainsAi, [new(Tereditor.Plugins.Api.ModelApiKinds.AnthropicMessages, "https://p.test", [Tereditor.Plugins.Api.ModelAuthKind.ApiKey])]) { NeedsKey = true };
         using (var generated = JsonDocument.Parse(Tereditor.Plugins.Providers.Host.AgentModelFiles.ClaudeJson(sourceProvider, sourceProvider.Apis[0], "helper")))
             Require(generated.RootElement.EnumerateObject().All(property => ClaudeLaunchOverrides.For(property.Name) is not null), "Every key of the generated model source settings file is in the overridden-settings list.");
-        Require(ClaudeLaunchOverrides.For("env.ANTHROPIC_BASE_URL") is not null && ClaudeLaunchOverrides.For("permissions.allow") is null && ClaudeLaunchOverrides.For("modelSettings.opus.effortLevel") is null,
+        Require(ClaudeLaunchOverrides.For("env.ANTHROPIC_BASE_URL") is not null && ClaudeLaunchOverrides.For("permissions.allow") is null && ClaudeLaunchOverrides.For("permissions.deny") is not null && ClaudeLaunchOverrides.For("modelSettings.opus.effortLevel") is null,
             "A key inside an overridden object is overridden; a neighbour with a similar name is not.");
     }
 
