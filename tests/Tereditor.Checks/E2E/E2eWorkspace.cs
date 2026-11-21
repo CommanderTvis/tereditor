@@ -69,6 +69,8 @@ internal sealed class E2eWorkspace : IDisposable
     }
 
     private readonly IDisposable? remoteState;
+    // Every project session a remote workbench opened; each holds a counted connection that only its disposal releases.
+    private readonly List<RemoteProjectAdapter> remoteSessions = [];
     private readonly RemotePluginAdapter? remotePlugins;
     private readonly PluginRuntime? pluginRuntime;
     private readonly LoopbackServer? loopback;
@@ -91,11 +93,13 @@ internal sealed class E2eWorkspace : IDisposable
         if (plugins) try { EnableSpecPlugins(service); } catch (Tereditor.Host.Protocol.RpcException) { }
         remotePlugins = plugins ? new RemotePluginAdapter(endpoint, token) : null;
         State = null;
-        Host = new(new RemoteProjectAdapter(endpoint, token));
+        var firstAdapter = new RemoteProjectAdapter(endpoint, token);
+        remoteSessions.Add(firstAdapter);
+        Host = new(firstAdapter);
         Terminals = terminals ?? new();
         var first = true;
         Workbench = new(profile, new SharedState(service, profile.Data.Preferences), Terminals.Factory, true,
-            () => { if (!first) return new E2eHost(new RemoteProjectAdapter(endpoint, token)); first = false; return Host; }, remotePlugins, Terminals.Catalog, uiPlugins)
+            () => { if (!first) { var adapter = new RemoteProjectAdapter(endpoint, token); lock (remoteSessions) remoteSessions.Add(adapter); return new E2eHost(adapter); } first = false; return Host; }, remotePlugins, Terminals.Catalog, uiPlugins)
         {
             Endpoint = endpoint.ToString(),
             Compact = compact,
@@ -210,7 +214,16 @@ internal sealed class E2eWorkspace : IDisposable
         var deadline = Awake.Now.AddSeconds(30);
         while (!condition() && Awake.Now < deadline) Pump();
         Dispatcher.UIThread.RunJobs();
-        if (!condition()) throw new InvalidOperationException($"E2E condition timed out waiting for: {waitingFor}\n{Describe()}");
+        if (!condition()) throw new InvalidOperationException($"E2E condition timed out waiting for: {waitingFor}\n{Pressure()}\n{Describe()}");
+    }
+
+    /// <summary>The process's thread pool and the host calls still pending, which tell a starved or stalled host from a slow one.</summary>
+    private static string Pressure()
+    {
+        ThreadPool.GetAvailableThreads(out var workers, out _);
+        ThreadPool.GetMaxThreads(out var maxWorkers, out _);
+        return $"thread pool: {ThreadPool.ThreadCount} threads, {maxWorkers - workers} busy, {ThreadPool.PendingWorkItemCount} queued, {ThreadPool.CompletedWorkItemCount} completed; "
+            + $"pending host calls: [{string.Join(", ", RpcChannel.PendingCalls())}]";
     }
 
     /// <summary>What a timed-out wait leaves behind: the focused tabs and the visible named controls of the latest window, for CI logs.</summary>
@@ -489,6 +502,7 @@ internal sealed class E2eWorkspace : IDisposable
         if (remoteState is not null) Workbench.Dispose();
         remoteState?.Dispose();
         remotePlugins?.Dispose();
+        lock (remoteSessions) foreach (var session in remoteSessions) session.Dispose();
         if (pluginRuntime is not null || loopback is not null)
             Task.Run(async () =>
             {

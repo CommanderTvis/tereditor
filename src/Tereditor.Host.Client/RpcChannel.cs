@@ -29,6 +29,11 @@ public sealed class RpcChannel : IRpcClient, IDisposable
     public static RpcChannel ForAddress(string address) => new(new Uri(address));
     public static RpcChannel ForAddress(Uri address) => new(address);
     public T CreateService<T>() => RpcServices.Create<T>(this);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<long, (string Method, long Started)> pending = new();
+    private static long pendingIds;
+    /// <summary>The calls this process has started and not yet seen end, oldest first with their age, for the checks' timeout messages.</summary>
+    public static IReadOnlyList<string> PendingCalls() =>
+        [.. pending.Values.OrderBy(call => call.Started).Select(call => $"{call.Method} {System.Diagnostics.Stopwatch.GetElapsedTime(call.Started).TotalSeconds:0.0}s")];
     public async ValueTask<TReply> Unary<TRequest, TReply>(string method, TRequest request, CallContext context)
     {
         if (HostRequest.Timeout is { } timeout) context = new(context.Options.WithDeadline(DateTime.UtcNow + timeout));
@@ -74,36 +79,42 @@ public sealed class RpcChannel : IRpcClient, IDisposable
     private async IAsyncEnumerable<TReply> Run<TRequest, TReply>(string method, IAsyncEnumerable<TRequest> requests, CallContext context, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(disposed != 0, this);
-        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, cancellationToken);
-        RpcPeer peer;
+        var pendingId = Interlocked.Increment(ref pendingIds);
+        pending[pendingId] = (method, System.Diagnostics.Stopwatch.GetTimestamp());
         try
         {
-            using var connecting = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-            if (context.Options.Deadline is { } deadline) connecting.CancelAfter(deadline > DateTime.UtcNow ? deadline - DateTime.UtcNow : TimeSpan.Zero);
-            peer = await connection.Get(connecting.Token);
-        }
-        catch (Exception error) when (error is not RpcException)
-        { throw new RpcException(new(error is OperationCanceledException ? lifetime.IsCancellationRequested ? StatusCode.Cancelled : StatusCode.DeadlineExceeded : StatusCode.Unavailable, error.Message)); }
-        await using var stream = await peer.Open(method, new CallContext(context.Options with { CancellationToken = lifetime.Token }));
-        var sending = Task.Run(Send);
-        try
-        {
-            await foreach (var reply in stream.Read<TReply>()) yield return reply;
-        }
-        finally
-        {
-            await stream.DisposeAsync();
-            try { await sending; } catch (Exception) { }
-        }
-        async Task Send()
-        {
+            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, cancellationToken);
+            RpcPeer peer;
             try
             {
-                await foreach (var request in requests.WithCancellation(stream.Token)) await stream.Send(request);
-                await stream.End();
+                using var connecting = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+                if (context.Options.Deadline is { } deadline) connecting.CancelAfter(deadline > DateTime.UtcNow ? deadline - DateTime.UtcNow : TimeSpan.Zero);
+                peer = await connection.Get(connecting.Token);
             }
-            catch (Exception error) { stream.Fail(error); }
+            catch (Exception error) when (error is not RpcException)
+            { throw new RpcException(new(error is OperationCanceledException ? lifetime.IsCancellationRequested ? StatusCode.Cancelled : StatusCode.DeadlineExceeded : StatusCode.Unavailable, error.Message)); }
+            await using var stream = await peer.Open(method, new CallContext(context.Options with { CancellationToken = lifetime.Token }));
+            var sending = Task.Run(Send);
+            try
+            {
+                await foreach (var reply in stream.Read<TReply>()) yield return reply;
+            }
+            finally
+            {
+                await stream.DisposeAsync();
+                try { await sending; } catch (Exception) { }
+            }
+            async Task Send()
+            {
+                try
+                {
+                    await foreach (var request in requests.WithCancellation(stream.Token)) await stream.Send(request);
+                    await stream.End();
+                }
+                catch (Exception error) { stream.Fail(error); }
+            }
         }
+        finally { pending.TryRemove(pendingId, out _); }
     }
     public void Dispose()
     {
