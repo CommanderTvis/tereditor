@@ -60,6 +60,8 @@ internal static class IntelliJLicenseChecks
         Require(saved is null, "The check needs an environment without an environment license; unset " + saved + ".");
         var server = new FakeServer();
         var fileCode = "0FILECODE0-" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"licenseId\":\"0FILECODE0\",\"products\":[]}")) + "-QUJDREVGRw==-U1lOVEhFVElD";
+        var olderCode = "0OLDERCODE-" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{\"licenseId\":\"0OLDERCODE\",\"products\":[]}")) + "-QUJDREVGRw==-U1lOVEhFVElD";
+        var sentCodes = new List<string>();
         server.Handler = (method, arguments, token) => Task.FromResult<JsonNode?>(method switch
         {
             "discovery/autoActivate" => new JsonObject { ["activated"] = false },
@@ -76,7 +78,7 @@ internal static class IntelliJLicenseChecks
             _ => throw new IOException("Unexpected request " + method)
         });
         JsonNode? Start() { server.Push(Licensed("trial", 30)); return new JsonObject { ["isSuccess"] = true }; }
-        JsonNode? Code(JsonNode? arguments) { var sent = arguments?["activationCode"]?.ToString(); if (sent != "ABC-123" && sent != fileCode) return false; server.Push(Licensed("activationCode", 300)); return true; }
+        JsonNode? Code(JsonNode? arguments) { var sent = arguments?["activationCode"]?.ToString(); sentCodes.Add(sent ?? ""); if (sent != "ABC-123" && sent != fileCode && sent != olderCode) return false; server.Push(Licensed("activationCode", 300)); return true; }
         JsonNode? Logout() { var next = (JsonObject)server.State.DeepClone(); next["jbaLicensingState"] = new JsonObject { ["authenticationStatus"] = "NotAuthenticated" }; server.Push(next); return null; }
         JsonNode? AddServer(JsonNode? arguments) { server.Push(new JsonObject { ["activeLicense"] = new JsonObject { ["source"] = "licenseServer", ["status"] = "Valid", ["product"] = "intellij-server", ["serverAddress"] = arguments!["serverAddress"]!.ToString() }, ["licenseServerFlowState"] = new JsonObject { ["kind"] = "configured", ["serverAddress"] = arguments["serverAddress"]!.ToString(), ["floatingTicketStatus"] = "Obtained" } }); return new JsonObject { ["status"] = "Connected" }; }
         JsonNode? Removed() { server.Push(new JsonObject { ["featuresDeclined"] = true, ["parkedReason"] = "LicenseRemoved" }); return null; }
@@ -117,19 +119,43 @@ internal static class IntelliJLicenseChecks
         try
         {
             var zipPath = Path.Combine(scratch, "0FILECODE0 - ada@example.com.zip");
-            using (var zip = System.IO.Compression.ZipFile.Open(zipPath, System.IO.Compression.ZipArchiveMode.Create))
+            // The portal's layout with made-up codes: two text files whose names hold spaces, " - ", an "@" and dots, the older one listed first.
+            void MakeZip(string path, params (string Name, string Text)[] entries)
             {
-                using (var later = new StreamWriter(zip.CreateEntry("0FILECODE0 - ada@example.com - for 2018.2 or later.txt").Open())) later.Write(fileCode);
-                using (var earlier = new StreamWriter(zip.CreateEntry("0FILECODE0 - ada@example.com - for 2018.1 or earlier.txt").Open())) earlier.Write("old");
+                using var zip = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Create);
+                foreach (var (name, text) in entries) using (var writer = new StreamWriter(zip.CreateEntry(name).Open())) writer.Write(text);
             }
+            MakeZip(zipPath, ("0FILECODE0 - ada.l@example.com - for 2018.1 or earlier.txt", olderCode), ("0FILECODE0 - ada.l@example.com - for 2018.2 or later.txt", fileCode + "\n"));
             var fromZip = await Run(server, "codeFile", new() { ["licenseFile"] = zipPath });
-            Require(fromZip["ok"]!.GetValue<bool>() && View(server)["source"]!.ToString() == "activationCode", "A license zip did not license.");
+            Require(fromZip["ok"]!.GetValue<bool>() && View(server)["source"]!.ToString() == "activationCode" && sentCodes[^1] == fileCode, "A license zip did not send the entry for 2018.2 or later.");
+            // The path may come quoted, as a file:// address or with the entry names in other case; the older entry is used only when it is all the zip has.
+            sentCodes.Clear();
+            Require((await Run(server, "codeFile", new() { ["licenseFile"] = "  \"" + zipPath + "\" " }))["ok"]!.GetValue<bool>() && (await Run(server, "codeFile", new() { ["licenseFile"] = new Uri(zipPath).AbsoluteUri }))["ok"]!.GetValue<bool>()
+                && sentCodes.SequenceEqual([fileCode, fileCode]), "A quoted path or a file address was not read.");
+            Require(IntelliJLicenseMount.NormalizePath("~/Downloads/a b.zip") == Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads/a b.zip"), "A path starting with ~ was not expanded.");
+            var shouting = Path.Combine(scratch, "upper.zip");
+            MakeZip(shouting, ("A - b@c.d - FOR 2018.1 OR EARLIER.TXT", olderCode), ("A - b@c.d - FOR 2018.2 OR LATER.TXT", fileCode));
+            sentCodes.Clear();
+            Require((await Run(server, "codeFile", new() { ["licenseFile"] = shouting }))["ok"]!.GetValue<bool>() && sentCodes.SequenceEqual([fileCode]), "Entry names in capitals were not matched.");
+            var onlyOlder = Path.Combine(scratch, "older.zip");
+            MakeZip(onlyOlder, ("A - b@c.d - for 2018.1 or earlier.txt", olderCode));
+            sentCodes.Clear();
+            Require((await Run(server, "codeFile", new() { ["licenseFile"] = onlyOlder }))["ok"]!.GetValue<bool>() && sentCodes.SequenceEqual([olderCode]), "A zip with only the older entry was not used.");
+            var bare = Path.Combine(scratch, "bare.zip");
+            MakeZip(bare, ("license.txt", fileCode));
+            sentCodes.Clear();
+            Require((await Run(server, "codeFile", new() { ["licenseFile"] = bare }))["ok"]!.GetValue<bool>() && sentCodes.SequenceEqual([fileCode]), "A zip with one bare text file was not used.");
+            var empty = Path.Combine(scratch, "empty.zip");
+            MakeZip(empty, ("readme.md", fileCode));
+            sentCodes.Clear();
+            var none = await Run(server, "codeFile", new() { ["licenseFile"] = empty });
+            Require(!none["ok"]!.GetValue<bool>() && none["message"]!.ToString().Contains("no text file", StringComparison.Ordinal) && sentCodes.Count == 0 && !none["message"]!.ToString().Contains(fileCode, StringComparison.Ordinal), "A zip without a text file was not refused plainly.");
             var missing = await Run(server, "codeFile", new() { ["licenseFile"] = Path.Combine(scratch, "nope.zip") });
             Require(!missing["ok"]!.GetValue<bool>() && missing["message"]!.ToString().Contains("does not exist", StringComparison.Ordinal), "A missing license file was not reported.");
             var notes = Path.Combine(scratch, "notes.txt");
             File.WriteAllText(notes, "not a code");
             var wrong = await Run(server, "codeFile", new() { ["licenseFile"] = notes });
-            Require(!wrong["ok"]!.GetValue<bool>() && !wrong["message"]!.ToString().Contains("not a code", StringComparison.Ordinal), "A file that is not a code was accepted or echoed.");
+            Require(!wrong["ok"]!.GetValue<bool>() && !wrong["message"]!.ToString().Contains("not a code", StringComparison.Ordinal) && !wrong["message"]!.ToString().Contains(fileCode, StringComparison.Ordinal), "A file that is not a code was accepted or echoed.");
         }
         finally { Directory.Delete(scratch, true); }
         var removed = await Run(server, "removeLicense");
@@ -269,15 +295,29 @@ internal static class IntelliJLicenseChecks
             Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(code, "ActivationSubmit")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
             E2E.E2eWorkspace.Until(() => Tereditor.UI.Panels.LicenseActivationWindow.Current is null && Find<Avalonia.Controls.TextBlock>("LicenseState").Text!.Contains("90", StringComparison.Ordinal), "A good code did not close the window and refresh the state.");
             Require(Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.TextBox>(code, "ActivationInput")!.Text == "", "The code stayed in the window after it closed.");
+            // A file dropped on the window is activated as the license file at once.
+            var dropped = Opened();
+            _ = dropped.DropFileAsync("/Users/ada/Downloads/portal.zip");
+            E2E.E2eWorkspace.Until(() => calls.Count > 3 && calls[3].Query == "codeFile", "A dropped file was not sent as a license file.");
+            Require(JsonNode.Parse(calls[3].Configuration!)!["licenseFile"]!.ToString() == "/Users/ada/Downloads/portal.zip", "The dropped file path was not sent.");
+            E2E.E2eWorkspace.Until(() => Tereditor.UI.Panels.LicenseActivationWindow.Current is null, "A dropped file did not close the window.");
+            // Browse and drop are for a local host; a remote host keeps the typed path.
+            foreach (var local in new[] { true, false })
+            {
+                var probe = new Tereditor.UI.Panels.LicenseActivationWindow((_, _, _) => Task.FromResult<string?>(null), local);
+                Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.ComboBox>(probe, "ActivationKind")!.SelectedIndex = 1;
+                Require(Avalonia.Controls.ControlExtensions.FindControl<Avalonia.Controls.Button>(probe, "ActivationBrowse")!.IsVisible == local && Avalonia.Input.DragDrop.GetAllowDrop(probe) == local, "Browse and drop were not limited to a local host.");
+                probe.Close();
+            }
             // The offline activation zip and a license server go through the same host action, each with its own argument.
             var file = Opened();
             Submit(file, 1, "/license/offline.zip");
-            E2E.E2eWorkspace.Until(() => calls.Count > 3, "A license file was not sent.");
-            Require(calls[3].Query == "codeFile" && JsonNode.Parse(calls[3].Configuration!)!["licenseFile"]!.ToString() == "/license/offline.zip", "The license file path was not sent as codeFile.");
+            E2E.E2eWorkspace.Until(() => calls.Count > 4, "A license file was not sent.");
+            Require(calls[4].Query == "codeFile" && JsonNode.Parse(calls[4].Configuration!)!["licenseFile"]!.ToString() == "/license/offline.zip", "The license file path was not sent as codeFile.");
             var licenseServer = Opened();
             Submit(licenseServer, 2, "https://licenses.example.com");
-            E2E.E2eWorkspace.Until(() => calls.Count > 4, "A license server was not sent.");
-            Require(calls[4].Query == "serverAdd" && JsonNode.Parse(calls[4].Configuration!)!["serverAddress"]!.ToString() == "https://licenses.example.com", "The license server address was not sent as serverAdd.");
+            E2E.E2eWorkspace.Until(() => calls.Count > 5, "A license server was not sent.");
+            Require(calls[5].Query == "serverAdd" && JsonNode.Parse(calls[5].Configuration!)!["serverAddress"]!.ToString() == "https://licenses.example.com", "The license server address was not sent as serverAdd.");
             // The Code Intelligence row itself shows the notice, without opening the settings.
             rowState = trial;
             var pane = new Tereditor.UI.Panels.LanguagePanel(app.Host, app.Root, _ => Task.CompletedTask, app.Workbench.State);

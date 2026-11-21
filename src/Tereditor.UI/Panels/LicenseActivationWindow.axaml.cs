@@ -22,7 +22,7 @@ internal sealed partial class LicenseActivationWindow : Window
     private static readonly (string Action, string Argument, string Help, string Prompt)[] Kinds =
     [
         ("code", "activationCode", "Paste the activation code from your JetBrains Account.", "Activation code"),
-        ("codeFile", "licenseFile", "Give the path of the offline activation zip from account.jetbrains.com. The host reads it, so the path is on the machine that runs the workspace.", "Path of the zip or file"),
+        ("codeFile", "licenseFile", "Choose the zip you downloaded from account.jetbrains.com, or drop it here. Or paste its path. The host reads it, so a path is on the machine that runs the workspace.", "Path of the zip or text file"),
         ("serverAdd", "serverAddress", "Give the address of your license server. It starts with https:// or http://.", "License server, for example https://licenses.example.com")
     ];
 
@@ -51,6 +51,16 @@ internal sealed partial class LicenseActivationWindow : Window
             lifetime.Cancel(); lifetime.Dispose();
             if (Current == this) Current = null;
         };
+        if (canBrowse)
+        {
+            DragDrop.SetAllowDrop(this, true);
+            AddHandler(DragDrop.DragOverEvent, (_, e) => { e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None; e.Handled = true; });
+            AddHandler(DragDrop.DropEvent, (_, e) =>
+            {
+                e.Handled = true;
+                if (e.DataTransfer.TryGetFiles()?.Select(item => item.TryGetLocalPath()).OfType<string>().FirstOrDefault() is { } path) _ = DropFileAsync(path);
+            });
+        }
         Current = this;
         ShowKind(canBrowse);
     }
@@ -66,12 +76,21 @@ internal sealed partial class LicenseActivationWindow : Window
         Find<TextBlock>("ActivationError").IsVisible = false;
     }
 
+    /// <summary>Uses a file the user dropped on the window: it becomes the license file and is activated at once.</summary>
+    internal async Task DropFileAsync(string path)
+    {
+        if (busy) return;
+        Find<ComboBox>("ActivationKind").SelectedIndex = 1;
+        Find<TextBox>("ActivationInput").Text = path;
+        await ActivateAsync();
+    }
+
     private async Task BrowseAsync()
     {
         if (TopLevel.GetTopLevel(this) is not { } top) return;
         try
         {
-            var files = await top.StorageProvider.OpenFilePickerAsync(new() { Title = "Choose the license zip or file", AllowMultiple = false });
+            var files = await top.StorageProvider.OpenFilePickerAsync(new() { Title = "Choose the license zip or text file", AllowMultiple = false, FileTypeFilter = [new("License zip or text file") { Patterns = ["*.zip", "*.txt"] }, FilePickerFileTypes.All] });
             if (files.Count > 0 && files[0].TryGetLocalPath() is { } path) Find<TextBox>("ActivationInput").Text = path;
         }
         catch (Exception error) when (error is not OperationCanceledException) { Fail("Cannot choose a file: " + error.Message); }

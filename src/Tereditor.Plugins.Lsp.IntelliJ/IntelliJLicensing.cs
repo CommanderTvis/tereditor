@@ -260,7 +260,7 @@ internal static class IntelliJLicensing
                     return await UseCodeAsync(Clean(argument("activationCode")));
                 case "codeFile":
                     // The file is on this host. It is read like a mounted licence (the downloaded zip, its text files or one bare file).
-                    var path = argument("licenseFile").Trim();
+                    var path = IntelliJLicenseMount.NormalizePath(argument("licenseFile"));
                     if (!File.Exists(path) && !Directory.Exists(path)) return Result(false, "That file does not exist on this computer.");
                     return IntelliJLicenseMount.Read(path, out var unreadable) is { } fromFile ? await UseCodeAsync(Clean(fromFile)) : Result(false, unreadable);
                 case "serverAdd":

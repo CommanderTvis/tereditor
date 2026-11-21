@@ -51,7 +51,7 @@ and parked messages as JetBrains words them. A server without any license is off
 
 Actions: `refresh` (`state/get`), `trial`, `signIn` (`jba/login`; the server waits up to five minutes in the browser, so the
 request waits six; cancelling it signs out so the server stops waiting; one valid subscription is used at once, several are
-offered through `useSubscription`), `cancelSignIn`, `signOut`, `code` (`activationCode/use`, whitespace removed), `codeFile` (a path on the host to the downloaded offline activation zip, its text files or one bare file, read by the same code as the mounted licence and then sent as `code`; the file must exist and hold a code, and no answer repeats the code),
+offered through `useSubscription`), `cancelSignIn`, `signOut`, `code` (`activationCode/use`, whitespace removed), `codeFile` (a path on the host to the zip downloaded from the JetBrains portal, a text file or a directory; the path may be quoted, a `file://` address or start with `~`. A zip is read by entry names matched in any case: the text file "for 2018.2 or later" first, else a text file that names neither version, else the one "for 2018.1 or earlier"; a zip with no text file is refused. Read by the same code as the mounted licence, then sent as `code`; the file must exist and hold a code, and no answer repeats the code),
 `serverAdd` (http/https only), `serverReconnect`, `serverRemove` and `removeLicense` (by license source: unuse subscriptions,
 disable the activation code, or remove the license server). A license set by `INTELLIJ_SERVER_LICENSE`,
 `INTELLIJ_SERVER_LICENSE_FILE` or `JETBRAINS_LICENSE_SERVER` overrides the store, so activation actions (`trial`, `signIn`, `useSubscription`, `code`, `codeFile`, `serverAdd`) refuse and say so.

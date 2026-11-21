@@ -94,13 +94,24 @@ internal static class IntelliJLicenseMount
         return path;
     }
 
+    /// <summary>A path as a user pastes it: with quotes, as a file:// address or starting with ~, as a plain path.</summary>
+    internal static string NormalizePath(string text)
+    {
+        var path = text.Trim();
+        if (path.Length >= 2 && path[0] == path[^1] && path[0] is '"' or '\'') path = path[1..^1].Trim();
+        if (path.StartsWith("file:", StringComparison.OrdinalIgnoreCase) && Uri.TryCreate(path, UriKind.Absolute, out var address) && address.IsFile) return address.LocalPath;
+        if (path == "~" || path.StartsWith("~/", StringComparison.Ordinal) || path.StartsWith("~\\", StringComparison.Ordinal))
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path.Length > 2 ? path[2..] : "");
+        return path;
+    }
+
     /// <summary>
     /// Reads the code of a file, directory or zip the user chose in a window, the same way a mounted licence is read. Returns the code, or <see langword="null"/>
     /// with a sentence that never holds the code. An expired licence still returns its code: the server's own verdict decides.
     /// </summary>
     internal static string? Read(string path, out string problem)
     {
-        var outcome = Resolve(path, DateOnly.FromDateTime(DateTime.UtcNow));
+        var outcome = Resolve(path, DateOnly.FromDateTime(DateTime.UtcNow), userChose: true);
         problem = outcome.Message;
         return outcome.Code?.Text;
     }
@@ -109,7 +120,7 @@ internal static class IntelliJLicenseMount
 
     private static Outcome Bad(string kind, string message) => new(null, kind, message);
 
-    private static Outcome Resolve(string source, DateOnly today)
+    private static Outcome Resolve(string source, DateOnly today, bool userChose = false)
     {
         var codes = new List<Code>();
         var problems = new List<string>();
@@ -127,7 +138,7 @@ internal static class IntelliJLicenseMount
                 foreach (var file in files) Collect(file, Offer);
                 if (files.Count == 0) return Bad("invalid", "The licence directory is empty. Put the zip downloaded from account.jetbrains.com (or the \"for 2018.2 or later\" text file from it) there.");
             }
-            else Collect(source, Offer);
+            else Collect(source, Offer, userChose);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
@@ -151,10 +162,11 @@ internal static class IntelliJLicenseMount
     }
 
     /// <summary>Reads a zip (its entry for 2018.2 or later) or a text file (not the one for 2018.1 or earlier) and offers each code found.</summary>
-    private static void Collect(string file, Action<string?, string> offer)
+    private static void Collect(string file, Action<string?, string> offer, bool userChose = false)
     {
         var name = Path.GetFileName(file);
-        if (name.Contains(Earlier, StringComparison.OrdinalIgnoreCase)) return;
+        // A mounted file for 2018.1 or earlier is ignored; one the user chose is used, since they gave nothing else.
+        if (!userChose && name.Contains(Earlier, StringComparison.OrdinalIgnoreCase) && !name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return;
         var info = new FileInfo(file);
         if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
         {
@@ -163,10 +175,15 @@ internal static class IntelliJLicenseMount
             {
                 using var archive = ZipFile.OpenRead(file);
                 if (archive.Entries.Count > MaxEntries) { offer(null, "a .zip: it holds too many entries"); return; }
-                var wanted = archive.Entries.Where(entry => !entry.FullName.EndsWith('/') && !entry.Name.Contains(Earlier, StringComparison.OrdinalIgnoreCase)).ToList();
-                var later = wanted.Where(entry => entry.Name.Contains(Later, StringComparison.OrdinalIgnoreCase)).ToList();
-                if (later.Count == 0) { offer(null, "a .zip: it has no entry \"for " + Later + "\""); return; }
-                foreach (var entry in later)
+                // The portal zip holds one text file for 2018.2 or later (this server) and one for 2018.1 or earlier. Prefer the first; use a bare text file, then the
+                // older one, only when nothing better exists. Names are matched by their words, never by a fixed name.
+                var texts = archive.Entries.Where(entry => !entry.FullName.EndsWith('/') && entry.Name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)).ToList();
+                static bool Has(ZipArchiveEntry entry, string words) => entry.Name.Contains(words, StringComparison.OrdinalIgnoreCase);
+                var picked = texts.Where(entry => Has(entry, Later)).ToList();
+                if (picked.Count == 0) picked = texts.Where(entry => !Has(entry, Earlier)).ToList();
+                if (picked.Count == 0) picked = texts.ToList();
+                if (picked.Count == 0) { offer(null, "a .zip: it has no text file with a code"); return; }
+                foreach (var entry in picked)
                 {
                     if (entry.Length > MaxCodeBytes) { offer(null, "a .zip entry is too large"); continue; }
                     using var input = entry.Open();
