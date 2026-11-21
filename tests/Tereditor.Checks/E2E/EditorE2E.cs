@@ -26,8 +26,12 @@ internal static class EditorE2E
 {
     private static readonly string LongLine = string.Join(' ', Enumerable.Range(1, 80).Select(index => $"segment-{index:00}"));
 
+    private static int runs;
+
     internal static void Run(string root)
     {
+        // The gate runs this class from several cases in one process; a fixture project of an earlier run leaves its branches and workspace records behind, which would number a new workspace differently.
+        root = Path.Combine(root, "editor-run-" + Interlocked.Increment(ref runs));
         using var git = new IsolatedGit(Path.Combine(root, "editor-git"));
         OpenFocusClose(root);
         Frontmatter(root);

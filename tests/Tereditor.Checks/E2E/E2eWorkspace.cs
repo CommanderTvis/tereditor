@@ -239,7 +239,8 @@ internal sealed class E2eWorkspace : IDisposable
             lines.Add($"selected {selected?.Kind} {selected?.Path}");
             lines.Add("diff tabs " + string.Join(", ", window.Layout.State.Workspaces[window.WorkspaceRoot].Documents.Values.SelectMany(tabs => tabs).Where(tab => tab.Kind == "diff").Select(tab => tab.Path)));
             foreach (var control in window.GetLogicalDescendants().OfType<Control>().Where(item => !string.IsNullOrEmpty(item.Name)))
-                lines.Add($"control {control.GetType().Name} {control.Name} visible={control.IsEffectivelyVisible} size={control.Bounds.Width:0}x{control.Bounds.Height:0}");
+                lines.Add($"control {control.GetType().Name} {control.Name} visible={control.IsEffectivelyVisible} size={control.Bounds.Width:0}x{control.Bounds.Height:0}"
+                    + (control is TextBlock { Text: { Length: > 0 } text } ? $" text='{text}'" : ""));
             return string.Join('\n', lines);
         }
         catch (Exception error) { return "(describe failed: " + error.Message + ")"; }
