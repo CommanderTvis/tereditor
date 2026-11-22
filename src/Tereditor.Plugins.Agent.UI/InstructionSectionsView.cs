@@ -56,6 +56,8 @@ public sealed partial class InstructionSectionsView : Border
         this.toggle = toggle;
         this.failed = failed;
         body = this.FindControl<StackPanel>("InstructionSectionsBody")!;
+        // Until the first listing arrives the row says so, so a pane that is still loading is told apart from a loaded one.
+        Text("InstructionSectionsCount").Text = "Reading sections…";
         Text("InstructionSectionsIntro").Text = $"Untick a section to leave it out of new {agentName} sessions in this project.";
         this.FindControl<ContentControl>("InstructionSectionsIcon")!.Content = Ui.Icon("fileText", Ui.Hint, 14);
         this.FindControl<ContentControl>("InstructionSectionsScope")!.Content = ScopedSetting.ScopeChip("project", "InstructionSectionsScopeChip");
