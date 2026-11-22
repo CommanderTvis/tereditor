@@ -59,9 +59,20 @@ forgetting removes its row while leaving the checkout in place. The Default work
   label. It returns path, branch and description without switching the terminal's workspace.
   An omitted base or an explicit `HEAD` is resolved to a commit in the calling checkout before creation
   is routed through the main worktree; a non-Default workspace may have a different HEAD.
+- `workspace_create` always answers within a deadline (120 s; `TEREDITOR_WORKSPACE_CREATE_BUDGET_MS`) that covers the queue
+  behind other creations, the registry gate and every Git call before the worktree exists. A call past it fails with an
+  error naming the step it was in, and leaves no worktree or branch: a creation that fails after `git worktree add`
+  (a spent deadline included) removes its checkout and the branch it made. The fetch of a remote base has a shorter
+  budget (20 s; `TEREDITOR_WORKSPACE_FETCH_BUDGET_MS`): a failed fetch falls back to the tracking ref that already
+  exists. Each step (`queue`, `open-project`, `resolve-head`, `list-branches`, `fetch-base`, `registry-gate`,
+  `worktree-add`, `registry-write`, `label`, `language-servers`) logs `host.workspace-create` begin and end lines with its
+  duration to the code-intelligence log, and the log's `still-waiting` line names a step that is pending, so a stall names
+  its stage. The result is logged as `host.workspace-create-result`. A tool call that sleeps through a machine sleep is not
+  covered: the deadline is measured on a clock that does not run while the machine sleeps.
   An optional `languageServers` (server ids, language names or `"auto"`) starts those language
   servers for the new workspace in the background; the result lists each with its state (`starting`,
-  `ready`, `needs-acceptance`, `failed` and the reason) and creation never waits for them. Without it
+  `ready`, `needs-acceptance`, `failed` and the reason); the call waits at most 60 s for them, then reports the ones
+  still starting as `starting` (they keep starting). Without it
   a created workspace starts no server (not even from the project's `autoStart`, which belongs to the Default
   workspace) until its first language request; idle servers stop after the language limits' idle time. See the
   [language SPEC](Language/SPEC.md).

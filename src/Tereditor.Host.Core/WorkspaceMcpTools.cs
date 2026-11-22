@@ -38,27 +38,78 @@ public sealed class WorkspaceMcpTools(HostStateStore state)
                 JsonValue single when single.TryGetValue<string>(out var one) => [one],
                 _ => throw new ArgumentException("languageServers is an array of server ids or language names, or \"auto\".")
             };
-            await creation.WaitAsync(token);
+            // One deadline for everything that can wait before the worktree exists: the queue behind other creations, the
+            // registry gate, each Git call. A call that cannot finish answers with the stage it was in instead of hanging.
+            var stages = WorkspaceCreateStages.Start();
+            var budget = WorkspaceCreateStages.CreateBudget;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+            deadline.CancelAfter(budget);
+            string path;
             try
             {
-                var project = new ProjectServices(workspace, state);
-                var calling = await project.OpenProjectAsync(workspace, token);
-                if (string.IsNullOrWhiteSpace(baseBranch) || baseBranch.Trim() == "HEAD")
-                    baseBranch = (await GitRepository.RunAsync(calling.RootPath, token, "rev-parse", "--verify", "HEAD^{commit}")).Trim();
-                var catalog = await project.ListBranchesAsync(false, token);
-                branch ??= catalog.SuggestedBranch;
-                await project.ApplyGitActionAsync(new("create-worktree", catalog.SuggestedPath, branch, baseBranch), token);
-                await state.ChangeAsync([HostStateChange.Label(catalog.SuggestedPath, description)], CancellationToken.None);
-                if (terminal is not null) state.RecordWorkspaceCreator(catalog.SuggestedPath, terminal);
-                var started = languages.Length == 0 ? [] : await state.StartRequestedLanguagesAsync(catalog.SuggestedPath, languages, token);
-                var reply = new JsonObject { ["path"] = catalog.SuggestedPath };
-                if (branch is not null) reply["branch"] = branch;
-                reply["description"] = description;
-                if (started.Count > 0) reply["languageServers"] = new JsonArray([.. started.Select(row => (JsonNode)new JsonObject { ["server"] = row.Server, ["state"] = row.State, ["detail"] = row.Detail })]);
-                return (reply.ToJsonString(), false);
+                using (WorkspaceCreateStages.Step("queue")) await creation.WaitAsync(deadline.Token);
+                try
+                {
+                    var project = new ProjectServices(workspace, state);
+                    WorkspaceInfo calling;
+                    using (WorkspaceCreateStages.Step("open-project")) calling = await project.OpenProjectAsync(workspace, deadline.Token);
+                    if (string.IsNullOrWhiteSpace(baseBranch) || baseBranch.Trim() == "HEAD")
+                        using (WorkspaceCreateStages.Step("resolve-head"))
+                            baseBranch = (await GitRepository.RunAsync(calling.RootPath, deadline.Token, "rev-parse", "--verify", "HEAD^{commit}")).Trim();
+                    BranchCatalog catalog;
+                    using (WorkspaceCreateStages.Step("list-branches")) catalog = await project.ListBranchesAsync(false, deadline.Token);
+                    branch ??= catalog.SuggestedBranch;
+                    path = catalog.SuggestedPath;
+                    await project.CreateAgentWorkspaceAsync(path, branch, baseBranch, deadline.Token);
+                }
+                finally { creation.Release(); }
             }
-            finally { creation.Release(); }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested && deadline.IsCancellationRequested)
+            {
+                CodeIntelligenceLog.Warn("host.workspace-create-result", ("outcome", "deadline"), ("stage", stages.Stage), ("durationMs", clock.ElapsedMilliseconds));
+                throw new TimeoutException($"workspace_create gave up after {clock.Elapsed.TotalSeconds:0} s while it was at the '{stages.Stage}' step. No workspace was left behind. " +
+                    "Another workspace operation may still hold the registry, or Git did not answer. Try again; ~/.tereditor/logs/code-intelligence.log names the step (host.workspace-create).");
+            }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                CodeIntelligenceLog.Error("host.workspace-create-result", error, ("outcome", "failed"), ("stage", stages.Stage), ("durationMs", clock.ElapsedMilliseconds));
+                throw;
+            }
+            // The worktree exists now; the label and the language servers wait on their own short bounds, never on the deadline above.
+            using (WorkspaceCreateStages.Step("label"))
+            {
+                using var tail = CancellationTokenSource.CreateLinkedTokenSource(token);
+                tail.CancelAfter(TimeSpan.FromSeconds(15));
+                try { await state.ChangeAsync([HostStateChange.Label(path, description)], tail.Token); }
+                catch (OperationCanceledException) when (!token.IsCancellationRequested)
+                {
+                    throw new TimeoutException($"The workspace was created at {path} but its label could not be saved in 15 s. Delete it with workspace_delete and try again.");
+                }
+            }
+            if (terminal is not null) state.RecordWorkspaceCreator(path, terminal);
+            IReadOnlyList<(string Server, string State, string Detail)> started = [];
+            if (languages.Length > 0)
+                using (WorkspaceCreateStages.Step("language-servers"))
+                {
+                    using var starting = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    starting.CancelAfter(LanguageBudget);
+                    try { started = await state.StartRequestedLanguagesAsync(path, languages, starting.Token); }
+                    catch (OperationCanceledException) when (!token.IsCancellationRequested)
+                    {
+                        started = [.. languages.Select(name => (name, "starting", $"Still starting after {LanguageBudget.TotalSeconds:0} s; ask lsp_status for the state."))];
+                    }
+                }
+            CodeIntelligenceLog.Info("host.workspace-create-result", ("outcome", "ok"), ("durationMs", clock.ElapsedMilliseconds));
+            var reply = new JsonObject { ["path"] = path };
+            if (branch is not null) reply["branch"] = branch;
+            reply["description"] = description;
+            if (started.Count > 0) reply["languageServers"] = new JsonArray([.. started.Select(row => (JsonNode)new JsonObject { ["server"] = row.Server, ["state"] = row.State, ["detail"] = row.Detail })]);
+            return (reply.ToJsonString(), false);
         });
+
+    // Language servers can install and index for minutes; the creation answers with their state so far instead of waiting for all of it.
+    private static readonly TimeSpan LanguageBudget = TimeSpan.FromSeconds(60);
 
     public McpServer.McpTool Title(TerminalRef? terminal) => new(
         "set_title", "Title this terminal",

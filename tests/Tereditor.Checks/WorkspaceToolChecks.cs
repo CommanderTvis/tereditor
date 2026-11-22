@@ -27,6 +27,72 @@ internal static class WorkspaceToolChecks
     {
         await Scenario(Path.Combine(root, "workspace-tool-local"), false);
         await Scenario(Path.Combine(root, "workspace-tool-remote"), true);
+        if (!OperatingSystem.IsWindows()) await Bounded(Path.Combine(root, "workspace-tool-bounded"));
+    }
+
+    // An agent's workspace_create must answer within its deadline whatever it waits on: a held registry gate, or a remote
+    // that never answers. The deadlines are shortened through their variables; the assertions on time are loose margins.
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    private static async Task Bounded(string root)
+    {
+        Directory.CreateDirectory(root);
+        await GitRepository.RunAsync(root, default, "init", "-b", "main");
+        File.WriteAllText(Path.Combine(root, "task.txt"), "initial\n");
+        await GitRepository.RunAsync(root, default, "add", ".");
+        await GitRepository.RunAsync(root, default, "commit", "-m", "Initial");
+        var initial = (await GitRepository.RunAsync(root, default, "rev-parse", "HEAD")).Trim();
+        var stateDirectory = root + "-state";
+        await using var pty = new PtyTerminalService();
+        var state = new HostStateStore(stateDirectory);
+        await using var loopback = new LoopbackServer(pty, state);
+        using var http = new HttpClient();
+        var url = loopback.BaseUrl + "/mcp/" + pty.Token(new TerminalRef(root, "codex"));
+        async Task<(string Text, bool Error)> Create(object arguments)
+        {
+            using var reply = await http.PostAsync(url, new StringContent(JsonSerializer.Serialize(new { jsonrpc = "2.0", id = 1, method = "tools/call", @params = new { name = "workspace_create", arguments } }), Encoding.UTF8, "application/json"));
+            reply.EnsureSuccessStatusCode();
+            var result = JsonNode.Parse(await reply.Content.ReadAsStringAsync())!["result"]!;
+            return (result["content"]![0]!["text"]!.GetValue<string>(), result["isError"]?.GetValue<bool>() == true);
+        }
+        var budget = Environment.GetEnvironmentVariable("TEREDITOR_WORKSPACE_CREATE_BUDGET_MS");
+        var fetch = Environment.GetEnvironmentVariable("TEREDITOR_WORKSPACE_FETCH_BUDGET_MS");
+        try
+        {
+            Environment.SetEnvironmentVariable("TEREDITOR_WORKSPACE_CREATE_BUDGET_MS", "2000");
+            var before = (await GitRepository.ListWorktreesAsync(root, default)).Count;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            (string Text, bool Error) stalled;
+            using (await state.LockWorkspacesAsync(default))
+                stalled = await Create(new { description = "Blocked by the registry", branch = "blocked-by-registry" });
+            Require(stalled.Error && stalled.Text.Contains("registry-gate", StringComparison.Ordinal) && clock.Elapsed < TimeSpan.FromSeconds(30),
+                "A creation behind a held registry gate must fail within its deadline and name the step: " + stalled.Text);
+            Require((await GitRepository.ListWorktreesAsync(root, default)).Count == before
+                && (await GitRepository.RunAsync(root, default, "branch", "--list", "blocked-by-registry")).Trim().Length == 0,
+                "A creation that hit its deadline must leave no worktree and no branch.");
+            Require(!(await Create(new { description = "After the gate", branch = "after-the-gate" })).Error, "A creation after the gate is released must succeed.");
+
+            // A remote that never answers: the fetch gives up at its own short budget and the tracking ref that exists is used.
+            Environment.SetEnvironmentVariable("TEREDITOR_WORKSPACE_CREATE_BUDGET_MS", "60000");
+            Environment.SetEnvironmentVariable("TEREDITOR_WORKSPACE_FETCH_BUDGET_MS", "1500");
+            var silent = Path.Combine(root + "-bin", "silent-ssh");
+            Directory.CreateDirectory(Path.GetDirectoryName(silent)!);
+            File.WriteAllText(silent, "#!/bin/sh\nexec sleep 300\n");
+            File.SetUnixFileMode(silent, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            await GitRepository.RunAsync(root, default, "remote", "add", "origin", "ssh://silent.invalid/project.git");
+            await GitRepository.RunAsync(root, default, "config", "core.sshCommand", silent);
+            await GitRepository.RunAsync(root, default, "update-ref", "refs/remotes/origin/main", initial);
+            clock.Restart();
+            var fetched = await Create(new { description = "Remote never answers", branch = "remote-never-answers", baseBranch = "origin/main" });
+            Require(!fetched.Error && clock.Elapsed < TimeSpan.FromSeconds(50)
+                && (await GitRepository.RunAsync(JsonNode.Parse(fetched.Text)!["path"]!.GetValue<string>(), default, "rev-parse", "HEAD")).Trim() == initial,
+                "A fetch that never answers must give up at its budget and use the tracking ref that exists: " + fetched.Text);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TEREDITOR_WORKSPACE_CREATE_BUDGET_MS", budget);
+            Environment.SetEnvironmentVariable("TEREDITOR_WORKSPACE_FETCH_BUDGET_MS", fetch);
+        }
+        Console.WriteLine("PASS workspace MCP tool (bounded): a held registry gate and a silent remote end in an error or the existing base within the deadlines, leaving nothing behind");
     }
 
     private static async Task Scenario(string root, bool remote)

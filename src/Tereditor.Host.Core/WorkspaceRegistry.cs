@@ -80,6 +80,17 @@ public sealed partial class ProjectServices
         _ => throw new ArgumentException("Unknown workspace action.")
     };
 
+    /// <summary>
+    /// The create-worktree action without its closing Git snapshot, for the agent tool: when this returns the workspace is
+    /// registered, and nothing after it can fail the call or leave a half-made one.
+    /// </summary>
+    internal async Task CreateAgentWorkspaceAsync(string path, string branch, string baseBranch, CancellationToken cancellationToken)
+    {
+        await mutations.WaitAsync(cancellationToken);
+        try { await CreateWorkspaceAsync(await MainWorktreeAsync(root, cancellationToken), "", baseBranch, path, branch, cancellationToken); }
+        finally { mutations.Release(); }
+    }
+
     private async Task<WorkspaceRecord> CreateWorkspaceAsync(string project, string name, string baseBranch, string? path, string? branch,
         CancellationToken cancellationToken)
     {
@@ -93,8 +104,9 @@ public sealed partial class ProjectServices
         GitRefs.Require(chosen);
         if (branch is not null) GitRefs.Require(branch);
         // The remote-tracking ref is named in full: the shorthand could also resolve a local branch called origin/main.
-        var start = await FetchBaseAsync(project, chosen, cancellationToken) ?? chosen;
-        using var gate = await registry.LockWorkspacesAsync(cancellationToken);
+        string start;
+        using (WorkspaceCreateStages.Step("fetch-base")) start = await FetchBaseAsync(project, chosen, cancellationToken) ?? chosen;
+        using var gate = await WaitForGateAsync(cancellationToken);
         if (branch is null)
         {
             var slug = label is null ? "" : BranchSlug(label) is { Length: > 0 } derived ? derived : "workspace";
@@ -106,18 +118,55 @@ public sealed partial class ProjectServices
         path = Path.GetFullPath(path!);
         await GitRepository.RunAsync(project, cancellationToken, "check-ref-format", "--branch", branch);
         await GitRepository.RunAsync(project, cancellationToken, "rev-parse", "--verify", "--end-of-options", start + "^{commit}");
-        // Without --no-track a remote base would become the branch's upstream, aiming its pushes at the base.
-        await GitRepository.RunAsync(project, cancellationToken, "worktree", "add", "--no-track", "-b", branch, "--", path, start);
+        var branchExisted = await GitRepository.TryRunAsync(project, cancellationToken, "show-ref", "--verify", "--quiet", "refs/heads/" + branch) is not null;
+        var pathExisted = Directory.Exists(path) || File.Exists(path);
         var workspace = new WorkspaceRecord(NewId(), project, WorkspaceKinds.Managed, path, branch, chosen) { InitialTerminalPending = true };
-        if (label is not null) await registry.ChangeAsync([HostStateChange.Label(path, label)], cancellationToken);
-        // HEAD is wherever the project stood, not a target a later reader could resolve to the same commit.
-        if (!string.IsNullOrWhiteSpace(baseBranch) && baseBranch.Trim() != "HEAD") registry.RecordWorkspaceBase(path, chosen);
-        registry.ChangeWorkspaces(current => current.Where(known => known.Path != path).Append(workspace));
+        try
+        {
+            using (WorkspaceCreateStages.Step("worktree-add"))
+                // Without --no-track a remote base would become the branch's upstream, aiming its pushes at the base.
+                await GitRepository.RunAsync(project, cancellationToken, "worktree", "add", "--no-track", "-b", branch, "--", path, start);
+            using (WorkspaceCreateStages.Step("registry-write"))
+            {
+                if (label is not null) await registry.ChangeAsync([HostStateChange.Label(path, label)], cancellationToken);
+                // HEAD is wherever the project stood, not a target a later reader could resolve to the same commit.
+                if (!string.IsNullOrWhiteSpace(baseBranch) && baseBranch.Trim() != "HEAD") registry.RecordWorkspaceBase(path, chosen);
+                registry.ChangeWorkspaces(current => current.Where(known => known.Path != path).Append(workspace));
+            }
+        }
+        catch
+        {
+            // A killed or failed add leaves its checkout and branch behind; the caller was told it failed, so nothing may stay.
+            await RollBackWorkspaceAsync(project, path, branch, branchExisted, pathExisted);
+            throw;
+        }
         // Off the create's critical path: the workspace is usable now, and the clone only ever adds paths that are still absent.
         // A created workspace starts no language server by itself: the first language request or workspace_create's languageServers does, after the clone (bounded wait).
         if (path != project) _ = WorkspaceClone.StartConfigured(project, path, message => System.Diagnostics.Trace.TraceWarning(message),
             [.. registry.LanguageCatalog.Where(server => server.Spec.PrimeWorkspaceAsync is not null).Select(server => LanguagePrime.For(server, registry.LanguageDirectory))]);
         return workspace;
+    }
+
+    private async Task<IDisposable> WaitForGateAsync(CancellationToken cancellationToken)
+    {
+        using (WorkspaceCreateStages.Step("registry-gate")) return await registry.LockWorkspacesAsync(cancellationToken);
+    }
+
+    /// <summary>Best effort and bounded on its own: the failure being handled may be a spent deadline.</summary>
+    private async Task RollBackWorkspaceAsync(string project, string path, string branch, bool branchExisted, bool pathExisted)
+    {
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        try
+        {
+            registry.ChangeWorkspaces(current => current.Where(known => known.Path != path));
+            if (!pathExisted && (Directory.Exists(path) || await GitRepository.TryRunAsync(project, limit.Token, "worktree", "list", "--porcelain") is { } listing && listing.Contains(path, StringComparison.Ordinal)))
+                await WorktreeRemoval.ReclaimAsync(project, path, limit.Token);
+            if (!branchExisted) await GitRepository.TryRunAsync(project, limit.Token, "branch", "-D", "--", branch);
+        }
+        catch (Exception error) when (error is IOException or OperationCanceledException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.TraceWarning($"Could not roll back the workspace at {path}: {error.Message}");
+        }
     }
 
     /// <summary>
@@ -132,7 +181,7 @@ public sealed partial class ProjectServices
         if (remote is null) return null;
         var tracking = "refs/remotes/" + reference;
         string? failure = null;
-        try { await FetchRemoteAsync(project, reference, cancellationToken); }
+        try { await FetchRemoteAsync(project, reference, cancellationToken, WorkspaceCreateStages.FetchBudget); }
         catch (IOException error) { failure = error.Message; }
         // Checked after the fetch whatever its outcome, so a concurrent prefetch that landed the ref wins.
         if (await GitRepository.TryRunAsync(project, cancellationToken, "rev-parse", "--verify", "--quiet", "--end-of-options", tracking) is null)

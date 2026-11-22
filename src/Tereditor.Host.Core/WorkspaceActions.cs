@@ -142,7 +142,7 @@ public sealed partial class ProjectServices
     /// Fetches a remote-tracking ref and answers whether it moved, nudging the workspaces measured against it.
     /// A fetch that failed after the ref had already advanced still reports the move before it throws.
     /// </summary>
-    internal static async Task<bool> FetchRemoteAsync(string currentRoot, string reference, CancellationToken cancellationToken)
+    internal static async Task<bool> FetchRemoteAsync(string currentRoot, string reference, CancellationToken cancellationToken, TimeSpan? budget = null)
     {
         var remote = (await RemotesAsync(currentRoot, cancellationToken))
             .Where(candidate => reference.StartsWith(candidate + "/", StringComparison.Ordinal)).MaxBy(candidate => candidate.Length);
@@ -150,7 +150,7 @@ public sealed partial class ProjectServices
         var branch = GitRefs.Require(reference)[(remote.Length + 1)..];
         var before = await TrackingCommitAsync(currentRoot, reference, cancellationToken);
         IOException? failure = null;
-        try { await GitRepository.RunAsync(currentRoot, cancellationToken, "fetch", "--quiet", "--no-tags", "--end-of-options", remote, branch); }
+        try { await GitRepository.ExecuteAsync(currentRoot, ["fetch", "--quiet", "--no-tags", "--end-of-options", remote, branch], budget ?? GitRepository.Budget, cancellationToken); }
         catch (IOException error) { failure = new IOException($"Could not fetch {reference}: {error.Message}"); }
         var after = await TrackingCommitAsync(currentRoot, reference, cancellationToken);
         var moved = after is not null && after != before;
