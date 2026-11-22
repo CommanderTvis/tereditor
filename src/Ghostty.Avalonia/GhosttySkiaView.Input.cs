@@ -20,6 +20,8 @@ public sealed partial class GhosttySkiaView
     private InputClient? inputMethod;
     private string preedit = "";
     private int selecting = -1;
+    private DispatcherTimer? autoscroll;
+    private Point dragPoint;
     private bool promptClick;
 
     /// <summary>Whether a plain click on the shell's input line moves its cursor (Ghostty's cursor-click-to-move, on by default).</summary>
@@ -226,9 +228,10 @@ public sealed partial class GhosttySkiaView
     }
 
     // Grid-relative device pixels, the space Ghostty's mouse and selection encoders work in.
-    private Point Grid(PointerEventArgs e)
+    private Point Grid(PointerEventArgs e) => Grid(e.GetPosition(this));
+
+    private Point Grid(Point point)
     {
-        var point = e.GetPosition(this);
         return new Point((point.X - Padding.Left) * fontKey.Scale, (point.Y - Padding.Top) * fontKey.Scale);
     }
 
@@ -300,6 +303,8 @@ public sealed partial class GhosttySkiaView
             selecting = 1;
             vt.Select(1, point.X, point.Y, Now());
             Redraw();
+            dragPoint = e.GetPosition(this);
+            UpdateAutoscroll();
             return;
         }
         if (e.Pointer.Type == PointerType.Touch)
@@ -376,6 +381,7 @@ public sealed partial class GhosttySkiaView
         {
             var point = Grid(e);
             selecting = -1;
+            autoscroll?.Stop();
             vt.Select(2, point.X, point.Y, Now());
             // A plain click on the shell's input line moves its cursor there (Ghostty's cursor-click-to-move).
             var moved = e.GetPosition(this) - linkPressPointer;
@@ -391,10 +397,35 @@ public sealed partial class GhosttySkiaView
     {
         base.OnPointerCaptureLost(e);
         selecting = -1;
+        autoscroll?.Stop();
         pressedUrl = null;
         pressedFile = null;
         touch = null;
         tapping = false;
+    }
+
+    private double GridHeight => Bounds.Height - Padding.Top - Padding.Bottom;
+
+    // A drag held outside the grid keeps scrolling, with no pointer events to drive it, so a timer does.
+    private void UpdateAutoscroll()
+    {
+        if (fonts is null || SelectionAutoscroll.Lines(dragPoint.Y - Padding.Top, GridHeight, fonts.CellHeight) == 0) { autoscroll?.Stop(); return; }
+        if (autoscroll is null)
+        {
+            autoscroll = new DispatcherTimer { Interval = SelectionAutoscroll.Interval };
+            autoscroll.Tick += (_, _) => AutoscrollTick();
+        }
+        autoscroll.Start();
+    }
+
+    private void AutoscrollTick()
+    {
+        var lines = fonts is null || disposed || selecting < 0 ? 0 : SelectionAutoscroll.Lines(dragPoint.Y - Padding.Top, GridHeight, fonts.CellHeight);
+        if (lines == 0) { autoscroll?.Stop(); return; }
+        vt.Scroll(lines);
+        var point = Grid(dragPoint);
+        vt.Select(1, point.X, point.Y, Now());
+        Redraw();
     }
 
     // A held finger selects the word under it and extends the selection as it drags; lifting offers the clipboard.

@@ -218,7 +218,8 @@ follows only the window's backing scale.
 
 Both texture and Skia controls support Command-hover underlining and
 Command-click to open HTTP(S) URLs in the system browser (Ctrl on other platforms).
-Soft-wrapped URLs remain clickable across rows; dragging still selects text.
+Soft-wrapped URLs remain clickable across rows; dragging still selects text. Holding a drag above or below the grid scrolls the
+history (up to ten rows every 50 ms, faster the farther out) and keeps extending the selection; both controls stop on release.
 The texture control uses Ghostty's built-in link detection; Skia detects web URLs
 from VT cells and soft-wrap metadata.
 Right-click opens no menu: a mouse-tracking program receives it, otherwise it is ignored (also with Shift, and over links).

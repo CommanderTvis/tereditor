@@ -598,6 +598,7 @@ public sealed partial class GhosttySkiaView : Control, IDisposable
         stateWatched = null;
         StartRelease();
         blink.Stop();
+        autoscroll?.Stop();
         highlights?.Clear();
         base.OnDetachedFromVisualTree(e);
     }
@@ -609,6 +610,7 @@ public sealed partial class GhosttySkiaView : Control, IDisposable
         fileHover?.Dispose();
         highlights?.Dispose();
         blink.Stop();
+        autoscroll?.Stop();
         StopRelease();
         settle.Dispose();
         vt.Dispose();

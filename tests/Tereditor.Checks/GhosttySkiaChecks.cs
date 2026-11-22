@@ -67,6 +67,7 @@ internal static class GhosttySkiaChecks
         CheckEvenGlyphInk();
         Osc52Checks.RunSkia();
         CheckView();
+        CheckSelectionAutoscroll();
         CheckResizeSettles();
         CheckTouchAndSoftKeyboard();
         CheckIncrementalRendering();
@@ -784,6 +785,34 @@ internal static class GhosttySkiaChecks
             window.Width = 400; Pump();
             Until(() => sizes.Count > 0, "the shrunk control to resize the grid");
             Require(sizes.Count == 1 && sizes[0].Columns < 60, "shrinking the control did not resize the grid.");
+        }
+        finally { window.Close(); }
+    }
+
+    // Dragging a selection past the top edge scrolls the history and keeps extending it, until the button is released.
+    private static void CheckSelectionAutoscroll()
+    {
+        using var view = new GhosttySkiaView { Typeface = EditorChecks.Font, FontSize = 14 };
+        var window = new Window { Width = 640, Height = 320, Content = view };
+        window.Show(); Pump();
+        try
+        {
+            for (var i = 0; i < 200; i++) view.Write(Encoding.UTF8.GetBytes($"line {i}\r\n"));
+            Pump();
+            Require(view.IsAtBottom, "autoscroll: new output did not stay at the bottom.");
+            var rows = view.Size.Rows;
+            var row = (view.Bounds.Height - view.Padding.Top - view.Padding.Bottom) / rows;
+            var start = new Point(view.Padding.Left + 4, view.Padding.Top + row * (rows - 1) + 2);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(new Point(start.X + 20, view.Padding.Top + 2)); Pump();
+            Require(view.IsAtBottom, "autoscroll: a drag inside the grid scrolled.");
+            var above = new Point(start.X + 20, -row * 3);
+            window.MouseMove(above); Pump();
+            Until(() => !view.IsAtBottom && view.SelectedText.Split('\n').Length > rows + 2, "a drag above the grid to scroll the history and extend the selection");
+            window.MouseUp(above, MouseButton.Left); Pump();
+            var selected = view.SelectedText;
+            Thread.Sleep(200); Pump();
+            Require(view.SelectedText == selected, "autoscroll kept going after the button was released.");
         }
         finally { window.Close(); }
     }

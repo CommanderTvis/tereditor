@@ -378,6 +378,7 @@ public sealed partial class GhosttyTextureView : Control, IDisposable
         highlights?.Clear();
         ClearHighlights();
         lock (frameLock) active = false;
+        autoscroll?.Stop();
         UnwatchAncestors();
         if (!disposed) Native.Notify(source, null);
         if (topLevel is not null) topLevel.ScalingChanged -= ScalingChanged;
@@ -397,6 +398,7 @@ public sealed partial class GhosttyTextureView : Control, IDisposable
             fileHover?.Dispose();
             highlights?.Dispose();
             highlightTimer.Stop();
+            autoscroll?.Stop();
             reclaimTimer.Stop();
             dropTimer.Stop();
             active = false;

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.TextInput;
+using Avalonia.Threading;
 
 namespace Ghostty.Avalonia;
 
@@ -132,6 +133,44 @@ public sealed partial class GhosttyTextureView
         e.Handled = true;
     }
 
+    private DispatcherTimer? autoscroll;
+    private Point dragPoint;
+    private int dragMods;
+    private bool dragging;
+    // Whether the drag selects: a program tracking the mouse gets the drag instead, and must not get wheel clicks.
+    private bool? dragSelects;
+
+    // A drag held outside the view keeps scrolling the history with no pointer events to drive it, so a timer does.
+    private void UpdateAutoscroll()
+    {
+        if (!dragging || SelectionAutoscroll.Lines(dragPoint.Y, Bounds.Height, 16) == 0) { dragSelects = null; autoscroll?.Stop(); return; }
+        dragSelects ??= Native.Selection(terminal.Handle, null, 0) > 0;
+        if (dragSelects != true) return;
+        if (autoscroll is null)
+        {
+            autoscroll = new DispatcherTimer { Interval = SelectionAutoscroll.Interval };
+            autoscroll.Tick += (_, _) => AutoscrollTick();
+        }
+        autoscroll.Start();
+    }
+
+    private void AutoscrollTick()
+    {
+        var lines = disposed || !dragging ? 0 : SelectionAutoscroll.Lines(dragPoint.Y, Bounds.Height, 16);
+        if (lines == 0) { autoscroll?.Stop(); return; }
+        // Ghostty scrolls three rows per wheel notch; scrolling then re-reporting the pointer extends the selection.
+        Native.Scroll(terminal.Handle, 0, -Math.Ceiling(lines / 3.0));
+        Native.Mouse(terminal.Handle, dragPoint.X, dragPoint.Y, dragMods, -1, 0);
+        InvalidateVisual();
+    }
+
+    private void StopAutoscroll()
+    {
+        dragging = false;
+        dragSelects = null;
+        autoscroll?.Stop();
+    }
+
     private void Mouse(PointerEventArgs e, int action, int button)
     {
         if (disposed) return;
@@ -179,11 +218,20 @@ public sealed partial class GhosttyTextureView
                 return;
             }
             Mouse(e, 1, Button(e.GetCurrentPoint(this).Properties.PointerUpdateKind));
+            dragging = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed;
         }
         e.Handled = true;
     }
 
-    protected override void OnPointerMoved(PointerEventArgs e) { base.OnPointerMoved(e); Mouse(e, -1, 0); }
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        Mouse(e, -1, 0);
+        if (!dragging || disposed) return;
+        dragPoint = e.GetPosition(this);
+        dragMods = Vt.Mods(e.KeyModifiers);
+        UpdateAutoscroll();
+    }
 
     protected override void OnPointerExited(PointerEventArgs e)
     {
@@ -195,6 +243,7 @@ public sealed partial class GhosttyTextureView
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        StopAutoscroll();
         if (outputClick) { outputClick = false; e.Pointer.Capture(null); e.Handled = true; return; }
         var file = pressedFile;
         pressedFile = null;
@@ -224,6 +273,7 @@ public sealed partial class GhosttyTextureView
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
+        StopAutoscroll();
         pressedFile = null;
         pressedHighlight = null;
     }
