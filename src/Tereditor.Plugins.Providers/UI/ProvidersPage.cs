@@ -33,7 +33,7 @@ internal sealed class ProvidersPage : StackPanel
     private int generation;
 
     // One entry of the list: a provider of the report, a plugin block that names one, or a plugin block on its own.
-    private sealed record Entry(string Id, string Name, int Rank, ModelProviderRow? Row, Control? Block);
+    private sealed record Entry(string Id, string Name, int Rank, ModelProviderRow? Row, Control? Block, string? Works = null);
 
     public ProvidersPage(IPluginUIContext context, ModelSourceLaunch launch)
     {
@@ -121,11 +121,19 @@ internal sealed class ProvidersPage : StackPanel
     // The provider a plugin block stands for: the provider it names ("ModelProvider-<id>", or "<Id>Component"), else the block alone.
     private static string BlockId(Control block, string slot, int index)
     {
-        var named = block.GetLogicalDescendants().Prepend(block).OfType<Control>().Select(control => control.Name).FirstOrDefault(name => name?.StartsWith("ModelProvider-", StringComparison.Ordinal) == true);
+        var controls = block.GetLogicalDescendants().Prepend(block).OfType<Control>().ToList();
+        var named = controls.Select(control => control.Name).FirstOrDefault(name => name?.StartsWith("ModelProvider-", StringComparison.Ordinal) == true);
         if (named is not null) return named[14..];
-        if (block.Name is { Length: > 0 } own) return own.EndsWith("Component", StringComparison.Ordinal) ? own[..^9].ToLowerInvariant() : own;
+        // The slot wraps each block in its plugin's mount (PluginMount_<id>), so the block's own name is the view inside it.
+        var component = controls.Select(control => control.Name).FirstOrDefault(name => name is { Length: > 9 } && name.EndsWith("Component", StringComparison.Ordinal));
+        if (component is not null) return component[..^9].ToLowerInvariant();
+        if (block.Name is { Length: > 0 } own) return own;
         return "slot:" + slot + ":" + index;
     }
+
+    // What a block that no provider of the report backs says about itself: its accessible name is the provider's name, its help text the "Works with" line.
+    private static Control Described(Control block) =>
+        block.GetLogicalDescendants().Prepend(block).OfType<Control>().FirstOrDefault(control => AutomationProperties.GetName(control) is { Length: > 0 } && control.Name?.EndsWith("Component", StringComparison.Ordinal) == true) ?? block;
 
     private List<Entry> Entries()
     {
@@ -142,8 +150,9 @@ internal sealed class ProvidersPage : StackPanel
         }
         foreach (var (id, (slot, block)) in blocks)
         {
-            var name = block.Name is { Length: > 0 } own && own.EndsWith("Component", StringComparison.Ordinal) ? own[..^9] : id.StartsWith("slot:", StringComparison.Ordinal) ? "Provider component" : id;
-            entries.Add(new(id, name, Math.Min(ProviderOrder.Rank(id), ProviderOrder.SlotRank(slot)), null, block));
+            var described = Described(block);
+            var name = AutomationProperties.GetName(described) is { Length: > 0 } given ? given : id.StartsWith("slot:", StringComparison.Ordinal) ? "Provider component" : id;
+            entries.Add(new(id, name, Math.Min(ProviderOrder.Rank(id), ProviderOrder.SlotRank(slot)), null, block, AutomationProperties.GetHelpText(described) is { Length: > 0 } works ? works : null));
         }
         return [.. entries.OrderBy(entry => entry.Rank).ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)];
     }
@@ -179,7 +188,8 @@ internal sealed class ProvidersPage : StackPanel
     private Control ListRow(Entry entry)
     {
         Control? mark = null;
-        if (entry.Row is { } row)
+        if (entry.Row is null) mark = new TextBlock { Text = "Not set up", FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
+        else if (entry.Row is { } row)
         {
             if (row.Ready)
             {
@@ -189,7 +199,7 @@ internal sealed class ProvidersPage : StackPanel
             }
             else mark = new TextBlock { Text = "Not set up", FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
         }
-        return MasterDetail.Row(entry.Id, null, entry.Name, null, entry.Row is null ? null : WorksWith(entry.Row.Provider), Problem(entry), mark);
+        return MasterDetail.Row(entry.Id, null, entry.Name, null, entry.Row is null ? entry.Works : WorksWith(entry.Row.Provider), Problem(entry), mark);
     }
 
     private void ShowPane(List<Entry> entries, bool rebuild)

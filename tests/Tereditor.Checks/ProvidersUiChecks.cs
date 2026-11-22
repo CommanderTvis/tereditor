@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Interactivity;
@@ -110,6 +111,18 @@ internal static class ProvidersUiChecks
             registry.AddSlotSection("air-gateway", new(ProvidersSlots.Hyperscalers, _ => new StackPanel { Name = "ModelProvider-bedrock" }));
             Settle();
             Require(Array.IndexOf(Order(), "bedrock") > Array.IndexOf(Order(), "fireworks") && Array.IndexOf(Order(), "bedrock") < Array.IndexOf(Order(), "deepseek"), "a cloud platform block sits after the routers and before the rest of the catalog");
+
+            // A platform component no provider backs yet (not set up) is listed under its own name, never under its mount's name.
+            registry.AddSlotSection("air-gateway", new(ProvidersSlots.Hyperscalers, _ =>
+            {
+                var component = new StackPanel { Name = "VertexComponent" };
+                AutomationProperties.SetName(component, "Google Vertex AI");
+                AutomationProperties.SetHelpText(component, "Works with Claude Code");
+                return component;
+            }));
+            Settle();
+            Require(Order().Contains("vertex") && Order().All(id => !id.StartsWith("PluginMount_", StringComparison.Ordinal)) && !Texts(page).Any(text => text.Contains("PluginMount_", StringComparison.Ordinal)), "a platform component is listed by its id, never by a mount name");
+            Require(Texts(Find<Grid>(page, "MasterRow_vertex").Single()) is var vertexTexts && vertexTexts.Contains("Google Vertex AI") && vertexTexts.Contains("Works with Claude Code") && vertexTexts.Contains("Not set up"), "the platform row has its display name, a Works with line and Not set up");
 
             // Add a key: the form takes it masked, clears it, and nothing on the page shows it.
             Select("openrouter");

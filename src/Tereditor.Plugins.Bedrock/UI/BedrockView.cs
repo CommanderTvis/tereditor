@@ -5,6 +5,7 @@ using Avalonia.Media;
 
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
+using Tereditor.Plugins.Providers;
 using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Plugins.Bedrock.UI;
@@ -24,6 +25,10 @@ internal sealed class BedrockView : StackPanel
     {
         this.context = context;
         Name = "BedrockComponent";
+        // The list names this block and says what it works with while the platform is not set up and no provider backs it.
+        AutomationProperties.SetName(this, BedrockPlatform.Name);
+        var agents = ProviderMatching.AgentNames(BedrockPlatform.Definition(new BedrockSettings { Region = "us-east-1" })!, context.Host().Roster.Where(entry => entry.AgentRouting is not null).Select(entry => (entry.Id, entry.Label, entry.AgentRouting)));
+        AutomationProperties.SetHelpText(this, agents.Count == 0 ? "No agent takes it yet" : "Works with " + string.Join(", ", agents));
         Spacing = 6;
         state.Name = "BedrockState";
         state.TextWrapping = TextWrapping.Wrap;
