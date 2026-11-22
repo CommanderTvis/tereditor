@@ -189,7 +189,7 @@ internal sealed class ProvidersPage : StackPanel
             }
             else mark = new TextBlock { Text = "Not set up", FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
         }
-        return MasterDetail.Row(entry.Id, Ui.Icon("lock", Ui.Muted), entry.Name, null, entry.Row is null ? null : WorksWith(entry.Row.Provider), Problem(entry), mark);
+        return MasterDetail.Row(entry.Id, null, entry.Name, null, entry.Row is null ? null : WorksWith(entry.Row.Provider), Problem(entry), mark);
     }
 
     private void ShowPane(List<Entry> entries, bool rebuild)

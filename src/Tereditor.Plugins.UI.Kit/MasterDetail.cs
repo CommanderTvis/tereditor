@@ -103,7 +103,7 @@ public sealed class MasterDetail : Grid
     public static Control Group(string id, string text) =>
         new GroupHeading { Name = "MasterGroup_" + id, Text = text, FontSize = 12, Foreground = Ui.Muted, Margin = new Thickness(2, 8, 0, 0) };
 
-    /// <summary>One row of the list: an icon, the name with a small line under it, and a red dot (with the problem as its tooltip) when something is wrong.</summary>
+    /// <summary>One row of the list: an optional icon (without one the text starts at the left edge), the name with a small line under it, and a red dot (with the problem as its tooltip) when something is wrong.</summary>
     public static Control Row(string id, Control? icon, string name, string? subtitle, string? problem) => Row(id, icon, name, null, subtitle, problem, null);
 
     /// <summary>
@@ -133,7 +133,7 @@ public sealed class MasterDetail : Grid
             detail.Children.Add(tag);
         }
         if (detail.Children.Count > 0) text.Children.Add(detail);
-        var row = new Grid { Tag = id, Name = "MasterRow_" + id, ColumnDefinitions = new ColumnDefinitions { new(new GridLength(24)), new(new GridLength(1, GridUnitType.Star)), new(GridLength.Auto), new(GridLength.Auto) } };
+        var row = new Grid { Tag = id, Name = "MasterRow_" + id, ColumnDefinitions = new ColumnDefinitions { new(new GridLength(icon is null ? 0 : 24)), new(new GridLength(1, GridUnitType.Star)), new(GridLength.Auto), new(GridLength.Auto) } };
         if (icon is not null) { icon.VerticalAlignment = VerticalAlignment.Center; icon.HorizontalAlignment = HorizontalAlignment.Left; row.Children.Add(icon); }
         SetColumn(text, 1);
         row.Children.Add(text);
