@@ -45,7 +45,7 @@ off. This plugin is the optional side that matches providers to those declaratio
 
 ## JetBrains AI (Central)
 
-The Air Gateway plugin depends on this one and contributes `jetbrains-ai` ("JetBrains AI (Central)"): no key, no API, `WiredAgents` Claude Code, Codex and Pi (the agents Central declares wiring for; omp and the rest are not offered it). It is offered in those agents' Model source and has one row in the list at its popularity place (`ModelProvider-jetbrains-ai`). Choosing it records the source here and writes nothing else: Air Gateway follows the `models` channel and contributes `central run <agent> --` to that agent's launches (see its SPEC). There is no global switch and no per-agent list in the Air Gateway page. If Air Gateway is off or unavailable (the Playground) the provider is absent and a recorded choice is dropped with it.
+The Air Gateway plugin depends on this one, has no settings page of its own (its Central pane is the provider's pane here) and contributes `jetbrains-ai` ("JetBrains AI (Central)"): no key, no API, `WiredAgents` Claude Code, Codex and Pi (the agents Central declares wiring for; omp and the rest are not offered it). It is offered in those agents' Model source and has one row in the list at its popularity place (`ModelProvider-jetbrains-ai`). Choosing it records the source here and writes nothing else: Air Gateway follows the `models` channel and contributes `central run <agent> --` to that agent's launches (see its SPEC). There is no global switch and no per-agent list in the Air Gateway page. If Air Gateway is off or unavailable (the Playground) the provider is absent and a recorded choice is dropped with it.
 
 ## Codex launch seam
 

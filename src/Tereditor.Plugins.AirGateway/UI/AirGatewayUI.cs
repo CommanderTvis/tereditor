@@ -29,13 +29,11 @@ internal sealed class AirChosen
     }
 }
 
-/// <summary>The UI half: Settings › Air Gateway, JetBrains AI (Central) in the Model providers list, the `central run` contribution to the launches of the agents that choose it, and the remaining credits in the header while Central governs an agent.</summary>
+/// <summary>The UI half: JetBrains AI (Central) in the Model providers list with its sign-in pane, the `central run` contribution to the launches of the agents that choose it, and the remaining credits in the header while Central governs an agent.</summary>
 public sealed class AirGatewayUI : PluginUIModule
 {
     public override PluginDisposer? Activate(IPluginUIContext context)
     {
-        context.SettingsSection(new("Air Gateway", "", () => new AirSettingsView(context)));
-        context.KeymapAction(new("OpenSettings", "Open Air Gateway settings", "Air Gateway", () => context.OpenSettings(UiPages.PluginSection(context.Id))));
         context.SlotSection(new(ProvidersSlots.JetBrainsAi, _ => new JetBrainsAiRow(context)));
         var chosen = new AirChosen();
         // Contributions are read synchronously on the UI thread, so the path Central was found at comes from the host's
@@ -56,7 +54,7 @@ public sealed class AirGatewayUI : PluginUIModule
     }
 }
 
-/// <summary>JetBrains AI (Central) in Settings › Plugins › Model providers: the agents it works with and where Central is set up. It claims the list place of the provider.</summary>
+/// <summary>JetBrains AI (Central) in Settings › Plugins › Model providers: the agents it works with and the Central pane (status, sign-in, access source). It claims the list place of the provider.</summary>
 internal sealed class JetBrainsAiRow : StackPanel
 {
     public JetBrainsAiRow(IPluginUIContext context)
@@ -68,10 +66,8 @@ internal sealed class JetBrainsAiRow : StackPanel
         title.Name = "JetBrainsAiTitle";
         var note = Ui.Text(AirLaunch.Provider.Note!, Ui.Muted, 12);
         note.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
-        var open = Ui.Button("Open Air Gateway settings", () => context.OpenSettings(UiPages.PluginSection(AirGatewayContract.Id)));
-        open.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
         Children.Add(title);
         Children.Add(note);
-        Children.Add(open);
+        Children.Add(new AirSettingsView(context));
     }
 }

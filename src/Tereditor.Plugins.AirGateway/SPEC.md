@@ -20,9 +20,9 @@ Air Gateway was called Air Governance until JetBrains renamed the product; the p
 
 ## Responsibility
 
-Adds JetBrains AI (Central) to Model providers and starts the agents that choose it through Central. The plugin depends on Model providers (all three halves). There is no AI source switch and no agent list on its page: the choice is the Model source setting, the first setting of the Claude Code, Codex and Pi pages (owned by Model providers).
+Adds JetBrains AI (Central) to Model providers and starts the agents that choose it through Central. The plugin depends on Model providers (all three halves). The plugin registers no settings section; Central is set up in the JetBrains AI (Central) pane of Model providers. That pane has no AI source switch and no agent list: the choice is the Model source setting, the first setting of the Claude Code, Codex and Pi pages (owned by Model providers).
 
-- The host half contributes the provider `jetbrains-ai` (`AirLaunch.Provider`: no key, no API, `WiredAgents` = Claude Code, Codex, Pi) while the plugin runs, and withdraws it when the plugin stops, which also drops the choices that used it. The UI half fills the provider's place in the Model providers list (`ModelProvider-jetbrains-ai`) with a row that says which agents it works with and opens this page. Only those three agents are offered the option; with the plugin off, or unavailable (the Playground), it is absent.
+- The host half contributes the provider `jetbrains-ai` (`AirLaunch.Provider`: no key, no API, `WiredAgents` = Claude Code, Codex, Pi) while the plugin runs, and withdraws it when the plugin stops, which also drops the choices that used it. The UI half fills the provider's place in the Model providers list (`ModelProvider-jetbrains-ai`) with a pane that says which agents it works with and holds the Central status: the version and path, signed in or out, Sign in and Sign out, Start proxy and Update Central when they apply, the credits, and the JetBrains AI access source list with Switch (`AirSettingsView`, hosted by `JetBrainsAiRow`). The pane text is three short sentences: what choosing Central does, that it only changes the command of new terminals and chats, and that the sign-in is checked when the pane opens or the window regains focus. The pane checks when it becomes visible (its row selected), not while hidden. Only those three agents are offered the option; with the plugin off, or unavailable (the Playground), it is absent.
 - Both halves follow Model providers' `models` channel and keep the set of agents whose Model source is `jetbrains-ai` (`AirLaunch.Chosen`) as an in-memory snapshot: the UI half for launch lines, the host half for revived terminals and chats, credits and the Account read.
 - The plugin has no settings of its own (`AirSettings` is empty). The plugin ships disabled, since governing agents is the user's choice.
 
@@ -78,7 +78,7 @@ The numbers are the status channel's credits (above), so the host that runs `cen
 remote one; the host stamps each successful read with its time (`ReadAt`). The tooltip names the governed agents,
 the plan's remaining and total credits, the top-up when nonzero, the next refill and when the credits were read
 (the licence name and email stay off the status channel, so the plan is not named). Below a tenth of the plan left,
-top-up included, the item uses the warning colour. Clicking it opens Settings › Air Gateway.
+top-up included, the item uses the warning colour. Clicking it opens Settings › Plugins › Model providers, where the JetBrains AI (Central) pane is.
 
 Reads are the status method with the probe (so the same `--version`, `status` and `limit --json` as the pane), one
 shared reader per activation however many windows show the item: when an item attaches or its window activates,
@@ -88,8 +88,8 @@ read during one runs after it. Nothing is read while no item is attached, Centra
 disabled. Status pushes (the pane's checks, actions and the agents' Account reads) update the item without a read.
 Before the first read nothing is shown; after a read without credits the item shows `credits ?` in the warning
 colour with the reason in the tooltip (not installed, outdated, cannot be used, not signed in, sign-in unknown, no
-credits reported, or the call's error). A compact (phone) workbench shows no header items; the credits stay in
-Settings › Air Gateway.
+credits reported, or the call's error). A compact (phone) workbench shows no header items; the credits stay in the
+JetBrains AI (Central) pane of Settings › Plugins › Model providers.
 
 ## Account for governed agents
 
@@ -98,7 +98,7 @@ Claude Code (Pi has no Account tab) call it from their Account tab while their l
 `central limit --json` (the read above), then returns the `email` and `licenseName` of that output, the credits and
 the refill time. They are passed on for display only, never stored or logged, and never put on the plugin's status
 channel. An unavailable Central is reported as one actionable message instead of numbers: not installed, cannot be
-used, not signed in (sign in under Settings › Air Gateway), outdated, or credits unreadable. The UI-side
+used, not signed in (sign in in the JetBrains AI (Central) pane of Settings › Plugins › Model providers), outdated, or credits unreadable. The UI-side
 contribution carries no account.
 
 ## Listing access sources

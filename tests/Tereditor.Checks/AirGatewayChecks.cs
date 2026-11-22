@@ -726,14 +726,18 @@ internal static partial class AirGatewayChecks
             E2eWorkspace.Until(() => workbench.PluginRegistry.Active.Contains("air-gateway") && fake.Subscriptions >= 2);
             Require(fake.Calls.All(call => call.Method is "status" or "models"), "Enabling the plugin only reads its status and the Model sources.");
             var idle = fake.Subscriptions;
-            window.ShowSettings("plugin:air-gateway:air-gateway");
+            Require(workbench.PluginRegistry.SettingsSections.All(row => row.PluginId != "air-gateway"), "Air Gateway registers no settings section: Central is set up in the JetBrains AI (Central) pane of Model providers.");
+            window.ShowSettings("plugin:providers:providers");
             E2eWorkspace.Until(() => window.OpenSettingsViews.Any());
             var settings = window.OpenSettingsViews.Single();
+            E2eWorkspace.Until(() => settings.GetLogicalDescendants().OfType<ListBox>().Any(list => list.Name == "ModelProvidersRail" && list.ItemsSource is IEnumerable<Control> items && items.Any(item => item.Tag as string == "jetbrains-ai")));
+            var rail = settings.GetLogicalDescendants().OfType<ListBox>().Single(list => list.Name == "ModelProvidersRail");
+            rail.SelectedItem = ((IEnumerable<Control>)rail.ItemsSource!).First(item => item.Tag as string == "jetbrains-ai");
             T Find<T>(string name) where T : Control => settings.GetLogicalDescendants().OfType<T>().Single(control => control.Name == name);
             E2eWorkspace.Until(() => fake.Subscriptions > idle && Find<TextBlock>("AirCentralLine").Text?.Contains("not installed", StringComparison.Ordinal) == true);
             Require(Find<StackPanel>("AirInstall").IsVisible && Find<TextBox>("AirInstallCommand").Text!.Contains("install.sh", StringComparison.Ordinal) && !Find<Button>("AirSignIn").IsEnabled,
                 "A missing CLI shows the install command and offers no action.");
-            Require(!settings.GetLogicalDescendants().OfType<RadioButton>().Any() && !settings.GetLogicalDescendants().OfType<CheckBox>().Any(), "The page has no AI source choice and no agent list: that is each agent's Model source.");
+            Require(!settings.GetLogicalDescendants().OfType<RadioButton>().Any() && !settings.GetLogicalDescendants().OfType<CheckBox>().Any(), "The pane has no AI source choice and no agent list: that is each agent's Model source.");
 
             fake.Push("air-gateway", "status", Status("supported", "unknown"));
             E2eWorkspace.Until(() => Find<TextBlock>("AirCentralLine").Text?.Contains("1.13.0", StringComparison.Ordinal) == true);
@@ -925,7 +929,7 @@ internal static partial class AirGatewayChecks
             Choose("claude-code");
             E2eWorkspace.Until(() => Item()!.IsVisible && Text() == "16.27 / 20.00 credits");
             Require(Probes() >= 1 && Tip().Contains("for Claude Code", StringComparison.Ordinal) && Tip().Contains("Refills 2027-", StringComparison.Ordinal) &&
-                Tip().Contains("Updated 2026-", StringComparison.Ordinal) && Tip().Contains("Settings › Air Gateway", StringComparison.Ordinal) && !Tip().Contains("Top-up", StringComparison.Ordinal),
+                Tip().Contains("Updated 2026-", StringComparison.Ordinal) && Tip().Contains("Settings › Plugins › Model providers", StringComparison.Ordinal) && !Tip().Contains("Top-up", StringComparison.Ordinal),
                 "One governed agent shows the credits, with the refill and read time in the tooltip: " + Tip());
             var label = Item()!.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "AirCreditsHeaderText");
             Require(ReferenceEquals(label.Foreground, Tereditor.Plugins.UI.Kit.Ui.Muted), "Plenty of credits are muted.");
@@ -949,7 +953,7 @@ internal static partial class AirGatewayChecks
             Item()!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             E2eWorkspace.Until(() => window.OpenSettingsViews.Any());
             var settings = window.OpenSettingsViews.Single();
-            Require(settings.Section == "plugin:air-gateway:air-gateway", "Clicking the item opens Settings › Air Gateway, not " + settings.Section);
+            Require(settings.Section == "plugin:providers:providers", "Clicking the item opens Settings › Plugins › Model providers, not " + settings.Section);
             settings.Close();
             Settle();
 

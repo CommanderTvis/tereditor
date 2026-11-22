@@ -89,11 +89,11 @@ internal sealed class AirGatewayRuntime : IDisposable
             var status = await StatusAsync(true, cancellationToken);
             publish(status);
             var central = status.Central;
-            if (central.State == "absent") return new(Source, Problem: "Central is not installed. See Settings › Air Gateway.");
-            if (central.State is not ("supported" or "outdated")) return new(Source, Problem: "Central cannot be used on this host. See Settings › Air Gateway.");
-            if (central.Auth == "signed-out") return new(Source, Problem: "Not signed in to Central. Sign in under Settings › Air Gateway.");
+            if (central.State == "absent") return new(Source, Problem: "Central is not installed. See Settings › Plugins › Model providers.");
+            if (central.State is not ("supported" or "outdated")) return new(Source, Problem: "Central cannot be used on this host. See Settings › Plugins › Model providers.");
+            if (central.Auth == "signed-out") return new(Source, Problem: "Not signed in to Central. Sign in under Settings › Plugins › Model providers.");
             if (central.Auth != "connected") return new(Source, Problem: "Could not check whether Central is signed in.");
-            if (central.State == "outdated") return new(Source, Problem: "Central is outdated. Update it under Settings › Air Gateway.");
+            if (central.State == "outdated") return new(Source, Problem: "Central is outdated. Update it under Settings › Plugins › Model providers.");
             if (status.Credits is not { } left) return new(Source, Problem: "Could not read the remaining credits from Central.");
             return new(Source, identity.Email, identity.License, left.Remaining, left.Total, left.TopUp, left.RefillNext);
         }

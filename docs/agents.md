@@ -167,5 +167,5 @@ their own accounts.
 
 - Turn on the Air Gateway plugin, then choose JetBrains AI (Central) as the Model source on the page of each agent
   that should use it. Other agents are not offered it. It applies to terminals and chats you start afterwards.
-- Settings › Air Gateway shows Central's sign-in, credits and access sources.
+- The JetBrains AI (Central) provider in Settings › Plugins › Model providers shows Central's sign-in, credits and access sources.
 - tereditor starts each agent through your own `central` CLI and edits none of the agents' configuration.

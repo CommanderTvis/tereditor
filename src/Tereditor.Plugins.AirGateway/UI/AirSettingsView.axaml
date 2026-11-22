@@ -10,10 +10,9 @@
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
   </UserControl.Styles>
-  <StackPanel Spacing="16">
-    <TextBlock Text="Air Gateway" FontSize="14" FontWeight="SemiBold" Foreground="{x:Static kit:Ui.TextBrush}" />
+  <StackPanel Spacing="12">
     <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}"
-               Text="JetBrains AI (Central) is one choice of the Model source setting, the first setting on the Claude Code, Codex and Pi pages. Choose it there for an agent to take its AI from JetBrains AI through the Central CLI.&#10;&#10;The choice only changes the command that starts each new agent terminal or chat. No agent configuration file is edited. It applies to terminals and chats you start afterwards; sessions already running keep their old command.&#10;&#10;tereditor checks Central's sign-in status on its own when this page opens, when the window regains focus, and while a sign-in is waiting. Everything else (signing in or out, switching source, starting the proxy, updating Central) runs only when you press its button. The AI access sources below are listed automatically while Central governs an agent." />
+               Text="Choose JetBrains AI (Central) as the Model source of an agent to run it through the Central CLI. This only changes the command of terminals and chats you start afterwards. tereditor checks the sign-in when this pane opens and when the window regains focus." />
     <TextBlock x:Name="AirCentralLine" TextWrapping="Wrap" Text="Checking Central…" />
     <TextBlock x:Name="AirCredits" TextWrapping="Wrap" IsVisible="False" Foreground="{x:Static kit:Ui.TextBrush}" />
     <StackPanel x:Name="AirInstall" Spacing="4" IsVisible="False">

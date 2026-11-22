@@ -8,6 +8,7 @@ using Avalonia.Threading;
 
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
+using Tereditor.Plugins.Providers;
 using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Plugins.AirGateway.UI;
@@ -112,7 +113,7 @@ internal sealed class AirCreditsFeed : IDisposable
     {
         if (!AirLaunch.Wired(chosen)) return new(false);
         var governs = string.Join(" and ", AirLaunch.Agents.Where(agent => chosen.Contains(agent.AgentId)).Select(agent => agent.Label));
-        const string Open = "Click to open Settings › Air Gateway.";
+        const string Open = "Click to open Settings › Plugins › Model providers.";
         if (failure is null && status is { Credits: { } credits })
         {
             var culture = CultureInfo.InvariantCulture;
@@ -183,7 +184,7 @@ internal sealed class AirCreditsHeader : Button
         VerticalAlignment = VerticalAlignment.Center;
         label = Typography.Apply(new TextBlock { Name = "AirCreditsHeaderText", VerticalAlignment = VerticalAlignment.Center }, Typography.UiMetadata);
         Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { icon, label } };
-        Click += (_, _) => context.OpenSettings(UiPages.PluginSection(AirGatewayContract.Id));
+        Click += (_, _) => context.OpenSettings(UiPages.PluginSection(ProvidersManifest.Id));
         IsVisible = false;
         AttachedToVisualTree += (_, _) =>
         {
