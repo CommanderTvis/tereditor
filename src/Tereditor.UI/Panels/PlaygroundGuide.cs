@@ -4,13 +4,13 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 
+using Tereditor.Plugins.Providers;
+
 namespace Tereditor.UI.Panels;
 
 /// <summary>First steps in the Playground, shown on Welcome and in the Default workspace: get a project in, connect a model, then let an agent work on it.</summary>
 internal static class PlaygroundGuide
 {
-    private const string AnthropicCreditsUrl = "https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers";
-    private const string GoogleBenefitsUrl = "https://developers.google.com/program";
 
     public static Control Create(Action clone, Action providers, Action<string> openLink)
     {
@@ -19,10 +19,10 @@ internal static class PlaygroundGuide
         steps.Children.Add(Step("2.", "Connect a model: paste an API key for Anthropic, OpenAI, Google or another provider.", "Open Model providers", providers, "PlaygroundGuideProviders"));
         steps.Children.Add(Step("3.", "Play: open the project folder, start a Pi chat and let the agent read, edit and commit, or use the terminal for git and file commands."));
         var credits = new StackPanel { Spacing = 4 };
-        credits.Children.Add(Wrapped("Have a subscription? Claude Max and Team include monthly API credits: claim them, then create a key in the Claude Console. Google AI Pro and Ultra include Cloud credits for the Gemini API: activate them, then create a Gemini API key. A JetBrains AI licence token works too, but it expires after an hour. A Claude subscription sign-in is not supported here.", Ui.Muted, 12));
+        credits.Children.Add(Wrapped("Have a subscription? " + ProviderCatalog.AnthropicCredits + " " + ProviderCatalog.GoogleCredits + " A JetBrains AI licence token works too, but it expires after an hour. A Claude subscription sign-in is not supported here.", Ui.Muted, 12));
         var links = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-        links.Children.Add(Link("Claim Claude credits", () => openLink(AnthropicCreditsUrl), "PlaygroundGuideClaudeCredits"));
-        links.Children.Add(Link("Activate Google credits", () => openLink(GoogleBenefitsUrl), "PlaygroundGuideGoogleCredits"));
+        links.Children.Add(Link("Claim Claude credits", () => openLink(ProviderCatalog.AnthropicCreditsUrl), "PlaygroundGuideClaudeCredits"));
+        links.Children.Add(Link("Activate Google credits", () => openLink(ProviderCatalog.GoogleCreditsUrl), "PlaygroundGuideGoogleCredits"));
         credits.Children.Add(links);
         var body = new StackPanel { Spacing = 12 };
         body.Children.Add(Ui.Text("Getting started in the Playground", Ui.TextBrush, 15));

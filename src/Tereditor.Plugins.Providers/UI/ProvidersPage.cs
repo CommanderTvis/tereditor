@@ -247,7 +247,20 @@ internal sealed class ProvidersPage : StackPanel
         column.Open = adding == provider.Id;
         column.OpenChanged = open => adding = open ? provider.Id : null;
         panel.Children.Add(column);
+        if (provider.Id == "anthropic") panel.Children.Add(Credits(ProviderCatalog.AnthropicCredits, ProviderCatalog.AnthropicCreditsUrl, "About API credits for subscribers"));
+        else if (provider.Id == "google") panel.Children.Add(Credits(ProviderCatalog.GoogleCredits, ProviderCatalog.GoogleCreditsUrl, "About Google credits"));
         return panel;
+    }
+
+    // Where a subscriber gets API credit: a plain note and a link that opens in the system browser.
+    private static Control Credits(string note, string url, string label)
+    {
+        var text = Ui.Text(note, Ui.Muted, 12);
+        text.TextWrapping = TextWrapping.Wrap;
+        var link = Ui.Button(label, () => { });
+        link.Click += (_, _) => _ = TopLevel.GetTopLevel(link)?.Launcher.LaunchUriAsync(new Uri(url));
+        link.HorizontalAlignment = HorizontalAlignment.Left;
+        return new StackPanel { Name = "ModelProviderCredits", Spacing = 4, Children = { text, link } };
     }
 
     private static readonly string[] CustomKinds = [ModelApiKinds.AnthropicMessages, ModelApiKinds.OpenAiResponses, ModelApiKinds.OpenAiChat, ModelApiKinds.GoogleGenerative];

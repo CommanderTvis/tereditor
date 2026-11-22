@@ -92,6 +92,8 @@ internal static class ProvidersUiChecks
             Require(Texts(Find<Border>(page, "ModelProviderDetail_anthropic").Single()).Any(text => text.Contains("does not allow a Claude subscription", StringComparison.Ordinal)), "Anthropic shows why a subscription sign-in is not offered");
             Require(Texts(page).Contains("No key yet") && Buttons(page).Contains("Add key") && !Buttons(page).Contains("Remove key") && Find<TextBlock>(page, "ModelProviderWorksWith").Single().Text!.StartsWith("Works with Claude Code", StringComparison.Ordinal), "an Anthropic pane with no key says so, offers Add key and names the agents it works with");
 
+            Require(Find<StackPanel>(page, "ModelProviderCredits").Single() is var credits && Texts(credits).Contains(ProviderCatalog.AnthropicCredits) && Buttons(credits).Contains("About API credits for subscribers"), "the Anthropic pane tells Max and Team subscribers where their API credits are");
+
             // A contributed component takes its place in the list: JetBrains AI after Anthropic, before the routers.
             registry.SetActive("air-gateway", true);
             registry.AddSlotSection("air-gateway", new(ProvidersSlots.JetBrainsAi, _ => new TextBlock { Name = "ModelProvider-jetbrains-ai", Text = "Central sign-in" }));
