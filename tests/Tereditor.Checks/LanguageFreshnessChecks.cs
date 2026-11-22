@@ -43,6 +43,9 @@ internal static partial class LanguageFreshnessChecks
             await state.ChangeAsync([HostStateChange.Setting("language-server:csharp", JsonSerializer.Serialize(new LanguageServerOptions(Command: executable, Arguments: arguments), JsonSerializerOptions.Web))]);
             state.Languages.OnDemandWait = TimeSpan.FromSeconds(3);
             var tools = LanguageMcpTools.Create(state, workspace);
+            Require(tools.Where(tool => tool.Name is "lsp_navigate" or "lsp_diagnostics").All(tool => tool.Description.Contains("no mcp__IntelliJ__* tools", StringComparison.Ordinal))
+                && (await McpServer.HandleAsync(JsonNode.Parse("""{"jsonrpc":"2.0","id":0,"method":"initialize","params":{}}"""), tools, default)).Body!["result"]!["instructions"]!.ToString().Contains("lsp_* tools", StringComparison.Ordinal),
+                "The MCP instructions and language tool descriptions do not tell agents that IntelliJ comes through the lsp tools.");
             var next = 0;
             async Task<JsonNode> Call(string tool, object call)
             {

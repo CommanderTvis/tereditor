@@ -502,7 +502,7 @@ The agent tools are compared with OMP's LSP tool and the JetBrains MCP in `Refac
 
 Terminal-authenticated MCP exposes `lsp_navigate`, `lsp_diagnostics` and `lsp_status` (read-only) and the write tools
 `lsp_code_actions`, `lsp_rename` and `lsp_format` (preview by default, `apply` writes inside the workspace),
-specified in [Refactoring.SPEC.md](Refactoring.SPEC.md). An omitted
+specified in [Refactoring.SPEC.md](Refactoring.SPEC.md). The MCP initialize instructions and the descriptions of `lsp_navigate` and `lsp_diagnostics` say that the Java / Kotlin (IntelliJ) server is reached through the `lsp_*` tools and that a tereditor session has no `mcp__IntelliJ__*` tools (the IntelliJ server speaks LSP only; those tools belong to JetBrains' IDE plugin). A result names the answering server in `server`. Check: `--lsp-on-demand`. An omitted
 workspace targets the terminal's original workspace; an explicit override must belong to the same
 Git project. Subagents inheriting the connection must pass their own worktree path. Results carry
 freshness and coverage, including an explicit notice when they use an editor's dirty buffer.
