@@ -25,7 +25,7 @@ public sealed class ProvidersUI : PluginUIModule
         // The Codex launch contribution reads the latest report from memory; the host pushes it after every change.
         ModelProvidersReport? latest = null;
         context.AgentLaunch(launcherId => ProviderLaunch.For(launcherId, Volatile.Read(ref latest)));
-        var subscription = context.Subscribe(ProvidersContract.ModelsChanged, report => Volatile.Write(ref latest, report), new ModelProvidersParams());
+        var subscription = context.Subscribe(ProvidersContract.ModelsChanged, report => { Volatile.Write(ref latest, report); launch.Report(report); }, new ModelProvidersParams());
         return subscription.Dispose;
     }
 }

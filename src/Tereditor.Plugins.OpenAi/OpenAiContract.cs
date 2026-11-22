@@ -16,6 +16,9 @@ public static class OpenAiProvider
     /// <summary>What the Sign in action runs in a terminal. tereditor runs no sign-in flow of its own and keeps no token.</summary>
     public const string SignInCommand = "codex login";
 
+    /// <summary>What the Sign out action runs in a terminal.</summary>
+    public const string SignOutCommand = "codex logout";
+
     /// <summary>OpenAI's sign-in policy: allowed, with a note for remote hosts. Policy only; nothing here starts a flow.</summary>
     public static ProviderOAuth Policy { get; } = ProviderOAuthPolicy.For(ProviderOAuthPolicy.OpenAi);
 

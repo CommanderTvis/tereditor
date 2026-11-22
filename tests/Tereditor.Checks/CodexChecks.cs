@@ -721,6 +721,8 @@ internal static class CodexChecks
         /// <summary>What <c>app-server daemon version</c> prints; null makes it exit 1, as with no daemon.</summary>
         public string? DaemonVersion { get; init; }
         public bool DaemonHang { get; init; }
+        /// <summary>How <c>login status</c> says Codex is signed in ("ChatGPT"); null prints Not logged in and exits 1. It never prints a token.</summary>
+        public string? Login { get; init; }
     }
 
     private static readonly JsonSerializerOptions ControlJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -752,6 +754,12 @@ internal static class CodexChecks
             if (Control().DaemonHang) Thread.Sleep(60_000);
             if (Control().DaemonVersion is not { } version) return 1;
             Console.WriteLine(version);
+            return 0;
+        }
+        if (rest.SequenceEqual(["login", "status"]))
+        {
+            if (Control().Login is not { } how) { Console.Error.WriteLine("Not logged in"); return 1; }
+            Console.WriteLine("Logged in using " + how);
             return 0;
         }
         if (!rest.SequenceEqual(["app-server"]))

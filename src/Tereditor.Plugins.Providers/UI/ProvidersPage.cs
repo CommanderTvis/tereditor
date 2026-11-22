@@ -55,7 +55,12 @@ internal sealed class ProvidersPage : StackPanel
             slots.Add((slot, view));
             blockHost.Children.Add(view);
         }
-        AttachedToVisualTree += (_, _) => Load(() => context.RequestAsync(ProvidersContract.Models, new ModelProvidersParams()).AsTask());
+        AttachedToVisualTree += (_, _) =>
+        {
+            launch.Reported += Reported;
+            Load(() => context.RequestAsync(ProvidersContract.Models, new ModelProvidersParams()).AsTask());
+        };
+        DetachedFromVisualTree += (_, _) => launch.Reported -= Reported;
         Render();
     }
 
@@ -103,6 +108,13 @@ internal sealed class ProvidersPage : StackPanel
                 if (mine == generation) context.Notify(PluginNotificationKind.Error, "Couldn't change the provider", error.Message);
             }
         }
+    }
+
+    // The host pushed a report (another half changed something): the list shows it; the pane being typed in stays as it is.
+    private void Reported(ModelProvidersReport next)
+    {
+        report = next;
+        RenderList();
     }
 
     private void Render()
@@ -164,7 +176,7 @@ internal sealed class ProvidersPage : StackPanel
         var rows = new List<Control>();
         foreach (var (title, ready) in new[] { ("Set up", true), ("Not set up", false) })
         {
-            var group = entries.Where(entry => (entry.Row?.Ready ?? false) == ready).ToList();
+            var group = entries.Where(entry => SetUp(entry) == ready).ToList();
             if (group.Count == 0) continue;
             rows.Add(MasterDetail.Group(ready ? "SetUp" : "NotSetUp", title));
             rows.AddRange(group.Select(ListRow));
@@ -185,17 +197,21 @@ internal sealed class ProvidersPage : StackPanel
         return names.Count == 0 ? null : string.Join(" and ", names) + (names.Count == 1 ? " uses" : " use") + " this provider, but its key is missing.";
     }
 
+    // A provider is set up with a key or none needed, or while its own sign-in is active (shown only; a sign-in never makes it ready for a launch).
+    private static bool SetUp(Entry entry) => entry.Row is { } row && (row.Ready || row.SignIn is { SignedIn: true });
+
     private Control ListRow(Entry entry)
     {
         Control? mark = null;
         if (entry.Row is null) mark = new TextBlock { Text = "Not set up", FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
         else if (entry.Row is { } row)
         {
-            if (row.Ready)
+            if (row.Ready || row.SignIn is { SignedIn: true })
             {
                 mark = Ui.Icon("check", Ui.Success);
-                ToolTip.SetTip(mark, row.Provider.NeedsKey ? "Key set" : "Ready");
-                AutomationProperties.SetName(mark, row.Provider.NeedsKey ? "key set" : "ready");
+                var signedIn = !row.Ready;
+                ToolTip.SetTip(mark, signedIn ? "Signed in" : row.Provider.NeedsKey ? "Key set" : "Ready");
+                AutomationProperties.SetName(mark, signedIn ? "signed in" : row.Provider.NeedsKey ? "key set" : "ready");
             }
             else mark = new TextBlock { Text = "Not set up", FontSize = 11, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };
         }

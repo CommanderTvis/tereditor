@@ -45,7 +45,11 @@ internal static class OpenAiChecks
         var keys = new ProviderKeyStore(state);
         List<ProviderDefinition> custom = [];
         List<ModelSourceChoice> sources = [];
-        var service = new ModelProvidersService(keys, new ModelProviderState(() => custom, next => custom = [.. next], () => sources, next => sources = [.. next]));
+        // A fake codex whose login status the check flips: it prints only "Logged in using ChatGPT" or "Not logged in", never a token.
+        var fakeCodex = CodexChecks.FakeCodexExecutable(Path.Combine(state, "codex"), Path.Combine(state, "codex-control.json"), Path.Combine(state, "codex-log.txt"));
+        void Login(string? how) => CodexChecks.WriteControl(Path.Combine(state, "codex-control.json"), new CodexChecks.FakeControl { Login = how });
+        Login(null);
+        var service = new ModelProvidersService(keys, new ModelProviderState(() => custom, next => custom = [.. next], () => sources, next => sources = [.. next]), null, cancel => CodexLoginStatus.ReadAsync(fakeCodex, cancel));
         var fake = Fake.Create(service);
         var window = new Window { Width = 700, Height = 500 };
         var view = new OpenAiView(fake);
@@ -84,6 +88,37 @@ internal static class OpenAiChecks
 
             Click("Remove key");
             Require(Text().Contains("No API key yet", StringComparison.Ordinal) && !File.Exists(Path.Combine(keys.KeysDirectory, "openai")), "removing the key forgets it");
+
+            // The sign-in shows on the card: not signed in on open, waiting after Sign in, signed in once Codex says so, and the provider counts as set up in the list.
+            void Until(Func<bool> done, string message)
+            {
+                try { Tereditor.Checks.E2E.E2eWorkspace.Until(done, message); }
+                catch (InvalidOperationException) { Require(false, message); }
+            }
+            Click("Cancel");
+            Require(Text().Contains("Not signed in", StringComparison.Ordinal) && Buttons().Contains("Sign in") && !Buttons().Contains("Sign out"), "on open a Codex that is not signed in shows Sign in");
+            Until(() => service.Report().Providers.Single(row => row.Provider.Id == "openai").SignIn is { SignedIn: false }, "the host read the sign-in status when the pane opened");
+            var interval = OpenAiView.PollInterval; var throttle = OpenAiView.Throttle;
+            OpenAiView.PollInterval = TimeSpan.FromMilliseconds(100); OpenAiView.Throttle = TimeSpan.Zero;
+            try
+            {
+                Click("Sign in");
+                Require(Text().Contains("Waiting for sign-in in the browser…", StringComparison.Ordinal) && Buttons().Contains("Cancel") && !Buttons().Contains("Sign in"), "after Sign in the card waits for the browser and offers Cancel");
+                Click("Cancel");
+                Require(!Text().Contains("Waiting for sign-in", StringComparison.Ordinal) && Buttons().Contains("Sign in"), "Cancel stops waiting");
+                Click("Sign in");
+                Login("ChatGPT");
+                Until(() => Text().Contains("Signed in with ChatGPT", StringComparison.Ordinal), "the poll shows the card signed in once the fake Codex says so");
+                Require(Buttons().Contains("Sign out") && !Buttons().Contains("Sign in") && !Text().Contains("Waiting for sign-in", StringComparison.Ordinal), "a signed in card offers Sign out and stops waiting");
+                var row = service.Report().Providers.Single(row => row.Provider.Id == "openai");
+                Require(row is { Ready: false, SignIn: { SignedIn: true, Method: "ChatGPT" } }, "the list row reports signed in without making the provider ready for a launch");
+                Require(row.SignIn!.Method == "ChatGPT" && !Text().Contains("eyJ", StringComparison.Ordinal), "only the kind of sign-in is read, no token");
+                // Signed out elsewhere: the next activation of the window reads it again.
+                Login(null);
+                view.OnActivated();
+                Until(() => Text().Contains("Not signed in", StringComparison.Ordinal) && Buttons().Contains("Sign in"), "window activation re-reads the sign-in");
+            }
+            finally { OpenAiView.PollInterval = interval; OpenAiView.Throttle = throttle; }
         }
         finally { window.Close(); }
         Console.WriteLine("PASS openai: manifest, key saved and removed without showing it, Sign in runs codex login");
@@ -130,6 +165,7 @@ internal static class OpenAiChecks
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
             if (method!.Name != "RequestAsync") throw new NotSupportedException(method.Name);
+            if (((PluginMethodSpec)args![0]!).Name == "refreshSignIn") return new ValueTask<ModelProvidersReport>(Task.Run(() => Fake.Service.RefreshSignInAsync((ModelProviderParams)args[1]!)));
             object? result = ((PluginMethodSpec)args![0]!).Name switch
             {
                 "models" => Fake.Service.Report(),

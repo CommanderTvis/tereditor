@@ -12,6 +12,15 @@ internal sealed class ModelSourceLaunch
 
     public void Update(ModelProvidersReport report) => sources = report.Sources;
 
+    /// <summary>Raised when the host pushes a report (a key saved, a sign-in read), so an open page shows it without being asked.</summary>
+    public event Action<ModelProvidersReport>? Reported;
+
+    public void Report(ModelProvidersReport report)
+    {
+        Update(report);
+        Reported?.Invoke(report);
+    }
+
     public AgentLaunchContribution? For(string agentId) =>
         agentId == ProviderCatalog.OmpAgent && sources.Any(choice => choice.AgentId == agentId) ? ProviderCatalog.OmpLaunch : null;
 }

@@ -9,7 +9,16 @@ public sealed record ProvidersAck(bool Ok = true);
 /// <summary>One provider in the merged list (bundled, contributed and custom) and whether an agent can use it now.</summary>
 /// <param name="Provider">The definition.</param>
 /// <param name="Ready">A key is stored, or the provider needs none.</param>
-public sealed record ModelProviderRow(ProviderDefinition Provider, bool Ready);
+public sealed record ModelProviderRow(ProviderDefinition Provider, bool Ready)
+{
+    /// <summary>Whether the provider's own sign-in is active, once the host has read it (OpenAI through Codex's login). It never makes a provider ready for a launch; only the list shows it.</summary>
+    public ProviderSignIn? SignIn { get; init; }
+}
+
+/// <summary>The status of a provider's own sign-in. Only the status: the host never reads or reports a token.</summary>
+/// <param name="SignedIn">Whether the sign-in is active.</param>
+/// <param name="Method">A short plain name of how, such as "ChatGPT" or "API key"; null when not signed in or unknown.</param>
+public sealed record ProviderSignIn(bool SignedIn, string? Method = null);
 
 /// <summary>The agent whose model comes from <paramref name="ProviderId"/>. An agent with no row uses its own provider.</summary>
 public sealed record ModelSourceChoice(string AgentId, string ProviderId)
@@ -55,7 +64,7 @@ public sealed record WithdrawParams(string Contributor);
 
 public static class ProvidersContract
 {
-    public const int WireVersion = 3;
+    public const int WireVersion = 4;
 
     public static readonly PluginMethod<ModelProvidersParams, ModelProvidersReport> Models = new("models");
     public static readonly PluginMethod<SaveModelKeyParams, ModelProvidersReport> SaveModelKey = new("saveModelKey");
@@ -63,6 +72,8 @@ public static class ProvidersContract
     public static readonly PluginMethod<AddCustomProviderParams, ModelProvidersReport> AddCustomProvider = new("addCustomProvider");
     public static readonly PluginMethod<ModelProviderParams, ModelProvidersReport> RemoveCustomProvider = new("removeCustomProvider");
     public static readonly PluginMethod<SetModelSourceParams, ModelProvidersReport> SetModelSource = new("setModelSource");
+    /// <summary>Reads the provider's own sign-in status again (for OpenAI: <c>codex login status</c> on the host) and returns the report with it.</summary>
+    public static readonly PluginMethod<ModelProviderParams, ModelProvidersReport> RefreshSignIn = new("refreshSignIn");
     public static readonly PluginMethod<ProviderContribution, ProvidersAck> Contribute = new("contribute");
     public static readonly PluginMethod<WithdrawParams, ProvidersAck> Withdraw = new("withdraw");
 
@@ -70,7 +81,7 @@ public static class ProvidersContract
     public static readonly PluginChannel<ModelProvidersReport> ModelsChanged = PluginChannel<ModelProvidersReport>.State("models", Models);
 
     public static readonly PluginContract Contract = PluginContract.Create<ProvidersSettings>(ProvidersManifest.Id, WireVersion,
-        [Models, SaveModelKey, RemoveModelKey, AddCustomProvider, RemoveCustomProvider, SetModelSource, Contribute, Withdraw], [ModelsChanged], ProvidersJson.Default);
+        [Models, SaveModelKey, RemoveModelKey, AddCustomProvider, RemoveCustomProvider, SetModelSource, RefreshSignIn, Contribute, Withdraw], [ModelsChanged], ProvidersJson.Default);
 }
 
 public sealed record ProvidersSettings;

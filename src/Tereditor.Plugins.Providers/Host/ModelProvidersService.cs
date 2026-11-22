@@ -10,8 +10,11 @@ internal sealed record ModelProviderState(Func<IReadOnlyList<ProviderDefinition>
 /// The merged list of model providers (bundled, contributed by plugins that depend on Model providers, and the user's own),
 /// their keys in the <see cref="ProviderKeyStore"/>, and the model source chosen for each agent. A report never carries a key.
 /// </summary>
-internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProviderState state, AgentModelFiles? files = null)
+internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProviderState state, AgentModelFiles? files = null, Func<CancellationToken, Task<ProviderSignIn>>? readSignIn = null)
 {
+    // The status of OpenAI's own sign-in as last read; null until a read. A snapshot swapped whole, never a token.
+    private ProviderSignIn? openAiSignIn;
+
     private readonly Lock gate = new();
     // The agents whose models file is written now. Read by launches, so it is a snapshot swapped whole and never needs a lock or any I/O.
     private volatile IReadOnlySet<string> active = new HashSet<string>();
@@ -22,6 +25,17 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
 
     public ModelProvidersReport Report()
     {
+        lock (gate) return Build();
+    }
+
+    /// <summary>Reads the provider's own sign-in again. Only OpenAI has one; any other id reads nothing. Runs a process, so callers keep it off any UI thread.</summary>
+    public async Task<ModelProvidersReport> RefreshSignInAsync(ModelProviderParams p, CancellationToken cancel = default)
+    {
+        if (p.Id == "openai" && readSignIn is not null)
+        {
+            var next = await readSignIn(cancel);
+            lock (gate) openAiSignIn = next;
+        }
         lock (gate) return Build();
     }
 
@@ -153,7 +167,7 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
         return all;
     }
 
-    private List<ModelProviderRow> Rows() => [.. Merged().Select(provider => new ModelProviderRow(provider, !provider.NeedsKey || keys.Has(provider.Id)))];
+    private List<ModelProviderRow> Rows() => [.. Merged().Select(provider => new ModelProviderRow(provider, !provider.NeedsKey || keys.Has(provider.Id)) { SignIn = provider.Id == "openai" ? openAiSignIn : null })];
 
     // A source whose provider is gone or has lost its key is dropped, so an agent falls back to its own provider.
     private void Prune()

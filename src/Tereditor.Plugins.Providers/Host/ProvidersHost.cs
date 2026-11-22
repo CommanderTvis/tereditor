@@ -23,7 +23,7 @@ public sealed class ProvidersHost : PluginHostModule
             () => context.ReadState<List<ProviderDefinition>>("customProviders", []),
             custom => context.WriteState("customProviders", custom.ToList()),
             () => context.ReadState<List<ModelSourceChoice>>("modelSources", []),
-            sources => context.WriteState("modelSources", sources.ToList())), new AgentModelFiles(keys, root));
+            sources => context.WriteState("modelSources", sources.ToList())), new AgentModelFiles(keys, root), cancel => CodexLoginStatus.ReadAsync("codex", cancel));
         // Every change is pushed, and the Codex launch contribution reads the latest report from memory: a launch never touches a file.
         ModelProvidersReport? latest = null;
         ModelProvidersReport Publish(ModelProvidersReport report)
@@ -39,6 +39,7 @@ public sealed class ProvidersHost : PluginHostModule
         context.Method(ProvidersContract.AddCustomProvider, (p, _, ct) => Report(() => models.AddCustom(p), ct));
         context.Method(ProvidersContract.RemoveCustomProvider, (p, _, ct) => Report(() => models.RemoveCustom(p), ct));
         context.Method(ProvidersContract.SetModelSource, (p, _, ct) => Report(() => models.SetSource(p), ct));
+        context.Method(ProvidersContract.RefreshSignIn, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(async () => Publish(await models.RefreshSignInAsync(p, ct)), ct)));
         context.Method(ProvidersContract.Contribute, (p, _, ct) => new ValueTask<ProvidersAck>(Task.Run(() => { var ack = models.Contribute(p); Publish(models.Report()); return ack; }, ct)));
         context.Method(ProvidersContract.Withdraw, (p, _, ct) => new ValueTask<ProvidersAck>(Task.Run(() => { var ack = models.Withdraw(p); Publish(models.Report()); return ack; }, ct)));
         // The contributors read a snapshot only: Pi and omp from the files written when a source is chosen and here, Codex from the latest report.

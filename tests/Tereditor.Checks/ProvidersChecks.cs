@@ -277,7 +277,7 @@ internal static class ProvidersChecks
         Require(new AgentLaunchContribution().Environment.Count == 0 && Routing("claude-code").Accepts.All(api => !PluginJson.Serialize(api).Contains("sentinel", StringComparison.Ordinal)), "A declaration or a launch contribution carries no key.");
 
         // The contract is wire version 3, lists the model provider methods only (no per-agent key-file methods) and pushes the models channel.
-        Require(ProvidersContract.WireVersion == 3 && ProvidersContract.Contract.Channels.Any(channel => channel.Name == "models") && new[] { "list", "setKey", "removeKey" }.All(name => ProvidersContract.Contract.Methods.All(method => method.Name != name)) && new[] { "models", "saveModelKey", "removeModelKey", "addCustomProvider", "removeCustomProvider", "setModelSource", "contribute", "withdraw" }.All(name => ProvidersContract.Contract.Methods.Any(method => method.Name == name)), "The contract lists the model provider methods.");
+        Require(ProvidersContract.WireVersion == 4 && ProvidersContract.Contract.Channels.Any(channel => channel.Name == "models") && new[] { "list", "setKey", "removeKey" }.All(name => ProvidersContract.Contract.Methods.All(method => method.Name != name)) && new[] { "models", "saveModelKey", "removeModelKey", "addCustomProvider", "removeCustomProvider", "setModelSource", "refreshSignIn", "contribute", "withdraw" }.All(name => ProvidersContract.Contract.Methods.Any(method => method.Name == name)), "The contract lists the model provider methods.");
     }
 
     // The launch seams: a chosen source writes the agent's models file with a helper command and no key, and the launch gets only the place to read it.
