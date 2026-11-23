@@ -22,7 +22,7 @@ public sealed record AirSwitchParams(string SourceId);
 public sealed record AirCentral(string State, string Auth, string Proxy, string InstallCommand, string? Path = null, string? Version = null);
 
 /// <param name="Id">The agent plugin's id.</param>
-/// <param name="Chosen">Whether the agent's Model source is JetBrains AI (Central).</param>
+/// <param name="Chosen">Whether the agent's Model source is JetBrains (Air Gateway).</param>
 /// <param name="Launch">The exact command shape prefixed to this agent's launches, or <see langword="null"/> when its launches are unchanged.</param>
 public sealed record AirAgent(string Id, string Label, bool Chosen, string? Launch = null);
 
@@ -47,7 +47,7 @@ public sealed record AirAccessList(IReadOnlyList<AirAccessSource> Sources, strin
 public sealed record AirAgentWiring(string AgentId, string LauncherId, string Label, string CentralName);
 
 /// <summary>
-/// What the plugin contributes to the agents' launches. An agent whose Model source is JetBrains AI (Central) runs
+/// What the plugin contributes to the agents' launches. An agent whose Model source is JetBrains (Air Gateway) runs
 /// <c>central run &lt;agent&gt; -- ...</c>, which starts the agent through JetBrains Air for that launch only and leaves the agent's own configuration alone.
 /// </summary>
 public static class AirLaunch
@@ -61,14 +61,14 @@ public static class AirLaunch
     ];
 
     /// <summary>The provider the plugin adds to Model providers: no key, no API, wired to exactly <see cref="Agents"/>.</summary>
-    public static ProviderDefinition Provider { get; } = new(ProviderCatalog.JetBrainsAi, "JetBrains AI (Central)", ProviderGroup.JetBrainsAi, [])
+    public static ProviderDefinition Provider { get; } = new(ProviderCatalog.JetBrainsAi, "JetBrains (Air Gateway)", ProviderGroup.JetBrainsAi, [])
     {
         NeedsKey = false,
         Note = "Starts the agent through JetBrains Central with your JetBrains AI access. It applies to terminals and chats you start afterwards.",
         WiredAgents = [.. Agents.Select(agent => agent.AgentId)]
     };
 
-    /// <summary>The agents whose Model source is JetBrains AI (Central), among those it wires.</summary>
+    /// <summary>The agents whose Model source is JetBrains (Air Gateway), among those it wires.</summary>
     /// <param name="sources">The model sources Model providers reports.</param>
     public static IReadOnlySet<string> Chosen(IEnumerable<ModelSourceChoice> sources) =>
         sources.Where(choice => choice.ProviderId == ProviderCatalog.JetBrainsAi && Agents.Any(agent => agent.AgentId == choice.AgentId)).Select(choice => choice.AgentId).ToHashSet(StringComparer.Ordinal);
@@ -80,7 +80,7 @@ public static class AirLaunch
         Agents.FirstOrDefault(agent => agent.LauncherId == launcherId) is { } wiring && chosen.Contains(wiring.AgentId);
 
     /// <summary>
-    /// The contribution for a launcher, or <see langword="null"/> when the agent's Model source is not JetBrains AI (Central) or the
+    /// The contribution for a launcher, or <see langword="null"/> when the agent's Model source is not JetBrains (Air Gateway) or the
     /// launcher is unknown. Once chosen it always governs, failing closed: the agent is wrapped with the bare name when Central has
     /// not been found, so a missing CLI fails the launch in the shell.
     /// </summary>
@@ -116,7 +116,7 @@ public static class AirGatewayContract
         // Runs Central's command line on the host's operating system, which a browser tab does not have.
         UnavailableOn = [HostKind.PureWeb],
         DependsOn = [new(ProvidersManifest.Id, ProvidersContract.WireVersion)],
-        Description = "Adds JetBrains AI (Central) to Model providers. An agent that chooses it (Claude Code, Codex or Pi) starts through JetBrains Air Gateway with the Central CLI, per launch.",
+        Description = "Adds JetBrains (Air Gateway) to Model providers. An agent that chooses it (Claude Code, Codex or Pi) starts through JetBrains Air Gateway with the Central CLI, per launch.",
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.AirGateway.Host.dll",

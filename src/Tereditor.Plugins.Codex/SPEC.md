@@ -141,7 +141,7 @@ invitation is excluded by the tereditor product contract; a Codex chat component
   is left whole. Disabling the plugin removes the unedited files and the directories that leaves empty.
   The disposer cannot tell disabling from host shutdown, so the files may also go when the app quits and
   return on the next start; a second running host is not considered.
-- While another plugin governs Codex launches (an `Account` on its launch contribution, Plugin API H18; Air Gateway, with Codex's Model source set to JetBrains AI (Central)), the Account method returns that source's account instead and never starts the OpenAI account read or `codex app-server`; the tab shows the source's identity, credits and refill time, or its actionable problem. Ungoverned launches are unchanged. The terminal fact chips show session token totals and the plan, not vendor quota, so they are unchanged.
+- While another plugin governs Codex launches (an `Account` on its launch contribution, Plugin API H18; Air Gateway, with Codex's Model source set to JetBrains (Air Gateway)), the Account method returns that source's account instead and never starts the OpenAI account read or `codex app-server`; the tab shows the source's identity, credits and refill time, or its actionable problem. Ungoverned launches are unchanged. The terminal fact chips show session token totals and the plan, not vendor quota, so they are unchanged.
 - App-server and IDE bridge messages are built as JSON nodes, and the configuration, rollouts and skills stamp file
   use the plugin's own source-generated metadata, never reflection; the bytes are those the reflection serializer
   wrote for the same shapes (the IDE context keeps its camel-case names). `config.toml` is read through generated

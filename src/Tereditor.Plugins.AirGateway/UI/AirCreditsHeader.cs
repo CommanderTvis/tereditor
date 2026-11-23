@@ -21,7 +21,7 @@ internal sealed record AirCreditsShown(bool Visible, string Text = "", string Ti
 /// host's read-only <c>central limit --json</c>, through the status method) only while Central governs at least one
 /// agent and an item is attached: when an item attaches or its window activates, after a governed agent's terminal
 /// ends, every <see cref="Interval"/>, at most once per <see cref="Throttle"/>, and at once when an agent's Model
-/// source changes to or from JetBrains AI (Central). Reads never overlap; a forced read during one runs after it. Status pushes from the pane or
+/// source changes to or from JetBrains (Air Gateway). Reads never overlap; a forced read during one runs after it. Status pushes from the pane or
 /// the agents' Account tabs update it without a read.
 /// </summary>
 internal sealed class AirCreditsFeed : IDisposable

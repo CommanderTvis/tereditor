@@ -629,7 +629,7 @@ internal static partial class AirGatewayChecks
         Require(agents!.AgentLaunchContributions("codex").Count == 0, "Without a Central choice nothing is contributed on the host.");
         async Task<ModelProvidersReport> Providers(string method, object parameters) => PluginJson.Convert<ModelProvidersReport>(await runtime.CallAsync(new(ProvidersManifest.Id, method, parameters, "fixture")));
         Require((await Providers("models", new ModelProvidersParams())).Providers.Single(row => row.Provider.Id == ProviderCatalog.JetBrainsAi) is { Ready: true, Provider.WiredAgents: ["claude-code", "codex", "pi"], Provider.Contributor: "air-gateway" },
-            "Air Gateway puts JetBrains AI (Central) in the Model providers list, ready, wired to Claude Code, Codex and Pi.");
+            "Air Gateway puts JetBrains (Air Gateway) in the Model providers list, ready, wired to Claude Code, Codex and Pi.");
         async Task Until(Func<ModelProvidersReport, Task<bool>> done, string what)
         {
             for (var attempt = 0; attempt < 200; attempt++)
@@ -664,7 +664,7 @@ internal static partial class AirGatewayChecks
         await Providers("setModelSource", new SetModelSourceParams("claude-code", null));
         await Settled();
         Require(agents.AgentLaunchContributions("claude").Count == 0 && fixture.Log.All(line => !line.StartsWith("run", StringComparison.Ordinal)), "Switching back removes the contribution; Central was never asked to run an agent.");
-        try { await Providers("setModelSource", new SetModelSourceParams("omp", ProviderCatalog.JetBrainsAi)); Require(false, "omp must not take JetBrains AI (Central)."); }
+        try { await Providers("setModelSource", new SetModelSourceParams("omp", ProviderCatalog.JetBrainsAi)); Require(false, "omp must not take JetBrains (Air Gateway)."); }
         catch (PluginCallException) { }
         await Providers("setModelSource", new SetModelSourceParams("claude-code", ProviderCatalog.JetBrainsAi));
         await Settled("claude-code");
@@ -698,7 +698,7 @@ internal static partial class AirGatewayChecks
             Channels = new Dictionary<string, PluginRosterChannel> { ["models"] = new(PluginChannelKind.State, "models", []) }
         };
         var fake = new FakePluginHost(new LocalStateAdapter(store), store.Current, roster, models);
-        // The agents whose Model source is JetBrains AI (Central), as Model providers reports them.
+        // The agents whose Model source is JetBrains (Air Gateway), as Model providers reports them.
         static ModelProvidersReport Report(params string[] agents) => new([new(AirLaunch.Provider, true)], [.. agents.Select(agent => new ModelSourceChoice(agent, ProviderCatalog.JetBrainsAi))]);
         AirStatus Status(string state, string auth, params string[] agents)
         {
@@ -726,7 +726,7 @@ internal static partial class AirGatewayChecks
             E2eWorkspace.Until(() => workbench.PluginRegistry.Active.Contains("air-gateway") && fake.Subscriptions >= 2);
             Require(fake.Calls.All(call => call.Method is "status" or "models"), "Enabling the plugin only reads its status and the Model sources.");
             var idle = fake.Subscriptions;
-            Require(workbench.PluginRegistry.SettingsSections.All(row => row.PluginId != "air-gateway"), "Air Gateway registers no settings section: Central is set up in the JetBrains AI (Central) pane of Model providers.");
+            Require(workbench.PluginRegistry.SettingsSections.All(row => row.PluginId != "air-gateway"), "Air Gateway registers no settings section: Central is set up in the JetBrains (Air Gateway) pane of Model providers.");
             window.ShowSettings("plugin:providers:providers");
             E2eWorkspace.Until(() => window.OpenSettingsViews.Any());
             var settings = window.OpenSettingsViews.Single();
@@ -841,7 +841,7 @@ internal static partial class AirGatewayChecks
             E2eWorkspace.Until(() => registry.Entry("air-gateway") is not null);
             string Command(string id) => registry.LauncherList.Single(launcher => launcher.Id == id).TerminalCommand(new() { InitialPrompt = "go" });
             void Settings(string plugin, object value) => app.State!.ChangeAsync([HostStateChange.PluginSettings(plugin, JsonSerializer.Serialize(value))]).AsTask().GetAwaiter().GetResult();
-            // An agent runs through Central only when its own Model source is JetBrains AI (Central).
+            // An agent runs through Central only when its own Model source is JetBrains (Air Gateway).
             void Choose(params string[] agents)
             {
                 foreach (var agent in new[] { "claude-code", "codex" })

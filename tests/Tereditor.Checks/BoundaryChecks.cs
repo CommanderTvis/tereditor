@@ -126,7 +126,7 @@ internal static class BoundaryChecks
         rules["Tereditor.Plugins.OpenAi"] = [.. rules["Tereditor.Plugins.OpenAi"], "Tereditor.Plugins.Providers"];
         rules["Tereditor.Plugins.OpenAi.UI"] = [.. rules["Tereditor.Plugins.OpenAi.UI"], "Tereditor.Plugins.Providers"];
         // The cloud platform plugins depend on Model providers in all three halves: they contribute a provider and fill its page.
-        // Air Gateway does the same for JetBrains AI (Central): it contributes a provider and fills its place in the list.
+        // Air Gateway does the same for JetBrains (Air Gateway): it contributes a provider and fills its place in the list.
         foreach (var platform in new[] { "Bedrock", "Vertex", "AirGateway" })
             foreach (var part in new[] { "", ".Host", ".UI" })
                 rules["Tereditor.Plugins." + platform + part] = [.. rules["Tereditor.Plugins." + platform + part], "Tereditor.Plugins.Providers"];

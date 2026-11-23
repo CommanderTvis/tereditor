@@ -15,7 +15,7 @@ Plugins without restarting the app, where they are grouped by the categories bel
 | Processes | On | Shows language servers, agents and the agents they spawned as a tree with CPU and memory, and stops the processes agents report as theirs when their terminal closes or tereditor quits. |
 | Code Intelligence | On | The language features: Settings > Code Intelligence, the Language tool window, and hover, go to definition, usages and diagnostics in the editor. The language server plugins and Air Context require it, so switching it off turns them off too, and switching it on again brings back the ones that were on. Agents and headless tereditor keep their language tools. |
 | Air Context | Off | Semantic code search through [JetBrains Air Context](https://www.jetbrains.com/air/context/). Indexing is cloud processing that you enable per project. |
-| Air Gateway | Off | Adds JetBrains AI (Central) to Model providers. A Claude Code, Codex or Pi that chooses it as its Model source starts through [JetBrains Air Gateway](https://www.jetbrains.com/air/gateway/) with the Central CLI. |
+| Air Gateway | Off | Adds JetBrains (Air Gateway) to Model providers. A Claude Code, Codex or Pi that chooses it as its Model source starts through [JetBrains Air Gateway](https://www.jetbrains.com/air/gateway/) with the Central CLI. |
 
 ### Environment
 

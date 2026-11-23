@@ -208,8 +208,8 @@ internal static class ProvidersUiChecks
 
             // A provider its contributor wires to agents itself is offered to exactly those agents, and no other.
             service.Contribute(new("air-gateway", [AirLaunch.Provider]));
-            foreach (var wired in new[] { "claude-code", "codex", "pi" }) Require(Names(Choice(wired)).Contains("JetBrains AI (Central)"), wired + " is offered JetBrains AI (Central)");
-            Require(!Names(Choice("omp")).Contains("JetBrains AI (Central)"), "omp is not offered JetBrains AI (Central)");
+            foreach (var wired in new[] { "claude-code", "codex", "pi" }) Require(Names(Choice(wired)).Contains("JetBrains (Air Gateway)"), wired + " is offered JetBrains (Air Gateway)");
+            Require(!Names(Choice("omp")).Contains("JetBrains (Air Gateway)"), "omp is not offered JetBrains (Air Gateway)");
             service.Withdraw(new("air-gateway"));
 
             // Off again: the slot goes back to the hint alone, and the record of what was chosen stays in the plugin's own state.

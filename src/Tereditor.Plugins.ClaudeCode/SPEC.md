@@ -864,7 +864,7 @@ reports that the configured command is not found on `PATH` (`installed`, Plugin 
 "claude was not found on PATH. Install Claude Code, then try again." A command line the probe cannot read leaves it available. The host
 repairs `PATH` from the login shell at startup, so the probe sees what a terminal gets.
 
-A host-side contribution may also carry the account the launch runs under (`Account`, Plugin API H18; Air Gateway, with Claude Code's Model source set to JetBrains AI (Central)). The Account method then returns it instead of Claude's account and usage and does not run `claude auth status`, `--version` or `/usage`; the tab shows the source's identity, credits and refill time, or its actionable problem. Ungoverned launches are unchanged. The terminal fact chips show token totals and the plan, not vendor quota, so they are unchanged.
+A host-side contribution may also carry the account the launch runs under (`Account`, Plugin API H18; Air Gateway, with Claude Code's Model source set to JetBrains (Air Gateway)). The Account method then returns it instead of Claude's account and usage and does not run `claude auth status`, `--version` or `/usage`; the tab shows the source's identity, credits and refill time, or its actionable problem. Ungoverned launches are unchanged. The terminal fact chips show token totals and the plan, not vendor quota, so they are unchanged.
 
 The appendix is strict: it says an agent MUST use `lsp_navigate` for symbol questions before grep or whole-file reads, MUST run
 `lsp_diagnostics` with `paths` on every edited file before declaring done (a build is no substitute), and CAN and MUST start any

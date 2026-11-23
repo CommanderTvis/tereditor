@@ -165,7 +165,7 @@ tereditor stores no secret for them. Other agents are not offered these platform
 [JetBrains Air Gateway](https://www.jetbrains.com/air/gateway/) can serve Claude Code, Codex and Pi instead of
 their own accounts.
 
-- Turn on the Air Gateway plugin, then choose JetBrains AI (Central) as the Model source on the page of each agent
+- Turn on the Air Gateway plugin, then choose JetBrains (Air Gateway) as the Model source on the page of each agent
   that should use it. Other agents are not offered it. It applies to terminals and chats you start afterwards.
-- The JetBrains AI (Central) provider in Settings › Plugins › Model providers shows Central's sign-in, credits and access sources.
+- The JetBrains (Air Gateway) provider in Settings › Plugins › Model providers shows Central's sign-in, credits and access sources.
 - tereditor starts each agent through your own `central` CLI and edits none of the agents' configuration.

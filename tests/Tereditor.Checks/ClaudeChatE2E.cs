@@ -237,7 +237,7 @@ internal static class ClaudeChatE2E
         Begin(WorkspaceFixture.Dialog(app, "NewWorkspaceDialog"), "from the project menu", enter: false);
         Started("from the project menu", 3);
 
-        // Launch contributions: with Claude Code's Model source set to JetBrains AI (Central), the child is run by the wrapper with the chat's own arguments after it.
+        // Launch contributions: with Claude Code's Model source set to JetBrains (Air Gateway), the child is run by the wrapper with the chat's own arguments after it.
         app.State!.ChangeAsync([HostStateChange.PluginSettings("air-gateway", JsonSerializer.Serialize(new { enabled = true }))]).AsTask().GetAwaiter().GetResult();
         E2eWorkspace.Until(() =>
         {

@@ -181,7 +181,7 @@ with `TEREDITOR_TOOLS_ENABLE=spec,blueprint`, which sets it for those two in mem
 | `lsp-go`, `lsp-rust`, `lsp-scala`, `lsp-ruby`, `lsp-r`, `lsp-powershell`, `lsp-swift`, `lsp-dart` (8) | no | Their servers need a toolchain with no pinned download (Go, Rust, Coursier, Ruby, R, PowerShell, Swift, Dart); each flips to yes when that runtime is pinned with a checksum. |
 | `lsp-intellij` | yes, opt-in | Not in the default roster: it exists only when `TEREDITOR_PREFETCH` or `TEREDITOR_ACCEPT_TERMS` names it. Self-contained archive with its own JRE (checked on both Linux architectures). It needs a JetBrains licence and the user's agreement to the JetBrains User Agreement, given with `accept_terms`, an MCP prompt or `TEREDITOR_ACCEPT_TERMS`. See [headless.md](../headless.md#the-intellij-server-opt-in). |
 | `claude-code`, `codex`, `omp`, `pi`, `acp` | no | They launch an agent in a terminal or chat pane. Headless is the tool server an agent calls. |
-| `air-gateway` | no | It starts Claude Code, Codex and Pi through Air Gateway per launch, when their Model source is JetBrains AI (Central). |
+| `air-gateway` | no | It starts Claude Code, Codex and Pi through Air Gateway per launch, when their Model source is JetBrains (Air Gateway). |
 | `air-context` | no | Sign-in and consent are user-only and the indexing is cloud processing. |
 | `openai` | no | It adds the OpenAI key and Codex sign-in to Model providers, which is a settings page on the host. |
 | `providers` | no | It keeps API keys and custom providers on the host and offers them to agents. |

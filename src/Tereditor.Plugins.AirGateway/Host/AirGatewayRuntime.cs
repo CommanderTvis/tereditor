@@ -9,7 +9,7 @@ namespace Tereditor.Plugins.AirGateway.Host;
 /// The plugin's behaviour apart from the host context: detecting Central and the actions the user triggers on it
 /// (sign in and out, start the proxy, update, list and switch the AI access source). The plugin never edits an
 /// agent's configuration: governed launches are `central run` in the command line, built by the agent's own plugin.
-/// Central runs only from a status check (the read-only `central status` and, while an agent's Model source is JetBrains AI (Central) and Central is signed in, `central limit --json`, which the pane repeats automatically) or a method the user triggered, and no Central output is stored; the identity and credits reach only the governed agents' Account tabs, on request.
+/// Central runs only from a status check (the read-only `central status` and, while an agent's Model source is JetBrains (Air Gateway) and Central is signed in, `central limit --json`, which the pane repeats automatically) or a method the user triggered, and no Central output is stored; the identity and credits reach only the governed agents' Account tabs, on request.
 /// </summary>
 internal sealed class AirGatewayRuntime : IDisposable
 {

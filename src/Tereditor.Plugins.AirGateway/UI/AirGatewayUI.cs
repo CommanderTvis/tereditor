@@ -9,7 +9,7 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.AirGateway.UI;
 
 /// <summary>
-/// The agents whose Model source is JetBrains AI (Central), as Model providers last reported them. It is a snapshot read in memory, so building a
+/// The agents whose Model source is JetBrains (Air Gateway), as Model providers last reported them. It is a snapshot read in memory, so building a
 /// launch line never waits on the host; it raises <see cref="Changed"/> on the UI thread when the set changes.
 /// </summary>
 internal sealed class AirChosen
@@ -29,7 +29,7 @@ internal sealed class AirChosen
     }
 }
 
-/// <summary>The UI half: JetBrains AI (Central) in the Model providers list with its sign-in pane, the `central run` contribution to the launches of the agents that choose it, and the remaining credits in the header while Central governs an agent.</summary>
+/// <summary>The UI half: JetBrains (Air Gateway) in the Model providers list with its sign-in pane, the `central run` contribution to the launches of the agents that choose it, and the remaining credits in the header while Central governs an agent.</summary>
 public sealed class AirGatewayUI : PluginUIModule
 {
     public override PluginDisposer? Activate(IPluginUIContext context)
@@ -54,7 +54,7 @@ public sealed class AirGatewayUI : PluginUIModule
     }
 }
 
-/// <summary>JetBrains AI (Central) in Settings › Plugins › Model providers: the agents it works with and the Central pane (status, sign-in, access source). It claims the list place of the provider.</summary>
+/// <summary>JetBrains (Air Gateway) in Settings › Plugins › Model providers: the agents it works with and the Central pane (status, sign-in, access source). It claims the list place of the provider.</summary>
 internal sealed class JetBrainsAiRow : StackPanel
 {
     public JetBrainsAiRow(IPluginUIContext context)

@@ -19,7 +19,7 @@ public static class ProviderCatalog
 
     public const string OmpAgent = "omp";
 
-    /// <summary>The id of JetBrains AI through Central, which the Air Gateway plugin contributes.</summary>
+    /// <summary>The id of JetBrains (Air Gateway), which the Air Gateway plugin contributes.</summary>
     public const string JetBrainsAi = "jetbrains-ai";
 
     /// <summary>The omp profile tereditor owns; omp's launch line asks for it with <c>--profile</c>.</summary>

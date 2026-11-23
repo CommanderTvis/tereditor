@@ -12,7 +12,7 @@
   </UserControl.Styles>
   <StackPanel Spacing="12">
     <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}"
-               Text="Choose JetBrains AI (Central) as the Model source of an agent to run it through the Central CLI. This only changes the command of terminals and chats you start afterwards. tereditor checks the sign-in when this pane opens and when the window regains focus." />
+               Text="Choose JetBrains (Air Gateway) as the Model source of an agent to run it through the Central CLI. This only changes the command of terminals and chats you start afterwards. tereditor checks the sign-in when this pane opens and when the window regains focus." />
     <TextBlock x:Name="AirCentralLine" TextWrapping="Wrap" Text="Checking Central…" />
     <TextBlock x:Name="AirCredits" TextWrapping="Wrap" IsVisible="False" Foreground="{x:Static kit:Ui.TextBrush}" />
     <StackPanel x:Name="AirInstall" Spacing="4" IsVisible="False">

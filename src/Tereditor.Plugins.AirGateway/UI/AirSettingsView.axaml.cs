@@ -10,7 +10,7 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.AirGateway.UI;
 
 /// <summary>
-/// The Central pane of JetBrains AI (Central) in Settings › Plugins › Model providers. Which agents Central governs is each agent's Model source, not a setting here. Only the local, read-only
+/// The Central pane of JetBrains (Air Gateway) in Settings › Plugins › Model providers. Which agents Central governs is each agent's Model source, not a setting here. Only the local, read-only
 /// sign-in status check runs automatically (on open, on window activation at most every <see cref="Throttle"/>,
 /// after sign-in and sign-out, and every <see cref="PollInterval"/> for at most <see cref="PollLimit"/> while a
 /// sign-in is awaited, only while the pane is attached and visible); every other action is a button. The AI access
@@ -94,7 +94,7 @@ internal sealed partial class AirSettingsView : UserControl
         };
     }
 
-    /// <summary>Whether an agent's Model source is JetBrains AI (Central), as the host last said.</summary>
+    /// <summary>Whether an agent's Model source is JetBrains (Air Gateway), as the host last said.</summary>
     private bool Governed => status?.Agents.Any(agent => agent.Chosen) == true;
 
     private void Activated(object? sender, EventArgs e) => OnActivated();

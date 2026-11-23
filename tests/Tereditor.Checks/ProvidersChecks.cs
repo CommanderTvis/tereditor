@@ -396,8 +396,8 @@ internal static class ProvidersChecks
         Require(!File.Exists(ompFile) && restarted.Launch("omp") is null, "Removing the provider an agent used removes its file and its contribution.");
         Require(!PluginJson.Serialize(restarted.Report()).Contains("sentinel", StringComparison.Ordinal), "A report carries no key.");
 
-        // A provider its contributor wires to agents itself (JetBrains AI through Central): no file, no launch word of ours, offered to those agents only.
-        var wired = new ProviderDefinition("jetbrains-ai", "JetBrains AI (Central)", ProviderGroup.JetBrainsAi, []) { NeedsKey = false, WiredAgents = ["claude-code", "codex", "pi"] };
+        // A provider its contributor wires to agents itself (JetBrains (Air Gateway)): no file, no launch word of ours, offered to those agents only.
+        var wired = new ProviderDefinition("jetbrains-ai", "JetBrains (Air Gateway)", ProviderGroup.JetBrainsAi, []) { NeedsKey = false, WiredAgents = ["claude-code", "codex", "pi"] };
         restarted.Contribute(new("air-gateway", [wired]));
         restarted.SetSource(new("pi", "jetbrains-ai"));
         restarted.SetSource(new("claude-code", "jetbrains-ai"));
