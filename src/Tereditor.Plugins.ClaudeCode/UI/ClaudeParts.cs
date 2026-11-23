@@ -62,7 +62,10 @@ internal static class ClaudeParts
 
     public static Window? Owner(Control control) => TopLevel.GetTopLevel(control) as Window;
 
-    public static Border ScopeChip(string scope) => ScopedSetting.ScopeChip(scope, "ClaudeScopeChip");
+    public static Border ScopeChip(string scope, string? meaning = null) => ScopedSetting.ScopeChip(scope, "ClaudeScopeChip", meaning);
+
+    /// <summary>What a scope means in plain words when its name alone does not say; null for the rest.</summary>
+    public static string? ScopeMeaning(string scope) => scope == "local" ? "this project only" : null;
 
     public static Button SourceButton(string path, IReadOnlyList<string>? keyPath, Action<string, IReadOnlyList<string>?> open) =>
         ScopedSetting.SourcePath(path, opened => open(opened, keyPath), "ClaudeOpenSource");

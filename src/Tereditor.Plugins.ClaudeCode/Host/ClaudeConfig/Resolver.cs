@@ -143,14 +143,13 @@ internal static partial class ClaudeResolver
         var state = Json.ReadObject(statePath);
         if (state?["mcpServers"] is JsonObject userServers)
             foreach (var (name, _) in userServers)
-                capabilities.Add(WithState(new(ClaudeCapabilityKind.Mcp, name, new(ClaudeConfigScope.User, statePath) { KeyPath = ["mcpServers", name] }, true) { Detail = "user scope" },
+                capabilities.Add(WithState(new(ClaudeCapabilityKind.Mcp, name, new(ClaudeConfigScope.User, statePath) { KeyPath = ["mcpServers", name] }, true),
                     McpDenial(documents, name, false)));
 
         // The same file's per-project block is where Claude Code's "local" servers live.
         if (state?["projects"] is JsonObject projects && projects[root] is JsonObject project && project["mcpServers"] is JsonObject localServers)
             foreach (var (name, _) in localServers)
-                capabilities.Add(WithState(new(ClaudeCapabilityKind.Mcp, name, new(ClaudeConfigScope.Local, statePath) { KeyPath = ["projects", root, "mcpServers", name] }, true)
-                { Detail = "this project only" }, McpDenial(documents, name, false)));
+                capabilities.Add(WithState(new(ClaudeCapabilityKind.Mcp, name, new(ClaudeConfigScope.Local, statePath) { KeyPath = ["projects", root, "mcpServers", name] }, true), McpDenial(documents, name, false)));
 
         foreach (var directories in new[] { ClaudePaths.SkillDirectories(root), ClaudePaths.AgentDirectories(root) })
             foreach (var directory in directories)

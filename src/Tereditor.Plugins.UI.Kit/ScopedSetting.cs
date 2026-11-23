@@ -56,9 +56,11 @@ public static partial class ScopedSetting
         _ => (Ui.Elevated, Ui.Hint)
     };
 
-    /// <summary>The upper-case pill naming a scope, coloured by how widely it applies.</summary>
-    public static Border ScopeChip(string scope, string name = "ScopeChip")
+    /// <summary>The upper-case pill naming a scope, coloured by how widely it applies; a <paramref name="meaning"/> joins it inside the same pill.</summary>
+    public static Border ScopeChip(string scope, string name = "ScopeChip", string? meaning = null)
     {
+        var text = Ui.Text(meaning is null ? scope.ToUpperInvariant() : scope.ToUpperInvariant() + " \u00B7 " + meaning, ScopeColours(scope).Foreground, 10);
+        text.TextWrapping = TextWrapping.Wrap;
         var (background, foreground) = ScopeColours(scope);
         return new Border
         {
@@ -68,7 +70,7 @@ public static partial class ScopedSetting
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(4, 0),
             VerticalAlignment = VerticalAlignment.Center,
-            Child = Ui.Text(scope.ToUpperInvariant(), foreground, 10)
+            Child = text
         };
     }
 

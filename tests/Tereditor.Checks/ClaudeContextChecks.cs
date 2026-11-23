@@ -737,6 +737,12 @@ internal static class ClaudeContextChecks
         var badges = new ClaudeCapabilitiesSurface(host, servers).View.GetLogicalDescendants().OfType<TextBlock>().Where(block => block.Name == "ClaudeMcpStatus").ToArray();
         Require(badges.Length == states.Length && badges.Zip(states).All(pair => pair.First.Text == pair.Second.Word && ReferenceEquals(pair.First.Foreground, pair.Second.Brush)),
             "A server row shows its status as a badge worded and coloured by state; an unknown status shows Claude's text, muted.");
+        var localServer = new ClaudeCapability(ClaudeCapabilityKind.Mcp, "scratch", new(ClaudeConfigScope.Local, "/home/.claude.json") { KeyPath = ["projects", "/p", "mcpServers", "scratch"] }, true);
+        var localRow = new ClaudeCapabilitiesSurface(host, [localServer]).View;
+        var localChips = localRow.GetLogicalDescendants().OfType<Border>().Where(border => border.Name == "ClaudeScopeChip").ToArray();
+        Require(localChips.Length == 1 && (localChips[0].Child as TextBlock)?.Text == "LOCAL \u00B7 this project only" &&
+            !localRow.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Text == "this project only"),
+            "A local server row has one scope chip carrying the scope and its meaning, and no separate meaning line.");
         Require(McpList.Capabilities(McpList.Parse("claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ✔ Connected\n"), new HashSet<string>(), "/p").Single() is { Status: ClaudeMcpStatus.Connected, Detail: "https://gmail.mcp.claude.com/mcp" },
             "The detail line keeps only the target; the status travels apart.");
         Console.WriteLine("PASS Claude Code capabilities: marketplaces and their plugins form one tree with the Instructions connectors, fold, and keep their menus");

@@ -341,7 +341,7 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
         }
         if (item.Origin.Path is null)
         {
-            var chip = ClaudeParts.ScopeChip(item.Origin.Scope.Name());
+            var chip = ClaudeParts.ScopeChip(item.Origin.Scope.Name(), ClaudeParts.ScopeMeaning(item.Origin.Scope.Name()));
             chip.Margin = new Thickness(4, 0);
             DockPanel.SetDock(chip, Dock.Right);
             head.Children.Add(chip);
@@ -361,9 +361,11 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
             row.Children.Add(ClaudeParts.SourceButton(disabledPath, item.DisabledBy.KeyPath, pane.Open));
         if (item.Origin.Path is { } path)
         {
-            var source = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            source.Children.Add(ClaudeParts.SourceButton(path, item.Origin.KeyPath, pane.Open));
-            source.Children.Add(ClaudeParts.ScopeChip(item.Origin.Scope.Name()));
+            var source = new WrapPanel { Orientation = Orientation.Horizontal };
+            var open = ClaudeParts.SourceButton(path, item.Origin.KeyPath, pane.Open);
+            open.Margin = new Thickness(0, 0, 4, 0);
+            source.Children.Add(open);
+            source.Children.Add(ClaudeParts.ScopeChip(item.Origin.Scope.Name(), ClaudeParts.ScopeMeaning(item.Origin.Scope.Name())));
             row.Children.Add(source);
         }
         // Under its marketplace a plugin's marketplace name is the parent row; elsewhere it stays on the row.
