@@ -36,6 +36,12 @@ public static partial class Ui
     /// <summary>The fill of every chip: the terminal background nudged towards the text colour, so a chip floats on it in any theme (contrast with the background 1.2 or more).</summary>
     public static readonly SolidColorBrush ChipFill = new();
 
+    /// <summary>The corner radius of every chip, header pill, avatar badge and tooltip bubble.</summary>
+    public static readonly CornerRadius ChipRadius = new(4);
+
+    /// <summary>The inner padding of a tooltip bubble, so its text clears the rounded edge.</summary>
+    public static readonly Thickness TooltipPadding = new(8, 4);
+
     /// <summary>A colour moved <paramref name="percent"/> of the way from <paramref name="from"/> towards <paramref name="toward"/>.</summary>
     public static Color Blend(Color from, Color toward, int percent)
     {

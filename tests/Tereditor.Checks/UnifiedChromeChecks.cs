@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -27,6 +29,31 @@ internal static class UnifiedChromeChecks
         Window(Path.Combine(root, "unified-chrome"));
         foreach (var atLeft in new[] { true, false }) FirstRow(Path.Combine(root, atLeft ? "unified-row-left" : "unified-row-right"), atLeft);
         Classic(Path.Combine(root, "classic-chrome"));
+        SharedChrome(Path.Combine(root, "shared-chrome"));
+    }
+
+    /// <summary>The header's pills and the tooltip share the chip radius and padding tokens, and each pill's inner presenter follows its button.</summary>
+    private static void SharedChrome(string directory)
+    {
+        UnifiedChrome.Override = true; UnifiedChrome.ControlsAtLeftOverride = false;
+        try
+        {
+            using var app = OpenFixtureProject(directory);
+            Settle();
+            foreach (var name in new[] { "ScopeProject", "ScopeBranch", "RemotePublish", "RemotePush", "RemoteSync", "ConnectionButton", "SettingsButton" })
+            {
+                var button = app.Find<Button>(name);
+                var presenter = button.GetVisualDescendants().OfType<ContentPresenter>().FirstOrDefault(part => part.Name == "PART_ContentPresenter");
+                Console.WriteLine($"{name}: visible {button.IsVisible} height {button.Bounds.Height} padding {button.Padding} radius {button.CornerRadius} presenter radius {presenter?.CornerRadius} presenter padding {presenter?.Padding}");
+            }
+            var initial = app.Find<Button>("ScopeProject").GetLogicalDescendants().OfType<Border>().Single(border => border.Classes.Contains("location-initial"));
+            Console.WriteLine($"ScopeProject initial: radius {initial.CornerRadius} size {initial.Bounds.Width}x{initial.Bounds.Height}");
+            var tip = Application.Current!.Styles.OfType<Style>().FirstOrDefault(style => style.Selector?.ToString() == "ToolTip");
+            Require(tip is not null && tip.Setters.OfType<Setter>().Any(setter => setter.Property?.Name == "Padding" && Equals(setter.Value, Tereditor.Plugins.UI.Kit.Ui.TooltipPadding)),
+                "Every tooltip takes the shared tooltip padding from one application style.");
+            Console.WriteLine("PASS shared chrome: tooltips and header pills take the chip radius and padding tokens");
+        }
+        finally { UnifiedChrome.Override = null; }
     }
 
     private static IEnumerable<MenuItem> Entries(IEnumerable<object?> items) => items.OfType<MenuItem>().SelectMany(item => new[] { item }.Concat(Entries(item.Items)));

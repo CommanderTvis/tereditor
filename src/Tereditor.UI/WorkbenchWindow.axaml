@@ -72,7 +72,7 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{x:Static rendering:Ui.Muted}" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="CornerRadius" Value="{x:Static rendering:Ui.ChipRadius}" />
     </Style>
     <Style Selector="Button.location-pill:pointerover, Button.location-pill.open">
       <Setter Property="Foreground" Value="{x:Static rendering:Ui.TextBrush}" />
@@ -113,7 +113,7 @@
     <Style Selector="Border.location-initial">
       <Setter Property="Width" Value="16" />
       <Setter Property="Height" Value="16" />
-      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="CornerRadius" Value="{x:Static rendering:Ui.ChipRadius}" />
       <Setter Property="Background" Value="{x:Static rendering:Ui.Selected}" />
       <Setter Property="Margin" Value="0,0,4,0" />
     </Style>
