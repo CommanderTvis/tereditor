@@ -13,17 +13,17 @@ public sealed record PiStatus(bool Installed, string Command)
     public string? Version { get; init; }
     public string? Detail { get; init; }
     /// <summary>The source in use: <see cref="PiSources.System"/> or <see cref="PiSources.Managed"/>.</summary>
-    public string Source { get; init; } = PiSources.System;
+    public string Source { get; set; } = PiSources.System;
     /// <summary>The version tereditor pins for the managed Pi.</summary>
-    public string PinnedVersion { get; init; } = "";
+    public string PinnedVersion { get; set; } = "";
     /// <summary>The version of the downloaded copy, the pinned one or one from an earlier pin that an update replaces; empty when none is downloaded.</summary>
-    public string ManagedVersion { get; init; } = "";
+    public string ManagedVersion { get; set; } = "";
     /// <summary>Whether the pinned copy is downloading now.</summary>
     public bool Installing { get; init; }
     /// <summary>What the download is doing now, in plain words; empty when it is not running.</summary>
-    public string Progress { get; init; } = "";
+    public string Progress { get; set; } = "";
     /// <summary>Why the last download failed; empty when it did not.</summary>
-    public string Error { get; init; } = "";
+    public string Error { get; set; } = "";
 }
 
 /// <summary>Where the Pi that a chat runs comes from.</summary>

@@ -104,7 +104,7 @@ public sealed record GitHubContributor(string Login, string AvatarUrl, string Ur
 public sealed record GitHubContributors(bool Unchanged, string Revision, string Branch, bool Computing, IReadOnlyList<long> Weeks, IReadOnlyList<GitHubContributor> Authors, string? Problem = null)
 {
     /// <summary>The repository's web address, for the Open in browser link.</summary>
-    public string RepoUrl { get; init; } = "";
+    public string RepoUrl { get; set; } = "";
 }
 
 public sealed record GitHubReviewComment(string Path, string Body);
