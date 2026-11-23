@@ -1,10 +1,18 @@
 using System.Text.Json;
 
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
 using Tereditor.Plugins.Chat;
 using Tereditor.Plugins.Pi;
 using Tereditor.Plugins.Pi.Host;
+using Tereditor.Plugins.Pi.UI;
+using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Checks;
 
@@ -15,6 +23,40 @@ internal static class PiChecks
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException("pi: " + message);
+    }
+
+    // The Settings tab's packages block at a 260 px pane: the install hint is whole and wraps, and the block keeps the
+    // Settings spacing (16 between groups, 4 inside one) that Claude Code's Settings tab uses.
+    internal static void PackagesLayout()
+    {
+        const string hintText = "Installs with pi install. Without Project settings, the package goes to USER settings. Restart the chat after a change.";
+        var config = new PiConfigPanel(null!, "workspace");
+        var snapshot = new PiConfigSnapshot("/work", "/agent", "trusted", "/agent/trust.json",
+            [new PiConfigItem(PiConfigKinds.Package, PiScopes.User, "npm:@user/pkg", "/agent/settings.json", true, "")],
+            [new PiConfigSetting("theme", PiScopes.User, "dark", true)], [], null, null, false);
+        var content = config.SettingsSurface(snapshot);
+        var window = new Window { Width = 260, Height = 800, Content = new ScrollViewer { Content = content } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        var hint = window.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Name == "PiPackageHint");
+        var block = window.GetVisualDescendants().OfType<StackPanel>().Single(stack => stack.Name == "PiPackagesBlock");
+        var list = (StackPanel)block.Parent!;
+        Require(hint.Text == hintText && hint.TextTrimming == TextTrimming.None && hint.TextWrapping == TextWrapping.Wrap,
+            "The install hint keeps its whole text: no ellipsis, and it wraps.");
+        Require(hint.Bounds.Width <= 260, "The install hint fits the 260 px pane.");
+        var wide = Ui.Text(hintText, Ui.Hint, 12);
+        wide.TextWrapping = TextWrapping.Wrap;
+        wide.TextTrimming = TextTrimming.None;
+        var probe = new Window { Width = 2000, Height = 200, Content = wide };
+        probe.Show();
+        Dispatcher.UIThread.RunJobs();
+        probe.UpdateLayout();
+        var oneLine = wide.Bounds.Height;
+        Require(hint.Bounds.Height > oneLine * 1.5, "At 260 px the install hint wraps to several lines.");
+        probe.Close();
+        Require(list.Spacing == 16 && block.Spacing == 4, "Settings groups are 16 apart and sections 4 apart, as in Claude Code's Settings tab.");
+        window.Close();
     }
 
     private static JsonElement Line(string json) => JsonDocument.Parse(json).RootElement.Clone();

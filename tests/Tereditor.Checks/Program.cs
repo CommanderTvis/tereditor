@@ -1544,6 +1544,9 @@ internal static class Program
         if (args.SequenceEqual(["--pi"]))
         {
             PiChecks.Run(Path.Combine(root, "pi")).GetAwaiter().GetResult();
+            AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().SetupWithoutStarting();
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
+            PiChecks.PackagesLayout();
             Console.WriteLine("PASS Pi checks");
             return;
         }

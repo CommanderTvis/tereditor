@@ -157,22 +157,34 @@ internal sealed class PiConfigPanel : DockPanel
         return list;
     }
 
-    private Control SettingsSurface(PiConfigSnapshot current)
+    // Settings groups are 16 apart with 4 inside a group, as in Claude Code's Settings tab.
+    internal Control SettingsSurface(PiConfigSnapshot current)
     {
-        var list = new StackPanel();
+        var list = new StackPanel { Spacing = 16 };
         var packages = Items(current, PiConfigKinds.Package).Select(PackageRow).ToList();
-        list.Children.Add(Section("PACKAGES", packages, "No packages are installed."));
-        var input = new TextBox { Name = "PiPackageSource", PlaceholderText = "npm:@scope/package or git:github.com/user/repo", Text = packageSource, Margin = new Thickness(0, 0, 0, 4) };
+        var block = new StackPanel { Name = "PiPackagesBlock", Spacing = 4 };
+        block.Children.Add(Section("PACKAGES", packages, "No packages are installed."));
+        var input = new TextBox { Name = "PiPackageSource", PlaceholderText = "npm:@scope/package or git:github.com/user/repo", Text = packageSource, MinWidth = 240 };
         input.TextChanged += (_, _) => packageSource = input.Text ?? "";
-        var local = new CheckBox { Name = "PiPackageLocal", Content = "Project settings", IsChecked = packageLocal, Margin = new Thickness(0, 0, 0, 4) };
+        var local = new CheckBox { Name = "PiPackageLocal", Content = "Project settings", IsChecked = packageLocal };
         local.IsCheckedChanged += (_, _) => packageLocal = local.IsChecked == true;
+        var entry = new WrapPanel { ItemSpacing = 12, LineSpacing = 8 };
+        entry.Children.Add(input);
+        entry.Children.Add(local);
         var install = ScopedSetting.RowAction("PiPackageInstall", "Install", () => ChangePackage(true, packageSource.Trim(), packageLocal));
-        var form = new StackPanel { Margin = new Thickness(8, 4) };
-        form.Children.Add(input);
-        form.Children.Add(local);
-        form.Children.Add(install);
-        form.Children.Add(Ui.Text("Installs with pi install. Without Project settings, the package goes to USER settings. Restart the chat after a change.", Ui.Hint, 12));
-        list.Children.Add(form);
+        install.HorizontalAlignment = HorizontalAlignment.Left;
+        var hint = Ui.Text("Installs with pi install. Without Project settings, the package goes to USER settings. Restart the chat after a change.", Ui.Hint, 12);
+        hint.Name = "PiPackageHint";
+        hint.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
+        hint.TextTrimming = Avalonia.Media.TextTrimming.None;
+        var actions = new StackPanel { Spacing = 4 };
+        actions.Children.Add(install);
+        actions.Children.Add(hint);
+        var form = new StackPanel { Margin = new Thickness(8, 4), Spacing = 12 };
+        form.Children.Add(entry);
+        form.Children.Add(actions);
+        block.Children.Add(form);
+        list.Children.Add(block);
         var keys = current.Settings.Select(setting =>
         {
             var line = new DockPanel { Name = "PiConfigSetting", Margin = new Thickness(8, 4) };
