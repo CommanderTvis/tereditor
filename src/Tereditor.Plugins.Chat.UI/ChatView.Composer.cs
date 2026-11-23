@@ -21,13 +21,18 @@ internal sealed partial class ChatView
     // The client-local copy of the draft: all there is for a host that does not share drafts, and what a rebuilt view starts from otherwise.
     private static readonly Dictionary<(string, string), string> Drafts = [];
     private static readonly Dictionary<(string, string), (long Revision, string Base)> DraftSyncs = [];
-    internal static readonly Dictionary<(string, string), List<string>> Histories = [];
+    internal static readonly Dictionary<(string, string), List<SentPrompt>> Histories = [];
     /// <summary>The shell commands a chat's bash mode has run, newest last: what Up recalls there.</summary>
     internal static readonly Dictionary<(string, string), List<string>> ShellHistories = [];
     // The big pastes a draft holds as tokens, kept beside the draft so a rebuilt view still sends their text.
     private static readonly Dictionary<(string, string), PastedTexts> Pastes = [];
     // The images of a draft: each is one [Image #N] token in the box, and goes out with the message exactly while its token is in the text.
     private static readonly Dictionary<(string, string), PastedImages> ImagePastes = [];
+    // The draft's own images while a recalled message is in the box; Esc or Down past the newest entry puts them back.
+    private static readonly Dictionary<(string, string), PastedImages?> DraftImageStash = [];
+    // Bytes of images kept for recall across all chats; the oldest go first (a check sets it).
+    internal static long RecalledImageBudget = 64L * 1024 * 1024;
+    private static long sentOrder;
 
     private TextBox input = null!;
     private Button send = null!;
@@ -53,17 +58,17 @@ internal sealed partial class ChatView
     internal TextBlock ShellMark => shellMark;
 
     /// <summary>Forgets the client-local drafts, as a new process would have none.</summary>
-    internal static int LocalChatStates => Drafts.Count + DraftSyncs.Count + Histories.Count + ShellHistories.Count + Navigators.Count + ShellNavigators.Count + Pastes.Count + ImagePastes.Count;
+    internal static int LocalChatStates => Drafts.Count + DraftSyncs.Count + Histories.Count + ShellHistories.Count + Navigators.Count + ShellNavigators.Count + Pastes.Count + ImagePastes.Count + DraftImageStash.Count;
 
     /// <summary>Drops what the client keeps for a chat whose tab is closed for good; a tab merely hidden or left behind by a workspace switch keeps its draft and history.</summary>
     internal static void ForgetChat(string workspaceId, string chatId)
     {
         var key = (workspaceId, chatId);
-        Drafts.Remove(key); DraftSyncs.Remove(key); Histories.Remove(key); ShellHistories.Remove(key); Navigators.Remove(key); ShellNavigators.Remove(key); Pastes.Remove(key); ImagePastes.Remove(key);
+        Drafts.Remove(key); DraftSyncs.Remove(key); Histories.Remove(key); ShellHistories.Remove(key); Navigators.Remove(key); ShellNavigators.Remove(key); Pastes.Remove(key); ImagePastes.Remove(key); DraftImageStash.Remove(key);
         ChatLaunches.Forget(workspaceId, chatId);
     }
 
-    internal static void ForgetLocalDrafts() { Drafts.Clear(); DraftSyncs.Clear(); Navigators.Clear(); ShellNavigators.Clear(); Pastes.Clear(); ImagePastes.Clear(); }
+    internal static void ForgetLocalDrafts() { Drafts.Clear(); DraftSyncs.Clear(); Navigators.Clear(); ShellNavigators.Clear(); Pastes.Clear(); ImagePastes.Clear(); DraftImageStash.Clear(); }
     internal string? DraftNote => pasteNote.IsVisible ? pasteNote.Text : null;
     internal TextBox Input => input;
     internal ListBox Menu => menuList;
@@ -274,7 +279,7 @@ internal sealed partial class ChatView
             shellPrevious = input.Text;
             Navigator.TextChanged(input.Text ?? "");
             // The box raises its change after the setter returns, so a change that left the text a remote draft put there is told by its text.
-            if (!applyingRemote && input.Text != appliedText) { appliedText = null; if (collapsedPaste?.Box != input.Text) pasteNote.IsVisible = false; lastTyped = Environment.TickCount64; ScheduleDraft(); }
+            if (!applyingRemote && input.Text != appliedText) { appliedText = null; if (collapsedPaste?.Box != input.Text && Navigator.State != InputHistoryState.Browsing) pasteNote.IsVisible = false; lastTyped = Environment.TickCount64; ScheduleDraft(); }
             Drafts[(workspaceId, chatId)] = (bashMode ? "!" : "") + (input.Text ?? "");
             if (ImageSignature() != shownImages) RebuildAttachmentChips();
             UpdateMenu(); UpdateSend(); UpdateMentions();
@@ -1033,17 +1038,19 @@ internal sealed partial class ChatView
         }
         // An image still being read from disk is waited for, so it goes out with the message.
         if (attachmentLoads.Count > 0) { await Task.WhenAll(attachmentLoads.ToArray()); attachmentLoads.Clear(); }
+        var pictures = LiveImages().ToList();
         var sent = Attachments.ToList();
         text = WithEditorContext(text, sent);
         await FlushDraft();
         if (await SendText(text, sent.Count > 0 ? sent : null, draft: true))
         {
             var history = Histories.TryGetValue((workspaceId, chatId), out var existing) ? existing : Histories[(workspaceId, chatId)] = [];
-            if (text.Length > 0) { history.Add(text); RememberPrompt(text); }
+            if (text.Length > 0) { history.Add(new SentPrompt(text, pictures, ++sentOrder)); TrimRecalledImages(); RememberPrompt(text); }
             Navigators.Remove((workspaceId, chatId));
             input.Text = "";
             Pastes.Remove((workspaceId, chatId));
             ImagePastes.Remove((workspaceId, chatId));
+            DraftImageStash.Remove((workspaceId, chatId));
             baseText = "";
             RememberSync();
             attachments.Clear();
@@ -1144,15 +1151,16 @@ internal sealed partial class ChatView
 
     private void ApplyHistory(KeyEventArgs e)
     {
-        var history = (bashMode ? ShellHistories.GetValueOrDefault((workspaceId, chatId)) : RecentPrompts()) ?? [];
+        var prompts = bashMode ? new List<SentPrompt>() : RecentPrompts();
+        var history = bashMode ? (ShellHistories.GetValueOrDefault((workspaceId, chatId)) ?? []) : prompts.ConvertAll(prompt => prompt.Text);
         var text = input.Text ?? "";
         var move = e.Key == Key.Up
             ? Navigator.Up(text, input.SelectionStart, input.SelectionEnd, input.CaretIndex, OnEdgeLine(true), history)
             : Navigator.Down(text, input.CaretIndex, OnEdgeLine(false), history);
-        ApplyHistoryMove(move, e);
+        ApplyHistoryMove(move, e, prompts);
     }
 
-    private void ApplyHistoryMove(InputHistoryMove move, KeyEventArgs e)
+    private void ApplyHistoryMove(InputHistoryMove move, KeyEventArgs e, IReadOnlyList<SentPrompt>? prompts = null)
     {
         if (move.Step == InputHistoryStep.None) return;
         e.Handled = true;
@@ -1161,13 +1169,64 @@ internal sealed partial class ChatView
             case InputHistoryStep.CaretToStart: input.SelectionStart = input.SelectionEnd = input.CaretIndex = 0; break;
             case InputHistoryStep.CaretToEnd: input.SelectionStart = input.SelectionEnd = input.CaretIndex = (input.Text ?? "").Length; break;
             default:
+                if (!bashMode) ShowRecalledPictures(move, prompts ?? []);
                 recalling = true;
                 try { input.Text = move.Text; }
                 finally { recalling = false; }
                 input.SelectionStart = move.SelectionStart;
                 input.SelectionEnd = move.SelectionEnd;
                 input.CaretIndex = move.SelectionEnd;
+                if (!bashMode)
+                {
+                    RebuildAttachmentChips();
+                    if (move.Index >= 0) NoteMissingImages();
+                }
                 break;
+        }
+    }
+
+    // A recalled message brings its own images back under their numbers; the draft's images wait beside them until Esc or Down past the newest entry.
+    private void ShowRecalledPictures(InputHistoryMove move, IReadOnlyList<SentPrompt> prompts)
+    {
+        var key = (workspaceId, chatId);
+        if (move.Index < 0)
+        {
+            if (!DraftImageStash.Remove(key, out var draft)) return;
+            if (draft is null) ImagePastes.Remove(key); else ImagePastes[key] = draft;
+            return;
+        }
+        DraftImageStash.TryAdd(key, ImagePastes.GetValueOrDefault(key));
+        ImagePastes[key] = PastedImages.Recalled(prompts[move.Index].Images);
+    }
+
+    // A recalled pointer whose image is gone is plain text, and the composer says so; a recall that has none clears that note.
+    private void NoteMissingImages()
+    {
+        const string note = "Some images are no longer kept. Their pointers are plain text.";
+        IReadOnlyList<int>? missing = PastedPictures?.Unkept(input.Text ?? "");
+        if (missing is { Count: > 0 })
+        {
+            pasteNote.Text = note;
+            pasteNote.IsVisible = true;
+        }
+        else if (pasteNote.Text == note) pasteNote.IsVisible = false;
+    }
+
+    // Recalled images stay under the budget across all chats: the oldest go first, and their pointers recall as plain text with a note.
+    private static void TrimRecalledImages()
+    {
+        static long Bytes(SentPrompt prompt) => prompt.Images.Sum(image => (long)(image.Item.Data?.Length ?? 0));
+        var kept = Histories.Values.SelectMany(history => history).Where(prompt => prompt.Images.Count > 0).ToList();
+        var total = kept.Sum(Bytes);
+        foreach (var prompt in kept.OrderBy(prompt => prompt.Order))
+        {
+            if (total <= RecalledImageBudget) break;
+            total -= Bytes(prompt);
+            foreach (var history in Histories.Values)
+            {
+                var index = history.FindIndex(entry => ReferenceEquals(entry, prompt));
+                if (index >= 0) history[index] = prompt with { Images = [] };
+            }
         }
     }
 
@@ -1251,10 +1310,10 @@ internal sealed partial class ChatView
     internal void SetEnterSends(bool value) => SaveComposer(Composer with { EnterSends = value });
 
     // Upstream's recent prompts: this chat's own sends, then those of earlier chats, newest last, remembered between sessions.
-    private List<string> RecentPrompts()
+    private List<SentPrompt> RecentPrompts()
     {
         var own = Histories.TryGetValue((workspaceId, chatId), out var history) ? history : [];
-        return [.. Composer.Recents.Where(prompt => !own.Contains(prompt)), .. own];
+        return [.. Composer.Recents.Where(prompt => !own.Any(entry => entry.Text == prompt)).Select(prompt => new SentPrompt(prompt, [], 0)), .. own];
     }
 
     private void RememberPrompt(string text)

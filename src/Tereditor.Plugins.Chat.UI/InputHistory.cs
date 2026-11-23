@@ -1,10 +1,16 @@
+using Tereditor.Plugins.Chat;
+
 namespace Tereditor.Plugins.Chat.UI;
+
+/// <summary>A message sent from this client: its text, and the images its [Image #N] tokens stand for. Images are dropped (Images empty) when the recall budget needs the room.</summary>
+internal sealed record SentPrompt(string Text, IReadOnlyList<(int Number, ChatAttachment Item)> Images, long Order);
 
 /// <summary>What the box should do with an Up, Down or Esc press.</summary>
 internal enum InputHistoryStep { None, CaretToStart, CaretToEnd, Show }
 
 /// <summary>The box's answer to a key: nothing (the key stays plain caret movement), a caret jump, or new text with its selection.</summary>
-internal readonly record struct InputHistoryMove(InputHistoryStep Step, string Text = "", int SelectionStart = 0, int SelectionEnd = 0);
+/// <summary>Index is the entry a Show recalled, or -1 for a stash restore and for caret moves.</summary>
+internal readonly record struct InputHistoryMove(InputHistoryStep Step, string Text = "", int SelectionStart = 0, int SelectionEnd = 0, int Index = -1);
 
 /// <summary>Where a composer is in its input history.</summary>
 internal enum InputHistoryState
@@ -51,7 +57,7 @@ internal sealed class InputHistory
             if (State == InputHistoryState.BrowsingEdited && caret > 0) return new(InputHistoryStep.CaretToStart);
             at = Math.Max(0, Math.Min(at, entries.Count - 1) - 1);
         }
-        return Show(entries[at]);
+        return Show(at, entries[at]);
     }
 
     public InputHistoryMove Down(string text, int caret, bool onLastLine, IReadOnlyList<string> entries)
@@ -59,7 +65,7 @@ internal sealed class InputHistory
         if (!onLastLine) return default;
         if (State == InputHistoryState.Idle) return caret < text.Length ? new(InputHistoryStep.CaretToEnd) : default;
         if (State == InputHistoryState.BrowsingEdited && caret < text.Length) return new(InputHistoryStep.CaretToEnd);
-        if (at + 1 < entries.Count) { at++; return Show(entries[at]); }
+        if (at + 1 < entries.Count) { at++; return Show(at, entries[at]); }
         return Restore();
     }
 
@@ -80,12 +86,12 @@ internal sealed class InputHistory
         before = null;
     }
 
-    private InputHistoryMove Show(string entry)
+    private InputHistoryMove Show(int index, string entry)
     {
         State = InputHistoryState.Browsing;
         shown = entry;
         before = null;
-        return new(InputHistoryStep.Show, entry, entry.Length, entry.Length);
+        return new(InputHistoryStep.Show, entry, entry.Length, entry.Length, index);
     }
 
     private InputHistoryMove Restore()

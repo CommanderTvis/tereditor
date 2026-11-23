@@ -52,4 +52,21 @@ internal sealed partial class PastedImages
     /// <summary>The images whose token is in <paramref name="text"/>, each once, in the order of their first token: what a send carries.</summary>
     internal IReadOnlyList<(int Number, ChatAttachment Item)> Live(string text) =>
         [.. Tokens(text).Select(token => token.Number).Distinct().Select(number => (number, items[number]))];
+
+    /// <summary>The images a recalled message keeps, each under its own number: its tokens in the box resolve to them while it is recalled.</summary>
+    internal static PastedImages Recalled(IEnumerable<(int Number, ChatAttachment Item)> kept)
+    {
+        var images = new PastedImages();
+        foreach (var (number, item) in kept) images.items[number] = item;
+        return images;
+    }
+
+    /// <summary>The numbers of the <c>[Image #N]</c> tokens in <paramref name="text"/> with no image here: they are plain text.</summary>
+    internal IReadOnlyList<int> Unkept(string text)
+    {
+        var missing = new List<int>();
+        foreach (Match match in Pattern().Matches(text))
+            if (int.TryParse(match.Groups["n"].ValueSpan, out var number) && !items.ContainsKey(number) && !missing.Contains(number)) missing.Add(number);
+        return missing;
+    }
 }

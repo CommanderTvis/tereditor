@@ -84,7 +84,7 @@ process keeps the tokens.
 A pasted, dropped or picked image goes into the composer as one token at the caret, `[Image #N]`, with a space on each side that needs
 one. The view keeps the image (bytes, media type, path) beside the draft, per chat and client-local, and the token is the only handle:
 an image is sent exactly when its token is in the text. N counts the draft's images from 1 and starts again after a send; a new number
-goes past every `[Image #N]` already in the box, so a token recalled from history (plain text, its image is gone) is never confused with
+goes past every `[Image #N]` already in the box, so a token recalled from history is never confused with
 a new one. Backspace and Delete next to a token remove it whole, and a caret moved into it goes on to its edge. Deleting the token, or
 the close mark of the image's preview chip (still drawn, with its thumbnail), drops the image; Undo that brings the token back brings the
 image back too, because the view keeps it until the send. A token typed by hand with no image behind it is plain text. A file image is
@@ -92,6 +92,12 @@ read off the UI thread and the send waits for it. A PDF is still a chip. In bash
 The text keeps the pointer: the agent gets `[Image #1]` in the prompt and the image as a content block (Claude Code `image` block,
 ACP `image` block, Pi `images` entry), and the attachment is named "Image #N", so the transcript bubble shows the pointer in the
 text and draws no second chip for it.
+
+Up or Down recall of a sent message brings back its text and its images: its `[Image #N]` tokens resolve to the images it was sent
+with, under the same numbers, and the send carries them again. The draft's own images wait beside it and come back on Esc or on Down past
+the newest entry, so a draft's image never answers a recalled token. Images live in memory only: they are not written to the project or to
+host state (the persisted recent prompts keep text alone), so after a restart a recalled token is plain text. Kept images stay under 64 MB
+across all chats, the oldest dropped first. A pointer whose image is gone recalls as plain text, and the composer's note says so.
 
 ## Shared draft
 

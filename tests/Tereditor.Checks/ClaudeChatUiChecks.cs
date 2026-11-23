@@ -292,6 +292,7 @@ internal static class ClaudeChatUiChecks
         StructuredContextChips();
         PasteImages();
         ImageTokens();
+        ImageHistoryRecall();
         PasteCollapse();
         PasteAgain();
         WrappedHistory();
@@ -1050,7 +1051,7 @@ internal static class ClaudeChatUiChecks
     {
         var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
         chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
-        ChatView.Histories[(Workspace, Chat)] = ["first", "second"];
+        ChatView.Histories[(Workspace, Chat)] = [new SentPrompt("first", [], 0), new SentPrompt("second", [], 0)];
         var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
         var window = new Window { Width = 600, Height = 500, Content = view, Background = Ui.Surface };
         window.Show();
@@ -1138,7 +1139,7 @@ internal static class ClaudeChatUiChecks
     {
         var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
         chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
-        ChatView.Histories[(Workspace, Chat)] = ["previous prompt"];
+        ChatView.Histories[(Workspace, Chat)] = [new SentPrompt("previous prompt", [], 0)];
         var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
         var window = new Window { Width = 260, Height = 500, Content = view, Background = Ui.Surface };
         window.Show();
@@ -1164,6 +1165,67 @@ internal static class ClaudeChatUiChecks
         }
         catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
         finally { window.Close(); ChatView.Histories.Remove((Workspace, Chat)); ChatView.ForgetLocalDrafts(); }
+    }
+
+    // A sent message comes back from history with its pointers and images, and the send carries them again. A draft's own image is kept
+    // beside a recalled message and comes back on Esc. Over the recall budget the oldest images go: their pointers recall as plain text with a note.
+    private static void ImageHistoryRecall()
+    {
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=");
+        void PressUp() => view.Input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Up });
+        void PressEsc() => view.Input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
+        var budget = ChatView.RecalledImageBudget;
+        try
+        {
+            Frame(window); Frame(window);
+            view.Input.Text = "see"; view.Input.CaretIndex = 3;
+            view.AddPasted(png, "image/png");
+            view.Input.CaretIndex = view.Input.Text!.Length;
+            view.AddPasted(png, "image/png");
+            view.Input.Text += "now";
+            Await(view.Submit());
+            Require(chat.SendParams.Last() is { Text: "see [Image #1] [Image #2] now", Attachments: [{ Name: "Image #1" }, { Name: "Image #2" }] }, "The first send carries two images.");
+
+            // Up on the empty box recalls the message: the pointers, both images and their chips come back.
+            PressUp(); Frame(window);
+            Require(view.Input.Text == "see [Image #1] [Image #2] now" && view.Attachments is [{ Name: "Image #1", Data.Length: > 0 }, { Name: "Image #2", Data.Length: > 0 }], $"Up recalls the sent text with its images ('{view.Input.Text}').");
+            Require(view.GetVisualDescendants().OfType<Button>().Count(button => button.Name?.StartsWith("ChatAttachment_", StringComparison.Ordinal) == true) == 2, "The recalled images draw their chips.");
+            Require(view.DraftNote is null, "A recall whose images are all kept shows no note.");
+
+            // The send carries the recalled pointers and images again.
+            Await(view.Submit());
+            Require(chat.SendParams.Last() is { Text: "see [Image #1] [Image #2] now", Attachments: [{ Name: "Image #1", Data.Length: > 0 }, { Name: "Image #2", Data.Length: > 0 }] }, "The send after a recall carries the same pointers and images.");
+
+            // A draft's own image is kept beside the recalled message and comes back on Esc.
+            ChatView.ForgetLocalDrafts();
+            view.Input.Text = "";
+            view.AddPasted(png, "image/png");
+            Require(view.Input.Text == "[Image #1] ", "A draft gets its own image.");
+            PressUp(); PressUp();
+            Require(view.Input.Text == "see [Image #1] [Image #2] now" && view.Attachments.Count == 2, $"Up recalls the message over the draft ('{view.Input.Text}').");
+            PressEsc();
+            Require(view.Input.Text == "[Image #1] " && view.Attachments is [{ Name: "Image #1", Data.Length: > 0 }], $"Esc puts the draft back with its own image ('{view.Input.Text}').");
+
+            // Over the budget the images are dropped: the pointer recalls as plain text, the composer says so, and nothing is sent for it.
+            ChatView.ForgetLocalDrafts();
+            ChatView.RecalledImageBudget = 0;
+            view.Input.Text = "";
+            view.AddPasted(png, "image/png");
+            view.Input.Text += "dropped";
+            Await(view.Submit());
+            PressUp(); Frame(window);
+            Require(view.Input.Text == "[Image #1] dropped" && view.Attachments.Count == 0, $"A dropped image recalls as plain text ('{view.Input.Text}').");
+            Require(view.DraftNote is { } note && note.Contains("no longer kept", StringComparison.Ordinal), $"A recalled pointer without its image has a note ('{view.DraftNote}').");
+            Await(view.Submit());
+            Require(chat.SendParams.Last() is { Text: "[Image #1] dropped", Attachments: null or [] }, "A send of a dropped pointer carries no image.");
+        }
+        catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
+        finally { window.Close(); ChatView.RecalledImageBudget = budget; ChatView.Histories.Remove((Workspace, Chat)); ChatView.ForgetLocalDrafts(); }
     }
 
     // A long file name and a pasted image in a narrow composer: every chip stays inside the composer (trimmed or wrapped, never cut off at its edge)
@@ -2294,7 +2356,7 @@ internal static class ClaudeChatUiChecks
         var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
         window.Show(); Frame(window);
         view.Input.Text = "half-written message"; Frame(window);
-        ChatView.Histories[(Workspace, Chat)] = ["an earlier prompt"];
+        ChatView.Histories[(Workspace, Chat)] = [new SentPrompt("an earlier prompt", [], 0)];
         Require(ChatView.LocalChatStates > 0, "Typing keeps a client-local draft.");
         window.Content = null; window.Close(); Dispatcher.UIThread.RunJobs();
         Require(ChatView.LocalChatStates > 0 && ChatView.Histories.ContainsKey((Workspace, Chat)), "A hidden chat keeps its draft and history.");
