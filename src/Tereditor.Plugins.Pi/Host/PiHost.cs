@@ -45,14 +45,14 @@ public sealed class PiHost : PluginHostModule
 
     private static string HomeDirectory() => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
-    // The Settings › Pi pane's read: the files, the settings, and the open chat's model and commands.
+    // The Settings › Pi pane's read: the files, the settings, and the open chat's commands.
     private static async ValueTask<PiConfigSnapshot> ConfigAsync(IPluginHostContext context, PiChatHost chats, string workspaceId, CancellationToken cancellationToken)
     {
         var cwd = (await context.WorkspaceAsync(workspaceId, cancellationToken))?.Path ?? workspaceId;
         var header = chats.HeaderOf(workspaceId);
         var agent = PiConfigReader.AgentDir(PiChatHost.ContributedEnvironment(context), Environment.GetEnvironmentVariable("PI_CODING_AGENT_DIR"), HomeDirectory());
         var commands = header?.Commands.Select(command => new PiConfigCommand(command.Name, command.Source ?? "", command.Description ?? "")).ToArray() ?? [];
-        return await Task.Run(() => PiConfigReader.Read(new PiConfigRoots(agent, HomeDirectory(), cwd), commands, header?.Model, header?.Effort, header is not null), cancellationToken);
+        return await Task.Run(() => PiConfigReader.Read(new PiConfigRoots(agent, HomeDirectory(), cwd), commands, header is not null), cancellationToken);
     }
 
     // `pi install` or `pi remove`, started the way a chat starts Pi: the chosen Pi, the managed copy on Bun, or a model source's wrapper.

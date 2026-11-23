@@ -68,7 +68,7 @@ Pi, the managed copy on Bun, or a Model source's wrapper), in the workspace dire
 - Settings: the keys of both settings.json files, read-only, and the packages of both, each with Remove. Install takes a source, and Project
   settings adds `-l`. After a change the pane says to restart the chat; it never sends `/reload`.
 - Capabilities: the commands the workspace's open Pi chat reports (`get_commands`), with where each comes from. Without an open chat it says so.
-- Account: the Pi version, and the model and thinking level of the open chat (`get_state`).
+- Account: the Pi version, the early-support badge and the project's trust state. The chat header shows the model and thinking level.
 - Scope chips read USER and PROJECT (`-l` maps to PROJECT). Right-click a row to open its file.
 - Not offered: turning single resources on or off, changing trust, and `/reload`.
 

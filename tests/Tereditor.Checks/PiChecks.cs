@@ -33,7 +33,7 @@ internal static class PiChecks
         var config = new PiConfigPanel(null!, "workspace");
         var snapshot = new PiConfigSnapshot("/work", "/agent", "trusted", "/agent/trust.json",
             [new PiConfigItem(PiConfigKinds.Package, PiScopes.User, "npm:@user/pkg", "/agent/settings.json", true, "")],
-            [new PiConfigSetting("theme", PiScopes.User, "dark", true)], [], null, null, false);
+            [new PiConfigSetting("theme", PiScopes.User, "dark", true)], [], false);
         var content = config.SettingsSurface(snapshot);
         var window = new Window { Width = 260, Height = 800, Content = new ScrollViewer { Content = content } };
         window.Show();
@@ -360,6 +360,19 @@ internal static class PiChecks
     }
 
     // The pane's reads against a fixture home and project: which files a session loads, the trust gate, the nearest trust decision and the scope labels.
+    // The Account tab shows the version, the early-support badge and the trust state. The chat header already shows the model.
+    internal static void Account()
+    {
+        var snapshot = new PiConfigSnapshot("/work", "/agent", "not decided", "/agent/trust.json", [], [], [], false);
+        var panel = PiConfigPanel.AccountSurface(snapshot, new PiStatus(true, "pi") { Version = "1.9.0" });
+        var texts = panel.GetVisualDescendants().OfType<TextBlock>().ToArray();
+        Require(!texts.Any(text => (text.Text ?? "").StartsWith("Model", StringComparison.Ordinal) || (text.Text ?? "").StartsWith("Thinking", StringComparison.Ordinal)),
+            "The Account tab has no model or thinking row; the chat header shows them.");
+        Require(texts.Single(text => text.Name == "PiVersion").Text == "Version 1.9.0", "The Account tab shows the Pi version.");
+        Require(texts.Any(text => text.Text == "Early support"), "The Account tab keeps the early-support badge.");
+        Require(texts.Single(text => text.Name == "PiAccountTrust").Text == "Trust: not decided (set with /trust in Pi)", "The Account tab shows the trust state and where to change it.");
+    }
+
     internal static void Config(string root)
     {
         var fixture = Path.Combine(root, "config");
@@ -390,14 +403,14 @@ internal static class PiChecks
         {
             File.WriteAllText(trustFile, System.Text.Json.JsonSerializer.Serialize(decisions));
             var commands = new[] { new PiConfigCommand("review", "prompt", "Review") };
-            return PiConfigReader.Read(roots, chat ? commands : [], chat ? "fake/m1" : null, chat ? "high" : null, chat);
+            return PiConfigReader.Read(roots, chat ? commands : [], chat);
         }
         // Only what sits under this fixture, so a machine's own parent directories never change the answer.
         IEnumerable<PiConfigItem> Under(PiConfigSnapshot snapshot, string kind) => snapshot.Items.Where(item => item.Kind == kind && item.Path.StartsWith(fixture, StringComparison.Ordinal));
         string Names(IEnumerable<PiConfigItem> items) => string.Join(",", items.Select(item => item.Name + "/" + item.Scope + "/" + item.Loaded));
 
         var trusted = Read(new() { [repo] = true }, chat: true);
-        Require(trusted.Trust == "trusted" && trusted.ChatOpen && trusted.Model == "fake/m1" && trusted.Thinking == "high" && trusted.Commands.Single().Name == "review",
+        Require(trusted.Trust == "trusted" && trusted.ChatOpen && trusted.Commands.Single().Name == "review",
             "A trusted project reads as trusted, and the open chat's model, thinking level and commands come with it.");
         Require(Names(Under(trusted, PiConfigKinds.Context)) == "AGENTS.md/user/True,AGENTS.override.md/project/True",
             "One context file per directory, the agent directory's first, and the project's override in its own directory.");

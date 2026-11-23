@@ -89,7 +89,7 @@ public sealed record PiConfigCommand(string Name, string Source, string Descript
 /// workspace, when there is one.
 /// </summary>
 public sealed record PiConfigSnapshot(string Cwd, string AgentDir, string Trust, string TrustFile, IReadOnlyList<PiConfigItem> Items,
-    IReadOnlyList<PiConfigSetting> Settings, IReadOnlyList<PiConfigCommand> Commands, string? Model, string? Thinking, bool ChatOpen);
+    IReadOnlyList<PiConfigSetting> Settings, IReadOnlyList<PiConfigCommand> Commands, bool ChatOpen);
 
 public sealed record PiPackageParams(string WorkspaceId, string Source, bool Local);
 

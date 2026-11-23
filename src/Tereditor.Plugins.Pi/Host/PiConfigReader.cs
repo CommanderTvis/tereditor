@@ -23,7 +23,7 @@ internal static class PiConfigReader
         : environment is { Length: > 0 } fromEnvironment ? fromEnvironment
         : Path.Combine(home, ".pi", "agent");
 
-    public static PiConfigSnapshot Read(PiConfigRoots roots, IReadOnlyList<PiConfigCommand> commands, string? model, string? thinking, bool chatOpen)
+    public static PiConfigSnapshot Read(PiConfigRoots roots, IReadOnlyList<PiConfigCommand> commands, bool chatOpen)
     {
         var cwd = Path.GetFullPath(roots.Cwd);
         var trustFile = Path.Combine(roots.AgentDir, "trust.json");
@@ -69,7 +69,7 @@ internal static class PiConfigReader
         AddSettings(items, settings, Path.Combine(roots.AgentDir, "settings.json"), PiScopes.User, true, trust);
         AddSettings(items, settings, Path.Combine(projectDir, "settings.json"), PiScopes.Project, trusted, trust);
 
-        return new PiConfigSnapshot(cwd, roots.AgentDir, trust, trustFile, items, settings, commands, model, thinking, chatOpen);
+        return new PiConfigSnapshot(cwd, roots.AgentDir, trust, trustFile, items, settings, commands, chatOpen);
     }
 
     /// <summary>The label a scope chip shows: USER for the agent directory and home, PROJECT for the working directory tree.</summary>

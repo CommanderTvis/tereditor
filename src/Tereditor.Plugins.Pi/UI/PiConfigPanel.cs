@@ -13,7 +13,7 @@ namespace Tereditor.Plugins.Pi.UI;
 
 /// <summary>
 /// The Pi pane of a workspace, shaped like Claude Code's configuration pane: Context (what a new session loads), Settings (settings
-/// keys and packages), Capabilities (the open chat's commands) and Account (version, model and trust). It reads through the host and
+/// keys and packages), Capabilities (the open chat's commands) and Account (version, early-support badge and trust). It reads through the host and
 /// changes only packages, through `pi install` and `pi remove`.
 /// </summary>
 internal sealed class PiConfigPanel : DockPanel
@@ -141,7 +141,7 @@ internal sealed class PiConfigPanel : DockPanel
                 Surface.Context => ContextSurface(snapshot),
                 Surface.Settings => SettingsSurface(snapshot),
                 Surface.Capabilities => CapabilitiesSurface(snapshot),
-                _ => AccountSurface(snapshot)
+                _ => AccountSurface(snapshot, status)
             };
     }
 
@@ -221,7 +221,8 @@ internal sealed class PiConfigPanel : DockPanel
         return Section("COMMANDS", rows, "This Pi reports no commands.");
     }
 
-    private Control AccountSurface(PiConfigSnapshot current)
+    // The chat header shows the model and thinking level, so this pane leaves them out.
+    internal static Control AccountSurface(PiConfigSnapshot current, PiStatus? status)
     {
         var list = new StackPanel { Margin = new Thickness(8, 4), Spacing = 4 };
         var badge = new Border { Background = Ui.WarningWash, CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 0), Child = Ui.Text("Early support", Ui.Warning, 11), HorizontalAlignment = HorizontalAlignment.Left };
@@ -230,10 +231,9 @@ internal sealed class PiConfigPanel : DockPanel
         var versionLine = Ui.Text(version, Ui.Hint, 12);
         versionLine.Name = "PiVersion";
         list.Children.Add(versionLine);
-        list.Children.Add(Ui.Text("Model: " + (current.Model ?? (current.ChatOpen ? "not reported" : "no Pi chat open here")), Ui.TextBrush, 13));
-        list.Children.Add(Ui.Text("Thinking: " + (current.Thinking ?? "Pi's default"), Ui.TextBrush, 13));
-        list.Children.Add(Ui.Text("Trust: " + current.Trust + " (set with /trust in Pi)", Ui.Hint, 12));
-        list.Children.Add(Ui.Text("Model and thinking level change in the chat header.", Ui.Hint, 12));
+        var trust = Ui.Text("Trust: " + current.Trust + " (set with /trust in Pi)", Ui.Hint, 12);
+        trust.Name = "PiAccountTrust";
+        list.Children.Add(trust);
         return list;
     }
 

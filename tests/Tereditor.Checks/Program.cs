@@ -1547,6 +1547,7 @@ internal static class Program
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().SetupWithoutStarting();
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
             PiChecks.PackagesLayout();
+            PiChecks.Account();
             Console.WriteLine("PASS Pi checks");
             return;
         }
