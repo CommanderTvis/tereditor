@@ -1146,3 +1146,27 @@ Tereditor.Plugins.Api.UI.IPluginUIContext.SlotView(string! slot, string? workspa
 static Tereditor.Plugins.Api.UI.UiSlots.ModelSource(string! agentId) -> string!
 const Tereditor.Plugins.Api.UI.UiSlots.ModelSourceHint = "Turn on Model providers in Settings › Plugins to choose another model source." -> string!
 static Tereditor.Plugins.Api.UI.UiSlots.ModelSourceView(Tereditor.Plugins.Api.UI.IPluginUIContext! context, string! agentId) -> Avalonia.Controls.Control!
+override Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Equals(object? obj) -> bool
+override Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.GetHashCode() -> int
+override Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.ToString() -> string!
+static Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.operator !=(Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry? left, Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry? right) -> bool
+static Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.operator ==(Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry? left, Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry? right) -> bool
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.<Clone>$() -> Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry!
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Deconstruct(out string! Id, out string! Label, out System.Func<Tereditor.Plugins.Api.UI.PluginDocumentProps!, System.Threading.Tasks.Task!>! Run) -> void
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Enabled.get -> System.Func<Tereditor.Plugins.Api.UI.PluginDocumentProps!, bool>?
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Enabled.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Equals(Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry? other) -> bool
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Icon.get -> string?
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Icon.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Id.get -> string!
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Id.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Label.get -> string!
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Label.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.PluginDocumentMenuEntry(string! Id, string! Label, System.Func<Tereditor.Plugins.Api.UI.PluginDocumentProps!, System.Threading.Tasks.Task!>! Run) -> void
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Run.get -> System.Func<Tereditor.Plugins.Api.UI.PluginDocumentProps!, System.Threading.Tasks.Task!>!
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Run.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Visible.get -> System.Func<Tereditor.Plugins.Api.UI.PluginDocumentProps!, bool>?
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Visible.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry
+Tereditor.Plugins.Api.UI.PluginDocumentRegistration.MenuEntries.get -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry!>!
+Tereditor.Plugins.Api.UI.PluginDocumentRegistration.MenuEntries.init -> void

@@ -266,6 +266,26 @@ public sealed class PluginRegistry
         return offered;
     }
 
+    /// <summary>The menu entries a document's plugin offers for it, in registration order; an entry whose predicate throws is left out (hidden) or disabled.</summary>
+    public IReadOnlyList<(string PluginId, PluginDocumentMenuEntry Entry, bool Enabled)> DocumentMenuEntriesFor(PluginDocumentProps props, string scheme)
+    {
+        var offered = new List<(string, PluginDocumentMenuEntry, bool)>();
+        if (Document(scheme) is not { } owner) return offered;
+        foreach (var entry in owner.Value.MenuEntries)
+        {
+            if (!Holds(entry.Visible, props)) continue;
+            offered.Add((owner.PluginId, entry, Holds(entry.Enabled, props)));
+        }
+        return offered;
+    }
+
+    private static bool Holds(Func<PluginDocumentProps, bool>? predicate, PluginDocumentProps props)
+    {
+        if (predicate is null) return true;
+        try { return predicate(props); }
+        catch (Exception error) { Console.Error.WriteLine("Plugin predicate failed: " + error.Message); return false; }
+    }
+
     /// <summary>Enabled plugins reachable from <paramref name="id"/> through <c>DependsOn</c>, transitively: a disable cascades to them.</summary>
     public static IReadOnlyList<string> ActiveDependents(string id, IReadOnlyList<PluginRosterEntry> roster)
     {

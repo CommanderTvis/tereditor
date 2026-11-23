@@ -863,6 +863,7 @@ public sealed partial class WorkbenchWindow
     // Plugins' items for a terminal tab's menu, read as the menu opens so their labels and availability are current.
     internal List<Control> TabMenuItems(DockTab tab, string? workspace = null)
     {
+        if (tab.Kind == PluginDocumentKind) return DocumentMenuItems(tab, workspace);
         if (tab.Kind != "terminal" || Plugins.TerminalTabActions.Count == 0) return [];
         var terminal = (TerminalTabRef)TabRef(tab, workspace);
         return [.. Plugins.TerminalTabActionsFor(terminal).Select(offer =>
@@ -876,6 +877,29 @@ public sealed partial class WorkbenchWindow
             if (offer.Action.Icon is { } icon) item.Icon = PluginIcons.Resolve(icon, Plugins.Entry(offer.PluginId), null, 14);
             return (Control)item;
         })];
+    }
+
+    // The entries a document's plugin adds to its tab menu: one group after the built-in entries, a separator first. Each runs off the UI thread.
+    private List<Control> DocumentMenuItems(DockTab tab, string? workspace)
+    {
+        var split = tab.Path.IndexOf(':');
+        if (split < 0) return [];
+        var props = new PluginDocumentProps(workspace ?? workspaceRoot, tab.Path[(split + 1)..], tab.Title);
+        var offers = Plugins.DocumentMenuEntriesFor(props, tab.Path[..split]);
+        if (offers.Count == 0) return [];
+        List<Control> items = [new Separator()];
+        foreach (var (pluginId, entry, enabled) in offers)
+        {
+            var item = Ui.Menu(entry.Label, () => _ = Task.Run(async () =>
+            {
+                try { await entry.Run(props); }
+                catch (Exception error) { UiErrorGuard.Shared.Plugin(pluginId, error); }
+            }), enabled);
+            item.Name = $"DocumentMenu_{pluginId}_{entry.Id}";
+            if (entry.Icon is { } icon) item.Icon = PluginIcons.Resolve(icon, Plugins.Entry(pluginId), null, 14);
+            items.Add(item);
+        }
+        return items;
     }
 
     /// <summary>Copies text to this window's clipboard (the platform's own on desktop, Android and Browser) and confirms with a notification.</summary>

@@ -321,6 +321,10 @@ persist in host state and broadcast to other windows, surviving terminal-catalog
 Enabled plugins add items after Rename, in the tab strips, rails and Projects (Plugin API W26): the items are rebuilt as
 the menu opens, and a plugin that names none for a terminal leaves nothing. A phone has no tab menu.
 
+A plugin document's tab menu (kind `plugin`) takes the entries its own registration lists (`PluginDocumentRegistration.MenuEntries`, Plugin API W27) as one group after
+Close and Rename and before the path entries: a separator, then the entries in registration order. They are rebuilt as the menu opens, so the visible and enabled
+predicates see current state; a document of another scheme shows none of them. Choosing one runs it off the UI thread with the document's workspace, id and title.
+
 Terminal membership is the host's catalog, not a window's ([Terminal/SPEC.md](../Terminal/SPEC.md#shared-terminals)).
 Explicit terminals have unique tab keys shared through the host catalog; the legacy key
 `terminal:initial` remains readable. `LayoutSession.ReconcileTerminals` makes a workspace view's terminal

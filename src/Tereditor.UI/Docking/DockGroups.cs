@@ -686,7 +686,7 @@ public sealed partial class DockSurface
             rename.Name = "DocumentRename";
             menu.Items.Add(rename);
         }
-        if (tab.Kind == "terminal") AddLazyItems(menu, () => TabMenuItems?.Invoke(tab) ?? []);
+        if (tab.Kind is "terminal" or "plugin") AddLazyItems(menu, () => TabMenuItems?.Invoke(tab) ?? []);
         if (!tab.IsTool && tab.Kind != "terminal" && tab.Path.Length > 0 && WorkspaceRoot?.Invoke() is { Length: > 0 } root
             && !(Uri.TryCreate(tab.Path, UriKind.Absolute, out var uri) && !uri.IsFile))
         {

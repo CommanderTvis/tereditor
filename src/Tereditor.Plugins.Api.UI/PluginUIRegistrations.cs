@@ -62,6 +62,33 @@ public sealed record PluginDocumentRegistration(string Scheme, Func<PluginDocume
     /// it in an embedded split, keyed by the workspace and the document's id (<see cref="CompanionHost.TabKey"/>).
     /// </summary>
     public bool HostsCompanions { get; init; }
+
+    /// <summary>
+    /// Entries the tab's context menu offers for this plugin's documents only, in one group after the built-in entries Close and
+    /// Rename and before the path entries, in this order. No submenus, no checkable items.
+    /// </summary>
+    public IReadOnlyList<PluginDocumentMenuEntry> MenuEntries { get; init; } = [];
+}
+
+/// <summary>
+/// An entry a plugin adds to the context menu of its documents' tabs (<see cref="PluginDocumentRegistration.MenuEntries"/>).
+/// Core reads <see cref="Visible"/> and <see cref="Enabled"/> each time the menu opens, from in-memory facts only.
+/// </summary>
+/// <param name="Id">The entry's id within the plugin.</param>
+/// <param name="Label">The entry's text.</param>
+/// <param name="Run">Runs the entry off the UI thread with the document it was chosen on; a failure is reported against the plugin.</param>
+public sealed record PluginDocumentMenuEntry(string Id, string Label, Func<PluginDocumentProps, Task> Run)
+{
+    /// <summary>A Remix Icon name or <c>asset:&lt;path&gt;</c>.</summary>
+    public string? Icon { get; init; }
+
+    /// <summary>Whether the entry is shown for a document; null means always.</summary>
+    [PluginCrossing(PluginCrossing.Live)]
+    public Func<PluginDocumentProps, bool>? Visible { get; init; }
+
+    /// <summary>Whether the entry can be chosen for a document; a disabled entry stays visible. Null means always.</summary>
+    [PluginCrossing(PluginCrossing.Live)]
+    public Func<PluginDocumentProps, bool>? Enabled { get; init; }
 }
 
 /// <summary>Registers a section in Settings (W4).</summary>
