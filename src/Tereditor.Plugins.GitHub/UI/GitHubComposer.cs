@@ -15,6 +15,9 @@ namespace Tereditor.Plugins.GitHub.UI;
 /// </summary>
 internal sealed class GitHubComposer : Border
 {
+    /// <summary>The space between the card's edge and everything in it, on every side.</summary>
+    internal const double Inset = 12;
+
     private readonly string key;
     private readonly Func<string, string, Task<GitHubPostResult>> post;
     private readonly Action<GitHubEvent?, string?> posted;
@@ -35,17 +38,15 @@ internal sealed class GitHubComposer : Border
         write = Ui.Button("Write", () => Show(false)); write.Name = "GitHubWriteTab";
         view = Ui.Button("Preview", () => Show(true)); view.Name = "GitHubPreviewTab";
         comment = Ui.Button("Comment", () => _ = SubmitAsync("comment")); comment.Name = "GitHubComment";
-        var tabs = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(8, 8, 8, 0) };
+        var tabs = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
         tabs.Children.Add(write); tabs.Children.Add(view);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         if (canChangeState) { state = Ui.Button("Close", () => _ = SubmitAsync(current == "open" ? "close" : "reopen")); state.Name = "GitHubState"; buttons.Children.Add(state); }
         buttons.Children.Add(comment);
-        var body = new StackPanel { Spacing = 8, Margin = new Thickness(8) };
-        body.Children.Add(box); body.Children.Add(preview); body.Children.Add(status); body.Children.Add(buttons);
-        var frame = new StackPanel();
-        frame.Children.Add(new Border { Background = Ui.Elevated, Child = tabs, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1) });
-        frame.Children.Add(body);
-        Child = frame;
+        var body = new StackPanel { Name = "GitHubComposerBody", Spacing = 8 };
+        body.Children.Add(tabs); body.Children.Add(box); body.Children.Add(preview); body.Children.Add(status); body.Children.Add(buttons);
+        Child = body;
+        Padding = new Thickness(Inset); Margin = new Thickness(0, 8, 0, 0);
         BorderBrush = Ui.BorderBrush; BorderThickness = new Thickness(1); CornerRadius = new CornerRadius(6); ClipToBounds = true;
         box.Text = GitHubDrafts.Get(key);
         box.TextChanged += (_, _) => { GitHubDrafts.Set(key, box.Text ?? ""); Update(); };

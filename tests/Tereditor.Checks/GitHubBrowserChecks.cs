@@ -102,6 +102,7 @@ internal static partial class GitHubBrowserChecks
         LinkHoverAndAvatars();
         AvatarCircles();
         PlaceholdersAreCentred();
+        ComposerPadding();
         GitHubActionsChecks.Run();
     }
 
@@ -159,6 +160,26 @@ internal static partial class GitHubBrowserChecks
         Require(ReferenceEquals(Ink(new("l", "ffffff")), Brushes.Black) && ReferenceEquals(Ink(new("l", "000000")), Brushes.White), "A light label has dark text and a dark label has light text");
         window.Close();
         Console.WriteLine("PASS GitHub row titles hover to accent and underline; assignee avatars and label chips render");
+    }
+
+    private static void ComposerPadding()
+    {
+        var composer = new GitHubComposer("padding-check", true, (_, _) => Task.FromResult(new GitHubPostResult(true, null)), (_, _) => { }, null);
+        var window = Show(new StackPanel { Children = { new TextBlock { Text = "above" }, composer } }, 600, 400);
+        double Left(Control c) => c.TranslatePoint(new Point(0, 0), composer)!.Value.X;
+        double Top(Control c) => c.TranslatePoint(new Point(0, 0), composer)!.Value.Y;
+        var write = Named(composer, "GitHubWriteTab")!;
+        var preview = Named(composer, "GitHubPreviewTab")!;
+        var box = Named(composer, "GitHubCommentBox")!;
+        var submit = Named(composer, "GitHubComment")!;
+        Require(Math.Abs(Left(write) - Left(box)) < 0.5, $"The Write button and the text box share a left inset: {Left(write)} and {Left(box)}");
+        Require(Left(write) >= GitHubComposer.Inset - 1 && Top(write) >= GitHubComposer.Inset - 1, $"The Write button is inset from the card's left and top edges: {Left(write)}, {Top(write)}");
+        Require(Math.Abs(composer.Bounds.Width - (Left(box) + box.Bounds.Width) - Left(box)) < 1 && Left(box) >= GitHubComposer.Inset, "The text box has the same inset on its right as on its left");
+        Require(composer.Bounds.Width - (Left(submit) + submit.Bounds.Width) >= GitHubComposer.Inset - 1.5 && composer.Bounds.Height - (Top(submit) + submit.Bounds.Height) >= GitHubComposer.Inset - 1.5, "The Comment button is inset from the right and bottom edges");
+        Require(Top(preview) == Top(write) && Left(preview) > Left(write), "Write and Preview sit on one row");
+        Require(composer.Bounds.Top > 0 && composer.Margin.Top > 0, "The card keeps a gap above it");
+        window.Close();
+        Console.WriteLine("PASS GitHub composer: tabs, text box and buttons share one inset inside the card");
     }
 
     private static void PlaceholdersAreCentred()
