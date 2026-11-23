@@ -36,13 +36,30 @@ internal static class LanguageStallChecks
     /// <summary>A failed Gradle import found in the server's own log is reported, never as a clean answer.</summary>
     private static void Import()
     {
-        var healthy = "2026-11-23 10:00:01,100 [   500]   INFO - #c.i.s.Startup - Server started\n2026-11-23 10:00:02,200 [  1500]   INFO - #c.i.o.e.g.Import - Gradle project imported";
-        Require(IntelliJImport.Failure(healthy) is null, "A healthy log was read as a failed import.");
-        var jdk = healthy + "\n2026-11-23 10:00:09,300 [  9500]   WARN - #c.i.o.e.g.GradleExecution - Cannot find a Java installation on your machine matching this tasks requirements: {languageVersion=21}. Toolchain download repositories have not been configured.\n2026-11-23 10:00:10,000 [ 10000]   INFO - later line";
+        // Lines as IntelliJ server 263.7084.0 wrote them while importing real Gradle 9.7.0 projects that fail in the usual ways.
+        static string Progress(string step) => $"2026-11-23 12:03:22,163 [   2502]   INFO - #c.i.l.s.i.ImportExecutionKt - [IMPORT PROGRESS]: {step}";
+        static string Err(string text) => $"2026-11-23 12:03:22,189 [   2528]   WARN - #c.i.l.s.i.ImportExecutionKt - [IMPORT ERR]: {text}";
+        static string Log(params string[] lines) => string.Join("\n", lines);
+        var healthy = Log("2026-11-23 11:55:58,116 [   1794]   INFO - #c.i.l.s.i.ImportExecutionKt - Trying to import using gradle", Progress("Run build started"), Progress("Resolve dependencies of :compileClasspath succeeded"), Progress("Run build succeeded"));
+        Require(IntelliJImport.Failure(healthy) is null, "A healthy import was read as a failed one.");
+        var jdk = Log(healthy, Progress("Run build started"), Progress("Resolve dependencies of :compileClasspath failed"), Progress("Run build failed"), Err(""), Err("FAILURE: Build failed with an exception."), Err(""), Err("* What went wrong:"),
+            Err("Could not resolve all dependencies for configuration ':compileClasspath'."), Err("> Could not resolve all dependencies for configuration ':compileClasspath'."),
+            Err("   > Failed to calculate the value of task ':compileJava' property 'javaCompiler'."),
+            Err("      > Cannot find a Java installation on your machine (Mac OS X 26.7.3 aarch64) matching: {languageVersion=99, vendor=any vendor, implementation=vendor-specific, nativeImageCapable=false}. Toolchain download repositories have not been configured."),
+            Err(""), Err("* Try:"), Err("> Run with --info or --debug option to get more log output."), Err("org.gradle.api.GradleException: later line"));
         var found = IntelliJImport.Failure(jdk);
-        Require(found is not null && found.Contains("Cannot find a Java installation", StringComparison.Ordinal) && found.Contains("projectJdk", StringComparison.Ordinal) && !found.Contains("later line", StringComparison.Ordinal), "The JDK toolchain failure was not found with its hint: " + found);
-        var verification = IntelliJImport.Failure("ERROR - Dependency verification failed for configuration ':app:compileClasspath'");
-        Require(verification is not null && verification.Contains("verification-metadata.xml", StringComparison.Ordinal), "The dependency verification failure has no hint.");
+        Require(found is not null && found.StartsWith("Cannot find a Java installation", StringComparison.Ordinal) && found.Contains("projectJdk", StringComparison.Ordinal) && !found.Contains("later line", StringComparison.Ordinal), "The JDK toolchain failure was not found with its hint: " + found);
+        Require(IntelliJImport.Failure(Log(jdk, Progress("Run build started"), Progress("Run build succeeded"))) is null, "A later successful import left the failure in place.");
+        Require(IntelliJImport.Failure(Log(Progress("Run build failed"), Err(""), Err("FAILURE: Build failed with an exception."))) is null, "A message block that is still being written was reported.");
+        var verification = IntelliJImport.Failure(Log(Progress("Run build failed"), Err(""), Err("FAILURE: Build failed with an exception."), Err("* What went wrong:"), Err("Dependency verification failed for configuration ':compileClasspath'"),
+            Err("3 artifacts failed verification:"), Err("  - gson-2.10.1.jar (com.google.code.gson:gson:2.10.1) from repository MavenRepo"), Err("* Try:")));
+        Require(verification is not null && verification.StartsWith("Dependency verification failed for configuration", StringComparison.Ordinal) && verification.Contains("verification-metadata.xml", StringComparison.Ordinal), "The dependency verification failure has no hint: " + verification);
+        var script = IntelliJImport.Failure(Log(Progress("Run build failed"), Err("e: file:///work/syntax/build.gradle.kts:3:32: Expecting an argument"), Err("e: file:///work/syntax/build.gradle.kts:3:33: Expecting '}'"), Err(""),
+            Err("FAILURE: Build failed with an exception."), Err("* Where:"), Err("Build file '/work/syntax/build.gradle.kts' line: 3"), Err("* What went wrong:"), Err("Script compilation errors:"), Err("* Try:")));
+        Require(script == "build.gradle.kts:3:32: Expecting an argument", "A build script error was not read: " + script);
+        var plugin = IntelliJImport.Failure(Log(Progress("Run build failed"), Err("FAILURE: Build failed with an exception."), Err("* Where:"), Err("Build file '/work/plugin/build.gradle.kts' line: 1"), Err("* What went wrong:"),
+            Err("Plugin [id: 'com.example.does-not-exist', version: '1.0'] was not found in any of the following sources:"), Err("- Gradle Core Plugins (plugin is not in 'org.gradle' namespace)"), Err("* Try:")));
+        Require(plugin == "Plugin [id: 'com.example.does-not-exist', version: '1.0'] was not found in any of the following sources:", "A missing plugin was not read: " + plugin);
 
         var directory = Path.Combine(Path.GetTempPath(), "import-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(directory, "log"));
