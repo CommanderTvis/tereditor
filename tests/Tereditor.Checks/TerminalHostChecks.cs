@@ -656,6 +656,7 @@ internal static partial class TerminalHostChecks
         }
         var initialized = await Call("initialize", new { protocolVersion = "2025-03-26" });
         Require(initialized?["result"]?["protocolVersion"]?.GetValue<string>() == "2025-03-26", "MCP initialize must echo a known protocol version.");
+        Require(initialized?["result"]?["capabilities"]?["resources"] is not null, "MCP initialize must advertise resources.");
         string[] tools = [];
         await Until(async () =>
         {
@@ -668,7 +669,9 @@ internal static partial class TerminalHostChecks
         Require(grep!["result"]!["content"]![0]!["text"]!.GetValue<string>().Contains("SPEC.md:7: Needle line", StringComparison.Ordinal), "spec_grep must find the line.");
         var invalid = await Call("tools/call", new { name = "spec_get", arguments = new { wrong = true } });
         Require(invalid!["result"]!["isError"]?.GetValue<bool>() == true, "A schema mismatch must be an isError result.");
-        var unknown = await Call("resources/list");
+        var listedResources = await Call("resources/list");
+        Require(listedResources?["result"]?["resources"] is JsonArray, "The terminal MCP route must list resources.");
+        var unknown = await Call("tereditor/unknown");
         Require(unknown!["error"]!["code"]!.GetValue<int>() == -32601, "An unknown method must be a JSON-RPC error.");
         using (var notification = await http.PostAsync(url, JsonContent.Create(new { jsonrpc = "2.0", method = "notifications/initialized" })))
             Require((int)notification.StatusCode == 202, "A notification must be acknowledged with 202.");

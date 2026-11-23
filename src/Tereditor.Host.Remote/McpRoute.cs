@@ -83,7 +83,7 @@ public sealed class LoopbackServer(PtyTerminalService? terminals, HostStateStore
         var tools = Plugins?.McpTools(owner.Terminal, owner.Workspace) ?? [];
         if (workspaceTools is not null) tools = [workspaceTools.Create(owner.Workspace, owner.Terminal), workspaceTools.Title(owner.Terminal), workspaceTools.Delete(owner.Workspace), workspaceTools.Emigrate(owner.Terminal), .. tools];
         if (state is not null) tools = [.. tools, .. LanguageMcpTools.Create(state, owner.Workspace)];
-        var (status, body) = await McpServer.HandleAsync(message, tools, context.RequestAborted);
+        var (status, body) = await McpServer.HandleAsync(message, tools, context.RequestAborted, resources: McpResources.Create(tools));
         return body is null ? Results.StatusCode(status) : Results.Text(body.ToJsonString(), "application/json", statusCode: status);
     }
 

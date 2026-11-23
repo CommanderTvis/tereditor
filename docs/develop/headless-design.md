@@ -143,6 +143,10 @@ What is missing is a small executable that composes Core without Kestrel.
   So the headless tool table already exists. Only the transport differs from what we need.
 - The protocol is `McpServer.HandleAsync(JsonNode message, IReadOnlyList<McpTool> tools)`: one request in, one result out,
   stateless, no SSE. That is also the natural stdio loop body and the natural place to log and filter.
+- Resources (MCP `resources/list`, `resources/read`, empty `resources/templates/list`; the `resources` capability is always advertised). Reads of
+  data, not actions, go here rather than in tools. `McpResources.Create(tools)` (`Tereditor.Host.Core`) builds them from the tool table: each reads the
+  output of a tool already on the table, so a resource is listed only while its tool is. Today: `tereditor://language/servers` (`lsp_status` servers)
+  and `tereditor://processes/memory-guard` (`processes_status`). The tools stay, because agents on older clients call them. Checked by the `mcp-resources` mode.
 
 ### MCP tools, registration and headless fit
 

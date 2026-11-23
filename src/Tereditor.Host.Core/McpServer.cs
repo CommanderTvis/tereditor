@@ -17,8 +17,11 @@ public static class McpServer
     /// <summary>A host or active plugin tool on the table; it validates its own arguments.</summary>
     public sealed record McpTool(string Name, string Title, string Description, JsonObject InputSchema, Func<JsonObject, CancellationToken, Task<(string Text, bool Error)>> Call);
 
+    /// <summary>A read-only resource, read by URI. Reading is idempotent and takes no action; a failed read throws.</summary>
+    public sealed record McpResource(string Uri, string Name, string Description, string MimeType, Func<CancellationToken, Task<string>> Read);
+
     /// <summary>Answers one request. <paramref name="instructions"/> replaces the initialize text for a host whose tool table differs from a terminal's.</summary>
-    public static async Task<(int Status, JsonNode? Body)> HandleAsync(JsonNode? message, IReadOnlyList<McpTool> tools, CancellationToken cancellationToken = default, string? instructions = null)
+    public static async Task<(int Status, JsonNode? Body)> HandleAsync(JsonNode? message, IReadOnlyList<McpTool> tools, CancellationToken cancellationToken = default, string? instructions = null, IReadOnlyList<McpResource>? resources = null)
     {
         if (message is not JsonObject frame) return Error(null, -32600, "Expected a single JSON-RPC request object.");
         var id = frame["id"]?.DeepClone();
@@ -32,7 +35,7 @@ public static class McpServer
                 return Result(id, new JsonObject
                 {
                     ["protocolVersion"] = requested is not null && KnownProtocols.Contains(requested) ? requested : LatestProtocol,
-                    ["capabilities"] = new JsonObject { ["tools"] = new JsonObject { ["listChanged"] = false } },
+                    ["capabilities"] = new JsonObject { ["tools"] = new JsonObject { ["listChanged"] = false }, ["resources"] = new JsonObject { ["listChanged"] = false } },
                     ["serverInfo"] = new JsonObject { ["name"] = "tereditor", ["version"] = "1" },
                     ["instructions"] = instructions ?? Instructions
                 });
@@ -59,6 +62,30 @@ public static class McpServer
                 var result = new JsonObject { ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = reply.Text }) };
                 if (reply.Error) result["isError"] = true;
                 return Result(id, result);
+            case "resources/list":
+                return Result(id, new JsonObject
+                {
+                    ["resources"] = new JsonArray([.. (resources ?? []).Select(item => (JsonNode)new JsonObject
+                    {
+                        ["uri"] = item.Uri,
+                        ["name"] = item.Name,
+                        ["description"] = item.Description,
+                        ["mimeType"] = item.MimeType
+                    })])
+                });
+            case "resources/templates/list":
+                return Result(id, new JsonObject { ["resourceTemplates"] = new JsonArray() });
+            case "resources/read":
+                var resourceUri = Text(parameters["uri"]);
+                if (resourceUri is null) return Error(id, -32602, "resources/read needs a uri.");
+                if ((resources ?? []).FirstOrDefault(item => item.Uri == resourceUri) is not { } read) return Error(id, -32002, $"Resource not found: {resourceUri}");
+                string readText;
+                try { readText = await read.Read(cancellationToken); }
+                catch (Exception error) when (error is not OperationCanceledException) { return Error(id, -32603, "Resource failed: " + error.Message); }
+                return Result(id, new JsonObject
+                {
+                    ["contents"] = new JsonArray(new JsonObject { ["uri"] = resourceUri, ["mimeType"] = read.MimeType, ["text"] = readText })
+                });
             default:
                 return Error(id, -32601, $"Method not found: {method}");
         }

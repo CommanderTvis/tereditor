@@ -1632,6 +1632,7 @@ internal static class Program
         Gate.Case("project-language-file", () => ProjectLanguageFileChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("project-language-autostart", () => ProjectLanguageAutostartChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("language-services", () => LanguageChecks.Run(root).GetAwaiter().GetResult());
+        Gate.Case("mcp-resources", () => McpResourceChecks.Run().GetAwaiter().GetResult());
         Gate.Case("intellij-license", () => IntelliJLicenseChecks.Run().GetAwaiter().GetResult());
         Gate.Case("settings-terms-status", IntelliJLicenseChecks.TermsStatus);
         Gate.Case("intellij-license-mount", () => IntelliJLicenseMountChecks.Run(root));

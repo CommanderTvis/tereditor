@@ -78,7 +78,11 @@ internal sealed class StdioMcp(Stream input, Stream output, Func<IReadOnlyList<M
             using var call = CancellationTokenSource.CreateLinkedTokenSource(drain);
             if (key is not null) pending[key] = call;
             JsonNode? body;
-            try { (_, body) = await McpServer.HandleAsync(message, tools(), call.Token, instructions); }
+            try
+            {
+                var table = tools();
+                (_, body) = await McpServer.HandleAsync(message, table, call.Token, instructions, McpResources.Create(table));
+            }
             catch (OperationCanceledException) { return; }
             // A cancelled request gets no answer.
             if (body is not null && !call.IsCancellationRequested) await WriteAsync(body, stop);

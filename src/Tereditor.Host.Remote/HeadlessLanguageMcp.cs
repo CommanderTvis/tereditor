@@ -27,7 +27,8 @@ public static class HeadlessLanguageMcp
             try { message = await JsonNode.ParseAsync(context.Request.Body, cancellationToken: context.RequestAborted); }
             catch (JsonException) { return Results.Text("""{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}""", "application/json"); }
             // Read per request, so a plugin turned off stops serving its tools at once.
-            var (status, response) = await McpServer.HandleAsync(message, [.. plugins.McpTools(null, Path.GetFullPath(workspace)), .. languageTools], context.RequestAborted);
+            IReadOnlyList<McpServer.McpTool> table = [.. plugins.McpTools(null, Path.GetFullPath(workspace)), .. languageTools];
+            var (status, response) = await McpServer.HandleAsync(message, table, context.RequestAborted, resources: McpResources.Create(table));
             return response is null ? Results.StatusCode(status) : Results.Text(response.ToJsonString(), "application/json", statusCode: status);
         }
     }
