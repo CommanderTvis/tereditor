@@ -1227,8 +1227,10 @@ internal static class LanguageChecks
                 serverTitle.TranslatePoint(new Avalonia.Point(0, serverTitle.Bounds.Height / 2), firstRow)!.Value.Y) < 2,
                 "Workspace settings action must align with the server header.");
             settingsAction.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            var settingsWindow = window.OwnedWindows.OfType<Tereditor.UI.Panels.LanguageSettingsWindow>().Single();
-            var configurationView = (Tereditor.UI.Panels.LanguageConfigurationView)settingsWindow.FindControl<ContentControl>("SettingsBody")!.Content!;
+            var settingsWindow = Tereditor.Plugins.UI.Kit.DialogWindow.On(window).OfType<Tereditor.Plugins.UI.Kit.DialogWindow>().Single();
+            // A plain test window cannot host the card in an overlay, so the dialog is an owned window and its card is the content.
+            var settingsSurface = (Control)(settingsWindow.Surface ?? settingsWindow.Content!);
+            var configurationView = settingsSurface.GetVisualDescendants().OfType<Tereditor.UI.Panels.LanguageConfigurationView>().Single();
             T Config<T>(string name) where T : Control => configurationView.FindControl<T>(name)!;
             E2E.E2eWorkspace.Until(() => settingsWindow.IsVisible);
             Require(firstRow.Bounds.Height <= compactHeight + 2, "Settings popup expanded the server row.");
@@ -1271,13 +1273,13 @@ internal static class LanguageChecks
             restore.GetAwaiter().GetResult();
             Config<Expander>("AdvancedConfigurationExpander").IsExpanded = true;
             Config<Expander>("ActiveConfigurationExpander").IsExpanded = true;
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); settingsWindow.UpdateLayout();
-            var scopePosition = Config<TextBlock>("ConfigurationScope").TranslatePoint(default, settingsWindow)!.Value;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); settingsSurface.UpdateLayout();
+            var scopePosition = Config<TextBlock>("ConfigurationScope").TranslatePoint(default, settingsSurface)!.Value;
             Require(scopePosition.Y < 160, "Settings form must begin below the workspace heading, without a centered gap.");
-            var savePosition = Config<Button>("SaveConfiguration").TranslatePoint(default, settingsWindow)!.Value;
-            Require(savePosition.Y > settingsWindow.Bounds.Height - 100 && Config<Button>("CloseConfiguration").IsEffectivelyVisible,
+            var savePosition = Config<Button>("SaveConfiguration").TranslatePoint(default, settingsSurface)!.Value;
+            Require(savePosition.Y > settingsSurface.Bounds.Height - 100 && Config<Button>("CloseConfiguration").IsEffectivelyVisible,
                 "Settings actions must remain visible below the scrollable form.");
-            CaptureLsp(settingsWindow, "workspace-configuration");
+            CaptureLsp(settingsSurface, "workspace-configuration");
             settingsWindow.Close();
             Find<ComboBox>("AddServer").SelectedItem = "python";
             E2E.E2eWorkspace.Until(() => servers.ItemCount == 2);
@@ -1387,8 +1389,8 @@ internal static class LanguageChecks
             var intellijRow = (ListBoxItem)servers.ContainerFromIndex(intellijIndex)!;
             Require(intellijRow.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "Start ▷"), "IntelliJ lacked an explicit start/review action.");
             intellijRow.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "ServerSettingsAction").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            var intellijWindow = window.OwnedWindows.OfType<Tereditor.UI.Panels.LanguageSettingsWindow>().Single();
-            T IJ<T>(string name) where T : Control => intellijWindow.GetLogicalDescendants().OfType<T>().Single(control => control.Name == name);
+            var intellijWindow = Tereditor.Plugins.UI.Kit.DialogWindow.On(window).OfType<Tereditor.Plugins.UI.Kit.DialogWindow>().Single(dialog => dialog.Title == "Java / Kotlin (IntelliJ)");
+            T IJ<T>(string name) where T : Control => ((Control)(intellijWindow.Surface ?? intellijWindow.Content!)).GetVisualDescendants().OfType<T>().Single(control => control.Name == name);
             Require(IJ<StackPanel>("ProviderOptions").IsVisible && IJ<Button>("RestartConfiguration").IsEnabled && IJ<CheckBox>("AutoStart").IsEnabled,
                 "IntelliJ configuration hid its availability or enabled execution.");
             Require(!pane.GetLogicalDescendants().OfType<ComboBox>().Any(control => control.Name == "ProviderChoice"), "Provider routing must live in Settings, not Code Intelligence.");
@@ -1470,7 +1472,7 @@ internal static class LanguageChecks
             Require(!intellijWindow.OwnedWindows.OfType<Tereditor.UI.Panels.LanguageTermsWindow>().Any(), "Acknowledged IntelliJ settings restart reopened consent.");
             ServerAction(intellijIndex, "Start / Retry");
             E2E.E2eWorkspace.Until(() => pane.Idle);
-            Require(!window.OwnedWindows.OfType<Tereditor.UI.Panels.LanguageTermsWindow>().Any(), "Acknowledged IntelliJ row startup reopened consent.");
+            Require(!intellijWindow.OwnedWindows.OfType<Tereditor.UI.Panels.LanguageTermsWindow>().Any(), "Acknowledged IntelliJ row startup reopened consent.");
             ReviewTerms();
             termsWindow = intellijWindow.OwnedWindows.OfType<Tereditor.UI.Panels.LanguageTermsWindow>().Single();
             E2E.E2eWorkspace.Until(() => termsWindow.Result?.Accepted == true);
@@ -1479,7 +1481,7 @@ internal static class LanguageChecks
             try { E2E.E2eWorkspace.Until(() => IJ<Button>("RestartConfiguration").IsEnabled && IJ<TextBlock>("ConfigurationMessage").Text!.Contains("intellij-server", StringComparison.OrdinalIgnoreCase)); }
             catch (Exception error) { throw new InvalidOperationException("Repeated startup message: " + IJ<TextBlock>("ConfigurationMessage").Text, error); }
             Console.WriteLine("PASS IntelliJ setup saves selection, accepts and starts, reports launch failure, reuses acceptance and never starts on close");
-            CaptureLsp(intellijWindow, "intellij-configuration");
+            CaptureLsp((Control)(intellijWindow.Surface ?? intellijWindow.Content!), "intellij-configuration");
             Provider<ComboBox>("ProviderChoice").SelectedIndex = 0;
             Provider<Button>("ApplyProviderChoice").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             E2E.E2eWorkspace.Until(() => IJ<Button>("SaveConfiguration").IsEnabled && state.Current.Settings.JavaKotlinProvider == "standard");

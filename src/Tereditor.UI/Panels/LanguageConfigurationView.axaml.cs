@@ -150,16 +150,26 @@ internal sealed partial class LanguageConfigurationView : UserControl
         }
     }
 
-    internal LanguageSettingsWindow? SettingsWindow { get; private set; }
+    internal Tereditor.Plugins.UI.Kit.DialogWindow? SettingsWindow { get; private set; }
 
     internal async Task ShowSettingsAsync(Control target)
     {
-        if (SettingsWindow is { } current) { current.Activate(); return; }
+        if (SettingsWindow is { } current) { if (current.InOverlay) current.Surface?.Focus(); else current.Activate(); return; }
         Find<Expander>("ConfigurationExpander").IsExpanded = true;
-        var window = new LanguageSettingsWindow(this, server.Id, workspace);
+        // The same dialog card Settings-style dialogs use: shown in the workbench's overlay over a dimmed backdrop.
+        var window = Tereditor.Plugins.UI.Kit.DialogWindow.Create(LanguageServerNameConverter.Display(server.Id), 640);
+        var scope = window.FindControl<TextBlock>("DialogExplanation")!;
+        scope.Text = workspace; scope.FontSize = 12; scope.IsVisible = true;
+        // The view scrolls its own fields and keeps its buttons in view, so it needs a height of its own.
+        Height = 520;
+        window.FindControl<StackPanel>("DialogFields")!.Children.Add(this);
         SettingsWindow = window;
-        window.Closed += (_, _) => SettingsWindow = null;
-        if (TopLevel.GetTopLevel(target) is Window owner) window.Show(owner);
+        window.Closed += (_, _) =>
+        {
+            SettingsWindow = null;
+            (Parent as Panel)?.Children.Remove(this);
+        };
+        if (TopLevel.GetTopLevel(target) is Window owner) _ = window.ShowDialog(owner);
         await RefreshSavedAsync(false);
     }
 
@@ -307,7 +317,7 @@ internal sealed partial class LanguageConfigurationView : UserControl
             Load();
             await RefreshProjectFileAsync();
             if (restart && !reviewBeforeRestart) Find<TextBlock>("ConfigurationMessage").Text = result.State + ": " + result.Detail;
-            if (reviewBeforeRestart && SettingsWindow is { } owner)
+            if (reviewBeforeRestart && SettingsWindow is { } dialog)
             {
                 if (replaces && !selected)
                 {
@@ -325,7 +335,7 @@ internal sealed partial class LanguageConfigurationView : UserControl
                 }
                 var terms = new LanguageTermsWindow(host, workspace, server.Id, startAfterAcceptance: true);
                 terms.Closed += async (_, _) => { if (terms.StartRequested) await SaveAsync(true, acceptanceReviewed: true); };
-                terms.Show(owner);
+                terms.Show(dialog.Host ?? dialog);
             }
         }
         catch (OperationCanceledException) when (current.IsCancellationRequested) { }

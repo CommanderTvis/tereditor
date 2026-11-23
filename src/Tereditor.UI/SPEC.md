@@ -853,7 +853,7 @@ Empty navigation results use a compact message without a filter/list/footer; lar
 use a bounded chooser, with filtering available automatically for larger sets or by typing.
 Semantic static members, enum members and explicitly identified extension methods use italics.
 
-LSP configuration window headings show only the language/provider display name.
+LSP configuration window headings show only the language/provider display name. The configuration opens as a dialog card in the workbench overlay, like Settings: rounded card, dimmed backdrop, Escape and Close dismiss it; it is not an owned window.
 
 Suggested-file links in Code Intelligence open the detected workspace file in the
 editor without starting or expanding its language server.
