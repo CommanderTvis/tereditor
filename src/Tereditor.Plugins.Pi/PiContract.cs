@@ -55,6 +55,47 @@ public static class PiThinking
     public static readonly IReadOnlyList<string> Levels = ["off", "minimal", "low", "medium", "high", "xhigh"];
 }
 
+/// <summary>The scopes Pi's files come from: the user's agent directory (and home), or the working directory's `.pi` and its repository.</summary>
+public static class PiScopes
+{
+    public const string User = "user";
+    public const string Project = "project";
+}
+
+/// <summary>The kinds of resource the Settings › Pi and Context views list.</summary>
+public static class PiConfigKinds
+{
+    public const string Context = "context";
+    public const string Extension = "extension";
+    public const string Skill = "skill";
+    public const string Prompt = "prompt";
+    public const string Mcp = "mcp";
+    public const string Package = "package";
+}
+
+public sealed record PiConfigParams(string WorkspaceId);
+
+/// <summary>One file or entry Pi would load. Loaded is false for a project resource while the project is not trusted.</summary>
+public sealed record PiConfigItem(string Kind, string Scope, string Name, string Path, bool Loaded, string Detail);
+
+/// <summary>A key of a settings.json (packages excluded): its value as Pi wrote it, shortened.</summary>
+public sealed record PiConfigSetting(string Key, string Scope, string Value, bool Loaded);
+
+/// <summary>A command the open Pi chat reports: its name, where it comes from and its description.</summary>
+public sealed record PiConfigCommand(string Name, string Source, string Description);
+
+/// <summary>
+/// What the Pi pane shows for a workspace. Trust is read from trust.json and shown only; the chat fields come from the open Pi chat of the
+/// workspace, when there is one.
+/// </summary>
+public sealed record PiConfigSnapshot(string Cwd, string AgentDir, string Trust, string TrustFile, IReadOnlyList<PiConfigItem> Items,
+    IReadOnlyList<PiConfigSetting> Settings, IReadOnlyList<PiConfigCommand> Commands, string? Model, string? Thinking, bool ChatOpen);
+
+public sealed record PiPackageParams(string WorkspaceId, string Source, bool Local);
+
+/// <summary>The result of a package change: whether Pi succeeded, and its last output lines.</summary>
+public sealed record PiPackageResult(bool Ok, string Output);
+
 public static class PiContract
 {
     public const int WireVersion = 1;
@@ -72,12 +113,28 @@ public static class PiContract
     /// <summary>Deletes the downloaded Pi.</summary>
     public static readonly PluginMethod<PiNoParams, PiStatus> Remove = new("remove");
 
+    /// <summary>Reads what a Pi session in the workspace would load, plus the open chat's model and commands.</summary>
+    public static readonly PluginMethod<PiConfigParams, PiConfigSnapshot> Config = new("config");
+
+    /// <summary>`pi install &lt;source&gt;` (with `-l` for the project). The pane says to restart a chat to load the change.</summary>
+    public static readonly PluginMethod<PiPackageParams, PiPackageResult> PackageInstall = new("packageInstall");
+
+    /// <summary>`pi remove <source>` (with `-l` for the project).</summary>
+    public static readonly PluginMethod<PiPackageParams, PiPackageResult> PackageRemove = new("packageRemove");
+
     /// <summary>The chat contract is shared with the other chat plugins: Pi serves its methods and its updates channel.</summary>
     public static readonly PluginContract Contract = PluginContract.Create<PiSettings>(PiManifest.Id, WireVersion,
-        [.. ChatContract.Methods, Status, Install, CancelInstall, Remove], [ChatContract.Updates], PiJson.Default, ChatContract.Json);
+        [.. ChatContract.Methods, Status, Install, CancelInstall, Remove, Config, PackageInstall, PackageRemove], [ChatContract.Updates], PiJson.Default, ChatContract.Json);
 }
 
 [JsonSerializable(typeof(PiSettings))]
 [JsonSerializable(typeof(PiNoParams))]
 [JsonSerializable(typeof(PiStatus))]
+[JsonSerializable(typeof(PiConfigParams))]
+[JsonSerializable(typeof(PiConfigItem))]
+[JsonSerializable(typeof(PiConfigSetting))]
+[JsonSerializable(typeof(PiConfigCommand))]
+[JsonSerializable(typeof(PiConfigSnapshot))]
+[JsonSerializable(typeof(PiPackageParams))]
+[JsonSerializable(typeof(PiPackageResult))]
 internal sealed partial class PiJson : JsonSerializerContext;

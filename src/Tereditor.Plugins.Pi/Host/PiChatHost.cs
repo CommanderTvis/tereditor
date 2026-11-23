@@ -27,7 +27,7 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
     /// The variables other plugins' launch contributions set for Pi, such as the agent directory of a chosen model source. Only plain
     /// variable names are taken, and never one under the <c>TEREDITOR_</c> prefix, the same rule a launch line follows.
     /// </summary>
-    private static IReadOnlyDictionary<string, string> ContributedEnvironment(IPluginHostContext context)
+    internal static IReadOnlyDictionary<string, string> ContributedEnvironment(IPluginHostContext context)
     {
         var taken = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var (name, value) in context.AgentLaunchContributions(PiManifest.Id).SelectMany(contribution => contribution.Environment))
@@ -41,6 +41,10 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
     public static string DefaultSessionsRoot() =>
         Path.Combine(Environment.GetEnvironmentVariable("PI_CODING_AGENT_DIR") is { Length: > 0 } agent ? agent
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".pi", "agent"), "sessions");
+
+    /// <summary>The header of the workspace's running Pi chat, for the Settings › Pi pane; null when none runs.</summary>
+    internal ChatHeader? HeaderOf(string workspaceId) =>
+        sessions.Where(pair => pair.Key.Item1 == workspaceId && pair.Value.Active).Select(pair => pair.Value.Header).FirstOrDefault();
 
     private static string RecordKey(string workspaceId, string chatId) => workspaceId + "\0" + chatId;
 

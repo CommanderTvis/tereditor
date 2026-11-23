@@ -43,10 +43,54 @@ public sealed class PiHost : PluginHostModule
         catch (OperationCanceledException) { return status with { Detail = "pi --version timed out." }; }
     }
 
+    private static string HomeDirectory() => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+    // The Settings › Pi pane's read: the files, the settings, and the open chat's model and commands.
+    private static async ValueTask<PiConfigSnapshot> ConfigAsync(IPluginHostContext context, PiChatHost chats, string workspaceId, CancellationToken cancellationToken)
+    {
+        var cwd = (await context.WorkspaceAsync(workspaceId, cancellationToken))?.Path ?? workspaceId;
+        var header = chats.HeaderOf(workspaceId);
+        var agent = PiConfigReader.AgentDir(PiChatHost.ContributedEnvironment(context), Environment.GetEnvironmentVariable("PI_CODING_AGENT_DIR"), HomeDirectory());
+        var commands = header?.Commands.Select(command => new PiConfigCommand(command.Name, command.Source ?? "", command.Description ?? "")).ToArray() ?? [];
+        return await Task.Run(() => PiConfigReader.Read(new PiConfigRoots(agent, HomeDirectory(), cwd), commands, header?.Model, header?.Effort, header is not null), cancellationToken);
+    }
+
+    // `pi install` or `pi remove`, started the way a chat starts Pi: the chosen Pi, the managed copy on Bun, or a model source's wrapper.
+    private static async ValueTask<PiPackageResult> PackageAsync(IPluginHostContext context, PiManaged managed, string verb, PiPackageParams request, CancellationToken cancellationToken)
+    {
+        if (!PiPackages.ValidSource(request.Source)) return new(false, "Enter a package source, such as npm:@scope/package.");
+        if (PiLinks.InTab is not null) return new(false, "Packages can be changed only from a Pi that runs on this computer.");
+        var settings = context.Settings<PiSettings>();
+        var cwd = (await context.WorkspaceAsync(request.WorkspaceId, cancellationToken))?.Path ?? request.WorkspaceId;
+        var command = settings.Command.Trim() is { Length: > 0 } own ? own : "pi";
+        var pinned = settings.Source == PiSources.Managed;
+        var contributions = pinned || Path.GetFileNameWithoutExtension(command) == "pi" ? context.AgentLaunchContributions(PiManifest.Id) : [];
+        var replacing = contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0)?.Wrapper ?? [];
+        var spawn = new PiSpawn(command, cwd)
+        {
+            Wrapper = pinned ? [] : replacing,
+            Blocked = AgentLaunchComposition.Blocked(contributions) ?? (pinned && replacing.Count > 0 ? "This Model source starts the system Pi. Set Pi source to System command, or choose another Model source." : null),
+            Environment = PiChatHost.ContributedEnvironment(context)
+        };
+        if (pinned)
+        {
+            try { spawn = await managed.PrepareAsync(spawn, context.TrackRuntimeProcess); }
+            catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException or OperationCanceledException)
+            {
+                return new(false, managed.LastError is { Length: > 0 } failure ? failure : error.Message);
+            }
+        }
+        return await PiPackages.RunAsync(spawn, PiPackages.Arguments(verb, request.Source, request.Local), cancellationToken);
+    }
+
     public override ValueTask<PluginDisposer?> ActivateAsync(IPluginHostContext context)
     {
         var managed = new PiManaged(PiManaged.DefaultRoot(), (workspace, token) => context.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, token).AsTask());
+        var chats = new PiChatHost(context, managed: managed);
         context.Method(PiContract.Status, async (_, _, _) => await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed)));
+        context.Method(PiContract.Config, (request, _, token) => ConfigAsync(context, chats, request.WorkspaceId, token));
+        context.Method(PiContract.PackageInstall, (request, _, token) => PackageAsync(context, managed, "install", request, token));
+        context.Method(PiContract.PackageRemove, (request, _, token) => PackageAsync(context, managed, "remove", request, token));
         context.Method(PiContract.Install, async (_, _, token) =>
         {
             try { await managed.EnsureAsync("", token); }
@@ -69,7 +113,6 @@ public sealed class PiHost : PluginHostModule
             managed.Remove();
             return ValueTask.CompletedTask;
         });
-        var chats = new PiChatHost(context, managed: managed);
         chats.Register();
         return ValueTask.FromResult<PluginDisposer?>(() => new ValueTask(chats.DisposeAsync()));
     }
