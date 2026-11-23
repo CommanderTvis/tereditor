@@ -24,7 +24,10 @@ public sealed class PiUI : PluginUIModule
             try { status = await context.RequestAsync(PiContract.Status, new PiNoParams()); }
             catch (Exception error) when (error is not OperationCanceledException) { }
         });
-        context.SideTool(new("pane", _ => PiPanel.Create(context)));
+        context.SideTool(new("pane", workspace => new PiConfigPanel(context, workspace))
+        {
+            Retarget = (pane, workspace) => pane is PiConfigPanel panel && panel.Retarget(workspace)
+        });
         context.SettingsSection(new("Pi", PiManifest.Icon, () => new PiSettingsView(context, () => status, current => status = current)));
         context.Launcher(new AgentLauncher(PiManifest.Id, "Pi", PiManifest.Icon, _ => context.Settings<PiSettings>().Command,
             () => status is { Installed: false, Source: PiSources.System } ? new(false, "Pi is not installed; see https://github.com/badlogic/pi-mono", false) : new(true, null, status?.Installed))
