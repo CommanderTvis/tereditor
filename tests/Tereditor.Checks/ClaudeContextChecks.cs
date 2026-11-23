@@ -321,7 +321,7 @@ internal static class ClaudeContextChecks
             deferredMcp.Children.All(server => server.Suffix == " if loaded"),
             "With every MCP tool deferred the MCP tools row stays, at 0 loaded with the deferred total in its tip, listing its servers \"if loaded\" and their tools.");
         BaselineLineLayout();
-        RowMoreButton();
+        RowHoverShowsNothing();
         DeniedRow();
         ToolDocsLinks();
         CapabilityTree();
@@ -392,10 +392,9 @@ internal static class ClaudeContextChecks
 
     // A long row name trims with an ellipsis before the chevron and the count; the chevron follows a name that fits,
     // and the count keeps its column at the right edge, in a narrow pane and a wide one.
-    // The row's "more" button goes through its real click: the menu opens on the row it is attached to, holds the row's
-    // actions, and closing it hides the button again. No row, with or without actions, changes height when the pointer
-    // enters it or the menu opens and closes.
-    private static void RowMoreButton()
+    // No row (tool, skill, MCP server, plugin) shows anything on hover: no dots button, no bubble, no new text, no new height.
+    // Its actions are in the right-click menu, which opens on the row and holds them.
+    private static void RowHoverShowsNothing()
     {
         static IEnumerable<ClaudeConfigPanel.BaselineEntry> Flatten(IEnumerable<ClaudeConfigPanel.BaselineEntry> entries) =>
             entries.SelectMany(entry => new[] { entry }.Concat(Flatten(entry.Children)));
@@ -417,8 +416,10 @@ internal static class ClaudeContextChecks
         {
             E2eWorkspace.Settle();
             Require(rows.Any(row => row.actions.Count == 0) && rows.Any(row => row.actions.Count > 0) &&
-                rows.Any(row => row.entry.Key.StartsWith("skills/", StringComparison.Ordinal) && row.actions.Count > 0),
-                "The fixture has rows with and without actions, skills among them.");
+                rows.Any(row => row.entry.Key.StartsWith("skills/", StringComparison.Ordinal) && row.actions.Count > 0) &&
+                rows.Any(row => row.entry.Key.StartsWith("mcp-tools/", StringComparison.Ordinal) && row.actions.Count > 0) &&
+                rows.Any(row => row.entry.Key.StartsWith("skills/", StringComparison.Ordinal) && row.entry.Tip?.StartsWith("Plugin", StringComparison.OrdinalIgnoreCase) == true && row.actions.Count > 0),
+                "The fixture has rows with and without actions, with skills, MCP servers and plugins among them.");
             var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), Avalonia.Input.PointerType.Mouse, true);
             void Raise(Avalonia.Interactivity.RoutedEvent<Avalonia.Input.PointerEventArgs> routed, Control line) =>
                 line.RaiseEvent(new Avalonia.Input.PointerEventArgs(routed, line, pointer, host, default, 0,
@@ -427,53 +428,31 @@ internal static class ClaudeContextChecks
             var before = Heights();
             foreach (var (entry, line, actions) in rows)
             {
-                var more = line.GetLogicalDescendants().OfType<Button>().SingleOrDefault(button => button.Name == "ClaudeContextRowMore");
-                var toolRow = entry.Key.StartsWith("system-tools/", StringComparison.Ordinal);
-                Require((more is not null) == (actions.Count > 0 && !toolRow), $"Row {entry.Key} has the more button exactly when it has actions and is not a built-in tool.");
+                Require(line.GetLogicalDescendants().OfType<Control>().All(node => node.Name is not ("ClaudeContextRowMore" or "ClaudeContextBubble" or "ClaudeContextRowToggle")),
+                    $"Row {entry.Key} has no dots button, no hover bubble and no hover-only text.");
                 string[] Texts() => [.. line.GetLogicalDescendants().OfType<TextBlock>().Select(block => block.Text ?? "")];
                 var textsBefore = Texts();
-                Require(!line.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Name == "ClaudeContextRowToggle"), $"Row {entry.Key} has no hover-only toggle text.");
-                if (toolRow && actions.Count > 0)
+                var buttonsBefore = line.GetLogicalDescendants().OfType<Button>().Count();
+                Raise(Avalonia.Input.InputElement.PointerEnteredEvent, line);
+                E2eWorkspace.Settle();
+                Require(Texts().SequenceEqual(textsBefore) && Heights().SequenceEqual(before) && line.GetLogicalDescendants().OfType<Button>().Count() == buttonsBefore &&
+                    line.GetLogicalDescendants().OfType<Control>().All(node => node.Name is not ("ClaudeContextRowMore" or "ClaudeContextBubble")) &&
+                    line.GetLogicalDescendants().OfType<Border>().All(border => !ReferenceEquals(border.Background, Tereditor.Plugins.UI.Kit.Ui.Hover)),
+                    $"The pointer over {entry.Key} shows nothing new and changes no row height.");
+                if (actions.Count > 0)
                 {
-                    Raise(Avalonia.Input.InputElement.PointerEnteredEvent, line);
-                    E2eWorkspace.Settle();
-                    Require(Texts().SequenceEqual(textsBefore) && Heights().SequenceEqual(before) && line.GetLogicalDescendants().OfType<Button>().All(button => button.Name != "ClaudeContextRowMore") &&
-                        !line.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "ClaudeContextBubble"),
-                        $"The pointer over {entry.Key} shows nothing new and changes no row height.");
+                    Require(line.ContextMenu is not null, $"Row {entry.Key} has a right-click menu.");
                     line.ContextMenu!.Open(line);
                     E2eWorkspace.Settle();
                     Require(line.ContextMenu.IsOpen && line.ContextMenu.Items.OfType<MenuItem>().Select(item => (string?)item.Header).SequenceEqual(actions.Select(action => action.Label)) &&
-                        Heights().SequenceEqual(before), $"The right-click menu of {entry.Key} still holds the action and changes no row height.");
+                        Heights().SequenceEqual(before), $"The right-click menu of {entry.Key} holds its actions and changes no row height.");
                     line.ContextMenu.Close();
-                    Raise(Avalonia.Input.InputElement.PointerExitedEvent, line);
                     E2eWorkspace.Settle();
-                    Require(Texts().SequenceEqual(textsBefore), $"Leaving {entry.Key} changes no text.");
-                    continue;
                 }
-                Raise(Avalonia.Input.InputElement.PointerEnteredEvent, line);
-                E2eWorkspace.Settle();
-                Require(Heights().SequenceEqual(before), $"Entering {entry.Key} changes no row height.");
-                if (more is null) { Raise(Avalonia.Input.InputElement.PointerExitedEvent, line); continue; }
-                Require(more.Opacity == 1 && more.IsHitTestVisible && more.IsVisible, $"The pointer over {entry.Key} shows its more button.");
-                var name = line.GetLogicalDescendants().OfType<TextBlock>().First(block => block.Name == "ClaudeContextName");
-                var bubble = line.GetLogicalDescendants().OfType<Border>().Single(border => border.Name == "ClaudeContextBubble");
-                var titleEnd = name.TranslatePoint(new Point(name.Bounds.Width, 0), line)!.Value.X;
-                var dotsStart = more.TranslatePoint(default, line)!.Value.X;
-                Require(ReferenceEquals(bubble.Background, Tereditor.Plugins.UI.Kit.Ui.Hover) && dotsStart >= titleEnd - 0.5 && dotsStart - titleEnd <= 8,
-                    $"On hover {entry.Key} shows the hover bubble and its dots start within one spacing step of the title end ({titleEnd} to {dotsStart}).");
-                more.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-                E2eWorkspace.Settle();
-                var menu = line.ContextMenu!;
-                Require(menu.IsOpen && ReferenceEquals(menu, line.ContextMenu) &&
-                    menu.Items.OfType<MenuItem>().Select(item => (string?)item.Header).SequenceEqual(actions.Select(action => action.Label)),
-                    $"Clicking the more button of {entry.Key} opens the row's menu with its actions.");
-                Require(Heights().SequenceEqual(before), $"Opening the menu of {entry.Key} changes no row height.");
+                else Require(line.ContextMenu is null, $"Row {entry.Key} has no actions and no menu.");
                 Raise(Avalonia.Input.InputElement.PointerExitedEvent, line);
-                Require(more.Opacity == 1, "The button stays while its menu is open.");
-                menu.Close();
                 E2eWorkspace.Settle();
-                Require(!menu.IsOpen && more.Opacity == 0 && !more.IsHitTestVisible && Heights().SequenceEqual(before),
-                    $"Closing the menu of {entry.Key} hides the button again and changes no row height.");
+                Require(Texts().SequenceEqual(textsBefore) && Heights().SequenceEqual(before), $"Leaving {entry.Key} changes no text and no row height.");
             }
         }
         finally { host.Close(); }

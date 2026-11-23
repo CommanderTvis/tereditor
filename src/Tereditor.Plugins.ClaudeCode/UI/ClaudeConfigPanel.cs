@@ -594,46 +594,18 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return [.. entries.OrderByDescending(entry => entry.Tokens)];
     }
 
-    /// <summary>Adds the row's context menu and the button that opens it. The button always takes its space, so the row never changes height. A built-in tool's row has no button and shows nothing on hover: its action is in the right-click menu only.</summary>
+    /// <summary>Adds the row's context menu. Every row kind (tool, skill, MCP server, plugin) shows nothing on hover: its actions are in the right-click menu only.</summary>
     internal static void AttachRowActions(DockPanel line, IReadOnlyList<RowAction> actions, Action<PendingEdit> edit)
     {
         if (actions.Count == 0) return;
-        var toolRow = line.Tag is string key && key.StartsWith("system-tools/", StringComparison.Ordinal);
-        {
-            var menu = new ContextMenu { Name = "ClaudeContextRowMenu" };
-            foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => edit(action.Edit)));
-            line.ContextMenu = menu;
-            // Right-click is not something a row hints at: a small button shows while the pointer is over it and opens the same menu.
-            var more = toolRow ? null : new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
-            // The button always takes its space and only fades in, so a row never changes height when the pointer enters it.
-            Action<bool> showMore = _ => { };
-            if (more is not null)
-            {
-                showMore = shown => { more.Opacity = shown ? 1 : 0; more.IsHitTestVisible = shown; };
-                ToolTip.SetTip(more, actions[0].Label);
-                more.Click += (_, _) => menu.Open(line); // Avalonia opens a context menu only on the control it is attached to
-            }
-            // The dots sit right after the title, and a hover bubble hugs both. The bubble keeps the title's place (negative margin
-            // against its padding) and adds no height.
-            var title = line.Children[^1];
-            if (more is not null) SetDock(more, Dock.Right);
-            DockPanel named;
-            line.Children.Remove(title);
-            if (title is DockPanel { Name: "ClaudeContextNamed" } existing) { named = existing; if (more is not null) named.Children.Insert(1, more); }
-            else
-            {
-                named = new DockPanel { Name = "ClaudeContextNamed", HorizontalAlignment = HorizontalAlignment.Left, Children = { title } };
-                if (more is not null) named.Children.Insert(0, more);
-            }
-            named.HorizontalAlignment = HorizontalAlignment.Left;
-            // A tool row has no bubble: the docs link's own hover look is enough.
-            var bubble = toolRow ? null : new Border { Name = "ClaudeContextBubble", CornerRadius = new CornerRadius(4), Padding = new Thickness(4, 0, 2, 0), Margin = new Thickness(-4, 0, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.Transparent, Child = named };
-            line.Children.Add(toolRow ? named : bubble!);
-            void Hover(bool shown) { showMore(shown); if (bubble is not null) bubble.Background = shown ? Ui.Hover : Brushes.Transparent; }
-            line.PointerEntered += (_, _) => Hover(true);
-            line.PointerExited += (_, _) => Hover((more?.IsPressed ?? false) || menu.IsOpen);
-            menu.Closed += (_, _) => Hover(line.IsPointerOver);
-        }
+        var menu = new ContextMenu { Name = "ClaudeContextRowMenu" };
+        foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => edit(action.Edit)));
+        line.ContextMenu = menu;
+        var title = line.Children[^1];
+        line.Children.Remove(title);
+        var named = title is DockPanel { Name: "ClaudeContextNamed" } existing ? existing : new DockPanel { Name = "ClaudeContextNamed", Children = { title } };
+        named.HorizontalAlignment = HorizontalAlignment.Left;
+        line.Children.Add(named);
     }
 
     /// <summary>A left click on a built-in tool's row, or a bundled skill's row (one with no file), opens its docs page; other rows get nothing. A turned-off row keeps its struck-through look.</summary>
