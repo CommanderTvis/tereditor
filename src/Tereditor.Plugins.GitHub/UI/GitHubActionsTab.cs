@@ -251,6 +251,7 @@ internal sealed class GitHubActionsTab : Border
     {
         total = view.Total;
         repoUrl = view.RepoUrl.Length > 0 ? view.RepoUrl : repoUrl;
+        freshness.Url = repoUrl.Length > 0 ? repoUrl + "/actions" : "";
         title.Text = view.Title;
         subtitle.Text = view.Subtitle;
         count.Text = view.Summary;

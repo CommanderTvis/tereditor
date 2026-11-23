@@ -125,6 +125,7 @@ internal sealed class GitHubRunTab : Border
     internal void Apply(GitHubView view)
     {
         shown = view;
+        freshness.Url = GitHubWebLink.RepoUrl(view) is { Length: > 0 } repoUrl ? repoUrl + "/actions/runs/" + runId : "";
         title.Text = view.Title;
         subtitle.Text = view.Subtitle;
         status.Text = GitHubRuns.StateText(view.State);

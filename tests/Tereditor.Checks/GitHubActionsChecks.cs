@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Text.RegularExpressions;
 
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
@@ -104,6 +105,7 @@ internal static partial class GitHubActionsChecks
         var allocated = GC.GetAllocatedBytesForCurrentThread() - baseline;
         Require(allocated < 256L * 1024 * 1024, "Building the first page allocates under 256 MB on the UI thread (" + allocated / 1024 / 1024 + " MB)");
         Require(requests[0].Page == 1 && requests[0].Limit == GitHubActionsTab.PageSize, "The first request asks for one page");
+        Require(Named(tab, GitHubWebLink.ButtonName) is Button { IsVisible: true, Tag: "https://github.com/o/r/actions" } open && ToolTip.GetTip(open) is string && AutomationProperties.GetName(open) == "Open in browser", "The Actions list offers Open in browser to https://github.com/o/r/actions");
         Require(Named(tab, "GitHubWorkflowAll") is { } && Named(tab, "GitHubWorkflow5") is { } && Named(tab, "GitHubWorkflow7") is { }, "The sidebar lists All workflows and every workflow");
         Require(Named(tab, "GitHubWorkflowAll") is Border { Background: var all } && ReferenceEquals(all, Ui.Selected), "All workflows is selected at first");
         Require(Text(tab).Contains("Showing runs from all workflows", StringComparison.Ordinal) && Text(tab).Contains("5,000 workflow runs", StringComparison.Ordinal) && Text(tab).Contains("Auto-refresh: 30s", StringComparison.Ordinal), "The header shows the subtitle, the count and the auto-refresh choice");
@@ -213,6 +215,7 @@ internal static partial class GitHubActionsChecks
         Layout(window);
         Require(Text(tab).Contains("Fix it #4", StringComparison.Ordinal) && Named(tab, "GitHubJob1") is { } && Named(tab, "GitHubJob2") is { }, "The run page lists its jobs");
         Require(tab.SelectedJob == "1" && Named(tab, "GitHubStep1_2") is not null, "The failed job is selected and shows its steps");
+        Require(Named(tab, GitHubWebLink.ButtonName) is Button { IsVisible: true, Tag: "https://github.com/o/r/actions/runs/9" } open && ToolTip.GetTip(open) is string && AutomationProperties.GetName(open) == "Open in browser", "A run page offers Open in browser to https://github.com/o/r/actions/runs/9");
         Pump(() => logRequests.Count > 0 && Named(tab, "GitHubStepLog") is not null, "the failed step's log");
         Layout(window);
         Require(tab.GetVisualDescendants().OfType<GitHubLogView>().Count() == 1, "Only the failed step is open at first");

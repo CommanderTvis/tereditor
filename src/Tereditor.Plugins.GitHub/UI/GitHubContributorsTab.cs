@@ -272,6 +272,7 @@ internal sealed class GitHubContributorsTab : Border
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Top };
         buttons.Children.Add(Dropdown("GitHubPeriod", () => "Period: " + model.Period, PeriodOptions()));
         buttons.Children.Add(Dropdown("GitHubMetric", () => "Contributions: " + MetricName(model.Metric), MetricOptions()));
+        buttons.Children.Add(GitHubWebLink.Create(model.Data.RepoUrl.Length > 0 ? model.Data.RepoUrl + "/graphs/contributors" : ""));
         Grid.SetColumn(buttons, 1); grid.Children.Add(buttons);
         return grid;
     }

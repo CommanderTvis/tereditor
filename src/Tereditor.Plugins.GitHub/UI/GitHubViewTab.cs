@@ -105,6 +105,8 @@ internal sealed class GitHubViewTab : Border
 
     internal void Render(GitHubView view)
     {
+        var repoUrl = GitHubWebLink.RepoUrl(view);
+        freshness.Url = repoUrl.Length == 0 ? "" : repoUrl + "/" + (kind == "discussions" && itemId.Length > 0 ? "discussions/" + itemId : kind == "runs" ? "actions" : kind);
         var offset = scroll.Offset;
         var body = Build(view, out var top);
         page.Show(top, body);

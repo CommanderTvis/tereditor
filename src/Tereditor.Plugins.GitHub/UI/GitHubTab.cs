@@ -136,6 +136,7 @@ internal sealed class GitHubTab : Border
 
     internal void RenderList(GitHubList list)
     {
+        freshness.Url = list.Repo.Length > 0 ? $"https://github.com/{list.Repo}/{(kind == Pulls ? "pulls" : "issues")}" : "";
         var offset = scroll.Offset;
         var root = new StackPanel { Spacing = 0, Margin = new Thickness(24, 0, 24, 16), MaxWidth = 1012 };
         var header = new StackPanel { Spacing = 0, Margin = new Thickness(24, 16, 24, 0), MaxWidth = 1012 };
@@ -271,6 +272,7 @@ internal sealed class GitHubTab : Border
 
     internal void RenderDetail(GitHubDetail detail)
     {
+        freshness.Url = detail.Url;
         var offset = scroll.Offset;
         var remaining = GitHubPending.Remaining(pending, detail.Timeline);
         pending.Clear(); pending.AddRange(remaining);
@@ -478,6 +480,7 @@ internal sealed class GitHubTab : Border
                 try { await context.UpdateSettingsAsync(context.Settings<GitHubSettings>() with { PollSeconds = (int)value }); } catch (Exception error) when (error is not OperationCanceledException) { }
         };
         root.Children.Add(interval);
+        freshness.Url = "";
         root.Children.Add(new GitHubCacheSettings(context));
         root.Children.Add(Ui.Text("tereditor uses the GitHub CLI on this computer and stores no credentials. This pane reads only; it cannot post.", Ui.Muted, 13));
         Show(root);

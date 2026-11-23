@@ -101,7 +101,11 @@ public sealed record GitHubContributorsParams(string WorkspaceId, string? Revisi
 public sealed record GitHubContributor(string Login, string AvatarUrl, string Url, IReadOnlyList<int> Commits, IReadOnlyList<int> Additions, IReadOnlyList<int> Deletions);
 
 /// <summary>GitHub's contributor statistics. Weeks are the Unix times of each week's start. Computing is true while GitHub still builds them (the caller asks again); an empty author list with no problem means GitHub has none to give.</summary>
-public sealed record GitHubContributors(bool Unchanged, string Revision, string Branch, bool Computing, IReadOnlyList<long> Weeks, IReadOnlyList<GitHubContributor> Authors, string? Problem = null);
+public sealed record GitHubContributors(bool Unchanged, string Revision, string Branch, bool Computing, IReadOnlyList<long> Weeks, IReadOnlyList<GitHubContributor> Authors, string? Problem = null)
+{
+    /// <summary>The repository's web address, for the Open in browser link.</summary>
+    public string RepoUrl { get; init; } = "";
+}
 
 public sealed record GitHubReviewComment(string Path, string Body);
 

@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -32,6 +33,38 @@ public class GitHubFakeContext : DispatchProxy
 
 internal static partial class GitHubBrowserChecks
 {
+    /// <summary>Every kind of GitHub document has the one Open in browser button, with the github.com address of the same thing.</summary>
+    private static void OpenInBrowserLinks()
+    {
+        static void Has(Control tab, string url, string what)
+        {
+            var open = Named(tab, GitHubWebLink.ButtonName) as Button;
+            Require(open is { IsVisible: true } && (string?)open.Tag == url && ToolTip.GetTip(open) is string { Length: > 0 } && AutomationProperties.GetName(open) == "Open in browser", $"{what} offers Open in browser to {url}, got {open?.Tag} (visible {open?.IsVisible})");
+        }
+        var timeline = new List<GitHubEvent> { new("comment", "bob", "2026-11-01T11:00:00Z", "Text", "") };
+        foreach (var (kind, path) in new[] { (GitHubTab.Issues, "issues"), (GitHubTab.Pulls, "pull") })
+        {
+            var tab = new GitHubTab(null!, "w", kind);
+            tab.RenderDetail(new(false, "r", "o/r", kind, 7, "T", "open", false, "ann", "2026-11-01T10:00:00Z", $"https://github.com/o/r/{path}/7", "Body", [], [], null, timeline, false, null));
+            Has(tab, $"https://github.com/o/r/{path}/7", "A " + kind + " conversation");
+            tab.RenderList(new(false, "r", "o/r", [], 0, 0, false));
+            Has(tab, "https://github.com/o/r/" + (kind == GitHubTab.Pulls ? "pulls" : "issues"), "The " + kind + " list");
+        }
+        var rows = new List<GitHubRow> { new("1", "Row", "open", "meta", [], "right", "https://github.com/o/r/discussions/1") };
+        foreach (var (id, path) in new[] { ("discussions", "discussions"), ("releases", "releases"), ("deployments", "deployments"), ("packages", "packages"), ("discussion:4", "discussions/4") })
+        {
+            var tab = new GitHubViewTab(null!, "w", id);
+            tab.Render(new(false, "r", "Title", "Sub", "none", rows, [], [], false, "https://github.com/o/r/"));
+            Has(tab, "https://github.com/o/r/" + path, "The " + id + " view");
+        }
+        var contributors = new GitHubContributorsTab(null, "w", (_, _) => Task.FromResult(new GitHubContributors(true, "", "", false, [], [])));
+        contributors.Show(new GitHubContributors(false, "r", "main", false, [1_700_000_000L], [new("ann", "", "https://github.com/ann", [1], [1], [1])]) { RepoUrl = "https://github.com/o/r" });
+        var window = Show(contributors);
+        Has(contributors, "https://github.com/o/r/graphs/contributors", "The contributors page");
+        window.Close();
+        Console.WriteLine("PASS every GitHub document kind has an Open in browser button with its github.com address");
+    }
+
     /// <summary>Showing a loaded issue tab again keeps its controls: no loading text, no rebuild, no flicker.</summary>
     private static void ReactivatedTabKeepsItsView()
     {

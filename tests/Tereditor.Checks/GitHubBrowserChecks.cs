@@ -104,6 +104,7 @@ internal static partial class GitHubBrowserChecks
         PlaceholdersAreCentred();
         ComposerPadding();
         ReactivatedTabKeepsItsView();
+        OpenInBrowserLinks();
         GitHubActionsChecks.Run();
     }
 

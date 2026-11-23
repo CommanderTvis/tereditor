@@ -17,6 +17,7 @@ internal sealed class GitHubFreshness : Grid
     private readonly TextBlock text = Ui.Text("", Ui.Muted, 12);
     private readonly Button retryButton;
     private readonly Action refresh;
+    private readonly Button web = GitHubWebLink.Create("");
 
     public GitHubFreshness(Control content, Action refresh)
     {
@@ -30,6 +31,9 @@ internal sealed class GitHubFreshness : Grid
         retryButton.Padding = new Thickness(8, 0);
         var line = new DockPanel { Height = 24, Margin = new Thickness(24, 0), LastChildFill = true };
         DockPanel.SetDock(retryButton, Dock.Right);
+        web.Padding = new Thickness(8, 0); web.Margin = new Thickness(8, 0, 0, 0);
+        DockPanel.SetDock(web, Dock.Right);
+        line.Children.Add(web);
         line.Children.Add(retryButton);
         line.Children.Add(text);
         Children.Add(line);
@@ -48,6 +52,9 @@ internal sealed class GitHubFreshness : Grid
         }
         else Show($"Showing saved data from {Ago(note.FetchedAt)}. {note.Reason}".TrimEnd(), true);
     }
+
+    /// <summary>The github.com page of what this tab shows; empty hides the Open in browser button.</summary>
+    public string Url { get => (string)(web.Tag ?? ""); set => GitHubWebLink.Set(web, value); }
 
     internal string Line => text.Text ?? "";
 

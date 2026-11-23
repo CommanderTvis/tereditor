@@ -21,7 +21,7 @@ public sealed partial class GitHubBrowser
                 using (var info = await RestAsync(directory, "repos/" + repo.Slug, ct)) branch = Text(info.RootElement, "default_branch");
                 var (status, body) = await StatsAsync(directory, repo.Slug, ct);
                 if (status == 202) return new(false, "", branch, true, [], []);
-                cached = status == 204 || body.Trim().Length == 0 ? Revised(new(false, "", branch, false, [], [])) : Revised(ParseStats(body, branch));
+                cached = status == 204 || body.Trim().Length == 0 ? Revised(new GitHubContributors(false, "", branch, false, [], []) { RepoUrl = repo.Url }) : Revised(ParseStats(body, branch) with { RepoUrl = repo.Url });
                 contributorCache[repo.Slug] = cached;
             }
             return p.Revision == cached.Revision ? cached with { Unchanged = true, Weeks = [], Authors = [] } : cached;
