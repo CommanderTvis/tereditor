@@ -98,6 +98,7 @@ internal sealed class GitHubAvatar : Control
     public GitHubAvatar(string url, double size)
     {
         this.url = url; Width = size; Height = size;
+        RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.HighQuality);
         picture = url.Length > 0 ? GitHubAvatarCache.TryGet(url) : null;
     }
 
@@ -123,8 +124,11 @@ internal sealed class GitHubAvatar : Control
     public override void Render(DrawingContext context)
     {
         var rect = new Rect(Bounds.Size);
-        if (picture is null) { context.DrawEllipse(Ui.Hover, null, rect.Center, rect.Width / 2, rect.Height / 2); return; }
-        using (context.PushGeometryClip(new EllipseGeometry(rect)))
-            context.DrawImage(picture, new Rect(picture.Size), rect);
+        if (picture is null) context.DrawEllipse(Ui.Hover, null, rect.Center, rect.Width / 2, rect.Height / 2);
+        else
+            using (context.PushGeometryClip(new EllipseGeometry(rect)))
+                context.DrawImage(picture, new Rect(picture.Size), rect);
+        // The 1 px border sits inside the circle and is drawn over the picture, so the edge is one antialiased line.
+        context.DrawEllipse(null, new Pen(Ui.BorderBrush, 1), rect.Center, (rect.Width - 1) / 2, (rect.Height - 1) / 2);
     }
 }

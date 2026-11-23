@@ -57,23 +57,37 @@ internal static class GitHubAvatars
     {
         var initial = Ui.Text(person.Login.Length > 0 ? person.Login[..1].ToUpperInvariant() : "·", Ui.TextBrush, 12);
         initial.HorizontalAlignment = HorizontalAlignment.Center;
-        var avatar = new Border { Name = "GitHubAvatar" + person.Login, Width = 24, Height = 24, CornerRadius = new CornerRadius(12), ClipToBounds = true, Background = Ui.Elevated, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(1), Child = initial };
+        var face = new Grid { Children = { initial, Ring() } };
+        var avatar = new Border { Name = "GitHubAvatar" + person.Login, Width = 24, Height = 24, CornerRadius = new CornerRadius(12), ClipToBounds = true, Background = Ui.Elevated, Child = face };
         ToolTip.SetTip(avatar, person.Login);
         if (GitHubAvatarUrl.Normalize(person.AvatarUrl) is not { } uri) return avatar;
         var key = uri.AbsoluteUri;
         Bitmap? ready;
         lock (Decoded) Decoded.TryGetValue(key, out ready);
-        if (ready is not null) avatar.Child = Picture(ready);
+        if (ready is not null) Face(avatar, Picture(ready));
         else if (fetch is not null) _ = ShowAsync(avatar, key, person.AvatarUrl, fetch);
         return avatar;
     }
 
-    private static Image Picture(Bitmap bitmap) => new() { Source = bitmap, Stretch = Stretch.UniformToFill };
+    private static Image Picture(Bitmap bitmap)
+    {
+        var picture = new Image { Source = bitmap, Stretch = Stretch.UniformToFill };
+        RenderOptions.SetBitmapInterpolationMode(picture, BitmapInterpolationMode.HighQuality);
+        return picture;
+    }
+
+    /// <summary>The 1 px border, drawn over the picture so the circle's edge is one clean line and not the picture's rim.</summary>
+    internal static Border Ring() => new() { Name = "GitHubAvatarRing", CornerRadius = new CornerRadius(12), BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(1), IsHitTestVisible = false };
+
+    /// <summary>What a circle shows under its ring: the initial, then the picture.</summary>
+    internal static Control? Face(Border avatar) => (avatar.Child as Grid)?.Children[0];
+
+    private static void Face(Border avatar, Control content) => ((Grid)avatar.Child!).Children[0] = content;
 
     private static async Task ShowAsync(Border avatar, string key, string url, Func<string, Task<byte[]?>> fetch)
     {
         var bitmap = await Flight(key, url, fetch);
-        if (bitmap is not null) await Dispatcher.UIThread.InvokeAsync(() => avatar.Child = Picture(bitmap));
+        if (bitmap is not null) await Dispatcher.UIThread.InvokeAsync(() => Face(avatar, Picture(bitmap)));
     }
 
     private static Task<Bitmap?> Flight(string key, string url, Func<string, Task<byte[]?>> fetch)

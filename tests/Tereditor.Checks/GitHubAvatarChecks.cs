@@ -96,7 +96,7 @@ internal static partial class GitHubBrowserChecks
 
     /// <summary>The circle holds a decoded image that is laid out inside it and visible.</summary>
     private static bool PaintedRed(Window window, Border circle) =>
-        circle.Child is Image { Source: Bitmap { PixelSize.Width: > 0 }, IsEffectivelyVisible: true, Bounds: { Width: >= 20, Height: >= 20 } };
+        GitHubAvatars.Face(circle) is Image { Source: Bitmap { PixelSize.Width: > 0 }, IsEffectivelyVisible: true, Bounds: { Width: >= 20, Height: >= 20 } };
 
     internal static void AvatarCircles()
     {
@@ -124,16 +124,16 @@ internal static partial class GitHubBrowserChecks
         tab.RenderList(new(false, "r", "o/r", [Make(1), Make(2)], 2, 0, false));
         var window = Show(Scroller(tab));
         var circles = () => window.GetLogicalDescendants().OfType<Border>().Where(b => b.Name == "GitHubAvataruser0").ToList();
-        Require(circles() is { Count: 2 } both && both.All(c => c.Child is TextBlock { Text: "U" }), "Until the image arrives each circle shows the initial");
+        Require(circles() is { Count: 2 } both && both.All(c => GitHubAvatars.Face(c) is TextBlock { Text: "U" }), "Until the image arrives each circle shows the initial");
         var size = circles()[0].Bounds;
         for (var i = 0; i < 200 && Volatile.Read(ref requests) == 0; i++) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
         Thread.Sleep(50);
         Require(Volatile.Read(ref requests) == 1, "Two rows of one person ask once: " + requests);
 
         gate.SetResult();
-        for (var i = 0; i < 500 && !circles().All(c => c.Child is Image); i++) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
+        for (var i = 0; i < 500 && !circles().All(c => GitHubAvatars.Face(c) is Image); i++) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
         Frame(window);
-        Require(circles().All(c => c.Child is Image { Source: Bitmap }), "The image replaces the initial in every circle once it arrives");
+        Require(circles().All(c => GitHubAvatars.Face(c) is Image { Source: Bitmap }), "The image replaces the initial in every circle once it arrives");
         Require(circles()[0].Bounds == size, "The circle keeps its size when the image arrives");
         Require(PaintedRed(window, circles()[0]), "The circle is painted with the image");
         window.Close();
@@ -142,7 +142,7 @@ internal static partial class GitHubBrowserChecks
         var again = new GitHubTab(null!, "w", GitHubTab.Issues) { AvatarSource = _ => { Interlocked.Increment(ref requests); return Task.FromResult<byte[]?>(png); } };
         again.RenderList(new(false, "r", "o/r", [Make(3), Make(4)], 2, 0, false));
         var second = Show(Scroller(again));
-        Require(second.GetLogicalDescendants().OfType<Border>().Where(b => b.Name == "GitHubAvataruser0").All(c => c.Child is Image), "A second render shows the decoded image at once");
+        Require(second.GetLogicalDescendants().OfType<Border>().Where(b => b.Name == "GitHubAvataruser0").All(c => GitHubAvatars.Face(c) is Image), "A second render shows the decoded image at once");
         Require(Volatile.Read(ref requests) == 1, "A second render makes no request: " + requests);
         second.Close();
 
@@ -153,7 +153,7 @@ internal static partial class GitHubBrowserChecks
             reopened.RenderList(new(false, "r", "o/r", [Make(6), Make(7)], 2, 0, false));
             var again2 = Show(Scroller(reopened));
             var circle = again2.GetLogicalDescendants().OfType<Border>().First(b => b.Name == "GitHubAvataruser0");
-            Require(circle.Child is Image { Source: Bitmap shown } && shown.PixelSize.Width > 0, "A reopened tab shows the cached image, round " + round);
+            Require(GitHubAvatars.Face(circle) is Image { Source: Bitmap shown } && shown.PixelSize.Width > 0, "A reopened tab shows the cached image, round " + round);
             Frame(again2);
             Require(PaintedRed(again2, circle), "A reopened tab paints the cached image, round " + round);
             again2.Close();
@@ -168,8 +168,31 @@ internal static partial class GitHubBrowserChecks
         var third = Show(Scroller(broken));
         for (var i = 0; i < 200 && Volatile.Read(ref failing) == 0; i++) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
         Thread.Sleep(50); Dispatcher.UIThread.RunJobs();
-        Require(third.GetLogicalDescendants().OfType<Border>().Any(b => b.Name == "GitHubAvataruser0" && b.Child is TextBlock { Text: "U" }), "A failed avatar keeps the initial");
+        Require(third.GetLogicalDescendants().OfType<Border>().Any(b => b.Name == "GitHubAvataruser0" && GitHubAvatars.Face(b) is TextBlock { Text: "U" }), "A failed avatar keeps the initial");
         third.Close();
         Console.WriteLine("PASS GitHub avatar circles: initial first, image in place and painted, one request, none on a second render");
+        AvatarRing();
+    }
+
+    /// <summary>A circle clips its picture to the circle and draws one 1 px theme-border ring on top; the picture scales at high quality.</summary>
+    private static void AvatarRing()
+    {
+        GitHubAvatars.Reset();
+        GitHubAvatars.Remember(AvatarUrl, new WriteableBitmap(new PixelSize(8, 8), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888));
+        var stack = GitHubAvatars.Stack([new("user0", AvatarUrl), new("user1", "")], null);
+        var window = Show(stack);
+        foreach (var name in new[] { "GitHubAvataruser0", "GitHubAvataruser1" })
+        {
+            var circle = (Border)Named(window, name)!;
+            Require(circle.ClipToBounds && circle.CornerRadius.TopLeft == circle.Bounds.Width / 2 && circle.Bounds.Width == circle.Bounds.Height, name + " clips to a circle");
+            Require(circle.BorderThickness == default, name + " draws its border as a ring over the picture, not as its own edge");
+            var ring = circle.GetLogicalDescendants().OfType<Border>().Single(b => b.Name == "GitHubAvatarRing");
+            Require(ReferenceEquals(ring.BorderBrush, Ui.BorderBrush) && ring.BorderThickness == new Thickness(1) && ring.CornerRadius == circle.CornerRadius && ring.Bounds.Size == circle.Bounds.Size && !ring.IsHitTestVisible, name + " has a 1 px ring in the theme border colour over its full circle");
+            Require(circle.Child is Grid { Children: [_, var top] } && ReferenceEquals(top, ring), name + " draws the ring last, above the picture");
+        }
+        Require(GitHubAvatars.Face((Border)Named(window, "GitHubAvataruser0")!) is Image picture && RenderOptions.GetBitmapInterpolationMode(picture) == BitmapInterpolationMode.HighQuality, "The picture scales at high quality");
+        window.Close();
+        Require(RenderOptions.GetBitmapInterpolationMode(new GitHubAvatar("", 40)) == BitmapInterpolationMode.HighQuality, "The contributor avatar scales at high quality");
+        Console.WriteLine("PASS GitHub avatars clip to a circle with one 1 px border ring over the picture");
     }
 }
