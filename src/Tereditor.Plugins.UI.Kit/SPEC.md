@@ -22,7 +22,7 @@ the project is created empty with this spec, and the controls move into it as li
 
 ## Provider key row
 
-`ApiKeyRow` is one provider in a key list: a title row with Add key or Replace key and Remove key, hints under it, and a masked key form. Model providers and the plugins that fill it share it.
+`ApiKeyRow` is one provider in a key list: a title row with Add key or Replace key and Remove key, hints under it, and a masked key form. The form is one line (field, Save, Cancel) and the field takes the remaining width; when the row is too narrow to keep the field at least 200 px, Save and Cancel wrap under it. Model providers and the plugins that fill it share it.
 
 ## Core file icons
 

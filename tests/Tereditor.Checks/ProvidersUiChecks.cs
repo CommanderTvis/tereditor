@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -133,6 +134,21 @@ internal static class ProvidersUiChecks
             Settle();
             var key = Find<TextBox>(page, "ModelProviderKey").Single();
             Require(key.PasswordChar == '•', "the key field is masked");
+            foreach (var width in new double[] { 700, 260 })
+            {
+                var form = (Panel)key.Parent!;
+                var column = Find<StackPanel>(page, "ModelProvider-openrouter").Single();
+                column.Width = width == 700 ? double.NaN : width;
+                Settle();
+                Rect Box(Control c) => new(c.TranslatePoint(default, page) ?? default, c.Bounds.Size);
+                var boxes = new Control[] { key }.Concat(form.Children.OfType<Button>()).Select(Box).ToArray();
+                Require(boxes.Length == 3 && boxes.All(b => b.Width > 0 && Box(column).Contains(b) && Box(form).Contains(b)), "the key field, Save and Cancel lie inside the content column at width " + width);
+                Require(!boxes[0].Intersects(boxes[1]) && !boxes[0].Intersects(boxes[2]) && !boxes[1].Intersects(boxes[2]), "the key field, Save and Cancel do not overlap at width " + width);
+                Require(boxes[0].Width >= 200 && Math.Abs(boxes[0].X - Box(column).X) < 1, "the key field starts at the content column and keeps its minimum width at width " + width);
+                Require(width > 400 ? boxes[1].Y < boxes[0].Bottom : boxes[1].Y >= boxes[0].Bottom, "Save sits beside the field when wide and under it when narrow at width " + width);
+            }
+            Find<StackPanel>(page, "ModelProvider-openrouter").Single().Width = double.NaN;
+            Settle();
             key.Text = Sentinel;
             Click(page, "Save", page);
             Settle();

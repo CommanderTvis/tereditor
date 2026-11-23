@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -71,11 +72,11 @@ public sealed class ApiKeyRow : StackPanel
         if (open) Children.Add(KeyForm());
     }
 
-    private Grid KeyForm()
+    private KeyFormPanel KeyForm()
     {
-        var key = new TextBox { PasswordChar = '•', PlaceholderText = "API key", Name = "ModelProviderKey", MinWidth = 280 };
+        var key = new TextBox { PasswordChar = '•', PlaceholderText = "API key", Name = "ModelProviderKey", };
         AutomationProperties.SetName(key, "API key for " + providerName);
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 8 };
+        var row = new KeyFormPanel();
         void Save()
         {
             var secret = key.Text ?? "";
@@ -89,11 +90,62 @@ public sealed class ApiKeyRow : StackPanel
         key.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { Save(); e.Handled = true; } };
         var saveButton = Ui.Button("Save", Save);
         var cancel = Ui.Button("Cancel", () => { open = false; Rebuild(); OpenChanged?.Invoke(false); });
-        Grid.SetColumn(saveButton, 1);
-        Grid.SetColumn(cancel, 2);
         row.Children.Add(key);
         row.Children.Add(saveButton);
         row.Children.Add(cancel);
         return row;
+    }
+
+    /// <summary>The key field with Save and Cancel: all on one line when the field keeps its minimum width, else the buttons wrap under the field.</summary>
+    internal sealed class KeyFormPanel : Panel
+    {
+        internal const double FieldMinWidth = 200;
+        private const double Gap = 8;
+
+        private bool Wrapped(double width, Size buttons) => width < FieldMinWidth + Gap + buttons.Width;
+
+        private Size ButtonsSize()
+        {
+            var inf = Size.Infinity;
+            Children[1].Measure(inf);
+            Children[2].Measure(inf);
+            var buttons = new Size(Children[1].DesiredSize.Width + Gap + Children[2].DesiredSize.Width, Math.Max(Children[1].DesiredSize.Height, Children[2].DesiredSize.Height));
+            return buttons;
+        }
+
+        protected override Size MeasureOverride(Size available)
+        {
+            if (Children.Count < 3) return default;
+            var buttons = ButtonsSize();
+            var width = double.IsInfinity(available.Width) ? FieldMinWidth + Gap + buttons.Width : available.Width;
+            var wrapped = Wrapped(width, buttons);
+            Children[0].Measure(new Size(wrapped ? width : width - Gap - buttons.Width, double.PositiveInfinity));
+            var field = Children[0].DesiredSize;
+            return wrapped ? new Size(width, field.Height + Gap + buttons.Height) : new Size(width, Math.Max(field.Height, buttons.Height));
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            if (Children.Count < 3) return finalSize;
+            var buttons = ButtonsSize();
+            var save = Children[1].DesiredSize;
+            var cancel = Children[2].DesiredSize;
+            var field = Children[0].DesiredSize;
+            if (Wrapped(finalSize.Width, buttons))
+            {
+                Children[0].Arrange(new Rect(0, 0, finalSize.Width, field.Height));
+                var y = field.Height + Gap;
+                Children[1].Arrange(new Rect(0, y, save.Width, save.Height));
+                Children[2].Arrange(new Rect(save.Width + Gap, y, cancel.Width, cancel.Height));
+            }
+            else
+            {
+                var fieldWidth = finalSize.Width - Gap - buttons.Width;
+                Children[0].Arrange(new Rect(0, 0, fieldWidth, finalSize.Height));
+                Children[1].Arrange(new Rect(fieldWidth + Gap, 0, save.Width, finalSize.Height));
+                Children[2].Arrange(new Rect(fieldWidth + Gap + save.Width + Gap, 0, cancel.Width, finalSize.Height));
+            }
+            return finalSize;
+        }
     }
 }
