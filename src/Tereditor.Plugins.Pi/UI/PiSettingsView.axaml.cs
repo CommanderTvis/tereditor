@@ -18,6 +18,7 @@ internal sealed partial class PiSettingsView : StackPanel
         var command = this.FindControl<TextBox>("PiCommandInput")!;
         var model = this.FindControl<TextBox>("PiModel")!;
         var thinking = this.FindControl<TextBox>("PiThinking")!;
+        var codemode = this.FindControl<CheckBox>("PiCodemode")!;
         var version = this.FindControl<TextBlock>("PiVersion")!;
         var source = this.FindControl<ComboBox>("PiSource")!;
         var sourceHint = this.FindControl<TextBlock>("PiSourceHint")!;
@@ -52,6 +53,7 @@ internal sealed partial class PiSettingsView : StackPanel
         Text(command, settings => settings.Command, (settings, value) => settings with { Command = value }, "pi");
         Text(model, settings => settings.Model, (settings, value) => settings with { Model = value });
         Text(thinking, settings => settings.Thinking, (settings, value) => settings with { Thinking = value });
+        codemode.Click += (_, _) => Update(settings => settings with { Codemode = codemode.IsChecked == true });
 
         // The host does the download; the page asks for its state while one runs, so it also shows a download a chat started.
         async Task RefreshAsync(Func<Task<PiStatus>>? request = null)
@@ -102,6 +104,7 @@ internal sealed partial class PiSettingsView : StackPanel
             if (!command.IsFocused) command.Text = settings.Command;
             if (!model.IsFocused) model.Text = settings.Model;
             if (!thinking.IsFocused) thinking.Text = settings.Thinking;
+            codemode.IsChecked = settings.Codemode;
             version.Text = status() switch
             {
                 { Source: PiSources.Managed, Installed: true, Version: { } pinned } => "Pi v" + pinned + " (pinned)",

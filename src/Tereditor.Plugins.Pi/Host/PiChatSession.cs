@@ -12,6 +12,8 @@ internal sealed record PiSpawn(string Command, string Cwd)
 {
     public string? Model { get; init; }
     public string? Thinking { get; init; }
+    /// <summary>Adds <c>--tools +codemode</c> so Pi's codemode tool is on for the chat (Pi 1.1.0 or later reads the <c>+name</c> form).</summary>
+    public bool Codemode { get; init; }
     /// <summary>A stored session file (or id) to continue; null starts a new session.</summary>
     public string? Session { get; init; }
     /// <summary>Variables other plugins' launch contributions set for the child (a model source's agent directory); empty leaves Pi's environment as it is.</summary>

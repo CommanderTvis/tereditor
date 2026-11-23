@@ -41,6 +41,7 @@ internal sealed class ProcessPiLink : IPiLink
         var arguments = new List<string>(spawn.Wrapper.Skip(1).Concat(spawn.Prefix)) { "--mode", "rpc" };
         if (spawn.Session is { Length: > 0 } session) arguments.AddRange(["--session", session]);
         if (spawn.Model is { Length: > 0 } model) arguments.AddRange(["--model", model]);
+        if (spawn.Codemode) arguments.AddRange(["--tools", "+codemode"]);
         var start = new ProcessStartInfo(spawn.Executable, arguments)
         {
             WorkingDirectory = spawn.Cwd,

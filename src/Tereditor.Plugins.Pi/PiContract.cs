@@ -45,6 +45,8 @@ public sealed record PiSettings
     public string Model { get; set; } = "";
     /// <summary>The thinking level a new chat starts with; blank uses Pi's default.</summary>
     public string Thinking { get; set; } = "";
+    /// <summary><c>--tools +codemode</c>: adds Pi's codemode tool, which lets the model run scripts over Pi's other tools. Old settings without it get on.</summary>
+    public bool Codemode { get; set; } = true;
 }
 
 public static class PiThinking

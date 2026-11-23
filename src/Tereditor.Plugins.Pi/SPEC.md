@@ -18,7 +18,7 @@ Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`
 
 ## Acceptance contract
 
-- Process: a chat's child is `pi --mode rpc [--session <file>] [--model <pattern>]` in the workspace directory, with the host's
+- Process: a chat's child is `pi --mode rpc [--session <file>] [--model <pattern>] [--tools +codemode]` in the workspace directory, with the host's
   environment. Commands go to stdin and events and responses come back on stdout as LF-delimited JSON; stdout is read by line (never split on
   Unicode separators). Closing stdin, then killing the process tree, ends it. Stderr is kept (the last lines) to explain an exit.
 - Start: `get_state` (model, thinking level, session file and id, name), then `set_thinking_level` when one was chosen, `get_available_models`
@@ -37,8 +37,7 @@ Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`
 - Sessions: Pi stores sessions under `~/.pi/agent/sessions/--<path with / as ->--/` (or `PI_CODING_AGENT_DIR`). The sessions list shows that
   directory's files newest first, titled by the session's name or first prompt; opening one resumes it with `--session`. The host remembers each
   chat's session file so reopening its tab continues it.
-- Launcher: "Pi" in the agent launchers always opens a chat tab (there is no terminal mode yet); Settings › Pi has the Pi source, the command, a default model and
-  a thinking level, and the version read from `pi --version`. Model providers and keys are managed only in Settings › Plugins › Model providers; Pi has no provider or key page of its own.
+- Launcher: "Pi" in the agent launchers always opens a chat tab (there is no terminal mode yet); Settings › Pi has the Pi source, the command, a default model, a thinking level, a Codemode switch and the version read from `pi --version`. Model providers and keys are managed only in Settings › Plugins › Model providers; Pi has no provider or key page of its own.
 
 Settings › Pi shows the Model source control from Model providers as its first setting, above everything else (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks an API Pi takes. With a provider chosen, Model providers writes Pi's `models.json` in tereditor's own agent directory (`<state>/providers/pi/agent`) with the key as a `!command` for the `provider-key` helper, and the chat's `pi --mode rpc` child runs with `PI_CODING_AGENT_DIR` set to that directory (an agent launch contribution; sessions are listed from it). The key is never in an argument or the environment, and `auth.json` is never written. With none chosen or the plugin off, the child starts as before. With that plugin off the page shows one hint line and nothing else changes. With Air Gateway on, JetBrains (Air Gateway) is one more choice of that control (Central declares wiring for Pi): the chat then starts `central run pi -- --mode rpc …` (a launch contribution that replaces the executable, applied only to the plain `pi` command; a custom command is never rewritten), and a contribution blocked with a reason stops the chat from starting. Pi does not depend on Model providers; its manifest declares `agentRouting` (Anthropic, OpenAI Responses and OpenAI Chat through its models file).
 
@@ -55,10 +54,10 @@ Settings › Pi shows the Model source control from Model providers as its first
 
 ## Not yet
 
-A terminal launch of Pi, permission-style gating, rewind and fork through Pi's `fork` and session tree, extension dialogs, MCP and tereditor's
+The browser-tab launch (`PiLinks.InTab`) does not pass the codemode flag yet. A terminal launch of Pi, permission-style gating, rewind and fork through Pi's `fork` and session tree, extension dialogs, MCP and tereditor's
 tools for Pi, and running Pi inside a browser tab.
 
 ## Checks
 
 `--pi` (gate case `pi`): the manifest, the folding of recorded events and stored messages, a session against a fixture `pi` (start, state, models,
-commands, a streamed turn, model and thinking changes, close, a missing binary, the version probe) and the sessions list, and a launch contribution that replaces the executable or blocks the start. The pinned Pi runs against a fixture `bun`, with no network: a download whose lock file lacks the pinned integrity is refused and leaves nothing, cancel leaves nothing, two requests share one download, the install arguments, folder and environment, an earlier copy replaced, no second download, the launch as `bun --bun cli.js --mode rpc …` with the process tracked, a blocked launch passed on, a missing Bun failing the chat, Remove, and the system source unchanged.
+commands, a streamed turn, model and thinking changes, close, a missing binary, the version probe) and the sessions list, a launch contribution that replaces the executable or blocks the start, and codemode: a fresh setting is on, and the launch carries `--tools +codemode` (the managed launch too). Codemode needs Pi 1.1.0 or later (the `+name` form of `--tools`); the system command is not probed for it. The pinned Pi runs against a fixture `bun`, with no network: a download whose lock file lacks the pinned integrity is refused and leaves nothing, cancel leaves nothing, two requests share one download, the install arguments, folder and environment, an earlier copy replaced, no second download, the launch as `bun --bun cli.js --mode rpc …` with the process tracked, a blocked launch passed on, a missing Bun failing the chat, Remove, and the system source unchanged.

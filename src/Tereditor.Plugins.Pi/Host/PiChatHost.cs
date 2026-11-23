@@ -135,6 +135,7 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
             Blocked = AgentLaunchComposition.Blocked(contributions) ?? (pinned is not null && replacing.Count > 0 ? "This Model source starts the system Pi. Set Pi source to System command, or choose another Model source." : null),
             Model = p.Model ?? (settings.Model.Length > 0 ? settings.Model : null),
             Thinking = p.Effort ?? (settings.Thinking.Length > 0 ? settings.Thinking : null),
+            Codemode = settings.Codemode,
             Session = resume is not null && File.Exists(resume) ? resume : null,
             Environment = ContributedEnvironment(context)
         };

@@ -125,7 +125,7 @@ internal static class PiChecks
         var pushes = new List<ChatPush>();
         var remembered = new List<string?>();
         await using var session = new PiChatSession("ws", "chat1", push => { lock (pushes) pushes.Add(push); }, _ => { }, (_, file) => remembered.Add(file));
-        var spawn = new PiSpawn(fake, directory) { Model = "fake/m1", Thinking = "high", Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = Path.Combine(directory, "profile") } };
+        var spawn = new PiSpawn(fake, directory) { Model = "fake/m1", Thinking = "high", Codemode = true, Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = Path.Combine(directory, "profile") } };
         Require(session.Begin(spawn) is { Status: ChatStatus.Starting, Cwd: { } cwd } && cwd == directory, "Begin reports a starting chat in its directory.");
         await session.StartAsync(spawn);
         await Until(() => session.Header.Status == ChatStatus.Idle, "The session starts, reads Pi's state and goes idle.");
@@ -134,7 +134,7 @@ internal static class PiChecks
         Require(header.Models.Select(model => model.Id).SequenceEqual(["fake/m1", "fake/m2"]) && header.Models[0].Efforts.Count > 0 && header.Models[1].Efforts.Count == 0, "Models come from Pi, with thinking levels only for reasoning ones.");
         Require(header.Commands.Any(command => command.Name == "skill:x"), "Pi's commands feed the slash menu.");
         Require(File.ReadAllText(Path.Combine(directory, "agentdir.txt")) == Path.Combine(directory, "profile"), "A model source's agent directory reaches the Pi child through its environment, never its arguments.");
-        Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(4).SequenceEqual(["--mode", "rpc", "--model", "fake/m1"]), "Pi starts in RPC mode with the chosen model.");
+        Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(6).SequenceEqual(["--mode", "rpc", "--model", "fake/m1", "--tools", "+codemode"]), "Pi starts in RPC mode with the chosen model and codemode on.");
 
         await session.SendAsync("hello pi", null);
         await Until(() => session.Header.Status == ChatStatus.Idle && session.Snapshot().OfType<ChatItemPush>().Any(push => push.Item is ChatAssistantItem { Text: "Hi there." }), "A prompt streams a reply and the chat returns to idle.");
@@ -220,6 +220,7 @@ internal static class PiChecks
 
         Require(managed.Status(PiSources.Managed) is { Installed: false, Source: PiSources.Managed, PinnedVersion: PiManaged.Version, ManagedVersion: "", Installing: false }, "Before a download the managed Pi is pinned and not installed.");
         Require(new PiSettings().Source == PiSources.System, "A fresh setup runs the system command.");
+        Require(new PiSettings().Codemode, "A fresh Pi setting turns codemode on.");
 
         mode("bad");
         var refused = await Throws<InvalidOperationException>(() => managed.EnsureAsync(workspace, CancellationToken.None));
@@ -252,15 +253,15 @@ internal static class PiChecks
 
         // The chat runs the pinned copy through Bun and nothing else.
         var tracked = new List<int>();
-        var spawn = await managed.PrepareAsync(new PiSpawn("pi", workspace) { Model = "fake/m1", Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = Path.Combine(directory, "profile") } }, (runtime, id) => { Require(runtime == resolution, "The process is tracked against the Bun that ran it."); tracked.Add(id); });
+        var spawn = await managed.PrepareAsync(new PiSpawn("pi", workspace) { Model = "fake/m1", Codemode = true, Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = Path.Combine(directory, "profile") } }, (runtime, id) => { Require(runtime == resolution, "The process is tracked against the Bun that ran it."); tracked.Add(id); });
         Require(spawn.Command == bun && spawn.Prefix.SequenceEqual(["--bun", managed.EntryPoint]) && spawn.Environment["BUN_INSTALL"] == Path.Combine(directory, "bun-home") && spawn.Environment["PI_CODING_AGENT_DIR"] == Path.Combine(directory, "profile"),
             "The managed launch is bun --bun cli.js with Bun's environment added to the model source's.");
         await using var session = new PiChatSession("ws", "managed", _ => { }, _ => { }, (_, _) => { });
         session.Begin(spawn);
         await session.StartAsync(spawn);
         await Until(() => session.Header.Status == ChatStatus.Idle, "The pinned Pi starts through Bun and the chat goes idle.");
-        Require(calls().Contains($"--bun {managed.EntryPoint} --mode rpc --model fake/m1") && tracked.Count == 1, "Bun gets the script first and Pi's own arguments after it, and the process is tracked.");
-        Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(4).SequenceEqual(["--mode", "rpc", "--model", "fake/m1"]), "Pi itself sees only its own arguments.");
+        Require(calls().Contains($"--bun {managed.EntryPoint} --mode rpc --model fake/m1 --tools +codemode") && tracked.Count == 1, "Bun gets the script first and Pi's own arguments after it, and the process is tracked.");
+        Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(6).SequenceEqual(["--mode", "rpc", "--model", "fake/m1", "--tools", "+codemode"]), "Pi itself sees only its own arguments, codemode included.");
         await session.CloseAsync();
 
         var blocked = new PiSpawn("pi", workspace) { Blocked = "Central is not signed in." };

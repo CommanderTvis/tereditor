@@ -55,4 +55,10 @@
     <TextBox x:Name="PiThinking" PlaceholderText="Use Pi's default" FontFamily="{x:Static kit:Ui.CodeFont}" FontSize="12" AutomationProperties.Name="pi thinking level" />
     <TextBlock Classes="detail" Text="off, minimal, low, medium, high or xhigh." />
   </StackPanel>
+  <CheckBox x:Name="PiCodemode" AutomationProperties.Name="Codemode">
+    <StackPanel Spacing="2">
+      <TextBlock Text="Codemode (--tools +codemode)" />
+      <TextBlock Classes="detail" Text="Lets the model write scripts that call Pi's other tools, in parallel, and filter their output before it reaches the chat." />
+    </StackPanel>
+  </CheckBox>
 </StackPanel>
