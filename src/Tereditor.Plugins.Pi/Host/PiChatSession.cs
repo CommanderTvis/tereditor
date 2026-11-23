@@ -22,6 +22,10 @@ internal sealed record PiSpawn(string Command, string Cwd)
     public string? Blocked { get; init; }
     /// <summary>The program that is started: the first wrapper word, else the command.</summary>
     public string Executable => Wrapper.Count > 0 ? Wrapper[0] : Command;
+    /// <summary>Words that come before Pi's own arguments when the command is a runtime (the managed Pi runs as <c>bun --bun cli.js</c>); empty for a Pi program.</summary>
+    public IReadOnlyList<string> Prefix { get; init; } = [];
+    /// <summary>Called with the id of the process once it started.</summary>
+    public Action<int>? Started { get; init; }
 }
 
 /// <summary>
@@ -59,6 +63,16 @@ internal sealed class PiChatSession : IAsyncDisposable
     }
 
     public bool Active => child is { Alive: true };
+
+    /// <summary>Ends a chat that could not start, with the reason.</summary>
+    public void Fail(string message)
+    {
+        lock (gate)
+        {
+            folder.SetStatus(ChatStatus.Failed, message);
+            FlushNow();
+        }
+    }
 
     public ChatHeader Header
     {

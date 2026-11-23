@@ -10,8 +10,8 @@ parent: group-plugins-agents
 
 Early support for the Pi coding agent (https://github.com/badlogic/pi-mono), shown as a chat tab in the shared chat view
 (`src/Tereditor.Plugins.Chat/SPEC.md`). Disabled by default; the manifest declares `Support = early`. Pi runs as a child
-process of the host, so a browser tab reaches it only through a host. tereditor never installs Pi:
-it runs the `pi` the host finds on PATH (or the configured command).
+process of the host, so a browser tab reaches it only through a host. By default tereditor installs nothing:
+it runs the `pi` the host finds on PATH (or the configured command). Settings › Pi can choose the pinned Pi instead (below).
 
 Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`, `docs/session-format.md` in `@mariozechner/pi-coding-agent`
 0.73.1). They are verified by the checks against a fixture `pi` that speaks the protocol, not against a real Pi run.
@@ -37,10 +37,21 @@ Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`
 - Sessions: Pi stores sessions under `~/.pi/agent/sessions/--<path with / as ->--/` (or `PI_CODING_AGENT_DIR`). The sessions list shows that
   directory's files newest first, titled by the session's name or first prompt; opening one resumes it with `--session`. The host remembers each
   chat's session file so reopening its tab continues it.
-- Launcher: "Pi" in the agent launchers always opens a chat tab (there is no terminal mode yet); Settings › Pi has the command, a default model and
+- Launcher: "Pi" in the agent launchers always opens a chat tab (there is no terminal mode yet); Settings › Pi has the Pi source, the command, a default model and
   a thinking level, and the version read from `pi --version`. Model providers and keys are managed only in Settings › Plugins › Model providers; Pi has no provider or key page of its own.
 
 Settings › Pi shows the Model source control from Model providers as its first setting, above everything else (Plugin API `UiSlots.ModelSourceView`): the agent's own provider (default) or a provider the user added that speaks an API Pi takes. With a provider chosen, Model providers writes Pi's `models.json` in tereditor's own agent directory (`<state>/providers/pi/agent`) with the key as a `!command` for the `provider-key` helper, and the chat's `pi --mode rpc` child runs with `PI_CODING_AGENT_DIR` set to that directory (an agent launch contribution; sessions are listed from it). The key is never in an argument or the environment, and `auth.json` is never written. With none chosen or the plugin off, the child starts as before. With that plugin off the page shows one hint line and nothing else changes. With Air Gateway on, JetBrains (Air Gateway) is one more choice of that control (Central declares wiring for Pi): the chat then starts `central run pi -- --mode rpc …` (a launch contribution that replaces the executable, applied only to the plain `pi` command; a custom command is never rewritten), and a contribution blocked with a reason stops the chat from starting. Pi does not depend on Model providers; its manifest declares `agentRouting` (Anthropic, OpenAI Responses and OpenAI Chat through its models file).
+
+## Pi source
+
+`PiSettings.Source` is `system` (default; nothing changes for a setup that never touches it) or `managed`. Managed runs the pinned Pi that tereditor downloads, and never falls back to the system one.
+
+- Pin: `PiManaged` holds the exact version of `@earendil-works/pi-coding-agent` (1.6.0) next to the npm registry's `dist.integrity` of that release. There is no update-pins task for it: change both constants together, from `https://registry.npmjs.org/@earendil-works/pi-coding-agent/<version>`.
+- Download: the host runs `bun install --ignore-scripts --no-progress --registry=https://registry.npmjs.org/` in a temporary folder next to the final one, with a `package.json` that names the exact version. Bun comes from Runtimes for tooling (`ResolveRuntimeAsync(Bun)`: the user's pin, the downloaded copy, then PATH, downloaded with the usual consent); its answer's environment (Bun's cache in the host's cache, no config or `.env` from the working directory) goes to the install and the launch. After it Bun's `bun.lock` must contain the pinned integrity, else the copy is deleted and the download fails with a sentence. The folder is then renamed to `~/.tereditor/pi/managed/<version>` with a record of the pin; a folder of an earlier pin is deleted after the update. One download runs at a time: the settings page and a chat that needs the copy share it. Cancel kills Bun and leaves no partial folder. Nothing is downloaded until the user presses Download or opens a chat with the managed source.
+- Launch: `bun --bun <package>/dist/bundle/cli.js --mode rpc …`, the equivalent of `bunx --bun @earendil-works/pi-coding-agent@<version>` from the installed copy, in the workspace directory. The process is reported to Runtimes (`TrackRuntimeProcess`), so turning Runtimes for tooling off stops it before Bun is deleted. A Model source that starts Pi through another program (`central run pi --`) needs the system Pi: with the managed source it blocks the start with that reason. A model source's environment (the agent directory) still applies. A failed download or a missing Bun fails the chat with the reason; the chat does not run any other Pi.
+- Page: the Pi source choice (System command, Managed pinned) comes before Command; Managed hides Command and shows the pinned version, "downloaded", "not downloaded yet" or "an earlier version is downloaded", Download or Update, Remove download, and while a download runs a line, a bar with no end (Bun reports no sizes) and Cancel. The page asks the host for the state each half second while a download runs, so it also shows one a chat started. A failure stays on the page as a red line.
+- Off: turning the plugin off deletes `~/.tereditor/pi/managed`.
+- omp has its own plugin and launch code; it does not share this.
 
 ## Not yet
 
@@ -50,4 +61,4 @@ tools for Pi, and running Pi inside a browser tab.
 ## Checks
 
 `--pi` (gate case `pi`): the manifest, the folding of recorded events and stored messages, a session against a fixture `pi` (start, state, models,
-commands, a streamed turn, model and thinking changes, close, a missing binary, the version probe) and the sessions list, and a launch contribution that replaces the executable or blocks the start.
+commands, a streamed turn, model and thinking changes, close, a missing binary, the version probe) and the sessions list, and a launch contribution that replaces the executable or blocks the start. The pinned Pi runs against a fixture `bun`, with no network: a download whose lock file lacks the pinned integrity is refused and leaves nothing, cancel leaves nothing, two requests share one download, the install arguments, folder and environment, an earlier copy replaced, no second download, the launch as `bun --bun cli.js --mode rpc …` with the process tracked, a blocked launch passed on, a missing Bun failing the chat, Remove, and the system source unchanged.

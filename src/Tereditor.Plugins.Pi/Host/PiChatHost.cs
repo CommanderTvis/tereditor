@@ -15,7 +15,7 @@ internal sealed record PiChatRecord(string WorkspaceId, string ChatId)
 }
 
 /// <summary>The registry of Pi chats and the handler of every <see cref="ChatContract"/> method.</summary>
-internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessionsRoot = null)
+internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessionsRoot = null, PiManaged? managed = null)
 {
     private const string RecordsState = "chats";
 
@@ -124,12 +124,15 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         var record = await Task.Run(() => LoadRecord(p.WorkspaceId, p.ChatId));
         var resume = p.ResumeSessionId ?? record?.SessionFile;
         var command = settings.Command.Trim() is { Length: > 0 } own ? own : "pi";
+        // The pinned Pi runs on Bun and never falls back to the system one.
+        var pinned = settings.Source == PiSources.Managed && PiLinks.InTab is null ? managed : null;
         // Like the other agents, a custom command is never rewritten: only the plain `pi` is wrapped or blocked by a launch contribution.
-        var contributions = Path.GetFileNameWithoutExtension(command) == "pi" ? context.AgentLaunchContributions(PiManifest.Id) : [];
+        var contributions = pinned is not null || Path.GetFileNameWithoutExtension(command) == "pi" ? context.AgentLaunchContributions(PiManifest.Id) : [];
+        var replacing = contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0)?.Wrapper ?? [];
         var spawn = new PiSpawn(command, cwd)
         {
-            Wrapper = contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0)?.Wrapper ?? [],
-            Blocked = AgentLaunchComposition.Blocked(contributions),
+            Wrapper = pinned is null ? replacing : [],
+            Blocked = AgentLaunchComposition.Blocked(contributions) ?? (pinned is not null && replacing.Count > 0 ? "This Model source starts the system Pi. Set Pi source to System command, or choose another Model source." : null),
             Model = p.Model ?? (settings.Model.Length > 0 ? settings.Model : null),
             Thinking = p.Effort ?? (settings.Thinking.Length > 0 ? settings.Thinking : null),
             Session = resume is not null && File.Exists(resume) ? resume : null,
@@ -139,8 +142,22 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
             _ => new PiChatSession(p.WorkspaceId, p.ChatId, Publish, message => context.Log.Warn(message), (chat, file) => SaveSessionFile(p.WorkspaceId, chat, file)),
             (_, current) => current);
         var header = session.Begin(spawn);
-        _ = session.StartAsync(spawn);
+        _ = pinned is null ? session.StartAsync(spawn) : Task.Run(() => StartPinnedAsync(session, spawn, pinned));
         return header;
+    }
+
+    // Downloads the pinned Pi when it is not there yet, then runs it on Bun.
+    private async Task StartPinnedAsync(PiChatSession session, PiSpawn spawn, PiManaged pinned)
+    {
+        try
+        {
+            spawn = await pinned.PrepareAsync(spawn, context.TrackRuntimeProcess);
+            await session.StartAsync(spawn);
+        }
+        catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            session.Fail(pinned.LastError is { Length: > 0 } failure ? failure : error.Message);
+        }
     }
 
     /// <summary>Pi's stored sessions for a directory, newest first: <c>--&lt;path with / as -&gt;--</c> under the sessions root.</summary>

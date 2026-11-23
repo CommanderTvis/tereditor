@@ -38,7 +38,7 @@ The environment is the guard. Bun gets `BUN_INSTALL` in the cache, `BUN_OPTIONS`
 
 The JDK (`RuntimeKind.Jdk`, pinned path `JdkPath`, the host tool `java`) follows the same rules with two differences. It only runs the Java-based servers, jdtls (21 or newer) and Metals (11, 17 or 21); it is never the project's JDK, which stays what the project and the server's `java.home` say, and it never replaces a JDK the user set. A `JAVA_HOME` or PATH JDK counts only when its `release` file shows a version the server accepts; an older or unreadable PATH one is passed over when the JDK can be downloaded, and kept when it cannot (plugin off, offline). The answer has no arguments and no environment; a server launched on it gets `JAVA_HOME` and PATH from the host. One Temurin 21 per platform (macOS arm64 and x64, Linux x64 and arm64, Windows x64) is pinned from the Adoptium API's published SHA-256.
 
-Clients: the Java and Scala language servers (`Needs a JDK 21 or newer.` and the offer) and the language servers that run on Bun (TypeScript, Python, PHP, CSS, Shell: they say `Needs Bun.` and the offer) and the ACP plugin (npx entries on Bun, uvx entries on uv).
+Clients: the Java and Scala language servers (`Needs a JDK 21 or newer.` and the offer) and the language servers that run on Bun (TypeScript, Python, PHP, CSS, Shell: they say `Needs Bun.` and the offer) and the ACP plugin (npx entries on Bun, uvx entries on uv) and the Pi plugin (its pinned Pi, installed and run on Bun; [Pi SPEC](../Tereditor.Plugins.Pi/SPEC.md)).
 
 ## Turning it off
 

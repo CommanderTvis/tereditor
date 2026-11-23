@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Tereditor.Plugins.Api;
+using Tereditor.Plugins.Api.Host;
 using Tereditor.Plugins.Chat;
 using Tereditor.Plugins.Pi;
 using Tereditor.Plugins.Pi.Host;
@@ -173,6 +174,117 @@ internal static class PiChecks
         Require(!(await PiHost.ReadStatusAsync(Path.Combine(directory, "none"))).Installed, "A missing pi is reported as not installed.");
     }
 
+    // A fixture bun: `install` writes a package whose lock file names the pinned integrity (mode good), another one (bad) or waits (slow, hang);
+    // `--bun <script> …` hands over to the fixture pi. It records its arguments, working directory and BUN_INSTALL.
+    private static string FakeBun(string directory)
+    {
+        var path = Path.Combine(directory, "bun");
+        File.WriteAllText(path, $$"""
+            #!/bin/sh
+            here="$(dirname "$0")"
+            printf '%s\n' "$*" >> "$here/bun-calls.txt"
+            if [ "$1" = "install" ]; then
+              printf '%s|%s\n' "$PWD" "$BUN_INSTALL" >> "$here/bun-install.txt"
+              mode=$(cat "$here/bun-mode.txt")
+              [ "$mode" = "hang" ] && sleep 30
+              [ "$mode" = "slow" ] && sleep 1
+              pkg=node_modules/@earendil-works/pi-coding-agent
+              mkdir -p "$pkg/dist/bundle"
+              printf '{"name":"x","version":"{{PiManaged.Version}}"}' > "$pkg/package.json"
+              echo "// cli" > "$pkg/dist/bundle/cli.js"
+              if [ "$mode" = "bad" ]; then echo '"{{PiManaged.Package}}": ["x", "sha512-other"]' > bun.lock; else echo '"{{PiManaged.Package}}": ["x", "{{PiManaged.Integrity}}"]' > bun.lock; fi
+              exit 0
+            fi
+            if [ "$1" = "--bun" ]; then shift 2; exec "$here/pi" "$@"; fi
+            exit 3
+            """.Replace("\r\n", "\n"));
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return path;
+    }
+
+    // The pinned Pi: downloaded once with Bun and checked against the pinned integrity, then run as `bun --bun cli.js`, never the system pi.
+    internal static async Task Managed(string root)
+    {
+        var directory = Path.Combine(root, "pi-managed");
+        Directory.CreateDirectory(directory);
+        FakePi(directory);
+        var bun = FakeBun(directory);
+        var mode = (string value) => File.WriteAllText(Path.Combine(directory, "bun-mode.txt"), value);
+        var calls = () => File.Exists(Path.Combine(directory, "bun-calls.txt")) ? File.ReadAllLines(Path.Combine(directory, "bun-calls.txt")) : Array.Empty<string>();
+        var resolution = new RuntimeResolution(RuntimeKind.Bun, true, bun, ["x"], new Dictionary<string, string> { ["BUN_INSTALL"] = Path.Combine(directory, "bun-home") }, RuntimeSource.Downloaded, "", false);
+        var install = Path.Combine(directory, "installs");
+        var workspace = Path.Combine(directory, "workspace");
+        Directory.CreateDirectory(workspace);
+        var managed = new PiManaged(install, (_, _) => Task.FromResult(resolution));
+        var empty = () => !Directory.Exists(install) || Directory.GetFileSystemEntries(install).Length == 0;
+
+        Require(managed.Status(PiSources.Managed) is { Installed: false, Source: PiSources.Managed, PinnedVersion: PiManaged.Version, ManagedVersion: "", Installing: false }, "Before a download the managed Pi is pinned and not installed.");
+        Require(new PiSettings().Source == PiSources.System, "A fresh setup runs the system command.");
+
+        mode("bad");
+        var refused = await Throws<InvalidOperationException>(() => managed.EnsureAsync(workspace, CancellationToken.None));
+        Require(refused.Message.Contains("checksum", StringComparison.Ordinal) && managed.LastError.Contains("checksum", StringComparison.Ordinal), "A download whose lock file does not name the pinned integrity is refused with a reason.");
+        Require(empty() && managed.InstalledVersion().Length == 0, "A refused download leaves nothing behind.");
+
+        mode("hang");
+        var hanging = managed.EnsureAsync(workspace, CancellationToken.None);
+        await Until(() => managed.Running && managed.Status(PiSources.Managed) is { Installing: true, Progress.Length: > 0 }, "A running download reports that it runs, with a progress line.");
+        managed.Cancel();
+        await Throws<OperationCanceledException>(() => hanging);
+        Require(empty() && managed.LastError.Contains("cancelled", StringComparison.Ordinal) && !managed.Running, "Cancel stops Bun, leaves no partial folder and says so.");
+
+        // An older pin's copy is shown as such and replaced by the update.
+        Directory.CreateDirectory(Path.Combine(install, "0.1.0"));
+        Require(managed.Status(PiSources.Managed) is { Installed: false, ManagedVersion: "0.1.0" }, "A copy from an earlier pin is not the pinned Pi, so the page offers an update.");
+        File.Delete(Path.Combine(directory, "bun-calls.txt"));
+        mode("slow");
+        await Task.WhenAll(managed.EnsureAsync(workspace, CancellationToken.None), managed.EnsureAsync(workspace, CancellationToken.None));
+        Require(calls().Count(line => line.StartsWith("install", StringComparison.Ordinal)) == 1, "Two requests for the pinned Pi (the page and a chat) share one download.");
+        Require(calls()[0] == "install --ignore-scripts --no-progress --registry=https://registry.npmjs.org/", "Bun installs without the package's scripts, from the npm registry.");
+        var line = File.ReadAllLines(Path.Combine(directory, "bun-install.txt")).Last().Split('|');
+        Require(Path.GetFullPath(line[0]).StartsWith(Path.GetFullPath(install), StringComparison.Ordinal) && line[1] == Path.Combine(directory, "bun-home"), "Bun installs in the download folder, never the workspace, with the host's Bun environment.");
+        Require(managed.InstalledVersion() == PiManaged.Version && managed.Status(PiSources.Managed) is { Installed: true, ManagedVersion: PiManaged.Version, Version: PiManaged.Version }, "A checked download is the installed pinned Pi.");
+        Require(!Directory.Exists(Path.Combine(install, "0.1.0")) && Directory.GetFileSystemEntries(install).Length == 1, "The update removes the earlier copy and leaves one folder.");
+        Require(File.ReadAllText(Path.Combine(install, PiManaged.Version, "node_modules", "@earendil-works", "pi-coding-agent", "package.json")).Contains(PiManaged.Version, StringComparison.Ordinal), "The package is installed at the pinned version.");
+        File.Delete(Path.Combine(directory, "bun-calls.txt"));
+        await managed.EnsureAsync(workspace, CancellationToken.None);
+        Require(calls().Length == 0, "An installed pinned Pi is not downloaded again.");
+
+        // The chat runs the pinned copy through Bun and nothing else.
+        var tracked = new List<int>();
+        var spawn = await managed.PrepareAsync(new PiSpawn("pi", workspace) { Model = "fake/m1", Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = Path.Combine(directory, "profile") } }, (runtime, id) => { Require(runtime == resolution, "The process is tracked against the Bun that ran it."); tracked.Add(id); });
+        Require(spawn.Command == bun && spawn.Prefix.SequenceEqual(["--bun", managed.EntryPoint]) && spawn.Environment["BUN_INSTALL"] == Path.Combine(directory, "bun-home") && spawn.Environment["PI_CODING_AGENT_DIR"] == Path.Combine(directory, "profile"),
+            "The managed launch is bun --bun cli.js with Bun's environment added to the model source's.");
+        await using var session = new PiChatSession("ws", "managed", _ => { }, _ => { }, (_, _) => { });
+        session.Begin(spawn);
+        await session.StartAsync(spawn);
+        await Until(() => session.Header.Status == ChatStatus.Idle, "The pinned Pi starts through Bun and the chat goes idle.");
+        Require(calls().Contains($"--bun {managed.EntryPoint} --mode rpc --model fake/m1") && tracked.Count == 1, "Bun gets the script first and Pi's own arguments after it, and the process is tracked.");
+        Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(4).SequenceEqual(["--mode", "rpc", "--model", "fake/m1"]), "Pi itself sees only its own arguments.");
+        await session.CloseAsync();
+
+        var blocked = new PiSpawn("pi", workspace) { Blocked = "Central is not signed in." };
+        Require(await managed.PrepareAsync(blocked, (_, _) => throw new InvalidOperationException("tracked")) == blocked, "A blocked launch is passed on unchanged, so it fails with its reason and starts no Bun.");
+
+        var noBun = new PiManaged(install, (_, _) => Task.FromResult(RuntimeResolution.Unavailable(RuntimeKind.Bun, "Needs Bun.", offerEnable: true)));
+        managed.Remove();
+        Require(!Directory.Exists(install) && managed.InstalledVersion().Length == 0, "Remove deletes the downloaded Pi.");
+        var missing = await Throws<InvalidOperationException>(() => noBun.PrepareAsync(new PiSpawn("pi", workspace), (_, _) => { }));
+        Require(missing.Message == "Needs Bun." && noBun.LastError.Contains("Needs Bun.", StringComparison.Ordinal), "Without Bun the chat fails with Runtimes' own sentence and never falls back to the system Pi.");
+
+        // The system source is unchanged.
+        Require((await PiHost.ReadStatusAsync(new PiSettings { Command = FakePiPath(directory) }, managed)) is { Installed: true, Version: "0.99.1", Source: PiSources.System, PinnedVersion: PiManaged.Version }, "The system source still reads pi --version, and also reports the pin.");
+    }
+
+    private static async Task<T> Throws<T>(Func<Task> action) where T : Exception
+    {
+        try { await action(); }
+        catch (T error) { return error; }
+        throw new InvalidOperationException("pi: expected " + typeof(T).Name + ".");
+    }
+
+    private static string FakePiPath(string directory) => Path.Combine(directory, "pi");
+
     private static async Task Until(Func<bool> condition, string message)
     {
         var deadline = DateTime.UtcNow.AddSeconds(15);
@@ -204,5 +316,6 @@ internal static class PiChecks
         Fold();
         Sessions(root);
         await Session(root);
+        await Managed(root);
     }
 }

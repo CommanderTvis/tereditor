@@ -13,6 +13,12 @@ public sealed class PiHost : PluginHostModule
 
     public override IJsonTypeInfoResolver Json => PiHostJson.Default;
 
+    /// <summary>The status of the Pi the settings choose, with the state of the pinned download added.</summary>
+    internal static async Task<PiStatus> ReadStatusAsync(PiSettings settings, PiManaged managed) =>
+        settings.Source == PiSources.Managed && PiLinks.InTab is null
+            ? await Task.Run(() => managed.Status(PiSources.Managed))
+            : managed.Status(PiSources.System, await ReadStatusAsync(settings.Command));
+
     internal static async Task<PiStatus> ReadStatusAsync(string command)
     {
         if (PiLinks.InTab is not null) return new PiStatus(true, "in this tab") { Version = PiLinks.InTabVersion is { } version ? await version() : null };
@@ -39,8 +45,31 @@ public sealed class PiHost : PluginHostModule
 
     public override ValueTask<PluginDisposer?> ActivateAsync(IPluginHostContext context)
     {
-        context.Method(PiContract.Status, async (_, _, _) => await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>().Command)));
-        var chats = new PiChatHost(context);
+        var managed = new PiManaged(PiManaged.DefaultRoot(), (workspace, token) => context.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, token).AsTask());
+        context.Method(PiContract.Status, async (_, _, _) => await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed)));
+        context.Method(PiContract.Install, async (_, _, token) =>
+        {
+            try { await managed.EnsureAsync("", token); }
+            catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException or OperationCanceledException) { context.Log.Debug("pi download: " + error.Message); }
+            return await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed), CancellationToken.None);
+        });
+        context.Method(PiContract.CancelInstall, async (_, _, _) =>
+        {
+            managed.Cancel();
+            return await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed));
+        });
+        context.Method(PiContract.Remove, async (_, _, _) =>
+        {
+            await Task.Run(managed.Remove);
+            return await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed));
+        });
+        // Turning the plugin off deletes what it downloaded.
+        context.OnUserDisabled(() =>
+        {
+            managed.Remove();
+            return ValueTask.CompletedTask;
+        });
+        var chats = new PiChatHost(context, managed: managed);
         chats.Register();
         return ValueTask.FromResult<PluginDisposer?>(() => new ValueTask(chats.DisposeAsync()));
     }

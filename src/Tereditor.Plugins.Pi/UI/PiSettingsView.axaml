@@ -20,11 +20,28 @@
         <TextBlock Text="Early support" FontSize="11" Foreground="{x:Static kit:Ui.Warning}" />
       </Border>
     </StackPanel>
-    <TextBlock Classes="detail" Text="Pi chats run the pi coding agent from your system installation over its RPC mode. Model providers and keys are managed in Settings › Plugins › Model providers." />
+    <TextBlock Classes="detail" Text="Pi chats run the pi coding agent over its RPC mode, from your system installation or from a pinned copy that tereditor downloads and runs on Bun. Model providers and keys are managed in Settings › Plugins › Model providers." />
     <TextBlock x:Name="PiVersion" Classes="detail" />
   </StackPanel>
   <StackPanel x:Name="ModelSourceHost" />
   <StackPanel Spacing="4">
+    <TextBlock Text="Pi source" />
+    <ComboBox x:Name="PiSource" HorizontalAlignment="Stretch" AutomationProperties.Name="Pi source">
+      <ComboBoxItem Content="System command" />
+      <ComboBoxItem Content="Managed, pinned" />
+    </ComboBox>
+    <TextBlock x:Name="PiSourceHint" Classes="detail" />
+  </StackPanel>
+  <StackPanel x:Name="PiManagedPanel" Spacing="8" IsVisible="False">
+    <TextBlock x:Name="PiManagedLine" />
+    <TextBlock x:Name="PiManagedError" Classes="detail" Foreground="{x:Static kit:Ui.Danger}" IsVisible="False" />
+    <StackPanel x:Name="PiManagedProgress" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button x:Name="PiManagedDownload" Content="Download" AutomationProperties.Name="Download pinned Pi" />
+      <Button x:Name="PiManagedRemove" Content="Remove download" AutomationProperties.Name="Remove downloaded Pi" />
+    </StackPanel>
+  </StackPanel>
+  <StackPanel x:Name="PiCommandPanel" Spacing="4">
     <TextBlock Text="Command" />
     <TextBox x:Name="PiCommandInput" PlaceholderText="pi" FontFamily="{x:Static kit:Ui.CodeFont}" FontSize="12" AutomationProperties.Name="pi command" />
   </StackPanel>
