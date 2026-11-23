@@ -779,8 +779,8 @@ then another eligible JAVA_HOME. An unavailable requested
 SDKMAN candidate fails explicitly. Homebrew/Kotlin-bundled JAVA_HOME is not an
 implicit project JDK. Analysis `defaultSdk` and importer `java-home` are distinct:
 for a discovered root Maven/Gradle project the selected JDK is supplied to both;
-explicit per-project importer overrides remain intact. Logs identify selection
-provenance without claiming it explains a build-import failure. The bundled JVM
+explicit per-project importer overrides remain intact. The log line names the JDK, which the analysis and the import use, and the
+import's own failure is reported separately (see Import failure). The bundled JVM
 that runs the server is unchanged.
 
 `tests/Tereditor.Language.Integration` is an opt-in runner (C# file-based scripts) using actual MCP
@@ -811,6 +811,10 @@ and has the requested version before writing its ready marker. R package install
 can return success after native dependency failures; those failures must remain
 provisioning errors. A legacy ready marker without the package DESCRIPTION is
 repaired on the next attempt.
+
+## Import failure
+
+A provider may name its server's log files (`LogFiles`) and the line that says the project import failed (`ImportFailure`). The session then reads the last 128 KiB of those files and its in-memory server lines (`ImportAsync`) and keeps the first failure until it ends, writing it once to the language log. A failed import never reads as a clean answer: agent tool answers for the servers a call used carry `ImportState = failed`, the error line in the detail, freshness `partial` where it would be `current`, and the MCP response a `projectImport` object; `status` says so in detail and coverage, a server row of `servers` prefixes its detail (refreshed from a pool thread, so a listing never reads files), and `projects` marks the provider's projects `importFailed`. A progress line that names an import (`import`, Gradle, Maven) is `importing`; any other loading is the index building, and the status coverage says which. A rename at a position the server cannot rename, or one the server refuses because the file is under no content root (`NotUnderContentRoot`), answers `notInModule` and names the failed import. Other operations on such a file cannot be told from an empty result, so a failed import marks all of them. A workspace-wide symbol search names the servers that found nothing while another server found symbols. Check: `--language-stall`.
 
 ## Detected project-root metadata
 

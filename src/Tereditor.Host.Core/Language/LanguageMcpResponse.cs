@@ -23,6 +23,8 @@ internal static class LanguageMcpResponse
         }
         if (result.Server.Length > 0) response["server"] = result.Server;
         if (result.Hint.Length > 0) response["hint"] = Clip(result.Hint, 400);
+        if (result.ImportState.Length > 0)
+            response["projectImport"] = new JsonObject { ["state"] = result.ImportState, ["error"] = result.ImportError.Length == 0 ? null : Clip(result.ImportError, 600) };
         if (result.State == "initializing" && result.Servers.Count > 0 && operation is not ("catalog" or "servers"))
             response["starting"] = new JsonArray(result.Servers.Select(server => (JsonNode?)new JsonObject { ["id"] = server.Id, ["state"] = server.State, ["detail"] = Clip(server.Detail, 300) }).ToArray());
         if (result.Configuration.Length > 0) response["configuration"] = JsonNode.Parse(result.Configuration);

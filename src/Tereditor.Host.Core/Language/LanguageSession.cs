@@ -265,7 +265,11 @@ internal sealed partial class LanguageSession : IAsyncDisposable, ILanguageServe
                 return await RawAsync(workspaceLevel, request, null, token);
             }
             if (unavailable.Length > 0) return new("actionRequired", unavailable, server.Id, request.Version) { SemanticColoring = SemanticColoring, Freshness = "unavailable", Coverage = projectModel.Description };
-            if (request.Operation is "retry" or "status") return new(NeedsConfiguration ? "actionRequired" : IsIndexing ? "initializing" : "ready", ProjectDetail, server.Id, request.Version) { SemanticColoring = SemanticColoring, Coverage = projectModel.Description, Freshness = NeedsConfiguration || IsIndexing || projectModel.Truncated ? "partial" : "current" };
+            if (request.Operation is "retry" or "status")
+            {
+                var import = await ImportAsync(token);
+                return WithImport(new(NeedsConfiguration ? "actionRequired" : IsIndexing ? "initializing" : "ready", ProjectDetail, server.Id, request.Version) { SemanticColoring = SemanticColoring, Coverage = projectModel.Description + ImportCoverage(import), Freshness = NeedsConfiguration || IsIndexing || projectModel.Truncated || import.State == "failed" ? "partial" : "current" }, import.State, import.Text);
+            }
             if (request.Operation == "workspaceDiagnostics")
             {
                 var coverage = "open documents";

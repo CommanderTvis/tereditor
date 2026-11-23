@@ -12,16 +12,21 @@ public sealed partial class LanguageService
         if (OperatingSystem.IsBrowser()) return new("ready", "Language servers do not run in a browser tab.") { Freshness = "unavailable" };
         var detected = await Task.Run(() => ProjectRoots(request with { Offset = 0, Limit = int.MaxValue }, token), token);
         var marks = new List<LanguageProject>(detected.Projects);
+        var failed = new Dictionary<string, string>(StringComparer.Ordinal);
         var competing = Competing(Replacing(request.Workspace)).ToHashSet(StringComparer.Ordinal);
         foreach (var entry in entries.Where(pair => pair.Key.StartsWith(request.Workspace + "\0", StringComparison.Ordinal)).Select(pair => pair.Value))
         {
             if (!entry.Session.IsValueCreated || !entry.Session.Value.IsCompletedSuccessfully) continue;
             var session = entry.Session.Value.Result;
             if (session.Exited) continue;
+            if (await session.ImportAsync(token) is ("failed", var importError)) failed[entry.ServerId] = importError;
             var reported = await session.DirectoryMarksAsync(request.Query == "refresh", token);
             marks.AddRange(reported.Where(mark => (request.Server.Length == 0 || mark.Server == request.Server) &&
                 !competing.Contains(mark.Server)));
         }
+        if (failed.Count > 0)
+            for (var index = 0; index < marks.Count; index++)
+                if (failed.TryGetValue(marks[index].Server, out var why)) marks[index] = marks[index] with { State = "importFailed", Detail = "Project import failed: " + why };
         var all = marks.Distinct().OrderBy(mark => mark.Root, StringComparer.Ordinal).ThenBy(mark => mark.Server, StringComparer.Ordinal)
             .ThenBy(mark => mark.Manifest, StringComparer.Ordinal).ToArray();
         return detected with

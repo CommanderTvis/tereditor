@@ -1650,6 +1650,10 @@ Tereditor.Host.Abstractions.LanguageServerState.Usage.get -> Tereditor.Host.Abst
 Tereditor.Host.Abstractions.LanguageServerState.Usage.init -> void
 Tereditor.Host.Abstractions.LanguageResult.Hint.get -> string!
 Tereditor.Host.Abstractions.LanguageResult.Hint.init -> void
+Tereditor.Host.Abstractions.LanguageResult.ImportState.get -> string!
+Tereditor.Host.Abstractions.LanguageResult.ImportState.init -> void
+Tereditor.Host.Abstractions.LanguageResult.ImportError.get -> string!
+Tereditor.Host.Abstractions.LanguageResult.ImportError.init -> void
 Tereditor.Host.Abstractions.HostState.ProjectLabels.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 Tereditor.Host.Abstractions.HostState.ProjectLabels.init -> void
 Tereditor.Host.Abstractions.HostState.ProjectName(string! projectRoot) -> string!

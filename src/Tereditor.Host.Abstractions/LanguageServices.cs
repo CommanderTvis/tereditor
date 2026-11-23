@@ -179,6 +179,12 @@ public sealed record LanguageResult(string State, string Detail = "", string Ser
 
     /// <summary>One line naming the call that fixes a stopped, disabled or unsupported server the request needed; empty otherwise.</summary>
     public string Hint { get; init; } = "";
+
+    /// <summary>Whether the project import behind this answer failed (<c>failed</c>) or is running (<c>importing</c>); empty when the server reports neither. Not sent to remote clients.</summary>
+    public string ImportState { get; init; } = "";
+
+    /// <summary>The first error line of a failed import, with its hint.</summary>
+    public string ImportError { get; init; } = "";
 }
 
 public partial interface IProjectServices

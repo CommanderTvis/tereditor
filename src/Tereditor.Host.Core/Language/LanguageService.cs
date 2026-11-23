@@ -100,6 +100,14 @@ public sealed partial class LanguageService : IAsyncDisposable
     internal Func<bool>? StandardWithAnyReplaced { get; init; }
 
     // Operations the Code Intelligence pane and the lifecycle make; per-keystroke editor operations are not logged.
+    /// <summary>A sentence naming the servers that found no symbols while another server found some, so one server's silence is not read as "nothing exists".</summary>
+    internal static string SilentServers(IReadOnlyList<LanguageResult> results)
+    {
+        var byServer = results.Where(result => result.Server.Length > 0).GroupBy(result => result.Server).ToArray();
+        var silent = byServer.Where(group => group.All(result => result.Locations.Count == 0)).Select(group => group.Key).ToArray();
+        return silent.Length == 0 || silent.Length == byServer.Length ? "" : $"{string.Join(", ", silent)} returned no symbols while {string.Join(", ", byServer.Select(group => group.Key).Except(silent))} did; the silent server may still be importing its project or its import may have failed (lsp_status). ";
+    }
+
     private static bool Lifecycle(string operation) => operation is "servers" or "retry" or "restart" or "stop" or "release" or "configure" or "configuration" or "configurationSchema" or "projects" or "catalog" or "logs" or "status" or "capabilities" or "setProjectHidden" or "javaKotlinProvider" or "provision";
 
     public async ValueTask<LanguageResult> ExecuteAsync(LanguageRequest request, CancellationToken token = default)
@@ -277,6 +285,7 @@ public sealed partial class LanguageService : IAsyncDisposable
                 results.Add(await ExecuteAsync(request with { Path = path }, token));
             }
             var state = LanguageUsage.CombinedState(request.Operation, results.Select(result => result.State).ToArray());
+            if (request.Operation == "workspaceSymbols") mapped += SilentServers(results);
             return new(state,
                 mapped + (results.Count == 0 ? "No language server is configured for any file in this workspace." : string.Join("\n", results.Select(result => result.Server + ": " + result.Detail).Distinct())), Version: request.Version)
             {
@@ -482,6 +491,12 @@ public sealed partial class LanguageService : IAsyncDisposable
                     {
                         state = task.Result.Exited ? "error" : task.Result.NeedsConfiguration ? "actionRequired" : task.Result.IsIndexing ? "initializing" : "ready";
                         detail = task.Result.Exited ? (task.Result.ExitRecord is { } died ? (died.Unexpected ? "Stopped unexpectedly: " : "Stopped: ") + died.Reason : "The server exited; its exit status is still being read.") + " Use Start / Retry to restart." : task.Result.Status;
+                        if (!task.Result.Exited)
+                        {
+                            // The row is built from memory; the log file is read on a pool thread and shows on the next listing.
+                            task.Result.RefreshImportSoon();
+                            if (task.Result.ImportFailureText.Length > 0) detail = LanguageSession.ImportNote("failed", task.Result.ImportFailureText) + " " + detail;
+                        }
                     }
                     else if (task.IsFaulted) { state = task.Exception!.GetBaseException() is LanguageTermsRequiredException ? "requiresAcceptance" : "error"; detail = task.Exception!.GetBaseException().Message; }
                     else if (task.IsCanceled) { state = "stopped"; detail = "Startup was cancelled."; }

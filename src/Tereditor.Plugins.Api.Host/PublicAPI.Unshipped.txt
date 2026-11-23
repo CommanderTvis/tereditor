@@ -613,6 +613,10 @@ Tereditor.Plugins.Api.Host.LanguageServerSpec.ProjectLoadedNotification.get -> s
 Tereditor.Plugins.Api.Host.LanguageServerSpec.ProjectLoadedNotification.init -> void
 Tereditor.Plugins.Api.Host.LanguageServerSpec.ProjectReloadedMessage.get -> string!
 Tereditor.Plugins.Api.Host.LanguageServerSpec.ProjectReloadedMessage.init -> void
+Tereditor.Plugins.Api.Host.LanguageServerSpec.LogFiles.get -> System.Func<string!, System.Collections.Generic.IReadOnlyList<string!>!>!
+Tereditor.Plugins.Api.Host.LanguageServerSpec.LogFiles.init -> void
+Tereditor.Plugins.Api.Host.LanguageServerSpec.ImportFailure.get -> System.Func<string!, string?>!
+Tereditor.Plugins.Api.Host.LanguageServerSpec.ImportFailure.init -> void
 Tereditor.Plugins.Api.Host.LanguageServerSpec.IsProjectInput.get -> System.Func<string!, bool>!
 Tereditor.Plugins.Api.Host.LanguageServerSpec.IsProjectInput.init -> void
 Tereditor.Plugins.Api.Host.LanguageServerSpec.ReloadingExtensions.get -> System.Collections.Generic.IReadOnlyList<string!>!

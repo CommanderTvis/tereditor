@@ -58,6 +58,8 @@ public sealed class IntelliJPlugin() : LanguageServerPlugin(Id)
         TermsNote = "Uses JetBrains’ standalone server for Java and Kotlin. Download or select an installation, then accept its agreement before starting. " +
             "The server is licensed by JetBrains: every build has a free 30-day trial, then it needs an IntelliJ IDEA Ultimate subscription.",
         ConfigureInitialization = JvmInitialization.Configure,
+        LogFiles = IntelliJImport.LogFiles,
+        ImportFailure = IntelliJImport.Failure,
         ExperimentalClientCapabilities = IntelliJLicensing.ClientCapabilities,
         AcceptsShowDocument = true,
         OnMessage = IntelliJMaven.OnMessage,

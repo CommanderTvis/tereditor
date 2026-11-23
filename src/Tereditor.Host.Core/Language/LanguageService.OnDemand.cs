@@ -21,7 +21,28 @@ public sealed partial class LanguageService
             throw;
         }
         RecordAgentUse(request, result);
+        result = await WithImportAsync(request, result, token);
         return result with { Hint = result.Hint.Length > 0 ? result.Hint : Hint(request, result) };
+    }
+
+    /// <summary>Marks an answer with the project import state of the servers it came from, so a failed import never reads as a clean "current" answer.</summary>
+    private async Task<LanguageResult> WithImportAsync(LanguageRequest request, LanguageResult result, CancellationToken token)
+    {
+        if (result.ImportState.Length > 0 || request.Operation is "logs" or "servers" or "catalog" or "stop" or "close" or "projects" || !Path.IsPathFullyQualified(request.Workspace)) return result;
+        var workspace = Path.TrimEndingDirectorySeparator(Path.GetFullPath(request.Workspace));
+        var importing = result;
+        try
+        {
+            foreach (var id in ServersUsed(workspace, request, result).Distinct())
+            {
+                if (!entries.TryGetValue(workspace + "\0" + id, out var entry) || !entry.Session.IsValueCreated || entry.Session.Value is not { IsCompletedSuccessfully: true } done || done.Result.Exited) continue;
+                var (state, text) = await done.Result.ImportAsync(token);
+                if (state == "failed") return LanguageSession.WithImport(result, state, text);
+                if (state.Length > 0) importing = LanguageSession.WithImport(result, state, text);
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException) { }
+        return importing;
     }
 
     private async Task<LanguageResult> ExecuteForAgentCoreAsync(LanguageRequest request, CancellationToken token)

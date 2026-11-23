@@ -49,6 +49,6 @@ internal static class JvmInitialization
         var used = options.ProjectJdk.Length == 0 && options.InitializationSupplied.Contains("defaultSdk")
             ? (Path: result["defaultSdk"]?.ToString() ?? "", Source: "workspace initialization defaultSdk")
             : start.ResolveProjectJdk(options.ProjectJdk);
-        start.Log("project JDK", used.Source + (used.Path.Length > 0 ? ": " + used.Path : "") + ". This is separate from the server runtime and is not an import-failure diagnosis.");
+        start.Log("project JDK", used.Source + (used.Path.Length > 0 ? ": " + used.Path : "") + ". The analysis and the Gradle or Maven import use it (java-home), not the server runtime. A build whose toolchain needs another JDK fails the import; a failed import is reported in the status.");
     }
 }

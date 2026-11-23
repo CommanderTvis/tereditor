@@ -37,6 +37,12 @@ An import that stops reporting progress does not stay silent. After the server's
 
 The server's own files (system path, index) already live in the session directory. Its `mavenPluginInstall-pom*.xml` files may still land in the workspace or a manifest's directory, where the true writer is not confirmed. The plugin therefore records those names when a Maven session starts and, on server messages (at most every 10 s), deletes only matching regular files that appeared afterwards; a file that existed before, a link or any other name stays. Check mode `--intellij-maven` covers discovery, the missing-Maven error and this guard.
 
+## Import failure
+
+The server never reports a failed Gradle or Maven import through the protocol: Kotlin and Java answers then come back empty or wrong while the process looks healthy. The plugin names where the server writes its log (`LogFiles`: `log/intellij-server.log` under the session directory, or under `system/`) and which line means the import failed (`ImportFailure`): "Cannot find a Java installation", "Toolchain download repositories have not been configured", "Dependency verification failed", and lines that say the import failed. The host reads the last 128 KiB of that file and its in-memory server lines, and its [language services](../Tereditor.Host.Core/Language/SPEC.md) mark every agent answer, status row and project from then on (until the session ends). Check: `--language-stall`.
+
+The project JDK (`projectJdk`, else `.sdkmanrc`, else SDKMAN current) is both `defaultSdk` for analysis and the `java-home` of the Gradle or Maven import; it is not the server runtime. A Gradle toolchain that asks for another Java version (`languageVersion=21`) fails the import when that JDK is missing and no toolchain download repository is configured; set `projectJdk` to a matching JDK. Gradle dependency verification applies to the import too: the IDE import also requests files outside the normal graph (such as `-sources.jar` and `-src.zip`) that `gradle/verification-metadata.xml` may not list, and a rejected file fails the import. Add their checksums or relax verification for the import.
+
 ## License and consent
 
 The server licenses itself over `jetbrains/licensing/*` requests and the `jetbrains/licensing/state` push (the client

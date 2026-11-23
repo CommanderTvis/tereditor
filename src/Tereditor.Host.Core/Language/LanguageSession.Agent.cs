@@ -180,6 +180,18 @@ internal sealed partial class LanguageSession
         var name = request.NewName;
         if (name.Length is 0 or > 200 || name.Any(char.IsControl) || name != name.Trim())
             return result with { State = "notApplicable", Detail = "Give a new name of 1 to 200 characters without control characters or surrounding spaces." };
+        try { return await AgentRenameCoreAsync(result, request, uri, document, name, token); }
+        catch (LanguageRequestException error) when (error.Message.Contains("NotUnderContentRoot", StringComparison.Ordinal))
+        {
+            return result with { State = "notInModule", Detail = NotInModule(error.Message) };
+        }
+    }
+
+    private string NotInModule(string said) => "This file belongs to no module of the imported project, so it cannot be renamed or analysed across files. " +
+        (importFailure.Length > 0 ? "The project import failed: " + importFailure : "Check that the project import finished (lsp_status).") + " The server said: " + said;
+
+    private async Task<LanguageResult> AgentRenameCoreAsync(LanguageResult result, LanguageRequest request, string uri, Document document, string name, CancellationToken token)
+    {
         var position = new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = uri }, ["position"] = Position(request.Line, request.Column) };
         var title = $"Rename to {name}";
         var note = "";
@@ -187,7 +199,8 @@ internal sealed partial class LanguageSession
         {
             var prepared = await connection.RequestAsync("textDocument/prepareRename", position.DeepClone(), token);
             if (prepared is null || prepared["defaultBehavior"]?.GetValue<bool>() == false)
-                return result with { State = "notApplicable", Detail = "The server cannot rename the element at this position." };
+                return importFailure.Length > 0 ? result with { State = "notInModule", Detail = NotInModule("The server cannot rename the element at this position.") }
+                    : result with { State = "notApplicable", Detail = "The server cannot rename the element at this position." };
             var range = prepared["range"] ?? (prepared["start"] is not null ? prepared : null);
             if ((prepared["placeholder"]?.ToString() ?? (range is null ? null : SliceOf(document.Text, range))) is { } current) title = $"Rename {current} to {name}";
         }

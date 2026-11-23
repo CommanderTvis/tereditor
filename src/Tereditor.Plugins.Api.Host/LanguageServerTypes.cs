@@ -410,6 +410,12 @@ public sealed class LanguageServerSpec
     /// </summary>
     public string ProjectReloadedMessage { get; init; } = "";
 
+    /// <summary>The server's own log files, given the launch's session directory (<see cref="ILanguageServerInstallation.SessionDirectory"/>); the host reads their tail to find <see cref="ImportFailure"/>. Empty when the server writes none.</summary>
+    public Func<string, IReadOnlyList<string>> LogFiles { get; init; } = _ => [];
+
+    /// <summary>Given the tail of the server's log, the first line that says the project import (Gradle, Maven) failed, with a short hint for the user, or <see langword="null"/> when none does.</summary>
+    public Func<string, string?> ImportFailure { get; init; } = _ => null;
+
     /// <summary>Whether a changed file, by absolute path, makes the server reload its project graph, such as a project file or restore output.</summary>
     public Func<string, bool> IsProjectInput { get; init; } = _ => false;
 
