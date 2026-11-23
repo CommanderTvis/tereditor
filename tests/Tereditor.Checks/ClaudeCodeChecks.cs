@@ -1680,6 +1680,7 @@ internal static class ClaudeCodeChecks
             "A CLI whose help cannot be read gets the fallback modes.");
         await IdeProtocol(runtime, project);
         await ConfigCases(runtime, state, project, directory);
+        HomeFolderInstructions(directory);
         PluginPartCases(directory);
         await Skills();
         await CodeIntelHooks();
@@ -1965,6 +1966,40 @@ internal static class ClaudeCodeChecks
         state.SetTerminalAgent(own, new("claude", "claude --model opus"));
         Require(Revival(own).EndsWith("--continue", StringComparison.Ordinal), "A legacy record without a session id keeps the continue fallback.");
         state.SetTerminalAgent(neighbour, null);
+    }
+
+    /// <summary>
+    /// A session started in the home folder lists the user's CLAUDE.md once, as USER: the home folder's own <c>.claude/CLAUDE.md</c>
+    /// is that same file, so it is not listed again as PROJECT, while a <c>CLAUDE.md</c> directly in home is a PROJECT file.
+    /// </summary>
+    private static void HomeFolderInstructions(string directory)
+    {
+        var home = Path.Combine(directory, "home-folder");
+        var userFile = Path.Combine(home, ".claude", "CLAUDE.md");
+        var previousHome = Environment.GetEnvironmentVariable("HOME");
+        var previousConfig = Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(userFile)!);
+            File.WriteAllText(userFile, "# User instructions\n");
+            File.WriteAllText(Path.Combine(home, "CLAUDE.md"), "# Home project instructions\n");
+            Environment.SetEnvironmentVariable("HOME", home);
+            Environment.SetEnvironmentVariable("CLAUDE_CONFIG_DIR", Path.Combine(home, ".claude"));
+            var layers = ClaudeResolver.Resolve("home-ws", home).Context;
+            var listedAsUser = layers.Where(layer => layer.Path == userFile).ToList();
+            Require(listedAsUser.Count == 1 && listedAsUser[0].Origin.Scope == ClaudeConfigScope.User,
+                "The user CLAUDE.md is listed once, as USER, in a home-folder session: " + string.Join(", ", layers.Select(layer => layer.Origin.Scope + " " + layer.Path)));
+            Require(!layers.Any(layer => layer.Origin.Scope == ClaudeConfigScope.Project && layer.Path == userFile),
+                "The home folder's .claude/CLAUDE.md is never a PROJECT entry.");
+            Require(layers.Any(layer => layer.Origin.Scope == ClaudeConfigScope.Project && layer.Path == Path.Combine(home, "CLAUDE.md")),
+                "A CLAUDE.md in the home folder itself is the PROJECT file.");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("HOME", previousHome);
+            Environment.SetEnvironmentVariable("CLAUDE_CONFIG_DIR", previousConfig);
+        }
+        Console.WriteLine("PASS home-folder session: the user CLAUDE.md is listed once, never as PROJECT");
     }
 
     /// <summary>

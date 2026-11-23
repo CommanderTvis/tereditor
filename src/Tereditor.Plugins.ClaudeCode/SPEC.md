@@ -353,7 +353,7 @@ clients ask again.
 
 Settings retain the winning source and shadowed values. Context includes user and ancestor
 instructions, `AGENTS.md` when a directory has no `CLAUDE.md`, local instructions, rules, imports,
-memory and appended prompt files. Capabilities include MCP servers, plugins, skills, agents, hooks
+memory and appended prompt files. A file that two scopes reach (a session in the home folder reaches `~/.claude/CLAUDE.md` as both the user file and `./.claude/CLAUDE.md`) is listed once, under the first scope, so a user file is never shown as PROJECT. Capabilities include MCP servers, plugins, skills, agents, hooks
 and marketplaces with provenance, disabled sources and discovery problems.
 
 Plugins and marketplaces are one PLUGINS section. Each listed marketplace is a parent row (its scope,

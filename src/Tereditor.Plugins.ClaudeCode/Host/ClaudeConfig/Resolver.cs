@@ -77,8 +77,12 @@ internal static partial class ClaudeResolver
     private static List<ClaudeContextLayer> CollectContext(string root, IReadOnlyList<string> promptFiles)
     {
         var layers = new List<ClaudeContextLayer>();
+        // One file can be on the list under two scopes (a home-folder session reaches ~/.claude/CLAUDE.md both as the user file and as ./.claude/CLAUDE.md);
+        // the first scope listed keeps it, so the user file is never shown again as a project file.
+        var listed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in ClaudePaths.InstructionPaths(root))
         {
+            if (!listed.Add(Path.GetFullPath(entry.Path))) continue;
             var kind = entry.Path.EndsWith("CLAUDE.local.md", StringComparison.Ordinal) ? ClaudeContextKind.LocalInstructions : ClaudeContextKind.Instructions;
             if (Layer(kind, Path.GetFileName(entry.Path), entry) is not { } layer) continue;
             layers.Add(layer);
