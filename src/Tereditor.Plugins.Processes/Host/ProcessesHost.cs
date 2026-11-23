@@ -39,6 +39,10 @@ public sealed class ProcessesHost : PluginHostModule
                 (arguments, call, _) => ValueTask.FromResult(call.Terminal is not { } terminal
                     ? new PluginToolResult("This session has no terminal tab to own a process.") { IsError = true }
                     : new PluginToolResult(processes.ReleaseOwned(terminal, arguments.Pid) ? $"Released pid {arguments.Pid}." : $"This terminal had not reported pid {arguments.Pid}; nothing changed."))));
+            // Read-only: the guard's own state and events, never a process listing; the report names terminals tereditor started and no command lines.
+            context.Tool(new PluginTool<ProcessesStatusParams>(ProcessesPlugin.StatusTool, "Why a terminal program was stopped",
+                "Read-only. Answers, as compact JSON, whether tereditor's terminal memory guard is on and its limits (per terminal, total, grace seconds, protected programs, physical memory), each terminal of this host with its memory against its limit, the guard state (Ok, Warned, Terminating, Killing) and its largest program, and the guard's recent events (kind, time, terminal, text; newest last, up to 50; kept in ~/.tereditor/logs/memory-guard.log, so they survive a restart and a closed terminal). Call it when a build, test run or server in a terminal died with exit code 143 (SIGTERM) or 137 (SIGKILL), or csc or dotnet vanished: a Stopped or Killed event naming the program, its pid and size, in your workspace and near that time, means the guard ended it. Lists only terminals tereditor started; no command lines, no environment, no other processes.",
+                async (_, call, token) => new PluginToolResult(await Task.Run(() => processes.MemoryGuardReport(call.WorkspaceId), token))));
             context.Prompt(new PromptContribution
             {
                 Id = "owned-processes",

@@ -154,7 +154,7 @@ What is missing is a small executable that composes Core without Kestrel.
 | `context_search`, `context_status`, `context_index` | AirContext plugin, `AirContextHost.cs` | no UI at call time, but it needs a JetBrains sign-in and accepted terms that only a terminal and the UI can grant | no, off (see below) |
 | `visualize`, `visualize_read` | Visualize plugin, `VisualizeHost.cs` | the result is drawn by the UI | off |
 | `workspace_create`, `workspace_delete`, `workspace_emigrate`, `set_title` | `WorkspaceMcpTools`, only added in `LoopbackServer.McpAsync` | terminal identity | not offered |
-| `owned_process_report`, `owned_process_release` | Processes plugin | terminal owner | off |
+| `owned_process_report`, `owned_process_release`, `processes_status` | Processes plugin | terminal owner | off |
 
 Plugin tools are registered with `context.Tool(PluginTool<TParams>(...))`. `PluginRuntime.McpTools` turns them into
 `McpServer.McpTool` and builds the JSON schema from the parameter type. No tool names a UI type.
@@ -197,7 +197,7 @@ with `TEREDITOR_TOOLS_ENABLE=spec,blueprint`, which sets it for those two in mem
 ### Decisions needed
 
 - `lsp-intellij` is `yes` but opt-in by environment. Java is served by it only after the user asked for it and agreed; Kotlin keeps the Kotlin server until then, and moves to IntelliJ after.
-- `processes` is `no`. Flipping it adds `owned_process_report` and `owned_process_release`, which makes 13 tools, and needs a terminal owner that headless does not have.
+- `processes` is `no`. Flipping it adds `owned_process_report`, `owned_process_release` and `processes_status`, which makes 14 tools, and needs a terminal owner that headless does not have.
 - The `env*` plugins are `no`. Flipping them would make language servers see `JAVA_HOME`, the venv or `mise` tools of the workspace. That needs the language server launch to read the merged environment, which it does not do today.
 - `air-context` is `no`. Flipping it needs a prepared JetBrains login and accepted consent mounted into the container.
 - `lsp-swift` and `lsp-dart` are `yes` but have no managed install. They work only when the container image carries the toolchain.

@@ -53,6 +53,8 @@ internal static class Program
         // The checks assume the top bar and the dock's left column; UnifiedChromeChecks turns the new layout on for its own windows.
         Tereditor.UI.UnifiedChrome.Override = false;
         Directory.CreateDirectory(root);
+        // The memory guard keeps its events in a file under the home folder; no check may write the developer's own.
+        Tereditor.Host.Core.GuardEventLog.Path = Path.Combine(root, "logs", "memory-guard.log");
         // The checks binary is the fake language server and lives in the repository, which executables are otherwise never taken from.
         Tereditor.Host.Core.Language.LanguageExecutables.CheckExemptions.Add(Tereditor.Host.Core.Language.LanguageExecutables.Real(Environment.ProcessPath!));
         Directory.CreateDirectory(Path.Combine(root, "src"));

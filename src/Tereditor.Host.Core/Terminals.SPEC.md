@@ -289,6 +289,10 @@ a short list of recent events that the Processes pane shows with each terminal's
 process, its pid, its memory and the reason, so the user can tell the guard ended it and not a crash. Program notifications switched off
 in Settings silence the desktop notification but not the banner or the Processes pane.
 
+Every step is also appended, as one JSON line (time, kind, terminal name, workspace, the event text), to `~/.tereditor/logs/memory-guard.log` (about 256 KB, then moved to `.1`, one copy kept; written on the guard's own thread, never throws). The in-memory list holds 50 events and goes with
+the guard's switch, a restart and the terminal; the file does not, so `IProcessHost.MemoryGuardReport` (the Processes plugin's read-only `processes_status` MCP tool) can answer after the fact why a build in a terminal died with exit 143 or 137: guard on or off, the effective limits, each terminal of the
+host against its limit with its state and largest program, and the newest 50 events from the file. It names only terminals tereditor started and carries no command line or environment.
+
 Which process. The largest one is chosen, never the shell. A recognised agent (Claude Code, Codex, omp, Pi, goose) is what the user is working
 with, so when it is the largest the guard ends its heaviest subprocess instead (a build, a test run, a language server it started), then,
 when it has none, the heaviest other program in the terminal. The agent itself is ended only as a last resort: when it alone is over

@@ -73,6 +73,8 @@ internal sealed class ProcessHostSeam(HostStateStore state) : IProcessHost
     public IReadOnlyList<(DateTimeOffset At, TerminalRef? Terminal, string Text)> MemoryGuardEvents() =>
         state.Terminals is { MemoryGuard: { } guard, GuardOn: true } terminals ? [.. guard.Events().Select(item => (item.At, terminals.TerminalOf(item.Session), item.Text))] : [];
 
+    public string MemoryGuardReport(string? workspace) => state.Terminals?.GuardReport(workspace) ?? "";
+
     public void ManageOwned(bool enabled) => Owned?.SetEnabled(enabled);
 
     public void ManageMemoryGuard(Func<(int PerTerminalMb, int TotalMb, int GraceSeconds, IReadOnlyList<string> Protect)?>? limits) => state.Terminals?.SetGuardPolicy(limits);

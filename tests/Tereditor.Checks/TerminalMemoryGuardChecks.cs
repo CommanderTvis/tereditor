@@ -54,6 +54,7 @@ internal static class TerminalMemoryGuardChecks
         Transitions();
         await Settings(Path.Combine(root, "terminal-memory"));
         await Notices(Path.Combine(root, "terminal-memory-notices"));
+        StatusReport(Path.Combine(root, "terminal-memory-status"));
         await RealProcess();
         await RealTerminal();
     }
@@ -364,6 +365,64 @@ internal static class TerminalMemoryGuardChecks
         Require(!File.ReadAllText(Path.Combine(directory, "state.json")).Contains("Memory guard", StringComparison.Ordinal), "Guard notices are never persisted.");
     }
 
+    // The status tool's answer (the Processes plugin's processes_status): limits, each terminal against its limit and the events, which a log file
+    // keeps past a restart and a closed terminal; only the guard's own terminals appear and nothing like a command line.
+    private static void StatusReport(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        var saved = GuardEventLog.Path;
+        GuardEventLog.Path = Path.Combine(directory, "logs", "memory-guard.log");
+        try
+        {
+            var (guard, fake, events, _, _) = Make(Limits(perTerminalMb: 4096));
+            GuardTarget[] targets = [new("a", "Terminal in app", 10), new("b", "Terminal in other", 20)];
+            fake.Set(10, P(11, "dotnet", 5, parent: 10));
+            fake.Set(20, P(21, "node", 1, parent: 20));
+            guard.Tick(targets);
+            Require(events.Single().Kind == GuardEventKind.Stopped, "The runaway dotnet was stopped: " + string.Join(",", events.Select(e => e.Text)));
+            var app = new Tereditor.Plugins.Api.TerminalRef("/work/app", "t1");
+            var other = new Tereditor.Plugins.Api.TerminalRef("/work/other", "t2");
+            GuardEventLog.Append(events.Single(), "Terminal in app", app.WorkspaceId);
+            // A restarted host has no memory of the event: the file answers.
+            var persisted = GuardEventLog.Recent(TerminalMemoryReport.MaxEvents);
+            Require(persisted.Count == 1 && persisted[0] is { Kind: "Stopped", Terminal: "Terminal in app", Workspace: "/work/app" } first && first.Text == events.Single().Text, "The event is read back from the log file.");
+
+            var terminals = new[] { new GuardTerminal("Terminal in app", app, guard.UsageOf("a")), new GuardTerminal("Terminal in other", other, guard.UsageOf("b")) };
+            var text = TerminalMemoryReport.Build(true, Limits(perTerminalMb: 4096), 24 * Gb, terminals, persisted, "/work/app");
+            using var document = System.Text.Json.JsonDocument.Parse(text);
+            var root = document.RootElement;
+            Require(root.EnumerateObject().Select(property => property.Name).Order().SequenceEqual(["eventLog", "events", "guard", "terminals", "workspace"]), "The report has only its documented parts: " + text);
+            var settings = root.GetProperty("guard");
+            Require(settings.GetProperty("on").GetBoolean() && settings.GetProperty("physical").GetString() == "24 GB" && settings.GetProperty("perTerminalLimit").GetString() == "4 GB"
+                && settings.GetProperty("totalLimit").GetString() == "977 GB" && settings.GetProperty("graceSeconds").GetInt32() == 10 && settings.GetProperty("protect").GetArrayLength() == 0, "The guard's switch and limits: " + settings);
+            var listed = root.GetProperty("terminals").EnumerateArray().ToArray();
+            Require(listed.Length == 2 && listed[0].GetProperty("name").GetString() == "Terminal in app" && listed[0].GetProperty("here").GetBoolean() && !listed[1].GetProperty("here").GetBoolean()
+                && listed[0].GetProperty("used").GetString() == "5 GB" && listed[0].GetProperty("limit").GetString() == "4 GB" && listed[0].GetProperty("state").GetString() == "Terminating" && listed[0].GetProperty("largest").GetString() == "dotnet"
+                && listed[1].GetProperty("state").GetString() == "Ok", "Each terminal against its limit with the guard state and its largest program: " + text);
+            var allowed = new[] { "name", "workspace", "here", "used", "limit", "state", "largest" };
+            Require(listed.All(item => item.EnumerateObject().All(property => allowed.Contains(property.Name))), "A terminal carries no process list, command line or environment.");
+            var event0 = root.GetProperty("events")[0];
+            Require(event0.GetProperty("kind").GetString() == "Stopped" && event0.GetProperty("text").GetString()!.Contains("stopped dotnet (pid 11, 5 GB)", StringComparison.Ordinal)
+                && event0.GetProperty("terminal").GetString() == "Terminal in app", "The event names the program, its pid and size: " + event0);
+
+            // Off, the guard shows no terminal, but what it did earlier is still there to read.
+            using var off = System.Text.Json.JsonDocument.Parse(TerminalMemoryReport.Build(false, TerminalMemoryLimits.Default, 24 * Gb, terminals, persisted, null));
+            Require(!off.RootElement.GetProperty("guard").GetProperty("on").GetBoolean() && off.RootElement.GetProperty("terminals").GetArrayLength() == 0 && off.RootElement.GetProperty("events").GetArrayLength() == 1
+                && !off.RootElement.TryGetProperty("workspace", out _), "Off, the report has no terminals and keeps the events.");
+
+            // Bounded: the newest 50 survive, oldest first, and a rotation keeps one older copy that is still read.
+            for (var i = 0; i < 70; i++) GuardEventLog.Append(new("a", GuardEventKind.Warned, "line " + i + new string('x', 5000), DateTimeOffset.UtcNow), "Terminal in app", null);
+            var recent = GuardEventLog.Recent(TerminalMemoryReport.MaxEvents);
+            Require(recent.Count == TerminalMemoryReport.MaxEvents && recent[^1].Text.StartsWith("line 69", StringComparison.Ordinal) && recent[0].Text.StartsWith("line 20", StringComparison.Ordinal), "The newest 50 events, newest last.");
+            Require(File.Exists(GuardEventLog.Path + ".1") && new FileInfo(GuardEventLog.Path).Length <= GuardEventLog.Limit + 6000 && new FileInfo(GuardEventLog.Path + ".1").Length <= GuardEventLog.Limit + 6000, "The log rotates at its limit and keeps one copy.");
+            File.AppendAllText(GuardEventLog.Path, "not json\n");
+            Require(GuardEventLog.Recent(500).Count > 50, "A damaged line is skipped, the rest is read.");
+            using var bounded = System.Text.Json.JsonDocument.Parse(TerminalMemoryReport.Build(true, Limits(), 24 * Gb, terminals, GuardEventLog.Recent(500), null));
+            Require(bounded.RootElement.GetProperty("events").GetArrayLength() == TerminalMemoryReport.MaxEvents, "The report carries at most 50 events.");
+        }
+        finally { GuardEventLog.Path = saved; }
+    }
+
     private static string? Perl() => OperatingSystem.IsWindows() ? null : new[] { "/usr/bin/perl", "/usr/local/bin/perl", "/bin/perl" }.FirstOrDefault(File.Exists);
 
     // A real runaway: a child of a throwaway shell allocates 300 MB under a 100 MB limit and is ended; the shell lives on.
@@ -447,6 +506,15 @@ internal static class TerminalMemoryGuardChecks
             await Await("SHELL_ALIVE_42", "the shell to answer after the guard acted");
             Require(pty.MemoryGuard!.Events().Any(e => e.Kind == GuardEventKind.Stopped), "The Processes pane has no event for the stop.");
             lock (text) Require(!text.ToString().Contains("emory guard", StringComparison.Ordinal), "No guard text reaches the terminal's output: " + text);
+            // The status tool reads the same service: the stop is in the answer for this workspace, from the log file, and the command line is not.
+            var report = await Task.Run(() => pty.GuardReport(directory));
+            using (var status = System.Text.Json.JsonDocument.Parse(report))
+            {
+                var stop = status.RootElement.GetProperty("events").EnumerateArray().Last(item => item.GetProperty("kind").GetString() == "Stopped");
+                Require(status.RootElement.GetProperty("guard").GetProperty("on").GetBoolean() && stop.GetProperty("text").GetString()!.Contains("stopped perl (pid ", StringComparison.Ordinal) && stop.GetProperty("workspace").GetString() == directory
+                    && status.RootElement.GetProperty("terminals").EnumerateArray().Any(item => item.GetProperty("here").GetBoolean()), "The status answer holds the guard's stop for the caller's workspace: " + report);
+                Require(!report.Contains("sleep 60", StringComparison.Ordinal) && !report.Contains("300 << 20", StringComparison.Ordinal), "No command line reaches the status answer.");
+            }
             var replay = await pty.AttachAsync(new(PtyTerminalService.SessionFor(tab), directory, "second", 100, 30) { TabKey = tab.TabKey });
             Require(!Encoding.UTF8.GetString(replay.Replay.Span).Contains("emory guard", StringComparison.Ordinal), "Nor its recording, which a later client replays.");
             // Switched off again: its banner, events and readings go with the next sample.

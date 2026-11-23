@@ -72,6 +72,11 @@ public interface IProcessHost
     /// <returns>The events.</returns>
     IReadOnlyList<(DateTimeOffset At, TerminalRef? Terminal, string Text)> MemoryGuardEvents() => [];
 
+    /// <summary>The memory guard's state as compact JSON for an agent: the switch and effective limits, each terminal of this host against its limit, and the recent events kept in a file across restarts. Only terminals tereditor started, no command lines or environment. Reads memory and a file.</summary>
+    /// <param name="workspace">The caller's workspace, so its terminals are marked; null when unknown.</param>
+    /// <returns>The JSON text; empty where the host has no terminals.</returns>
+    string MemoryGuardReport(string? workspace) => "";
+
     /// <summary>
     /// Switches agent-owned process management on: reported processes are stopped with their terminal and on quit, and records of dead
     /// hosts are swept now. While it is off nothing can be reported and nothing is stopped.

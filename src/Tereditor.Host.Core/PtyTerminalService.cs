@@ -453,6 +453,16 @@ public sealed class PtyTerminalService : ITerminalService, ITerminalCatalogServi
     /// <summary>Whether the guard is on now: the plugin gave it limits and its switch is on.</summary>
     internal bool GuardOn => guardPolicy?.Invoke() is not null;
 
+    /// <summary>The memory guard's state for the Processes plugin's status tool: see <see cref="TerminalMemoryReport"/>. Reads memory and a file, so not on a UI thread.</summary>
+    internal string GuardReport(string? workspace)
+    {
+        GuardTerminal[] live;
+        lock (gate)
+            live = [.. sessions.Where(entry => !entry.Value.Process.Exit.IsCompleted).Select(entry => new GuardTerminal(TerminalName(entry.Key), terminals.GetValueOrDefault(entry.Key), memoryGuard?.UsageOf(entry.Key)))];
+        var on = GuardOn;
+        return TerminalMemoryReport.Build(on, MemoryLimits(), OperatingSystem.IsBrowser() ? 0 : Language.LanguageMemory.PhysicalBytes, live, GuardEventLog.Recent(TerminalMemoryReport.MaxEvents), workspace);
+    }
+
     private TerminalMemoryLimits MemoryLimits() =>
         guardPolicy?.Invoke() is { } limits ? TerminalMemoryLimits.From(limits.PerTerminalMb, limits.TotalMb, limits.GraceSeconds, limits.Protect) : TerminalMemoryLimits.Default with { Enabled = false };
 
@@ -522,7 +532,14 @@ public sealed class PtyTerminalService : ITerminalService, ITerminalCatalogServi
     private void AnnounceGuardEvent(GuardEvent guard)
     {
         TerminalRef? terminal;
-        lock (gate) terminal = sessions.ContainsKey(guard.Session) ? terminals.GetValueOrDefault(guard.Session) : null;
+        string name;
+        lock (gate)
+        {
+            terminal = sessions.ContainsKey(guard.Session) ? terminals.GetValueOrDefault(guard.Session) : null;
+            name = TerminalName(guard.Session);
+        }
+        // Kept in a file so what the guard did outlives the tab and the host: an agent whose build died reads it afterwards.
+        GuardEventLog.Append(guard, name, terminal?.WorkspaceId);
         if (terminal is not null) GuardNoticed?.Invoke(terminal, guard);
         signals.Publish(new(guard.Session, TerminalSignalKind.Notification) { Title = "Terminal memory", Body = guard.Text });
     }

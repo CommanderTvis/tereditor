@@ -33,6 +33,9 @@ public sealed record OwnedProcessReportParams(int Pid, string? Description = nul
 /// <param name="Pid">The pid that was reported.</param>
 public sealed record OwnedProcessReleaseParams(int Pid);
 
+/// <summary>The status tool takes no arguments.</summary>
+public sealed record ProcessesStatusParams;
+
 /// <summary>The plugin's settings (Settings › Processes).</summary>
 public sealed record ProcessesSettings
 {
@@ -73,6 +76,7 @@ public static class ProcessesPlugin
     public const int TrendLength = 30;
     public const string ReportTool = "owned_process_report";
     public const string ReleaseTool = "owned_process_release";
+    public const string StatusTool = "processes_status";
 
     public static readonly PluginManifest Manifest = new(Id, "Processes", "node-tree", "0.1.0", PluginApi.Generation, 1)
     {
@@ -96,4 +100,5 @@ public static class ProcessesPlugin
 [JsonSerializable(typeof(ProcessStopResult))]
 [JsonSerializable(typeof(OwnedProcessReportParams))]
 [JsonSerializable(typeof(OwnedProcessReleaseParams))]
+[JsonSerializable(typeof(ProcessesStatusParams))]
 internal sealed partial class ProcessesJson : JsonSerializerContext;

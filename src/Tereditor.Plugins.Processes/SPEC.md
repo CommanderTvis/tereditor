@@ -24,7 +24,7 @@ quit, which must not depend on a plugin, and `HostState` is a protocol type ever
 
 The plugin owns everything an agent or the user can reach:
 
-- The `owned_process_report` and `owned_process_release` MCP tools (`context.Tool`; they moved out of `WorkspaceMcpTools` and `McpRoute`, names and wording unchanged).
+- The `owned_process_report` and `owned_process_release` MCP tools (`context.Tool`; they moved out of `WorkspaceMcpTools` and `McpRoute`, names and wording unchanged), and the read-only `processes_status` tool (Memory guard, below).
 - The prompt section, now `plugin.processes.owned-processes` (it was `core.owned-processes`). A project that listed the old id in
   `.tereditor/instructions.toml` should list the new one; the old id is then an unknown id, which is kept and ignored. The section follows the host's own text
   instead of preceding the `parallel-tasks` section.
@@ -41,6 +41,14 @@ disposal withdraws it. Core still runs the sampler, the escalation and the notic
 `HostState.GuardNotices` must stay a protocol type; moving them is open until the plugin API offers a process tree with memory, signals and terminal names. Off, or with the plugin
 disabled, the guard samples nothing, stops nothing and shows no banner; `TerminalMemory` and `MemoryGuardEvents` answer nothing, so the pane has no memory line and no Memory guard group.
 The old host setting `terminal-memory` moved into these settings at protocol 24 (copied once at load).
+
+### The processes_status tool
+
+An agent whose build or server died with exit code 143 (SIGTERM) or 137 (SIGKILL) calls `processes_status` (no arguments, same MCP surface as the other tools, not offered in a browser tab) to learn whether the guard did it. The answer is compact JSON built by the host
+(`IProcessHost.MemoryGuardReport`, Terminals spec "Memory guard"): `guard` (on or off, physical memory, the effective per-terminal and total limits, grace seconds, protected programs, what the terminals use together), `workspace` (the caller's),
+`terminals` (each live terminal of this host: name, workspace, `here` for the caller's workspace, memory used against its limit, guard state, largest program), `events` (kind, UTC time, terminal, workspace, text; oldest first, at most 50) and `eventLog` (the file the events come from).
+The events are read from `~/.tereditor/logs/memory-guard.log`, which the host appends to at every guard step, so they survive a restart and a closed terminal; with the guard off the terminals are empty but earlier events still show.
+It lists only terminals tereditor started, names no process but each terminal's largest program, and carries no command line and no environment. It never signals a process.
 
 ## When the plugin is disabled
 
@@ -104,7 +112,7 @@ the service keeps its usual rules (the server starts again on next use or Retry)
 
 ## Wire
 
-Plugin `processes`, wire 1, additive: no HostProtocol change and no bump. Methods `snapshot` and `stop`; no channels; MCP tools `owned_process_report` and `owned_process_release`.
+Plugin `processes`, wire 1, additive: no HostProtocol change and no bump. Methods `snapshot` and `stop`; no channels; MCP tools `owned_process_report`, `owned_process_release` and `processes_status`.
 A method not listed in the contract makes the plugin refuse to activate, so the two methods are the whole surface. The host capability behind it is H27, `IPluginHostContext.Processes`
 (`IProcessHost`), a default-null member in the Api.Host assembly.
 
@@ -113,7 +121,7 @@ A method not listed in the contract makes the plugin refuse to activate, so the 
 `--processes` (also in `--plugins` and the full run) uses fake process sources: grouping and nesting of language servers, an agent with two spawned children and a reported process, workspace rows, group sums
 and the total, the 30-sample trend cap, no sampling before a request and one sample per interval, the 50 percent CPU arithmetic, stop through the language service versus the process path, the stop-the-tree setting for every agent kind in a terminal and in a chat with a plain terminal unaffected, and ids the snapshot
 does not hold, and the project scope (filter, sums, toggle in place, scoped stop targets, empty project). A real runtime with a real terminal service covers the switch: default on, tools and prompt present, a reported process kept running after disabling, no registration while off, no quit sweep, the memory guard following the plugin and its own switch, and
-re-enabling restoring management. `--case terminal-memory-guard` covers the guard itself, including it off and on and the move of the old setting. `--owned-processes` keeps covering the registry itself.
+re-enabling restoring management. `--case terminal-memory-guard` covers the guard itself, including it off and on and the move of the old setting, and the status answer (limits, terminals, events, the log's persistence, rotation and 50-event bound, no command line). `--owned-processes` keeps covering the registry itself.
 
 Not covered: the pane rendered (no screenshot taken), UI polling stopping when the pane is hidden (it follows from `IsEffectivelyVisible`), Linux and Windows usage reads, and the
 Claude Code chat host's own process (it lives inside the ClaudeCode plugin and has no seam here), which therefore is not listed.

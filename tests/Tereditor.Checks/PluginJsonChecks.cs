@@ -46,7 +46,7 @@ internal static class PluginJsonChecks
         var roster = await runtime.ListAsync();
         Require(roster.All(entry => entry.Status == PluginStatus.Active), "Every plugin with tools activates: " + string.Join(", ", roster.Where(entry => entry.Status != PluginStatus.Active).Select(entry => $"{entry.Id} {entry.Status} {entry.Reason}")));
         var tools = runtime.McpTools(null, root);
-        Require(tools.Count == 15 && tools.All(tool => tool.InputSchema["type"]?.GetValue<string>() == "object"), "Every builtin tool has an object input schema: " + tools.Count);
+        Require(tools.Count == 16 && tools.All(tool => tool.InputSchema["type"]?.GetValue<string>() == "object"), "Every builtin tool has an object input schema: " + tools.Count);
         var create = tools.Single(tool => tool.Name == "spec_create").InputSchema;
         Require(create["properties"]?["type"]?["enum"]?.ToJsonString() == """["goal-and-requirements","architecture-design","module-design","submodule-design","task-spec"]""" &&
             create["properties"]?["path"]?["description"] is not null,

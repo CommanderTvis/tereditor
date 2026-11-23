@@ -34,7 +34,7 @@ project folder itself. Agents can create them too.
   an unnamed generated workspace the first title also becomes its name and branch.
 - Agents report long-running background processes they start (dev servers, watchers) with `owned_process_report` and
   withdraw them with `owned_process_release`. tereditor stops reported processes when their terminal closes or it quits,
-  and quitting tells you how many it will stop. Nothing else is stopped. The Processes plugin provides this, a
+  and quitting tells you how many it will stop. Nothing else is stopped. If a build or server in a terminal dies with exit code 143 or 137, `processes_status` shows whether the memory guard ended it (its limits, each terminal's memory and its recent events). The Processes plugin provides this, a
   Processes pane (process tree with CPU and memory) and the memory guard for terminals; disable it in Settings › Plugins to turn all of it off.
 - Given several unrelated tasks, an agent can use a separate workspace and subagent for each.
 - When the work is preserved, agents remove the workspaces they created with `workspace_delete`. It refuses a dirty or

@@ -423,7 +423,7 @@ internal static class ProcessesChecks
             await runtime.Schedule();
         }
         var tab = new TerminalRef(directory, "tab");
-        bool HasTools() => runtime.McpTools(tab, directory).Select(tool => tool.Name).Intersect([ProcessesPlugin.ReportTool, ProcessesPlugin.ReleaseTool]).Count() == 2;
+        bool HasTools() => runtime.McpTools(tab, directory).Select(tool => tool.Name).Intersect([ProcessesPlugin.ReportTool, ProcessesPlugin.ReleaseTool, ProcessesPlugin.StatusTool]).Count() == 3;
         bool HasPrompt() => runtime.PromptTexts(ClaudeCodeContract.Id, PromptPlacement.Section).Any(text => text.Contains("owned_process_report", StringComparison.Ordinal));
 
         Require(ProcessesPlugin.Manifest.EnabledByDefault, "The Processes plugin must be on by default.");
