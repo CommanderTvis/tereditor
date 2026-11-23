@@ -36,8 +36,9 @@ internal static partial class GitHubBrowserChecks
     /// <summary>Every kind of GitHub document has the one Open in browser button, with the github.com address of the same thing.</summary>
     private static void OpenInBrowserLinks()
     {
-        static void Has(Control tab, string url, string what)
+        static void Has(Control tab, string url, string what, string id)
         {
+            Require(GitHubWebLink.Known("w", id) == url, $"{what} tells its tab menu the same address {url}, got {GitHubWebLink.Known("w", id)}");
             var open = Named(tab, GitHubWebLink.ButtonName) as Button;
             Require(open is { IsVisible: true } && (string?)open.Tag == url && ToolTip.GetTip(open) is string { Length: > 0 } && AutomationProperties.GetName(open) == "Open in browser", $"{what} offers Open in browser to {url}, got {open?.Tag} (visible {open?.IsVisible})");
         }
@@ -46,21 +47,21 @@ internal static partial class GitHubBrowserChecks
         {
             var tab = new GitHubTab(null!, "w", kind);
             tab.RenderDetail(new(false, "r", "o/r", kind, 7, "T", "open", false, "ann", "2026-11-01T10:00:00Z", $"https://github.com/o/r/{path}/7", "Body", [], [], null, timeline, false, null));
-            Has(tab, $"https://github.com/o/r/{path}/7", "A " + kind + " conversation");
+            Has(tab, $"https://github.com/o/r/{path}/7", "A " + kind + " conversation", kind);
             tab.RenderList(new(false, "r", "o/r", [], 0, 0, false));
-            Has(tab, "https://github.com/o/r/" + (kind == GitHubTab.Pulls ? "pulls" : "issues"), "The " + kind + " list");
+            Has(tab, "https://github.com/o/r/" + (kind == GitHubTab.Pulls ? "pulls" : "issues"), "The " + kind + " list", kind);
         }
         var rows = new List<GitHubRow> { new("1", "Row", "open", "meta", [], "right", "https://github.com/o/r/discussions/1") };
         foreach (var (id, path) in new[] { ("discussions", "discussions"), ("releases", "releases"), ("deployments", "deployments"), ("packages", "packages"), ("discussion:4", "discussions/4") })
         {
             var tab = new GitHubViewTab(null!, "w", id);
             tab.Render(new(false, "r", "Title", "Sub", "none", rows, [], [], false, "https://github.com/o/r/"));
-            Has(tab, "https://github.com/o/r/" + path, "The " + id + " view");
+            Has(tab, "https://github.com/o/r/" + path, "The " + id + " view", id);
         }
         var contributors = new GitHubContributorsTab(null, "w", (_, _) => Task.FromResult(new GitHubContributors(true, "", "", false, [], [])));
         contributors.Show(new GitHubContributors(false, "r", "main", false, [1_700_000_000L], [new("ann", "", "https://github.com/ann", [1], [1], [1])]) { RepoUrl = "https://github.com/o/r" });
         var window = Show(contributors);
-        Has(contributors, "https://github.com/o/r/graphs/contributors", "The contributors page");
+        Has(contributors, "https://github.com/o/r/graphs/contributors", "The contributors page", "contributors");
         window.Close();
         Console.WriteLine("PASS every GitHub document kind has an Open in browser button with its github.com address");
     }

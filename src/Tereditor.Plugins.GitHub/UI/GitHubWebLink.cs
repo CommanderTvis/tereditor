@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -24,6 +26,22 @@ internal static class GitHubWebLink
         Set(button, url);
         return button;
     }
+
+    // The address each open GitHub document shows, so its tab menu offers the same Open in browser without reaching into the control.
+    private static readonly ConcurrentDictionary<string, string> known = new();
+
+    internal static string Key(string workspace, string id) => workspace + "\n" + id;
+
+    internal static void Remember(string key, string url)
+    {
+        if (key.Length == 0) return;
+        if (url.Length == 0) known.TryRemove(key, out _);
+        else known[key] = url;
+    }
+
+    internal static string Known(string workspace, string id) => known.GetValueOrDefault(Key(workspace, id), "");
+
+    internal static void Forget(string workspace, string id) => known.TryRemove(Key(workspace, id), out _);
 
     internal static void Set(Button button, string url)
     {

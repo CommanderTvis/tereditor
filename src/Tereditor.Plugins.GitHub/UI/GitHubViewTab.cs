@@ -46,7 +46,7 @@ internal sealed class GitHubViewTab : Border
         kind = parts[0] switch { "run" => "runs", "discussion" => "discussions", var other => other };
         if (parts.Length == 2) { itemId = parts[1]; standalone = true; }
         linker = new(() => repoSlug, HandleLink);
-        freshness = new(page, Refresh);
+        freshness = new(page, Refresh, GitHubWebLink.Key(workspace, id));
         Child = freshness;
         page.Show(null, Ui.Status("Loading…"));
         poll.Tick += (_, _) => Refresh();

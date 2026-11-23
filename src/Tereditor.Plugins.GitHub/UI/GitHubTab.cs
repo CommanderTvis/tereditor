@@ -68,7 +68,7 @@ internal sealed class GitHubTab : Border
         if (standalone) number = int.Parse(parts[1]);
         queryBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { limit = 25; revision = null; Refresh(); } };
         linker = new(() => repoSlug, HandleLink);
-        freshness = new(page, Refresh);
+        freshness = new(page, Refresh, GitHubWebLink.Key(workspace, id));
         Child = freshness;
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) => { lifetime = new(); Interval(); poll.Start(); Refresh(); };

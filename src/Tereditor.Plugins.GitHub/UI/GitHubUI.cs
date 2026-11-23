@@ -11,12 +11,23 @@ public sealed class GitHubUI : PluginUIModule
     public override PluginDisposer? Activate(IPluginUIContext context)
     {
         context.SideTool(new(GitHubContract.Tool, workspace => new GitHubPane(context, workspace)) { Retarget = (control, workspace) => ((GitHubPane)control).Retarget(workspace) });
-        context.Document(new PluginDocumentRegistration(GitHubContract.Scheme, props => GitHubTab.Handles(props.Id) ? new GitHubTab(context, props.WorkspaceId, props.Id) : props.Id == "contributors" ? new GitHubContributorsTab(context, props.WorkspaceId) : props.Id == "runs" ? new GitHubActionsTab(context, props.WorkspaceId) : props.Id.StartsWith("run:", StringComparison.Ordinal) ? new GitHubRunTab(context, props.WorkspaceId, props.Id) : new GitHubViewTab(context, props.WorkspaceId, props.Id)) { Icon = "asset:github.svg" });
+        context.Document(new PluginDocumentRegistration(GitHubContract.Scheme, props => GitHubTab.Handles(props.Id) ? new GitHubTab(context, props.WorkspaceId, props.Id) : props.Id == "contributors" ? new GitHubContributorsTab(context, props.WorkspaceId) : props.Id == "runs" ? new GitHubActionsTab(context, props.WorkspaceId) : props.Id.StartsWith("run:", StringComparison.Ordinal) ? new GitHubRunTab(context, props.WorkspaceId, props.Id) : new GitHubViewTab(context, props.WorkspaceId, props.Id)) { Icon = "asset:github.svg", Closed = props => GitHubWebLink.Forget(props.WorkspaceId, props.Id), MenuEntries = [OpenInBrowser] });
         context.RepoHostUI(new(surface => new GitHubReviewSection(surface)) { OpenLink = (workspace, url) => OpenLinkAsync(context, workspace, url) });
         context.SettingsSection(new("GitHub", "asset:github.svg", () => new GitHubSettingsPage(context)));
         context.KeymapAction(new("OpenSettings", "Open GitHub settings", "GitHub", () => context.OpenSettings(UiPages.PluginSection(context.Id))));
         return null;
     }
+
+    /// <summary>Every GitHub tab's menu entry: the github.com page of the same thing, shown once the tab knows it.</summary>
+    internal static readonly PluginDocumentMenuEntry OpenInBrowser = new("OpenInBrowser", "Open in browser", props =>
+    {
+        GitHubRuns.Open(GitHubWebLink.Known(props.WorkspaceId, props.Id));
+        return Task.CompletedTask;
+    })
+    {
+        Icon = GitHubIcons.ExternalLink,
+        Visible = props => GitHubWebLink.Known(props.WorkspaceId, props.Id).Length > 0,
+    };
 
     /// <summary>Opens a link to a run, issue, pull request, discussion or the releases of the repository the link names in this plugin's own tab; false for any other link.</summary>
     internal static async ValueTask<bool> OpenLinkAsync(IPluginUIContext context, string workspace, string url)

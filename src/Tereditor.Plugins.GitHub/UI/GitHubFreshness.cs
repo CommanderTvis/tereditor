@@ -17,11 +17,13 @@ internal sealed class GitHubFreshness : Grid
     private readonly TextBlock text = Ui.Text("", Ui.Muted, 12);
     private readonly Button retryButton;
     private readonly Action refresh;
+    private readonly string key;
     private readonly Button web = GitHubWebLink.Create("");
 
-    public GitHubFreshness(Control content, Action refresh)
+    public GitHubFreshness(Control content, Action refresh, string key = "")
     {
         this.refresh = refresh;
+        this.key = key;
         Name = "GitHubFreshness";
         RowDefinitions = new("Auto,*");
         text.VerticalAlignment = VerticalAlignment.Center;
@@ -54,7 +56,7 @@ internal sealed class GitHubFreshness : Grid
     }
 
     /// <summary>The github.com page of what this tab shows; empty hides the Open in browser button.</summary>
-    public string Url { get => (string)(web.Tag ?? ""); set => GitHubWebLink.Set(web, value); }
+    public string Url { get => (string)(web.Tag ?? ""); set { GitHubWebLink.Set(web, value); GitHubWebLink.Remember(key, value); } }
 
     internal string Line => text.Text ?? "";
 

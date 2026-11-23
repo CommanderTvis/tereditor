@@ -70,7 +70,7 @@ internal sealed class GitHubRunTab : Border
         var root = new Grid { RowDefinitions = new("Auto,*") };
         root.Children.Add(top); Grid.SetRow(body, 1); root.Children.Add(body);
         content.Child = root;
-        freshness = new(content, Refresh);
+        freshness = new(content, Refresh, GitHubWebLink.Key(workspace, id));
         Child = freshness;
         poll.Tick += (_, _) => Refresh();
         AttachedToVisualTree += (_, _) =>

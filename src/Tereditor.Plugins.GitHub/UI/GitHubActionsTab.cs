@@ -109,7 +109,7 @@ internal sealed class GitHubActionsTab : Border
         var root = new Grid { ColumnDefinitions = new("Auto,*") };
         var side = new Grid { Children = { sidebar, collapsed } };
         root.Children.Add(side); Grid.SetColumn(main, 1); root.Children.Add(main);
-        freshness = new(root, () => { if (!busy) _ = PollAsync(); });
+        freshness = new(root, () => { if (!busy) _ = PollAsync(); }, GitHubWebLink.Key(workspace, "runs"));
         Child = freshness;
         UpdateRefreshButton();
 
