@@ -71,7 +71,7 @@ internal sealed class GitHubTab : Border
         freshness = new(page, Refresh);
         Child = freshness;
         poll.Tick += (_, _) => Refresh();
-        AttachedToVisualTree += (_, _) => { lifetime = new(); Interval(); poll.Start(); revision = null; Refresh(); };
+        AttachedToVisualTree += (_, _) => { lifetime = new(); Interval(); poll.Start(); Refresh(); };
         DetachedFromVisualTree += (_, _) => { poll.Stop(); lifetime?.Cancel(); generation++; };
         page.Show(null, Ui.Status("Loading…"));
     }

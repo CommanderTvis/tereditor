@@ -77,7 +77,7 @@ internal sealed class GitHubRunTab : Border
         {
             lifetime = new();
             poll.Interval = TimeSpan.FromSeconds(Math.Clamp(context?.Settings<GitHubSettings>().PollSeconds ?? 60, 15, 600));
-            poll.Start(); revision = null; Refresh();
+            poll.Start(); Refresh();
         };
         DetachedFromVisualTree += (_, _) => { poll.Stop(); lifetime?.Cancel(); generation++; };
     }

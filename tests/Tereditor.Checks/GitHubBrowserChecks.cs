@@ -103,6 +103,7 @@ internal static partial class GitHubBrowserChecks
         AvatarCircles();
         PlaceholdersAreCentred();
         ComposerPadding();
+        ReactivatedTabKeepsItsView();
         GitHubActionsChecks.Run();
     }
 
