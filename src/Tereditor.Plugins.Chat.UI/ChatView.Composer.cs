@@ -26,6 +26,8 @@ internal sealed partial class ChatView
     internal static readonly Dictionary<(string, string), List<string>> ShellHistories = [];
     // The big pastes a draft holds as tokens, kept beside the draft so a rebuilt view still sends their text.
     private static readonly Dictionary<(string, string), PastedTexts> Pastes = [];
+    // The images of a draft: each is one [Image #N] token in the box, and goes out with the message exactly while its token is in the text.
+    private static readonly Dictionary<(string, string), PastedImages> ImagePastes = [];
 
     private TextBox input = null!;
     private Button send = null!;
@@ -51,23 +53,28 @@ internal sealed partial class ChatView
     internal TextBlock ShellMark => shellMark;
 
     /// <summary>Forgets the client-local drafts, as a new process would have none.</summary>
-    internal static int LocalChatStates => Drafts.Count + DraftSyncs.Count + Histories.Count + ShellHistories.Count + Navigators.Count + ShellNavigators.Count + Pastes.Count;
+    internal static int LocalChatStates => Drafts.Count + DraftSyncs.Count + Histories.Count + ShellHistories.Count + Navigators.Count + ShellNavigators.Count + Pastes.Count + ImagePastes.Count;
 
     /// <summary>Drops what the client keeps for a chat whose tab is closed for good; a tab merely hidden or left behind by a workspace switch keeps its draft and history.</summary>
     internal static void ForgetChat(string workspaceId, string chatId)
     {
         var key = (workspaceId, chatId);
-        Drafts.Remove(key); DraftSyncs.Remove(key); Histories.Remove(key); ShellHistories.Remove(key); Navigators.Remove(key); ShellNavigators.Remove(key); Pastes.Remove(key);
+        Drafts.Remove(key); DraftSyncs.Remove(key); Histories.Remove(key); ShellHistories.Remove(key); Navigators.Remove(key); ShellNavigators.Remove(key); Pastes.Remove(key); ImagePastes.Remove(key);
         ChatLaunches.Forget(workspaceId, chatId);
     }
 
-    internal static void ForgetLocalDrafts() { Drafts.Clear(); DraftSyncs.Clear(); Navigators.Clear(); ShellNavigators.Clear(); Pastes.Clear(); }
+    internal static void ForgetLocalDrafts() { Drafts.Clear(); DraftSyncs.Clear(); Navigators.Clear(); ShellNavigators.Clear(); Pastes.Clear(); ImagePastes.Clear(); }
     internal string? DraftNote => pasteNote.IsVisible ? pasteNote.Text : null;
     internal TextBox Input => input;
     internal ListBox Menu => menuList;
     internal bool MenuOpen => menu.IsOpen;
     internal Button SendButton => send;
     internal PastedTexts? Pasted => Pastes.GetValueOrDefault((workspaceId, chatId));
+    internal PastedImages? PastedPictures => ImagePastes.GetValueOrDefault((workspaceId, chatId));
+
+    // The tokens of both kinds in the box, in order: each is one unit for the caret and for Backspace and Delete.
+    private IEnumerable<(int Start, int End, int Number)> AllTokens(string text) =>
+        (Pasted?.Tokens(text) ?? []).Concat(PastedPictures?.Tokens(text) ?? []).OrderBy(token => token.Start);
 
     /// <summary>The draft as it is sent: the box's text with each pasted-text token replaced by its text. The host's draft is this text.</summary>
     private string DraftText => Pasted is { } pastes ? pastes.Expand(input.Text ?? "") : input.Text ?? "";
@@ -269,6 +276,7 @@ internal sealed partial class ChatView
             // The box raises its change after the setter returns, so a change that left the text a remote draft put there is told by its text.
             if (!applyingRemote && input.Text != appliedText) { appliedText = null; if (collapsedPaste?.Box != input.Text) pasteNote.IsVisible = false; lastTyped = Environment.TickCount64; ScheduleDraft(); }
             Drafts[(workspaceId, chatId)] = (bashMode ? "!" : "") + (input.Text ?? "");
+            if (ImageSignature() != shownImages) RebuildAttachmentChips();
             UpdateMenu(); UpdateSend(); UpdateMentions();
         };
         input.LostFocus += (_, _) => _ = FlushDraft();
@@ -276,7 +284,7 @@ internal sealed partial class ChatView
         // The box's own Paste (its context menu) takes the same road.
         input.PastingFromClipboard += (_, e) => { e.Handled = true; _ = PasteAttachments(); };
         input.ContextFlyout = InputMenu();
-        // A pasted-text token is one unit: a caret moved into it goes on to its far edge.
+        // A pasted-text or image token is one unit: a caret moved into it goes on to its far edge.
         input.PropertyChanged += (_, e) => { if (e.Property == TextBox.CaretIndexProperty) Dispatcher.UIThread.Post(SnapCaret); };
         SetValue(FileDrop.AcceptsProperty, () => true);
         SetValue(FileDrop.AttachProperty, paths => { foreach (var path in paths) AddAttachment(path); });
@@ -471,7 +479,14 @@ internal sealed partial class ChatView
     private string? activity;
 
     internal Button ContextPie => pie;
-    internal IReadOnlyList<ChatAttachment> Attachments => attachments;
+    /// <summary>What a send carries: the images whose token is in the box, in order, then the other attachments.</summary>
+    internal IReadOnlyList<ChatAttachment> Attachments => [.. LiveImages().Select(image => image.Item), .. attachments];
+
+    private IReadOnlyList<(int Number, ChatAttachment Item)> LiveImages() => PastedPictures?.Live(input.Text ?? "") ?? [];
+
+    // The images the chip row last showed, by number: a change in the box that adds or drops a token rebuilds the row.
+    private string shownImages = "";
+    private string ImageSignature() => string.Join(',', LiveImages().Select(image => image.Number));
 
     private async Task AttachFromPicker()
     {
@@ -846,8 +861,15 @@ internal sealed partial class ChatView
     internal void AddAttachment(string path)
     {
         var name = path.Replace('\\', '/').Split('/')[^1];
-        if (attachments.Any(item => item.Path == path)) return;
         var mediaType = MediaTypeOf(path);
+        // An image is a token in the box, like a pasted one; its bytes are read off the UI thread and the send waits for them.
+        if (mediaType?.StartsWith("image/", StringComparison.Ordinal) == true)
+        {
+            if (LiveImages().Any(image => image.Item.Path == path)) return;
+            if (AddImage(new ChatAttachment(name, path) { Kind = "image" }, mediaType) is { } number) attachmentLoads.Add(LoadImage(number, path, mediaType));
+            return;
+        }
+        if (attachments.Any(item => item.Path == path)) return;
         var entry = new ChatAttachment(name, path) { Kind = mediaType is null ? null : mediaType.StartsWith("image/", StringComparison.Ordinal) ? "image" : "document" };
         attachments.Add(entry);
         RebuildAttachmentChips();
@@ -885,17 +907,80 @@ internal sealed partial class ChatView
             env.Notify(PluginNotificationKind.Error, "That image is too large to attach", $"{data.Length / (1024 * 1024)} MB; the most is {MaxAttachmentBytes / (1024 * 1024)} MB.");
             return;
         }
-        var extension = mediaType switch { "image/jpeg" => "jpg", "application/pdf" => "pdf", _ => mediaType.Split('/')[^1] };
-        attachments.Add(new ChatAttachment(name ?? $"pasted-{++pastedCount}.{extension}", "") { Kind = mediaType.StartsWith("image/", StringComparison.Ordinal) ? "image" : "document", Data = data, MediaType = mediaType });
+        if (mediaType.StartsWith("image/", StringComparison.Ordinal)) { AddImage(new ChatAttachment("", "") { Kind = "image", Data = data, MediaType = mediaType }, mediaType); return; }
+        var extension = mediaType switch { "application/pdf" => "pdf", _ => mediaType.Split('/')[^1] };
+        attachments.Add(new ChatAttachment(name ?? $"pasted-{++pastedCount}.{extension}", "") { Kind = "document", Data = data, MediaType = mediaType });
+        RebuildAttachmentChips();
+    }
+
+    /// <summary>
+    /// Keeps an image and puts its <c>[Image #N]</c> token at the caret, with a space on each side that needs one; returns its number, or null in bash mode
+    /// (a shell command has no images).
+    /// </summary>
+    private int? AddImage(ChatAttachment image, string mediaType)
+    {
+        if (bashMode)
+        {
+            pasteNote.Text = "A shell command can't take an image.";
+            pasteNote.IsVisible = true;
+            return null;
+        }
+        var key = (workspaceId, chatId);
+        var images = ImagePastes.TryGetValue(key, out var found) ? found : ImagePastes[key] = new PastedImages();
+        var number = images.Add(image with { MediaType = mediaType }, input.Text ?? "");
+        var text = input.Text ?? "";
+        var start = Math.Min(input.SelectionStart, input.SelectionEnd);
+        var end = Math.Max(input.SelectionStart, input.SelectionEnd);
+        var lead = start > 0 && !char.IsWhiteSpace(text[start - 1]) ? " " : "";
+        var trail = end < text.Length && char.IsWhiteSpace(text[end]) ? "" : " ";
+        input.SelectedText = lead + PastedImages.Token(number) + trail;
+        RebuildAttachmentChips();
+        return number;
+    }
+
+    private async Task LoadImage(int number, string path, string mediaType)
+    {
+        var images = PastedPictures;
+        try
+        {
+            var data = await Task.Run(() =>
+            {
+                if (new FileInfo(path).Length > MaxAttachmentBytes) throw new InvalidOperationException($"{Path.GetFileName(path)} is larger than {MaxAttachmentBytes / (1024 * 1024)} MB.");
+                return File.ReadAllBytes(path);
+            });
+            if (images?.Item(number) is { } entry) images.Set(number, entry with { Data = data, MediaType = mediaType });
+            RebuildAttachmentChips();
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            RemoveImageToken(number);
+            images?.Remove(number);
+            env.Notify(PluginNotificationKind.Error, "Couldn't attach " + Path.GetFileName(path), error.Message);
+        }
+    }
+
+    // Takes every token of an image out of the box (each with the space after it), so the image is not sent; one edit per token keeps Undo whole.
+    private void RemoveImageToken(int number)
+    {
+        var text = input.Text ?? "";
+        var spans = (PastedPictures?.Tokens(text) ?? []).Where(token => token.Number == number).Reverse().ToList();
+        foreach (var (start, end, _) in spans)
+        {
+            input.SelectionStart = start;
+            input.SelectionEnd = end < (input.Text ?? "").Length && input.Text![end] == ' ' ? end + 1 : end;
+            input.SelectedText = "";
+        }
         RebuildAttachmentChips();
     }
 
     private void RebuildAttachmentChips()
     {
         attachmentRow.Children.Clear();
-        attachmentRow.IsVisible = attachments.Count > 0;
+        shownImages = ImageSignature();
+        var shown = LiveImages().Select(image => (Number: (int?)image.Number, image.Item)).Concat(attachments.Select(item => (Number: (int?)null, item))).ToArray();
+        attachmentRow.IsVisible = shown.Length > 0;
         ShowContextRow();
-        foreach (var item in attachments.ToArray())
+        foreach (var (number, item) in shown)
         {
             // Thumbnail and close mark keep their size; the name between them gives way, trimmed with an ellipsis (the chip's tooltip has it whole).
             var chip = new DockPanel { LastChildFill = true };
@@ -918,6 +1003,7 @@ internal sealed partial class ChatView
             chip.Children.Add(label);
             var remove = TerminalFacts.ChipButton("ChatAttachment_" + item.Name, chip, "Remove " + (item.Path.Length > 0 ? item.Path : item.Name), () =>
             {
+                if (number is { } picture) { RemoveImageToken(picture); return; }
                 attachments.Remove(item);
                 RebuildAttachmentChips();
             });
@@ -947,7 +1033,7 @@ internal sealed partial class ChatView
         }
         // An image still being read from disk is waited for, so it goes out with the message.
         if (attachmentLoads.Count > 0) { await Task.WhenAll(attachmentLoads.ToArray()); attachmentLoads.Clear(); }
-        var sent = attachments.ToList();
+        var sent = Attachments.ToList();
         text = WithEditorContext(text, sent);
         await FlushDraft();
         if (await SendText(text, sent.Count > 0 ? sent : null, draft: true))
@@ -957,6 +1043,7 @@ internal sealed partial class ChatView
             Navigators.Remove((workspaceId, chatId));
             input.Text = "";
             Pastes.Remove((workspaceId, chatId));
+            ImagePastes.Remove((workspaceId, chatId));
             baseText = "";
             RememberSync();
             attachments.Clear();
@@ -1034,7 +1121,7 @@ internal sealed partial class ChatView
         if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && Navigator.Escape() is { Step: not InputHistoryStep.None } restored) { ApplyHistoryMove(restored, e); return; }
         if (bashMode && e.Key == Key.Escape) { LeaveShellMode(); e.Handled = true; return; }
         if (bashMode && e.Key == Key.Back && string.IsNullOrEmpty(input.Text) && e.KeyModifiers == KeyModifiers.None) { LeaveShellMode(); e.Handled = true; return; }
-        // Backspace and Delete next to a pasted-text token remove the whole token.
+        // Backspace and Delete next to a pasted-text or image token remove the whole token.
         if (e.Key is Key.Back or Key.Delete && e.KeyModifiers == KeyModifiers.None && RemovePastedToken(e.Key == Key.Back)) { e.Handled = true; return; }
         // Paste is ours, before the box sees it: a clipboard may hold an image or files and no text at all, which the box would silently ignore.
         // Text-only clipboards are inserted below; everything else becomes attachments. With Shift, Cmd+V (Ctrl+V) pastes big text plainly.
@@ -1420,12 +1507,12 @@ internal sealed partial class ChatView
         pasteHint = null;
     }
 
-    /// <summary>Removes the whole pasted-text token before the caret (Backspace) or after it (Delete); false when there is none.</summary>
+    /// <summary>Removes the whole pasted-text or image token before the caret (Backspace) or after it (Delete); false when there is none.</summary>
     private bool RemovePastedToken(bool back)
     {
-        if (Pasted is not { } pastes || input.SelectionStart != input.SelectionEnd) return false;
+        if (input.SelectionStart != input.SelectionEnd) return false;
         var caret = input.CaretIndex;
-        foreach (var (start, end, _) in pastes.Tokens(input.Text ?? ""))
+        foreach (var (start, end, _) in AllTokens(input.Text ?? "").ToList())
         {
             if (back ? start < caret && caret <= end : start <= caret && caret < end)
             {
@@ -1448,7 +1535,7 @@ internal sealed partial class ChatView
         var previous = lastCaret;
         lastCaret = caret;
         if (collapsedPaste is { } pasted && caret != pasted.End) ResetPasteAgain();
-        if (input.SelectionStart != input.SelectionEnd || Pasted?.At(input.Text ?? "", caret) is not { } token || caret == token.Start || caret == token.End) return;
+        if (input.SelectionStart != input.SelectionEnd || AllTokens(input.Text ?? "").Where(token => token.Start <= caret && caret <= token.End).Select(token => ((int Start, int End, int Number)?)token).FirstOrDefault() is not { } token || caret == token.Start || caret == token.End) return;
         var target = caret > previous && previous >= token.Start ? token.End : token.Start;
         input.SelectionStart = input.SelectionEnd = input.CaretIndex = lastCaret = target;
     }

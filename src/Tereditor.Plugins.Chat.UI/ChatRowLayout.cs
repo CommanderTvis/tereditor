@@ -464,8 +464,7 @@ internal sealed class ChatRowLayout : IDisposable
         var start = y + BubblePad;
         y = start;
         // An image marker the CLI wrote into the prompt is shown as a name with the path in its tooltip, never given to the renderer; the item's own text keeps it.
-        var (shownText, images) = ChatImageMarkers.Split(user.Text);
-        var chips = (user.Attachments ?? []).Select(item => (item.Name, Path: "")).Concat(images).ToList();
+        var (shownText, chips) = ChatImageMarkers.Chips(user.Text, user.Attachments);
         var pieces = shownText.Length == 0 && chips.Count > 0 ? [] : Blocks(shownText, false);
         var contentHeight = pieces.Count == 0 ? 0 : y - start - TrailingGap(pieces[^1]);
         if (pieces.Count == 0 && chips.Count == 0)

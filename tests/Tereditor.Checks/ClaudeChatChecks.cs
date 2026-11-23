@@ -746,15 +746,15 @@ internal static class ClaudeChatChecks
 
             // An image the UI sends as bytes reaches the child as a base64 image block; the transcript keeps the name and not the bytes.
             var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=");
-            await fixture.Call(ChatContract.Send, new ChatSendParams(project, chat, "hello with a picture") { Attachments = [new ChatAttachment("pasted-1.png", "") { Kind = "image", MediaType = "image/png", Data = png }] });
+            await fixture.Call(ChatContract.Send, new ChatSendParams(project, chat, "hello with a picture [Image #1]") { Attachments = [new ChatAttachment("Image #1", "") { Kind = "image", MediaType = "image/png", Data = png }] });
             var imageLog = Path.Combine(directory, "fake", "image.txt");
             for (var wait = 0; wait < 60 && !File.Exists(imageLog); wait++) await Task.Delay(50);
             var sentLine = File.Exists(imageLog) ? File.ReadAllText(imageLog) : "";
-            Require(sentLine.Contains("\"type\":\"image\"", StringComparison.Ordinal) && sentLine.Contains("\"media_type\":\"image/png\"", StringComparison.Ordinal) && sentLine.Contains(Convert.ToBase64String(png), StringComparison.Ordinal),
-                "The child receives the pasted image as a base64 image block with its media type: " + sentLine);
+            Require(sentLine.Contains("\"type\":\"image\"", StringComparison.Ordinal) && sentLine.Contains("\"media_type\":\"image/png\"", StringComparison.Ordinal) && sentLine.Contains(Convert.ToBase64String(png), StringComparison.Ordinal) && sentLine.Contains("hello with a picture [Image #1]", StringComparison.Ordinal),
+                "The child receives the pasted image as a base64 image block with its media type, and the pointer text stays in the prompt: " + sentLine);
             await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle, "the picture turn");
             var pictured = (await fixture.View(chat)).Items.OfType<ChatUserItem>().Last(item => item.Attachments is { Count: > 0 });
-            Require(pictured.Attachments![0].Name == "pasted-1.png" && pictured.Attachments[0].Data is null, "The transcript keeps the attachment's name, not its bytes.");
+            Require(pictured.Attachments![0].Name == "Image #1" && pictured.Attachments[0].Data is null, "The transcript keeps the attachment's name, not its bytes.");
             var refused = false;
             try { await fixture.Call(ChatContract.Send, new ChatSendParams(project, chat, "too big") { Attachments = [new ChatAttachment("huge.png", "") { MediaType = "image/png", Data = new byte[ChatAttachment.MaxDataBytes + 1] }] }); }
             catch (PluginCallException) { refused = true; }

@@ -291,6 +291,7 @@ internal static class ClaudeChatUiChecks
         AttachmentChipsContained();
         StructuredContextChips();
         PasteImages();
+        ImageTokens();
         PasteCollapse();
         PasteAgain();
         WrappedHistory();
@@ -1167,6 +1168,69 @@ internal static class ClaudeChatUiChecks
 
     // A long file name and a pasted image in a narrow composer: every chip stays inside the composer (trimmed or wrapped, never cut off at its edge)
     // and its close mark is inside too, so it can still be reached.
+    // An image is one [Image #N] token in the box and the token is the only handle: numbers count up, a token is one unit for Backspace and the
+    // caret, deleting it (or its chip) drops the image, Undo brings both back, and a send carries exactly the images whose token is in the text.
+    private static void ImageTokens()
+    {
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=");
+        var file = Path.Combine(Path.GetTempPath(), "tereditor-token-" + Guid.NewGuid().ToString("N")[..8] + ".png");
+        File.WriteAllBytes(file, png);
+        try
+        {
+            Frame(window); Frame(window);
+            view.Input.Text = "compare with";
+            view.Input.CaretIndex = 8;
+            view.AddPasted(png, "image/png");
+            Require(view.Input.Text == "compare [Image #1] with" && view.Attachments is [{ Name: "Image #1", Data.Length: > 0 }], $"A pasted image puts a token at the caret ('{view.Input.Text}').");
+            view.Input.CaretIndex = view.Input.Text.Length;
+            view.AddPasted(png, "image/png");
+            Require(view.Input.Text == "compare [Image #1] with [Image #2] " && view.Attachments.Select(item => item.Name).SequenceEqual(["Image #1", "Image #2"]), $"The next image is #2, after a space ('{view.Input.Text}').");
+            view.AddAttachment(file);
+            E2eWorkspace.Until(() => view.Attachments.Count == 3 && view.Attachments[2].Data is { Length: > 0 });
+            Require(view.Attachments[2] is { Name: "Image #3", Path: var picked } && picked == file && view.Input.Text!.EndsWith("[Image #3] ", StringComparison.Ordinal), "A picked or dropped image file is a token too, with its path kept and its bytes read.");
+
+            // Backspace next to a token removes it whole, and its image leaves the message.
+            var at = view.Input.Text!.IndexOf("[Image #2]", StringComparison.Ordinal) + "[Image #2]".Length;
+            view.Input.CaretIndex = at;
+            view.Input.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Back, KeyModifiers = KeyModifiers.None });
+            Require(!view.Input.Text!.Contains("[Image #2]", StringComparison.Ordinal) && view.Attachments.Select(item => item.Name).SequenceEqual(["Image #1", "Image #3"]), $"Backspace removes the whole token and its image ('{view.Input.Text}').");
+            Frame(window);
+            var chipNames = view.GetVisualDescendants().OfType<Button>().Select(button => button.Name).Where(name => name?.StartsWith("ChatAttachment_", StringComparison.Ordinal) == true).ToArray();
+            Require(chipNames.SequenceEqual(["ChatAttachment_Image #1", "ChatAttachment_Image #3"]), "The preview chips follow the tokens: " + string.Join(",", chipNames));
+
+            // Its chip's close mark removes the token from the text.
+            view.GetVisualDescendants().OfType<Button>().First(button => button.Name == "ChatAttachment_Image #1").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Require(!view.Input.Text!.Contains("[Image #1]", StringComparison.Ordinal) && view.Attachments.Select(item => item.Name).SequenceEqual(["Image #3"]), $"A chip's remove takes its token out of the text ('{view.Input.Text}').");
+
+            // Hand-typed or recalled tokens with no image are plain text, and a new image goes past them.
+            view.Input.Text = "see [Image #7] and [Image #9]";
+            Require(view.Attachments.Count == 0, "A token with no image is plain text and carries nothing.");
+            view.Input.CaretIndex = view.Input.Text.Length;
+            view.AddPasted(png, "image/png");
+            Require(view.Attachments is [{ Name: "Image #10" }] && view.Input.Text.EndsWith(" [Image #10] ", StringComparison.Ordinal), $"A new token never reads as an old one ('{view.Input.Text}').");
+
+            // A send keeps the pointer text and carries only the images that are in it; the draft starts again at #1.
+            view.Input.Text += "now";
+            Await(view.Submit());
+            var sent = chat.SendParams.Last();
+            Require(sent.Text == "see [Image #7] and [Image #9] [Image #10] now" && sent.Attachments is [{ Name: "Image #10", Kind: "image", MediaType: "image/png", Data.Length: > 0 }], $"The send keeps the pointer text with one image ('{sent.Text}', {sent.Attachments?.Count}).");
+            Require(view.Attachments.Count == 0 && view.Input.Text is null or "", "The box and its images are empty after a send.");
+            view.AddPasted(png, "image/png");
+            Require(view.Input.Text == "[Image #1] ", "Numbering starts again with the next message.");
+
+            // The bubble keeps the pointer in its text and draws no second chip for the image.
+            using var bubble = ChatRowLayout.Build(new ChatRow(new ChatUserItem("m9", 9, "look at [Image #1] now") { Attachments = [new ChatAttachment("Image #1", "") { Kind = "image" }] }, 0, 1, false, null), 500, true);
+            Require(string.Join("|", bubble.Parts().Select(part => part.Text)) == "look at [Image #1] now", "A sent message shows its pointer text, once.");
+        }
+        catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
+        finally { window.Close(); File.Delete(file); ChatView.Histories.Remove((Workspace, Chat)); ChatView.ForgetLocalDrafts(); }
+    }
+
     private static void AttachmentChipsContained()
     {
         var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
@@ -1193,7 +1257,7 @@ internal static class ClaudeChatUiChecks
             }
         }
         catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
-        finally { window.Close(); }
+        finally { window.Close(); ChatView.ForgetLocalDrafts(); }
     }
 
     // Paste is the composer's own: an image (or files) on the clipboard becomes an attachment chip with its bytes, by the key, Shift+Insert and
@@ -1223,7 +1287,7 @@ internal static class ClaudeChatUiChecks
             SetImage();
             Paste(KeyModifiers.Meta, Key.V);
             E2eWorkspace.Until(() => view.Attachments.Count == 1);
-            Require(view.Attachments[0] is { Kind: "image", MediaType: "image/png", Data.Length: > 0 } && Chips() == 1 && view.Input.Text is null or "", $"Cmd+V with an image on the clipboard attaches it with its bytes and a chip ({view.Attachments[0]}, chips {Chips()}, text '{view.Input.Text}').");
+            Require(view.Attachments[0] is { Kind: "image", MediaType: "image/png", Data.Length: > 0 } && Chips() == 1 && view.Input.Text == "[Image #1] ", $"Cmd+V with an image on the clipboard attaches it with its bytes, a chip and an [Image #1] token ({view.Attachments[0]}, chips {Chips()}, text '{view.Input.Text}').");
             E2eWorkspace.Until(() => view.GetVisualDescendants().OfType<Image>().Any(image => image.Name == "ChatAttachmentPreview" && image.Source is not null));
             SetImage();
             Paste(KeyModifiers.Shift, Key.Insert);
@@ -1239,13 +1303,13 @@ internal static class ClaudeChatUiChecks
             Await(item);
             Await(Avalonia.Input.Platform.ClipboardExtensions.SetFileAsync(clipboard, item.Result!));
             Paste(KeyModifiers.Meta, Key.V);
-            E2eWorkspace.Until(() => view.Attachments.Count == 3 && view.Attachments[2].Data is { Length: > 0 });
-            Require(view.Attachments[2] is { Path: var path, MediaType: "image/png" } && path == file, "A file on the clipboard attaches by path, with its bytes read for an image.");
+            E2eWorkspace.Until(() => view.Attachments.Count == 3 && view.Attachments.All(image => image.Data is { Length: > 0 }));
+            Require(view.Attachments.Any(image => image.Path == file && image.MediaType == "image/png"), "A file on the clipboard attaches by path, with its bytes read for an image.");
 
             // Text only: the box takes it as before, and nothing is attached.
             Await(Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(clipboard, "plain words"));
             Paste(KeyModifiers.Meta, Key.V);
-            E2eWorkspace.Until(() => view.Input.Text == "plain words");
+            E2eWorkspace.Until(() => view.Input.Text?.Contains("plain words", StringComparison.Ordinal) == true);
             Require(view.Attachments.Count == 3, "A text-only clipboard is pasted into the box.");
 
             // Nothing usable: the note says what the clipboard had, so the next failure can be told apart.
@@ -1262,10 +1326,10 @@ internal static class ClaudeChatUiChecks
 
             // Over the cap: refused with a message.
             view.AddPasted(new byte[ChatView.MaxAttachmentBytes + 1], "image/png");
-            Require(view.Attachments.Count == 3 && notes.Any(note => note.Contains("too large", StringComparison.Ordinal)), "An image over the cap is refused with a message.");
+            Require(view.Attachments.Count == 0 && notes.Any(note => note.Contains("too large", StringComparison.Ordinal)), "An image over the cap is refused with a message (the box was cleared, so no token is left).");
         }
         catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
-        finally { window.Close(); File.Delete(file); }
+        finally { window.Close(); File.Delete(file); ChatView.ForgetLocalDrafts(); }
     }
 
     // A big paste goes into the box as one token and is sent as what was pasted. Cmd+Shift+V pastes plainly, Backspace and Delete take the whole

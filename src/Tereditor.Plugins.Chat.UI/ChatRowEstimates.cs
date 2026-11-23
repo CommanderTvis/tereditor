@@ -31,8 +31,8 @@ internal static class ChatRowEstimates
 
     private static double UserHeight(ChatUserItem user, double columns, bool expanded)
     {
-        var (text, images) = ChatImageMarkers.Split(user.Text);
-        var chips = (user.Attachments?.Count ?? 0) + images.Count;
+        var (text, shownChips) = ChatImageMarkers.Chips(user.Text, user.Attachments);
+        var chips = shownChips.Count;
         var lines = text.Length == 0 && chips > 0 ? 0 : Lines(text, columns - 6, expanded ? int.MaxValue : 3);
         return 2 * ChatRowLayout.BubblePad + lines * ProseLine + (user.Queued ? 16 : 0) + (chips > 0 ? 18 : 0);
     }

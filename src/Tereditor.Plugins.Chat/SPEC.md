@@ -79,6 +79,20 @@ is not shown on Android, which has no paste key.
 The shared draft carries the expanded text, so a host restart or another client shows the pasted text in full; a rebuilt view in the same
 process keeps the tokens.
 
+## Image pointers
+
+A pasted, dropped or picked image goes into the composer as one token at the caret, `[Image #N]`, with a space on each side that needs
+one. The view keeps the image (bytes, media type, path) beside the draft, per chat and client-local, and the token is the only handle:
+an image is sent exactly when its token is in the text. N counts the draft's images from 1 and starts again after a send; a new number
+goes past every `[Image #N]` already in the box, so a token recalled from history (plain text, its image is gone) is never confused with
+a new one. Backspace and Delete next to a token remove it whole, and a caret moved into it goes on to its edge. Deleting the token, or
+the close mark of the image's preview chip (still drawn, with its thumbnail), drops the image; Undo that brings the token back brings the
+image back too, because the view keeps it until the send. A token typed by hand with no image behind it is plain text. A file image is
+read off the UI thread and the send waits for it. A PDF is still a chip. In bash mode an image is refused with a note.
+The text keeps the pointer: the agent gets `[Image #1]` in the prompt and the image as a content block (Claude Code `image` block,
+ACP `image` block, Pi `images` entry), and the attachment is named "Image #N", so the transcript bubble shows the pointer in the
+text and draws no second chip for it.
+
 ## Shared draft
 
 The composer's unsent text is host state, so one user on several clients (a desktop and a phone) sees and edits the same draft. It is
