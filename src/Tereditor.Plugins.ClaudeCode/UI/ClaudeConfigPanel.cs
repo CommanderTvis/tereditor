@@ -305,6 +305,9 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             scopeBlock.Children.Add(Ui.Text(activeTab is not null ? $"No Claude in tab {TabNames.Quote(activeTab.Title)}" : "No terminal open", Ui.Muted, 13));
             scopeBlock.Children.Add(Ui.Text("Showing what a new session here would load", Ui.Hint, 12));
         }
+        var rightClick = Ui.Text("Right-click to turn off tool/skill to save tokens", Ui.Hint, 12);
+        rightClick.Name = "ClaudeContextHint";
+        scopeBlock.Children.Add(rightClick);
     }
 
     private void OpenSource(string path, IReadOnlyList<string>? keyPath) =>
@@ -591,7 +594,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return [.. entries.OrderByDescending(entry => entry.Tokens)];
     }
 
-    /// <summary>Adds the row's context menu and the button that opens it. The button always takes its space, so the row never changes height. A built-in tool's row has no button: its action shows as "Turn off" or "Turn on" in place of the size while the pointer is over the row.</summary>
+    /// <summary>Adds the row's context menu and the button that opens it. The button always takes its space, so the row never changes height. A built-in tool's row has no button and shows nothing on hover: its action is in the right-click menu only.</summary>
     internal static void AttachRowActions(DockPanel line, IReadOnlyList<RowAction> actions, Action<PendingEdit> edit)
     {
         if (actions.Count == 0) return;
@@ -601,7 +604,6 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             foreach (var action in actions) menu.Items.Add(Ui.Menu(action.Label, () => edit(action.Edit)));
             line.ContextMenu = menu;
             // Right-click is not something a row hints at: a small button shows while the pointer is over it and opens the same menu.
-            // A built-in tool's row has no button: its one action shows as a text in place of the size while the pointer is over the row.
             var more = toolRow ? null : new Button { Name = "ClaudeContextRowMore", Classes = { "icon" }, Content = Ui.Icon("moreHorizontal", Ui.Muted, 14), Padding = new Thickness(2), VerticalAlignment = VerticalAlignment.Center, Opacity = 0, IsHitTestVisible = false };
             // The button always takes its space and only fades in, so a row never changes height when the pointer enters it.
             Action<bool> showMore = _ => { };
@@ -610,28 +612,6 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
                 showMore = shown => { more.Opacity = shown ? 1 : 0; more.IsHitTestVisible = shown; };
                 ToolTip.SetTip(more, actions[0].Label);
                 more.Click += (_, _) => menu.Open(line); // Avalonia opens a context menu only on the control it is attached to
-            }
-            else
-            {
-                var size = line.Children.OfType<Border>().First(border => border.Name == "ClaudeContextSize");
-                var shownSize = size.Child!;
-                size.Child = null;
-                shownSize.HorizontalAlignment = HorizontalAlignment.Right;
-                var toggle = Ui.Text(IsOff(actions) ? "Turn on" : "Turn off", Ui.Muted, 11);
-                toggle.Name = "ClaudeContextRowToggle";
-                toggle.HorizontalAlignment = HorizontalAlignment.Right;
-                toggle.VerticalAlignment = VerticalAlignment.Center;
-                toggle.Opacity = 0;
-                toggle.IsHitTestVisible = false;
-                toggle.Cursor = new Cursor(StandardCursorType.Hand);
-                toggle.PointerPressed += (_, args) =>
-                {
-                    if (!args.GetCurrentPoint(toggle).Properties.IsLeftButtonPressed) return;
-                    edit(actions[0].Edit);
-                    args.Handled = true;
-                };
-                size.Child = new Grid { Children = { shownSize, toggle } };
-                showMore = shown => { toggle.Opacity = shown ? 1 : 0; toggle.IsHitTestVisible = shown; shownSize.Opacity = shown ? 0 : 1; };
             }
             // The dots sit right after the title, and a hover bubble hugs both. The bubble keeps the title's place (negative margin
             // against its padding) and adds no height.

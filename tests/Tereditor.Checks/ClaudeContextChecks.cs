@@ -430,20 +430,16 @@ internal static class ClaudeContextChecks
                 var more = line.GetLogicalDescendants().OfType<Button>().SingleOrDefault(button => button.Name == "ClaudeContextRowMore");
                 var toolRow = entry.Key.StartsWith("system-tools/", StringComparison.Ordinal);
                 Require((more is not null) == (actions.Count > 0 && !toolRow), $"Row {entry.Key} has the more button exactly when it has actions and is not a built-in tool.");
+                string[] Texts() => [.. line.GetLogicalDescendants().OfType<TextBlock>().Select(block => block.Text ?? "")];
+                var textsBefore = Texts();
+                Require(!line.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Name == "ClaudeContextRowToggle"), $"Row {entry.Key} has no hover-only toggle text.");
                 if (toolRow && actions.Count > 0)
                 {
-                    var toggle = line.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextRowToggle");
-                    Require(toggle.Opacity == 0 && !toggle.IsHitTestVisible && !line.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "ClaudeContextBubble"),
-                        $"Tool row {entry.Key} hides its toggle until hover and has no hover bubble.");
                     Raise(Avalonia.Input.InputElement.PointerEnteredEvent, line);
                     E2eWorkspace.Settle();
-                    Require(toggle.Opacity == 1 && toggle.IsHitTestVisible && toggle.Text == "Turn off" && Heights().SequenceEqual(before),
-                        $"The pointer over {entry.Key} shows Turn off in place of the size and changes no row height.");
-                    edited.Clear();
-                    toggle.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(toggle, pointer, host, default, 0,
-                        new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.LeftMouseButton, Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
-                        Avalonia.Input.KeyModifiers.None));
-                    Require(edited.Count == 1 && edited[0] == actions[0].Edit, $"A click on the toggle of {entry.Key} runs the row's action.");
+                    Require(Texts().SequenceEqual(textsBefore) && Heights().SequenceEqual(before) && line.GetLogicalDescendants().OfType<Button>().All(button => button.Name != "ClaudeContextRowMore") &&
+                        !line.GetLogicalDescendants().OfType<Border>().Any(border => border.Name == "ClaudeContextBubble"),
+                        $"The pointer over {entry.Key} shows nothing new and changes no row height.");
                     line.ContextMenu!.Open(line);
                     E2eWorkspace.Settle();
                     Require(line.ContextMenu.IsOpen && line.ContextMenu.Items.OfType<MenuItem>().Select(item => (string?)item.Header).SequenceEqual(actions.Select(action => action.Label)) &&
@@ -451,7 +447,7 @@ internal static class ClaudeContextChecks
                     line.ContextMenu.Close();
                     Raise(Avalonia.Input.InputElement.PointerExitedEvent, line);
                     E2eWorkspace.Settle();
-                    Require(toggle.Opacity == 0 && Heights().SequenceEqual(before), $"Leaving {entry.Key} hides the toggle again.");
+                    Require(Texts().SequenceEqual(textsBefore), $"Leaving {entry.Key} changes no text.");
                     continue;
                 }
                 Raise(Avalonia.Input.InputElement.PointerEnteredEvent, line);
@@ -574,9 +570,9 @@ internal static class ClaudeContextChecks
             var offLine = (DockPanel)off;
             ClaudeConfigPanel.AttachRowActions(offLine, ClaudeConfigPanel.RowActions(tool, new HashSet<string> { "WebSearch" }, none), _ => { });
             E2eWorkspace.Settle();
-            Require(offLine.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextRowToggle").Text == "Turn on" &&
+            Require(offLine.ContextMenu!.Items.OfType<MenuItem>().Select(item => (string?)item.Header).SequenceEqual(["Turn tool back on"]) &&
                 offLine.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextDenied").Text == "Denied" && off.Bounds.Height == allowed.Bounds.Height,
-                "A denied tool row offers Turn on, keeps its Denied label and its height.");
+                "A denied tool row offers Turn tool back on in its menu, keeps its Denied label and its height.");
         }
         finally { host.Close(); }
     }

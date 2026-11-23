@@ -193,6 +193,9 @@ internal static class ClaudeCodeChecks
         Require(connectors.Length == 1 && Equals(connectors[0].Tag, "last") &&
             connectors[0].GetLogicalDescendants().OfType<Border>().Any(arm => arm.Height == 1),
             "An imported instruction file is joined to its parent by an elbow, not merely pushed right.");
+        var hints = app.Window.GetLogicalDescendants().OfType<TextBlock>().Where(text => text.Name == "ClaudeContextHint").ToArray();
+        Require(hints.Length == 1 && hints[0].Text == "Right-click to turn off tool/skill to save tokens",
+            "The Context pane shows the right-click hint once, with its exact text.");
         var imported = ContextRow("AGENTS.md")!;
         E2eWorkspace.Settle(500);
         app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeConfigRefresh"));
