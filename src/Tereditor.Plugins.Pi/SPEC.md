@@ -13,8 +13,7 @@ Early support for the Pi coding agent (https://github.com/badlogic/pi-mono), sho
 process of the host, so a browser tab reaches it only through a host. By default tereditor installs nothing:
 it runs the `pi` the host finds on PATH (or the configured command). Settings › Pi can choose the pinned Pi instead (below).
 
-Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`, `docs/session-format.md` in `@mariozechner/pi-coding-agent`
-0.73.1). They are verified by the checks against a fixture `pi` that speaks the protocol, not against a real Pi run.
+Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`, `docs/session-format.md` in `@earendil-works/pi-coding-agent` 1.6.0, read from the managed copy at `~/.tereditor/pi/managed/1.6.0`: `docs/rpc-commands.md` for the commands, `docs/configuration.md`, `docs/skills.md`, `docs/packages.md`, `docs/security.md` and `docs/mcp.md` for what a session loads). They are verified by the checks against a fixture `pi` that speaks the protocol, not against a real Pi run.
 
 ## Acceptance contract
 
@@ -52,6 +51,27 @@ Settings › Pi shows the Model source control from Model providers as its first
 - Off: turning the plugin off deletes `~/.tereditor/pi/managed`.
 - omp has its own plugin and launch code; it does not share this.
 
+## Pi pane
+
+The Pi side pane (`pane`) follows Claude Code's configuration pane (`src/Tereditor.Plugins.ClaudeCode/UI/ClaudeConfigPanel.cs`): the same kit,
+scope chips and hints, with the tabs Context, Settings, Capabilities and Account. `PiConfigPanel` only reads through the host (`PiContract.Config`,
+`PiConfigReader`), and it changes one thing: packages, with `pi install` and `pi remove` (`PiPackages`), started the way a chat starts Pi (the chosen
+Pi, the managed copy on Bun, or a Model source's wrapper), in the workspace directory, with stdin closed.
+
+- Context: the context file of each directory, the agent directory first, then the working directory's ancestors from the top down. A
+  directory has one: the first of AGENTS.override.md, AGENTS.md, AGENTS.MD, CLAUDE.md, CLAUDE.MD that exists. Extensions (`extensions/`), skills
+  (`skills/` with a SKILL.md, `~/.agents/skills`, `.pi/skills`, and `.agents/skills` from the working directory up to the repository root),
+  prompt templates (`prompts/*.md`) and MCP servers (`mcp.json`) come from the agent directory (USER) and from `.pi` in the working
+  directory (PROJECT). Project resources are listed as not loaded until the project is trusted; context files load regardless.
+- Trust: the closest decision in `trust.json` of the agent directory for the working directory or a parent. It is shown only; the pane points to
+  `/trust` and never writes `trust.json`.
+- Settings: the keys of both settings.json files, read-only, and the packages of both, each with Remove. Install takes a source, and Project
+  settings adds `-l`. After a change the pane says to restart the chat; it never sends `/reload`.
+- Capabilities: the commands the workspace's open Pi chat reports (`get_commands`), with where each comes from. Without an open chat it says so.
+- Account: the Pi version, and the model and thinking level of the open chat (`get_state`).
+- Scope chips read USER and PROJECT (`-l` maps to PROJECT). Right-click a row to open its file.
+- Not offered: turning single resources on or off, changing trust, and `/reload`.
+
 ## Not yet
 
 The browser-tab launch (`PiLinks.InTab`) does not pass the codemode flag yet. A terminal launch of Pi, permission-style gating, rewind and fork through Pi's `fork` and session tree, extension dialogs, MCP and tereditor's
@@ -60,4 +80,4 @@ tools for Pi, and running Pi inside a browser tab.
 ## Checks
 
 `--pi` (gate case `pi`): the manifest, the folding of recorded events and stored messages, a session against a fixture `pi` (start, state, models,
-commands, a streamed turn, model and thinking changes, close, a missing binary, the version probe) and the sessions list, a launch contribution that replaces the executable or blocks the start, and codemode: a fresh setting is on, and the launch carries `--tools +codemode` (the managed launch too). Codemode needs Pi 1.1.0 or later (the `+name` form of `--tools`); the system command is not probed for it. The pinned Pi runs against a fixture `bun`, with no network: a download whose lock file lacks the pinned integrity is refused and leaves nothing, cancel leaves nothing, two requests share one download, the install arguments, folder and environment, an earlier copy replaced, no second download, the launch as `bun --bun cli.js --mode rpc …` with the process tracked, a blocked launch passed on, a missing Bun failing the chat, Remove, and the system source unchanged.
+commands, a streamed turn, model and thinking changes, close, a missing binary, the version probe) and the sessions list, a launch contribution that replaces the executable or blocks the start, and codemode: a fresh setting is on, and the launch carries `--tools +codemode` (the managed launch too). Codemode needs Pi 1.1.0 or later (the `+name` form of `--tools`); the system command is not probed for it. The pinned Pi runs against a fixture `bun`, with no network: a download whose lock file lacks the pinned integrity is refused and leaves nothing, cancel leaves nothing, two requests share one download, the install arguments, folder and environment, an earlier copy replaced, no second download, the launch as `bun --bun cli.js --mode rpc …` with the process tracked, a blocked launch passed on, a missing Bun failing the chat, Remove, and the system source unchanged. The pane's reads (`PiChecks.Config`: a fixture home and project, the trust gate, the nearest trust decision, the scope labels and the agent directory choice) and the package runner (`PiChecks.Packages`: the arguments, a fake `pi` that records its arguments and working directory, a failed install and a blocked launch).

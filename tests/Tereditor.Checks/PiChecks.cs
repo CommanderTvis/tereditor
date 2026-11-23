@@ -311,6 +311,115 @@ internal static class PiChecks
         Require(host.ListSessions("/elsewhere").Sessions.Count == 0, "A directory with no sessions lists none.");
     }
 
+    private static void Write(string path, string text)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, text);
+    }
+
+    // The pane's reads against a fixture home and project: which files a session loads, the trust gate, the nearest trust decision and the scope labels.
+    internal static void Config(string root)
+    {
+        var fixture = Path.Combine(root, "config");
+        if (Directory.Exists(fixture)) Directory.Delete(fixture, true);
+        var home = Path.Combine(fixture, "home");
+        var agent = Path.Combine(home, ".pi", "agent");
+        var repo = Path.Combine(fixture, "repo");
+        var cwd = Path.Combine(repo, "sub");
+        Write(Path.Combine(agent, "AGENTS.md"), "user");
+        Write(Path.Combine(agent, "CLAUDE.md"), "not read: AGENTS.md wins in one directory");
+        Write(Path.Combine(agent, "extensions", "ext1.ts"), "");
+        Write(Path.Combine(agent, "skills", "s1", "SKILL.md"), "");
+        Write(Path.Combine(agent, "prompts", "p1.md"), "");
+        Write(Path.Combine(agent, "mcp.json"), """{"mcpServers":{"docs":{}}}""");
+        Write(Path.Combine(agent, "settings.json"), """{"defaultProjectTrust":"ask","packages":["npm:@user/pkg"]}""");
+        Directory.CreateDirectory(Path.Combine(repo, ".git"));
+        Write(Path.Combine(repo, "AGENTS.override.md"), "repo");
+        Write(Path.Combine(cwd, ".pi", "extensions", "pext.ts"), "");
+        Write(Path.Combine(cwd, ".pi", "prompts", "pp.md"), "");
+        Write(Path.Combine(cwd, ".pi", "mcp.json"), """{"mcpServers":{"proj":{}}}""");
+        Write(Path.Combine(cwd, ".pi", "settings.json"), """{"packages":[{"source":"git:github.com/x/y"}],"theme":"dark"}""");
+        Write(Path.Combine(repo, ".agents", "skills", "a1", "SKILL.md"), "");
+        Directory.CreateDirectory(cwd);
+        var trustFile = Path.Combine(agent, "trust.json");
+        var roots = new PiConfigRoots(agent, home, cwd);
+
+        PiConfigSnapshot Read(Dictionary<string, bool> decisions, bool chat = false)
+        {
+            File.WriteAllText(trustFile, System.Text.Json.JsonSerializer.Serialize(decisions));
+            var commands = new[] { new PiConfigCommand("review", "prompt", "Review") };
+            return PiConfigReader.Read(roots, chat ? commands : [], chat ? "fake/m1" : null, chat ? "high" : null, chat);
+        }
+        // Only what sits under this fixture, so a machine's own parent directories never change the answer.
+        IEnumerable<PiConfigItem> Under(PiConfigSnapshot snapshot, string kind) => snapshot.Items.Where(item => item.Kind == kind && item.Path.StartsWith(fixture, StringComparison.Ordinal));
+        string Names(IEnumerable<PiConfigItem> items) => string.Join(",", items.Select(item => item.Name + "/" + item.Scope + "/" + item.Loaded));
+
+        var trusted = Read(new() { [repo] = true }, chat: true);
+        Require(trusted.Trust == "trusted" && trusted.ChatOpen && trusted.Model == "fake/m1" && trusted.Thinking == "high" && trusted.Commands.Single().Name == "review",
+            "A trusted project reads as trusted, and the open chat's model, thinking level and commands come with it.");
+        Require(Names(Under(trusted, PiConfigKinds.Context)) == "AGENTS.md/user/True,AGENTS.override.md/project/True",
+            "One context file per directory, the agent directory's first, and the project's override in its own directory.");
+        Require(Names(Under(trusted, PiConfigKinds.Extension)) == "ext1.ts/user/True,pext.ts/project/True", "Extensions come from the agent directory and from .pi, when the project is trusted.");
+        Require(Names(Under(trusted, PiConfigKinds.Skill)) == "s1/user/True,a1/project/True", "Skills come from the agent directory and from .agents/skills up to the repository root.");
+        Require(Names(Under(trusted, PiConfigKinds.Prompt)) == "p1/user/True,pp/project/True", "Prompt templates come from the agent directory and from .pi/prompts.");
+        Require(Names(Under(trusted, PiConfigKinds.Mcp)) == "docs/user/True,proj/project/True", "MCP servers come from both mcp.json files.");
+        Require(Names(Under(trusted, PiConfigKinds.Package)) == "npm:@user/pkg/user/True,git:github.com/x/y/project/True", "Packages come from both settings files.");
+        Require(trusted.Settings.Any(setting => setting.Key == "theme" && setting.Scope == PiScopes.Project && setting.Loaded), "A project setting is listed once the project is trusted.");
+
+        var declined = Read(new() { [repo] = false });
+        Require(declined.Trust == "not trusted", "A declined project reads as not trusted.");
+        Require(Under(declined, PiConfigKinds.Extension).Single(item => item.Name == "pext.ts") is { Loaded: false, Detail: "Not loaded: this project is not trusted." },
+            "A declined project's extension is listed as not loaded.");
+        Require(Under(declined, PiConfigKinds.Mcp).Single(item => item.Path.Contains(Path.Combine(".pi", "mcp.json"), StringComparison.Ordinal)) is { Loaded: false, Name: "mcp.json" }, "A declined project's mcp.json is listed as not loaded, with none of its servers.");
+        Require(Under(declined, PiConfigKinds.Context).Single(item => item.Name == "AGENTS.override.md") is { Loaded: true }, "Context files load regardless of trust.");
+        Require(declined.Settings.Any(setting => setting.Key == "theme" && !setting.Loaded), "A declined project's setting is not loaded.");
+
+        var undecided = Read(new());
+        Require(undecided.Trust == "not decided" && Under(undecided, PiConfigKinds.Skill).Any(item => item.Name == "a1" && item.Detail.StartsWith("Not loaded until the project is trusted", StringComparison.Ordinal)),
+            "With no decision, the project's resources wait for /trust.");
+
+        // The closest decision wins: a parent's trust covers the project unless the project has its own.
+        var inherited = Read(new() { [fixture] = true });
+        Require(inherited.Trust == "trusted", "A parent directory's trust decision applies to the project below it.");
+        var nearer = Read(new() { [fixture] = true, [repo] = false });
+        Require(nearer.Trust == "not trusted", "The nearest decision wins over a parent's.");
+
+        Require(PiConfigReader.ScopeLabel(PiScopes.Project) == "PROJECT" && PiConfigReader.ScopeLabel(PiScopes.User) == "USER", "Scope labels are USER and PROJECT; -l maps to PROJECT.");
+        var contributed = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = "/contributed" };
+        Require(PiConfigReader.AgentDir(contributed, "/environment", home) == "/contributed"
+            && PiConfigReader.AgentDir(new Dictionary<string, string>(), "/environment", home) == "/environment"
+            && PiConfigReader.AgentDir(new Dictionary<string, string>(), null, home) == agent,
+            "The agent directory follows the model source, then PI_CODING_AGENT_DIR, then ~/.pi/agent.");
+        File.Delete(trustFile);
+    }
+
+    // Install and remove argument building, and one run of a fake pi that records its arguments and working directory.
+    internal static async Task Packages(string root)
+    {
+        Require(PiPackages.ValidSource("npm:@s/p") && !PiPackages.ValidSource("-x") && !PiPackages.ValidSource("a b") && !PiPackages.ValidSource(""), "A package source is one argument and not a flag.");
+        Require(PiPackages.Arguments("install", "npm:@s/p", false).SequenceEqual(["install", "npm:@s/p"])
+            && PiPackages.Arguments("remove", "npm:@s/p", true).SequenceEqual(["remove", "npm:@s/p", "-l"]), "Install and remove take the source, and -l for the project.");
+        var dir = Path.Combine(root, "packages");
+        Directory.CreateDirectory(dir);
+        var script = Path.Combine(dir, "pi");
+        File.WriteAllText(script, """
+            #!/bin/sh
+            printf '%s\n' "$@" > "$(dirname "$0")/argv.txt"
+            pwd > "$(dirname "$0")/cwd.txt"
+            if [ "$2" = "npm:fail" ]; then echo "no such package"; exit 3; fi
+            echo "installed"
+            """);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var done = await PiPackages.RunAsync(new PiSpawn(script, dir), PiPackages.Arguments("install", "npm:@s/p", true), CancellationToken.None);
+        Require(done.Ok && done.Output == "installed", "A successful install reports its output.");
+        Require(File.ReadAllText(Path.Combine(dir, "argv.txt")) == "install\nnpm:@s/p\n-l\n", "The install runs pi with the verb, the source and -l, and nothing else.");
+        Require(Path.GetFileName(File.ReadAllText(Path.Combine(dir, "cwd.txt")).Trim()) == "packages", "Pi runs in the workspace directory.");
+        var failed = await PiPackages.RunAsync(new PiSpawn(script, dir), PiPackages.Arguments("install", "npm:fail", false), CancellationToken.None);
+        Require(!failed.Ok && failed.Output.Contains("no such package", StringComparison.Ordinal), "A failed install reports pi's message and is not ok.");
+        var blocked = await PiPackages.RunAsync(new PiSpawn(script, dir) { Blocked = "Blocked by the model source." }, PiPackages.Arguments("remove", "npm:@s/p", false), CancellationToken.None);
+        Require(!blocked.Ok && blocked.Output == "Blocked by the model source.", "A blocked launch runs nothing and says why.");
+    }
+
     internal static async Task Run(string root)
     {
         Manifest();
@@ -318,5 +427,7 @@ internal static class PiChecks
         Sessions(root);
         await Session(root);
         await Managed(root);
+        Config(root);
+        await Packages(root);
     }
 }

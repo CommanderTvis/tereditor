@@ -142,6 +142,7 @@ Any agent that speaks the [Agent Client Protocol](https://agentclientprotocol.co
 - Start Pi from the agent launcher; the chat runs `pi --mode rpc` from your system installation, in the workspace directory.
 - The chat shows replies, thinking, tool calls with their output, and the model and thinking level, which you can change.
   Earlier Pi sessions of the directory are listed and can be resumed.
+- The Pi pane (side tool) lists what a Pi session here loads: instruction files, extensions, skills, prompt templates and MCP servers, each marked USER or PROJECT. It shows the project trust state, the open chat's commands, model and thinking level, and installs or removes packages with `pi install` and `pi remove`. Change trust with `/trust` in Pi; the pane does not change it.
 - Pi asks no permission for its tools, so there is nothing to approve. Rewind, fork and extension dialogs are not available yet.
 - It needs a process on the host, so it is not available in a browser tab.
 
