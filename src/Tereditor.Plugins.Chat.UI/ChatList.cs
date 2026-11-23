@@ -30,6 +30,9 @@ internal sealed class ChatList : ScrollViewer
 {
     private const int HeightLimit = 200_000;
     private const int KeptLayouts = 6;
+
+    /// <summary>Kept free at the right edge for the overlay scrollbar (6 wide), so a row's border never lies under its thumb.</summary>
+    internal const double ScrollGutter = 10;
     private readonly AvaloniaList<ChatRow> rows;
     private readonly IChatRowActions actions;
     private readonly Surface surface;
@@ -76,6 +79,7 @@ internal sealed class ChatList : ScrollViewer
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
         AutomationProperties.SetName(this, "Conversation");
         surface = new Surface(this);
+        surface.Margin = new Thickness(0, 0, ScrollGutter, 0);
         Content = surface;
         rows.CollectionChanged += OnRows;
         Reset();

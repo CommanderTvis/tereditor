@@ -278,6 +278,7 @@ internal static class ClaudeChatUiChecks
         ChatZoom();
         ChatZoomOnePass();
         BottomPinned();
+        ScrollbarClearOfRows();
         QuestionStable();
         PastConversations();
         SessionsPopupStable();
@@ -918,6 +919,30 @@ internal static class ClaudeChatUiChecks
             Pinned("long conversation");
             window.Height = 700; Pinned("long conversation, taller");
             view.SetZoom(1.75); Pinned("long conversation, zoomed");
+        }
+        catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
+        finally { window.Close(); }
+    }
+
+    // The overlay scrollbar of a long transcript must not lie over the rows' right edge (a focused row's border is drawn there).
+    private static void ScrollbarClearOfRows()
+    {
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        for (var index = 0; index < 40; index++) chat.Snapshot.Add(Item(Sample(index)));
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
+        var window = new Window { Width = 700, Height = 400, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Frame(window); Frame(window);
+            var list = view.List.Scroller!;
+            var bar = list.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ScrollBar>().First(scroll => scroll.Orientation == Avalonia.Layout.Orientation.Vertical);
+            Require(list.Extent.Height > list.Viewport.Height && bar.Bounds.Width > 0, "a long transcript must show its vertical scrollbar.");
+            var content = (Control)list.Content!;
+            var rowsRight = content.TranslatePoint(new Point(content.Bounds.Width, 0), window)!.Value.X;
+            var barLeft = bar.TranslatePoint(default, window)!.Value.X;
+            Require(rowsRight <= barLeft, $"the rows end at {rowsRight:0.#}, under the scrollbar that starts at {barLeft:0.#}.");
         }
         catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
         finally { window.Close(); }
