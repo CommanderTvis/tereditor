@@ -111,6 +111,7 @@ internal static class ClaudeCodeChecks
         app.State!.ChangeAsync([HostStateChange.PluginSettings("claude-code", "{\"enabled\":true,\"command\":\"/usr/bin/false\"}")]).AsTask().GetAwaiter().GetResult();
         E2eWorkspace.Until(() => registry.Active.Contains("claude-code"));
         Spinner();
+        AccountRowGap();
         ClaudeContextChecks.Ui();
         var launcherIcon = registry.LauncherList.Single(launcher => launcher.Id == "claude").CreateIcon!;
         var firstIcon = (ContentControl)launcherIcon(14, Tereditor.Plugins.UI.Kit.Ui.Accent);
@@ -634,6 +635,25 @@ internal static class ClaudeCodeChecks
                 "The info mark is inside the row for a marked key and absent otherwise.");
         }
         finally { window.Close(); }
+    }
+
+    // A long value (an organization name) must trim inside the row and leave a gap after its label, at any width.
+    private static void AccountRowGap()
+    {
+        const string value = "someone@example.com's Organization with a very long name that cannot fit";
+        foreach (var width in new[] { 200.0, 320.0 })
+        {
+            var row = Account.Row("Organization", value);
+            row.Measure(new Size(width, double.PositiveInfinity));
+            row.Arrange(new Rect(0, 0, width, row.DesiredSize.Height));
+            var texts = row.GetVisualDescendants().OfType<TextBlock>().ToArray();
+            var label = texts.Single(text => text.Text == "Organization");
+            var shown = texts.Single(text => text.Text == value);
+            var gap = shown.TranslatePoint(new(0, 0), row)!.Value.X - (label.TranslatePoint(new(0, 0), row)!.Value.X + label.Bounds.Width);
+            Require(gap >= 12 - 0.5 && shown.TranslatePoint(new(0, 0), row)!.Value.X + shown.Bounds.Width <= width + 0.5 && FullWidth(shown) > shown.Bounds.Width
+                && Avalonia.Controls.ToolTip.GetTip(shown) as string == value,
+                $"At {width} px a long account value trims, keeps a gap of at least 12 px after its label (got {gap}) and carries its full text as a tip.");
+        }
     }
 
     private static double FullWidth(TextBlock text)

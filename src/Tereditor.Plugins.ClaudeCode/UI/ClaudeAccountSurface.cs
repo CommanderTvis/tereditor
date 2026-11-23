@@ -80,18 +80,6 @@ internal sealed class ClaudeAccountSurface(IPluginUIContext context) : StackPane
         return hours < 48 ? $"Resets in {hours}h" : $"Resets in {(int)Math.Round(hours / 24.0, MidpointRounding.AwayFromZero)}d";
     }
 
-    private static Control Row(string label, string value)
-    {
-        var row = new DockPanel();
-        var name = Ui.Text(label, Ui.Muted, 13);
-        DockPanel.SetDock(name, Dock.Left);
-        row.Children.Add(name);
-        var text = Ui.Text(value, Ui.TextBrush, 13);
-        text.HorizontalAlignment = HorizontalAlignment.Right;
-        row.Children.Add(text);
-        return row;
-    }
-
     private static Control Heading(string text) => Ui.Text(text.ToUpperInvariant(), Ui.Muted, 11);
 
     // Claude Code has already decided how alarmed to be; the bar wears its answer, not a second opinion.
@@ -141,9 +129,9 @@ internal sealed class ClaudeAccountSurface(IPluginUIContext context) : StackPane
         identity.Children.Add(Heading("Account"));
         if (account.LoggedIn)
         {
-            if (account.Email is { } email) identity.Children.Add(Row("Email", email));
-            if (account.Subscription is { } plan) identity.Children.Add(Row("Plan", plan));
-            if (account.Organization is { } organization) identity.Children.Add(Row("Organization", organization));
+            if (account.Email is { } email) identity.Children.Add(Account.Row("Email", email));
+            if (account.Subscription is { } plan) identity.Children.Add(Account.Row("Plan", plan));
+            if (account.Organization is { } organization) identity.Children.Add(Account.Row("Organization", organization));
         }
         else
         {
@@ -188,7 +176,7 @@ internal sealed class ClaudeAccountSurface(IPluginUIContext context) : StackPane
         {
             var cli = new StackPanel { Spacing = 4 };
             cli.Children.Add(Heading("Claude Code CLI"));
-            cli.Children.Add(Row("Version", version));
+            cli.Children.Add(Account.Row("Version", version));
             Children.Add(cli);
         }
     }

@@ -21,7 +21,7 @@ types (for the instruction sections). It has no host, app, contract or provider-
 the module owns no session, account or terminal state.
 
 - `Account` and `AccountSeverity` present account headings, rows, usage windows,
-  reset times and reading timestamps. Account rows and usage windows use compiled XAML. `Account.Governed`
+  reset times and reading timestamps. Account rows and usage windows use compiled XAML. A row keeps at least 12 px between label and value and trims a long value with an ellipsis and a tooltip. `Account.Governed`
   presents the account of an agent whose launches another plugin governs (source, identity, plan, credits bar and
   line, or one actionable problem message) from plain values; the provider maps the plugin API's governed account onto it.
 - `TerminalFacts` presents directory and model facts, token usage, plan progress,
