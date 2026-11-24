@@ -75,7 +75,7 @@ A second, read-only surface next to the repo hosting provider (host half `GitHub
   conversation in the same tab; right click or Command/Control click opens it in a tab of its own.
 - The conversation shows the description, comments, reviews with their inline comments, commits, labels, assignment, close,
   reopen, merge, rename, milestone, reference, review-request, ready, draft, force-push and branch-deleted events, plus a pull
-  request's branches, size, merge state and check runs. Up to 500 timeline events load (five pages of 100); the tab says when more exist.
+  request's branches, size, merge state and check runs. Up to 500 timeline events load (five pages of 100); the tab says when more exist. Besides comments, reviews and the common state events, the timeline shows commits that reference the item (headline in monospace opening github.com, a "…" button for the rest of the message), link and unlink, duplicate, lock and unlock, pin and unpin, transfer and demilestone rows in the same compact style. The cache format version bumps when the saved event shape changes.
 - Everything is `gh api graphql` and `gh repo view`; no OAuth, no token read. Methods `list`, `detail` and `info` take a workspace
   and run `gh` in its folder. A view stays reactive by polling (setting `pollSeconds`, 15 to 600, default 60, while the tab is shown);
   the host keeps a hash of the last answer per view and answers `Unchanged` without the payload.

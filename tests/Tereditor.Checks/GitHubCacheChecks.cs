@@ -137,7 +137,7 @@ internal static partial class GitHubBrowserChecks
         Require(await new GitHubCache(dir, () => true).ReadAsync("ann", "o/r", "list:issues", "is:open|25") is null && !File.Exists(file), "A corrupted file is ignored and removed");
         await new GitHubCache(dir, () => true).WriteAsync("ann", "o/r", "list:issues", "k", "{}", "r");
         file = Directory.GetFiles(dir, "*.json").First(f => File.ReadAllText(f).Contains("\"ann\"", StringComparison.Ordinal));
-        await File.WriteAllTextAsync(file, (await File.ReadAllTextAsync(file)).Replace("\"Version\":1", "\"Version\":2", StringComparison.Ordinal));
+        await File.WriteAllTextAsync(file, (await File.ReadAllTextAsync(file)).Replace($"\"Version\":{GitHubCache.FormatVersion}", "\"Version\":99", StringComparison.Ordinal));
         Require(await new GitHubCache(dir, () => true).ReadAsync("ann", "o/r", "list:issues", "k") is null && !File.Exists(file), "Another format version is dropped");
 
         // Bounds: entries per file, age and total size, oldest first.

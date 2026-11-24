@@ -344,6 +344,7 @@ internal sealed class GitHubTab : Border
         if (e.Kind == "comment") return Card(e.Author, e.At, e.Detail is "" or "NONE" ? "" : e.Detail.ToLowerInvariant(), e.Body, null, linker);
         if (e.Kind == "review")
             return Card(e.Author, e.At, e.Detail switch { "approved" => "approved these changes", "changes-requested" => "requested changes", "dismissed" => "review dismissed", _ => "reviewed" }, e.Body, e.Comments, linker);
+        if (e.Kind == "commit-ref") return CommitReference(e);
         var line = new WrapPanel { Margin = new Thickness(16, 0, 0, 0) };
         line.Children.Add(Ui.Icon(Glyph(e.Kind), Ui.Muted, 14));
         var phrase = e.Kind switch
@@ -359,6 +360,15 @@ internal sealed class GitHubTab : Border
             "renamed" => $"{e.Author} renamed this from {e.Detail}",
             "milestoned" => $"{e.Author} added this to the {e.Detail} milestone",
             "referenced" => $"{e.Author} mentioned this in {e.Detail}",
+            "demilestoned" => $"{e.Author} removed this from the {e.Detail} milestone",
+            "connected" => $"{e.Author} linked {e.Detail}",
+            "disconnected" => $"{e.Author} unlinked {e.Detail}",
+            "duplicate" => $"{e.Author} marked this as a duplicate of {e.Detail}",
+            "locked" => $"{e.Author} locked this" + (e.Detail.Length > 0 ? " as " + e.Detail : ""),
+            "unlocked" => $"{e.Author} unlocked this",
+            "pinned" => $"{e.Author} pinned this",
+            "unpinned" => $"{e.Author} unpinned this",
+            "transferred" => $"{e.Author} transferred this from {e.Detail}",
             "review-requested" => $"{e.Author} requested a review from {e.Detail}",
             "ready" => $"{e.Author} marked this ready for review",
             "draft" => $"{e.Author} marked this as a draft",
@@ -374,6 +384,52 @@ internal sealed class GitHubTab : Border
         return line;
     }
 
+    /// <summary>"X added a commit that references this", then the commit headline in monospace (opens github.com) and a "…" button that shows the rest of the message.</summary>
+    private Control CommitReference(GitHubEvent e)
+    {
+        var line = new WrapPanel { Margin = new Thickness(16, 0, 0, 0) };
+        line.Children.Add(Ui.Icon(GitHubIcons.GitCommit, Ui.Muted, 14));
+        var phrase = Ui.Text($" {e.Author} added a commit that references this {(kind == Pulls ? "pull request" : "issue")}  {Ago(e.At)}", Ui.Muted, 13);
+        phrase.TextTrimming = TextTrimming.None; phrase.TextWrapping = TextWrapping.Wrap;
+        line.Children.Add(phrase);
+        var commit = new WrapPanel { Margin = new Thickness(36, 2, 0, 0) };
+        var url = e.Url;
+        Control headline;
+        if (url.StartsWith("https://github.com/", StringComparison.Ordinal))
+        {
+            var link = GitHubRuns.Link(e.Detail, () => GitHubRuns.Open(url), Ui.TextBrush, 12);
+            link.Name = "GitHubCommitLink"; link.Tag = url; link.FontFamily = Ui.CodeFont; link.TextTrimming = TextTrimming.None; link.TextWrapping = TextWrapping.Wrap;
+            headline = link;
+        }
+        else
+        {
+            var plain = Ui.Text(e.Detail, Ui.TextBrush, 12);
+            plain.FontFamily = Ui.CodeFont; plain.TextTrimming = TextTrimming.None; plain.TextWrapping = TextWrapping.Wrap;
+            headline = plain;
+        }
+        commit.Children.Add(headline);
+        if (e.Ref.Length > 0)
+        {
+            var id = Ui.Text("  " + e.Ref, Ui.Muted, 12); id.FontFamily = Ui.CodeFont;
+            commit.Children.Add(id);
+        }
+        var stack = new StackPanel { Spacing = 2 };
+        stack.Children.Add(line);
+        stack.Children.Add(commit);
+        if (e.Body.Length > 0)
+        {
+            var body = Ui.Text(e.Body, Ui.Muted, 12);
+            body.FontFamily = Ui.CodeFont; body.TextWrapping = TextWrapping.Wrap; body.TextTrimming = TextTrimming.None;
+            body.Name = "GitHubCommitBody"; body.IsVisible = false; body.Margin = new Thickness(36, 0, 0, 0);
+            var more = Ui.Button("…", () => body.IsVisible = !body.IsVisible);
+            more.Name = "GitHubCommitMore"; more.Margin = new Thickness(8, 0, 0, 0);
+            ToolTip.SetTip(more, "Show the rest of the commit message");
+            commit.Children.Add(more);
+            stack.Children.Add(body);
+        }
+        return stack;
+    }
+
     private static string Glyph(string kind) => kind switch
     {
         "commit" => GitHubIcons.GitCommit,
@@ -381,7 +437,7 @@ internal sealed class GitHubTab : Border
         "closed" => GitHubIcons.CheckboxCircle,
         "reopened" => GitHubIcons.RecordCircle,
         "labeled" or "unlabeled" => GitHubIcons.PriceTag,
-        "referenced" => GitHubIcons.Link,
+        "referenced" or "commit-ref" or "connected" or "disconnected" or "duplicate" => GitHubIcons.Link,
         _ => GitHubIcons.CheckboxBlankCircle
     };
 

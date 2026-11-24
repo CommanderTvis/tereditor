@@ -38,6 +38,11 @@ internal static partial class GitHubBrowserChecks
          {"__typename":"IssueComment","author":{"login":"bob"},"createdAt":"2026-11-01T11:00:00Z","body":"@COMMENT@","authorAssociation":"MEMBER"},
          {"__typename":"PullRequestReview","author":{"login":"bob"},"createdAt":"2026-11-01T12:00:00Z","state":"CHANGES_REQUESTED","body":"Fix","comments":{"nodes":[{"path":"b.txt","body":"Rename"}]}},
          {"__typename":"LabeledEvent","actor":{"login":"ann"},"createdAt":"2026-11-01T13:00:00Z","label":{"name":"bug","color":"d73a4a"}},
+         {"__typename":"ReferencedEvent","actor":{"login":"ann"},"createdAt":"2026-11-01T13:30:00Z","isCrossRepository":true,"commitRepository":{"nameWithOwner":"o/other"},"commit":{"abbreviatedOid":"5d1e2f3","messageHeadline":"Fix the thing","messageBody":"Longer text\n\nmore","url":"https://github.com/o/other/commit/5d1e2f3aa"}},
+         {"__typename":"ConnectedEvent","actor":{"login":"ann"},"createdAt":"2026-11-01T13:31:00Z","subject":{"number":9,"title":"Linked"}},
+         {"__typename":"MarkedAsDuplicateEvent","actor":{"login":"ann"},"createdAt":"2026-11-01T13:32:00Z","canonical":{"number":3,"title":"Original"}},
+         {"__typename":"LockedEvent","actor":{"login":"ann"},"createdAt":"2026-11-01T13:33:00Z","lockReason":"TOO_HEATED"},
+         {"__typename":"TransferredEvent","actor":{"login":"ann"},"createdAt":"2026-11-01T13:34:00Z","fromRepository":{"nameWithOwner":"o/old"}},
          {"__typename":"SomethingNew","createdAt":"2026-11-01T14:00:00Z"}]}}}}}
         """;
 
@@ -75,7 +80,7 @@ internal static partial class GitHubBrowserChecks
             Require(Named(tab, "GitHubRows") is Panel { Children.Count: 5 }, "The " + kind + " list builds a row per item");
         }
 
-        string[] eventKinds = ["comment", "review", "commit", "labeled", "unlabeled", "closed", "reopened", "merged", "assigned", "unassigned", "renamed", "milestoned", "referenced", "review-requested", "ready", "draft", "force-pushed", "branch-deleted", "SomethingNew"];
+        string[] eventKinds = ["comment", "review", "commit", "commit-ref", "demilestoned", "connected", "disconnected", "duplicate", "locked", "unlocked", "pinned", "unpinned", "transferred", "labeled", "unlabeled", "closed", "reopened", "merged", "assigned", "unassigned", "renamed", "milestoned", "referenced", "review-requested", "ready", "draft", "force-pushed", "branch-deleted", "SomethingNew"];
         var timeline = eventKinds.Select(k => new GitHubEvent(k, "bob", "2026-11-01T11:00:00Z", "Text", "abc", "d73a4a", [new("b.txt", "Rename")])).ToList();
         foreach (var kind in new[] { GitHubTab.Issues, GitHubTab.Pulls })
         {
@@ -98,6 +103,7 @@ internal static partial class GitHubBrowserChecks
             var tab = new GitHubViewTab(null!, "w", "run:9");
             tab.Render(new(false, "r", "Run", "Sub", state, rows, [], [], false));
         }
+        CommitReferenceRow();
         Console.WriteLine("PASS GitHub pane, rows, conversation and views render with every icon resolved");
         LinkHoverAndAvatars();
         AvatarCircles();
@@ -106,6 +112,26 @@ internal static partial class GitHubBrowserChecks
         ReactivatedTabKeepsItsView();
         OpenInBrowserLinks();
         GitHubActionsChecks.Run();
+    }
+
+    private static void CommitReferenceRow()
+    {
+        var tab = new GitHubTab(null!, "w", GitHubTab.Issues);
+        var commit = new GitHubEvent("commit-ref", "ann", "2026-11-01T11:00:00Z", "Body line", "Fix the thing") { Url = "https://github.com/o/r/commit/abc1234", Ref = "abc1234" };
+        var plain = new GitHubEvent("commit-ref", "ann", "2026-11-01T11:00:00Z", "", "No body");
+        tab.RenderDetail(new(false, "r", "o/r", GitHubTab.Issues, 7, "Add b", "open", false, "ann", "2026-11-01T10:00:00Z", "https://github.com/o/r/issues/7", "Body", [], [], null, [commit, plain], false, null));
+        var window = Show(Scroller(tab));
+        var link = (TextBlock)Named(window, "GitHubCommitLink")!;
+        Require(link.Text == "Fix the thing" && (string?)link.Tag == "https://github.com/o/r/commit/abc1234" && link.FontFamily == Ui.CodeFont, "The commit headline is a monospace link to its github.com page");
+        var body = Named(window, "GitHubCommitBody")!;
+        var more = (Button)Named(window, "GitHubCommitMore")!;
+        Require(!body.IsVisible && window.GetLogicalDescendants().OfType<Button>().Count(b => b.Name == "GitHubCommitMore") == 1, "The body starts hidden, and only a commit with a body has a toggle");
+        more.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Frame(window);
+        Require(body.IsVisible, "The ellipsis button shows the rest of the commit message");
+        more.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Require(!body.IsVisible, "The ellipsis button hides it again");
+        window.Close();
     }
 
     private static Window Show(Control content, double width = 800, double height = 600)
@@ -317,8 +343,10 @@ internal static partial class GitHubBrowserChecks
         var detail = await browser.DetailAsync("/w", new("w", "pulls", 7), default);
         Require(detail.Problem is null && detail.Kind == "pulls" && detail.Draft && detail.Body == "Body text" && detail.Assignees.SequenceEqual(["bob"]), "A detail carries the header and body");
         Require(detail.Pull is { BaseRef: "main", Mergeability: "blocked", Review: "required", Checks: "failing" } && detail.Pull.CheckRuns.Count == 2, "A pull request carries branches, merge state and check runs");
-        Require(detail.Timeline.Select(e => e.Kind).SequenceEqual(["commit", "comment", "review", "labeled", "commit", "comment", "review", "labeled"]), "Timeline pages are joined and unknown events are skipped");
+        Require(detail.Timeline.Select(e => e.Kind).SequenceEqual(["commit", "comment", "review", "labeled", "commit-ref", "connected", "duplicate", "locked", "transferred", "commit", "comment", "review", "labeled", "commit-ref", "connected", "duplicate", "locked", "transferred"]), "Timeline pages are joined and unknown events are skipped");
         Require(detail.Timeline[2] is { Detail: "changes-requested", Comments: [{ Path: "b.txt" }] }, "A review keeps its inline comments");
+        Require(detail.Timeline[4] is { Kind: "commit-ref", Author: "ann", Detail: "Fix the thing", Body: "Longer text\n\nmore", Ref: "o/other@5d1e2f3", Url: "https://github.com/o/other/commit/5d1e2f3aa" }, "A commit reference keeps headline, body, id with its repository and address");
+        Require(detail.Timeline[5] is { Detail: "#9 Linked" } && detail.Timeline[6] is { Detail: "#3 Original" } && detail.Timeline[7] is { Detail: "too heated" } && detail.Timeline[8] is { Detail: "o/old" }, "Link, duplicate, lock and transfer events carry their detail");
         Require(!detail.Truncated, "Two pages are not truncated");
         var revision = detail.Revision;
         comment = "first";

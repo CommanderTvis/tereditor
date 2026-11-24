@@ -23,7 +23,7 @@ public sealed record GitHubCacheHit(string Payload, string Revision, DateTimeOff
 /// </summary>
 public sealed class GitHubCache(string directory, Func<bool> enabled, int maxEntries = 200, long maxBytes = 20L << 20, TimeSpan? maxAge = null, Func<DateTimeOffset>? clock = null)
 {
-    public const int FormatVersion = 1;
+    public const int FormatVersion = 2;
     private readonly TimeSpan age = maxAge ?? TimeSpan.FromDays(30);
     private readonly Func<DateTimeOffset> now = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly object gate = new();

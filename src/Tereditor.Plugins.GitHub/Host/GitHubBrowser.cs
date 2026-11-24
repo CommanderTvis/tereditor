@@ -221,6 +221,9 @@ public sealed partial class GitHubBrowser(ToolRunner run, GitHubCache? cache = n
         conclusion is "FAILURE" or "TIMED_OUT" or "CANCELLED" or "ACTION_REQUIRED" or "STARTUP_FAILURE" ? "failing"
         : status.Length > 0 && status != "COMPLETED" ? "pending" : "passing";
 
+    private static string Subject(JsonElement node, string name) =>
+        node.TryGetProperty(name, out var s) && s.ValueKind == JsonValueKind.Object && s.TryGetProperty("number", out var n) ? "#" + n.GetInt32() + " " + Text(s, "title") : "";
+
     private static GitHubEvent? Event(JsonElement node)
     {
         var at = Text(node, "createdAt");
@@ -240,6 +243,21 @@ public sealed partial class GitHubBrowser(ToolRunner run, GitHubCache? cache = n
             case "CrossReferencedEvent":
                 var source = node.GetProperty("source");
                 return Simple("referenced", source.ValueKind == JsonValueKind.Object ? "#" + source.GetProperty("number").GetInt32() + " " + Text(source, "title") : "");
+            case "DemilestonedEvent": return Simple("demilestoned", Text(node, "milestoneTitle"));
+            case "ReferencedEvent":
+                var ref0 = node.TryGetProperty("commit", out var c0) && c0.ValueKind == JsonValueKind.Object ? c0 : default;
+                if (ref0.ValueKind != JsonValueKind.Object) return null;
+                var repo0 = node.TryGetProperty("commitRepository", out var cr) && cr.ValueKind == JsonValueKind.Object ? Text(cr, "nameWithOwner") : "";
+                var cross = node.TryGetProperty("isCrossRepository", out var x) && x.ValueKind == JsonValueKind.True;
+                return new("commit-ref", actor, at, Text(ref0, "messageBody").Trim(), Text(ref0, "messageHeadline")) { Url = Text(ref0, "url"), Ref = (cross && repo0.Length > 0 ? repo0 + "@" : "") + Text(ref0, "abbreviatedOid") };
+            case "ConnectedEvent": return Simple("connected", Subject(node, "subject"));
+            case "DisconnectedEvent": return Simple("disconnected", Subject(node, "subject"));
+            case "MarkedAsDuplicateEvent": return Simple("duplicate", Subject(node, "canonical"));
+            case "LockedEvent": return Simple("locked", Text(node, "lockReason").Replace('_', ' ').ToLowerInvariant());
+            case "UnlockedEvent": return Simple("unlocked");
+            case "PinnedEvent": return Simple("pinned");
+            case "UnpinnedEvent": return Simple("unpinned");
+            case "TransferredEvent": return Simple("transferred", node.TryGetProperty("fromRepository", out var from) && from.ValueKind == JsonValueKind.Object ? Text(from, "nameWithOwner") : "");
             case "ReviewRequestedEvent": return Simple("review-requested", Login(node, "requestedReviewer"));
             case "MergedEvent": return Simple("merged", Text(node, "mergeRefName"));
             case "ReadyForReviewEvent": return Simple("ready");
@@ -317,6 +335,14 @@ public sealed partial class GitHubBrowser(ToolRunner run, GitHubCache? cache = n
         + "... on ClosedEvent { actor { login } createdAt } ... on ReopenedEvent { actor { login } createdAt } "
         + "... on AssignedEvent { actor { login } createdAt assignee { ... on User { login } } } ... on UnassignedEvent { actor { login } createdAt assignee { ... on User { login } } } "
         + "... on RenamedTitleEvent { actor { login } createdAt previousTitle currentTitle } ... on MilestonedEvent { actor { login } createdAt milestoneTitle } "
+        + "... on ReferencedEvent { actor { login } createdAt isCrossRepository commitRepository { nameWithOwner } commit { abbreviatedOid messageHeadline messageBody url } } "
+        + "... on DemilestonedEvent { actor { login } createdAt milestoneTitle } "
+        + "... on ConnectedEvent { actor { login } createdAt subject { ... on Issue { number title } ... on PullRequest { number title } } } "
+        + "... on DisconnectedEvent { actor { login } createdAt subject { ... on Issue { number title } ... on PullRequest { number title } } } "
+        + "... on MarkedAsDuplicateEvent { actor { login } createdAt canonical { ... on Issue { number title } ... on PullRequest { number title } } } "
+        + "... on LockedEvent { actor { login } createdAt lockReason } ... on UnlockedEvent { actor { login } createdAt } "
+        + "... on PinnedEvent { actor { login } createdAt } ... on UnpinnedEvent { actor { login } createdAt } "
+        + "... on TransferredEvent { actor { login } createdAt fromRepository { nameWithOwner } } "
         + "... on CrossReferencedEvent { actor { login } createdAt source { ... on Issue { number title } ... on PullRequest { number title } } } ";
 
     /// <summary>Events only a pull request timeline has (PullRequestTimelineItems, not IssueTimelineItems).</summary>

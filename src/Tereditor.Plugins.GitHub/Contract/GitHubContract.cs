@@ -109,11 +109,15 @@ public sealed record GitHubContributors(bool Unchanged, string Revision, string 
 
 public sealed record GitHubReviewComment(string Path, string Body);
 
-/// <summary>One timeline entry. Kind: comment, review, commit, labeled, unlabeled, closed, reopened, merged, assigned, unassigned, renamed, milestoned, referenced, review-requested, ready, draft, force-pushed, branch-deleted.</summary>
+/// <summary>One timeline entry. Kind: comment, review, commit, commit-ref (a commit that references this item: Detail is its headline, Body the rest of its message, Ref its short id, Url its page), labeled, unlabeled, closed, reopened, merged, assigned, unassigned, renamed, milestoned, demilestoned, referenced, connected, disconnected, duplicate, locked, unlocked, pinned, unpinned, transferred, review-requested, ready, draft, force-pushed, branch-deleted.</summary>
 public sealed record GitHubEvent(string Kind, string Author, string At, string Body, string Detail, string Color = "", IReadOnlyList<GitHubReviewComment>? Comments = null)
 {
     /// <summary>The comment's numeric id (comments only).</summary>
     public string Id { get; set; } = "";
+    /// <summary>The github.com page of the commit (commit-ref only).</summary>
+    public string Url { get; set; } = "";
+    /// <summary>The short commit id, with the repository when it is another one (commit-ref only).</summary>
+    public string Ref { get; set; } = "";
 }
 
 /// <summary>Action: comment, close or reopen (the last two take an optional comment first). Kind is issues, pulls or discussions.</summary>
