@@ -31,6 +31,20 @@ internal static class KeymapChecks
 
     internal static void Model()
     {
+        // The browser's platform: the first string the page offers decides; iPadOS reports a Mac.
+        Require(ActiveKeymap.IsMacBrowser("macOS", "MacIntel", "Mozilla/5.0 (Macintosh)") && ActiveKeymap.IsMacBrowser("", "MacIntel", null) && ActiveKeymap.IsMacBrowser(null, null, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)") &&
+            ActiveKeymap.IsMacBrowser(null, "iPad", ""), "Mac, iPad and a Macintosh user agent are macOS.");
+        Require(!ActiveKeymap.IsMacBrowser("Windows", "Win32", "Mozilla/5.0 (Windows NT 10.0)") && !ActiveKeymap.IsMacBrowser("", "Linux x86_64", "") && !ActiveKeymap.IsMacBrowser(null, null, "Mozilla/5.0 (X11; Linux x86_64)") &&
+            !ActiveKeymap.IsMacBrowser("Windows", "MacIntel", null) && !ActiveKeymap.IsMacBrowser(null, null, null), "Windows and Linux are not macOS; the first string wins.");
+        foreach (var (text, platform, reserved) in new[]
+        {
+            ("Mod+N", KeymapPlatform.Mac, true), ("Mod+Shift+N", KeymapPlatform.Mac, true), ("Mod+T", KeymapPlatform.Mac, true), ("Mod+W", KeymapPlatform.Mac, true), ("Mod+Q", KeymapPlatform.Mac, true),
+            ("Mod+O", KeymapPlatform.Mac, false), ("Mod+Comma", KeymapPlatform.Mac, false), ("Ctrl+N", KeymapPlatform.Mac, false), ("Mod+Shift+T", KeymapPlatform.Mac, true),
+            ("Mod+N", KeymapPlatform.Other, true), ("Mod+Q", KeymapPlatform.Other, false), ("Mod+P", KeymapPlatform.Other, false), ("Mod+Alt+S", KeymapPlatform.Other, false)
+        })
+        {
+            Require(KeyChord.TryParse(text, platform, out var parsed) && (Keymaps.BrowserReserved(parsed, platform) is not null) == reserved, $"{text} on {platform}: browser reserved should be {reserved}.");
+        }
         // Spelling: modifiers in one order, the command key folded per platform, unknown input rejected.
         Require(KeyChord.TryParse("shift+mod+n", KeymapPlatform.Mac, out var chord) && chord.Text == "Mod+Shift+N", "A chord spells its modifiers in canonical order.");
         Require(KeyChord.TryParse("Meta+O", KeymapPlatform.Mac, out var meta) && meta.Text == "Mod+O", "Meta is the command key on macOS.");
@@ -303,6 +317,58 @@ internal static class KeymapChecks
             settings.Close();
         }
         finally { ActiveKeymap.Set(new HostState()); ActiveKeymap.SetPluginActions([]); window.Close(); }
+    }
+
+    /// <summary>
+    /// A browser tab on macOS and on another system, simulated in a headless window: chords match and show with Command on a Mac, Control
+    /// elsewhere, and rows whose chord the browser keeps say so.
+    /// </summary>
+    internal static void BrowserPlatform(string root)
+    {
+        var window = new WorkbenchWindow(new ProjectServices(root), root, new ProfileStore(root + "-keymap-browser"), E2E.E2eTerminals.Plain);
+        window.Show();
+        void Until(Func<bool> done, string message)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            while (!done() && DateTime.UtcNow < deadline) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(5); }
+            Require(done(), message);
+        }
+        Until(() => window.WorkspaceMounted && window.Workbench.State.Handshake is not null, "The browser keymap window did not mount.");
+        try
+        {
+            ActiveKeymap.InBrowser = true;
+            foreach (var (platform, open, meta) in new[] { (KeymapPlatform.Mac, "⌘O", true), (KeymapPlatform.Other, "Ctrl+O", false) })
+            {
+                ActiveKeymap.SetPlatform(platform);
+                Require(ActiveKeymap.Platform == platform, "The browser shell sets the platform.");
+                var command = meta ? KeyModifiers.Meta : KeyModifiers.Control;
+                var other = meta ? KeyModifiers.Control : KeyModifiers.Meta;
+                Require(ActiveKeymap.Matches(KeymapActions.OpenProject, Press(Key.O, command)) && !ActiveKeymap.Matches(KeymapActions.OpenProject, Press(Key.O, other)),
+                    $"{platform}: the command key is {(meta ? "Command (metaKey)" : "Control")} and the other one is not.");
+                Require(KeyboardChords.FromEvent(Press(Key.C, KeyModifiers.Control)) is { } terminal && terminal.Text == (meta ? "Ctrl+C" : "Mod+C"), $"{platform}: a terminal's Ctrl chord keeps its spelling.");
+                Require(KeyboardChords.ToGesture(ActiveKeymap.Chords(KeymapActions.OpenProject)[0])!.KeyModifiers == command, $"{platform}: menus use the command key.");
+
+                window.ShowSettings("Keymap");
+                Until(() => window.OpenSettingsViews.Any(), "Settings did not open.");
+                var settings = window.OpenSettingsViews.Single();
+                var logical = settings.GetLogicalDescendants().ToList();
+                string RowText(string id) => string.Join("|", logical.OfType<Border>().Single(border => border.Name == "KeymapRow_" + id).GetLogicalDescendants()
+                    .SelectMany(item => item switch { TextBlock text => [text.Text ?? ""], Button { Content: string content } => [content], _ => Array.Empty<string>() }));
+                Require(RowText(KeymapActions.OpenProject).Contains(open), $"{platform}: Open Project shows {open}, got {RowText(KeymapActions.OpenProject)}.");
+                Require(RowText(KeymapActions.Settings).Contains(meta ? "⌘," : "Ctrl+Alt+S"), $"{platform}: Settings shows its platform chord.");
+                Require(RowText(KeymapActions.NewWorkspace).Contains(meta ? "⌘N" : "Ctrl+N") && RowText(KeymapActions.NewWorkspace).Contains("Browser reserves this key"), $"{platform}: New workspace is the browser's chord and says so.");
+                Require(!RowText(KeymapActions.OpenProject).Contains("Browser reserves"), $"{platform}: a chord a page can take has no note.");
+                settings.Close();
+            }
+            ActiveKeymap.InBrowser = false;
+            ActiveKeymap.SetPlatform(KeymapPlatform.Mac);
+            window.ShowSettings("Keymap");
+            Until(() => window.OpenSettingsViews.Any(), "Settings did not open.");
+            var native = window.OpenSettingsViews.Single();
+            Require(native.GetLogicalDescendants().OfType<TextBlock>().All(text => text.Text != "Browser reserves this key"), "Outside a browser no row carries the note.");
+            native.Close();
+        }
+        finally { ActiveKeymap.InBrowser = OperatingSystem.IsBrowser(); ActiveKeymap.SetPlatform(null); ActiveKeymap.Set(new HostState()); window.Close(); }
     }
 
     /// <summary>Settings › Keymap driven like a user: presets, search, the recorder, conflicts, Reassign, reserved chords, clearing, Reset, delete and narrow layout.</summary>

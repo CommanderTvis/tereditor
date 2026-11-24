@@ -2468,3 +2468,4 @@ Tereditor.Host.Abstractions.HostSettings.TerminalHiddenChips.set -> void
 Tereditor.Host.Abstractions.HostSettings.GroupWorkspacesUnderCreator.get -> bool?
 Tereditor.Host.Abstractions.HostSettings.GroupWorkspacesUnderCreator.init -> void
 static Tereditor.Host.Abstractions.HostSettings.NormalizeTerminalHiddenChips(string! value) -> string?
+static Tereditor.Host.Abstractions.Keymaps.BrowserReserved(Tereditor.Host.Abstractions.KeyChord chord, Tereditor.Host.Abstractions.KeymapPlatform platform) -> string?

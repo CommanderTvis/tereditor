@@ -435,6 +435,7 @@ internal static class Program
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
             KeymapChecks.Runtime(root);
             KeymapChecks.Page(root);
+            KeymapChecks.BrowserPlatform(root);
             KeymapChecks.PluginActions(root);
             Console.WriteLine("PASS keymap checks");
             return;
@@ -1800,7 +1801,7 @@ internal static class Program
         Gate.Case("editor-settings", () => EditorSettingsChecks.Run(root));
         Gate.Case("terminal-links-ui", () => { GhosttySkiaChecks.CheckUnderlinesBeforeFrame(); GhosttySkiaChecks.CheckFailedBadgesFollowContent(); TerminalFileLinkChecks.RunUi(root); TerminalFileLinkChecks.RunWorkbench(root); EditorWorkbenchChecks.FileLinkPosition(root); });
         Gate.Case("plugin-json", () => RunPumped(() => PluginJsonChecks.Run(root)));
-        Gate.Case("keymap", () => { KeymapChecks.Model(); RunPumped(() => KeymapChecks.Host(root)); KeymapChecks.Runtime(root); KeymapChecks.Page(root); KeymapChecks.PluginActions(root); });
+        Gate.Case("keymap", () => { KeymapChecks.Model(); RunPumped(() => KeymapChecks.Host(root)); KeymapChecks.Runtime(root); KeymapChecks.Page(root); KeymapChecks.BrowserPlatform(root); KeymapChecks.PluginActions(root); });
         Console.WriteLine("PASS prototype checks and open-world runtime");
     }
 

@@ -29,7 +29,32 @@ public static class ActiveKeymap
     }
 
     /// <summary>Which spelling of the command key this client uses.</summary>
-    public static KeymapPlatform Platform => OperatingSystem.IsMacOS() ? KeymapPlatform.Mac : KeymapPlatform.Other;
+    public static KeymapPlatform Platform => platformOverride ?? (OperatingSystem.IsMacOS() ? KeymapPlatform.Mac : KeymapPlatform.Other);
+
+    private static KeymapPlatform? platformOverride;
+
+    /// <summary>
+    /// Sets the platform where the runtime cannot tell it: a browser reports no OS to .NET, so its shell passes what the page's user agent says.
+    /// Null restores the runtime's own answer. The live chords are recomputed for the new spelling.
+    /// </summary>
+    public static void SetPlatform(KeymapPlatform? platform)
+    {
+        if (platformOverride == platform) return;
+        platformOverride = platform;
+        Recompute();
+    }
+
+    /// <summary>Whether a browser page runs on macOS: the first platform string the page offers (client hints, then <c>navigator.platform</c>, then the user agent) names a Mac, iPhone or iPad.</summary>
+    public static bool IsMacBrowser(string? clientHintPlatform, string? navigatorPlatform, string? userAgent)
+    {
+        var platform = new[] { clientHintPlatform, navigatorPlatform, userAgent }.FirstOrDefault(text => !string.IsNullOrWhiteSpace(text)) ?? "";
+        return platform.Contains("mac", StringComparison.OrdinalIgnoreCase) || platform.Contains("iphone", StringComparison.OrdinalIgnoreCase) || platform.Contains("ipad", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool? browserOverride;
+
+    /// <summary>Whether this client runs in a web page, whose browser keeps some chords for itself. Checks set it to see the page in a headless window.</summary>
+    public static bool InBrowser { get => browserOverride ?? OperatingSystem.IsBrowser(); set => browserOverride = value; }
 
     /// <summary>The chords of one action in the active preset, in order; empty when unbound.</summary>
     public static IReadOnlyList<KeyChord> Chords(string actionId) => chords.GetValueOrDefault(actionId) ?? [];
@@ -149,7 +174,7 @@ public static class KeyboardChords
     {
         if (ToKey(chord.Key) is not { } key) return null;
         var modifiers = KeyModifiers.None;
-        if ((chord.Mods & KeyMods.Mod) != 0) modifiers |= CommandKeys.Modifier;
+        if ((chord.Mods & KeyMods.Mod) != 0) modifiers |= ActiveKeymap.Platform == KeymapPlatform.Mac ? KeyModifiers.Meta : KeyModifiers.Control;
         if ((chord.Mods & KeyMods.Ctrl) != 0) modifiers |= KeyModifiers.Control;
         if ((chord.Mods & KeyMods.Alt) != 0) modifiers |= KeyModifiers.Alt;
         if ((chord.Mods & KeyMods.Shift) != 0) modifiers |= KeyModifiers.Shift;

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices.JavaScript;
+using System.Text.Json;
 
 namespace Tereditor.UI.Browser;
 
@@ -66,8 +67,9 @@ internal static partial class BrowserInterop
     internal static partial bool IsCoarse();
     [JSImport("smallestScreenSide", "tereditor")]
     internal static partial double SmallestScreenSide();
-    [JSImport("isMac", "tereditor")]
-    internal static partial bool IsMac();
+    [JSImport("platformInfo", "tereditor")]
+    private static partial string PlatformInfo();
+    internal static bool IsMac() => JsonSerializer.Deserialize(PlatformInfo(), BrowserJson.Default.StringArray) is [var hints, var platform, var agent] && ActiveKeymap.IsMacBrowser(hints, platform, agent);
     [JSImport("openLink", "tereditor")]
     internal static partial void OpenLink(string url);
 }

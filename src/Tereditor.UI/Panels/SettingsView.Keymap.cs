@@ -237,6 +237,12 @@ public sealed partial class SettingsView
         // The category only: the group header above already names the plugin.
         if (action.Category is { } category) name.Children.Add(Ui.Text(category, Ui.Muted, 11));
         if (keymapConflicting.Contains(action.Id)) name.Children.Add(Ui.Text("Conflict", Ui.Danger, 11));
+        if (ActiveKeymap.InBrowser && chords.Any(chord => Keymaps.BrowserReserved(chord, KeymapPlatform) is not null))
+        {
+            var note = Ui.Text("Browser reserves this key", Ui.Muted, 11);
+            note.Name = "KeymapBrowserNote_" + action.Id;
+            name.Children.Add(note);
+        }
         layout.Children.Add(name);
         for (var slot = 0; slot < KeymapBindings.MaxChords; slot++)
         {

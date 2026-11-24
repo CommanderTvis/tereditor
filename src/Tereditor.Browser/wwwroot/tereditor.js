@@ -82,7 +82,8 @@ export function origin() { return location.origin; }
 // Imports a module beside this one. The .NET runtime keeps a failed JSHost.ImportAsync for good; a module this loaded is not
 // fetched again, and one that failed here is fetched again on the next call.
 export async function preload(path) { await import(new URL(path, import.meta.url).href); }
-export function isMac() { return /mac|iphone|ipad/i.test(navigator.userAgentData?.platform ?? navigator.platform); }
+// The three platform strings a page can read, newest source first; .NET picks the first non-empty one (ActiveKeymap.IsMacBrowser).
+export function platformInfo() { return JSON.stringify([navigator.userAgentData?.platform ?? '', navigator.platform ?? '', navigator.userAgent ?? '']); }
 export function openLink(url) {
   const target = new URL(url);
   if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error('Only web links can be opened.');

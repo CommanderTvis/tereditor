@@ -356,6 +356,25 @@ public static class Keymaps
         return null;
     }
 
+    /// <summary>
+    /// Why a web page cannot take the chord, or null: the browser opens, closes and quits tabs and windows before the page sees the key.
+    /// A binding to it stays in the preset; the Keymap page only says so.
+    /// </summary>
+    public static string? BrowserReserved(KeyChord chord, KeymapPlatform platform)
+    {
+        chord = chord.Normalized(platform);
+        var plain = chord.Mods == KeyMods.Mod;
+        var shifted = chord.Mods == (KeyMods.Mod | KeyMods.Shift);
+        var reserved = chord.Key switch
+        {
+            "N" or "T" or "W" => plain || shifted,
+            "Q" => platform == KeymapPlatform.Mac && (plain || shifted),
+            "Tab" => platform == KeymapPlatform.Other && (plain || shifted),
+            _ => false
+        };
+        return reserved ? "Browser reserves this key." : null;
+    }
+
     /// <summary>The other known actions (built-in and the given plugins') of the bindings that already use the chord; stored bindings of absent plugins do not count.</summary>
     public static IReadOnlyList<string> Conflicts(KeymapBindings bindings, string actionId, KeyChord chord, KeymapPlatform platform, IEnumerable<KeymapAction>? plugins = null) =>
         [.. KeymapActions.With(plugins).Select(action => action.Id).Where(id => id != actionId && bindings.Chords(id, platform).Contains(chord.Normalized(platform)))];

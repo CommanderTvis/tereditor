@@ -48,6 +48,11 @@ their bottom zone and its automatic terminal before validation; the bottom place
 The standalone host serves a built bundle from `TEREDITOR_BROWSER_ROOT` on `TEREDITOR_PORT`, including
 cross-origin isolation headers required by the threaded runtime. macOS browser platform detection accepts
 both `MacIntel` and `macOS`, so standard fields, editors and terminal shortcuts use Command consistently.
+The page reads three strings, in this order: `navigator.userAgentData.platform`, `navigator.platform`, then the user agent; the first
+non-empty one decides, and a name with `mac`, `iphone` or `ipad` is macOS (iPadOS reports `MacIntel`). That choice, made once at
+startup, sets the hotkey configuration and the keymap platform (`ActiveKeymap.SetPlatform`): on macOS the IntelliJ preset's variant for
+macOS applies, chords show as ⌘⌥⇧⌃ and the command key is `metaKey`; Ctrl chords such as the terminal's stay Ctrl. Windows and Linux
+keep Ctrl. Chords the browser keeps (Command+N, T, W, Q) cannot reach the page; Settings › Keymap marks their rows, the preset is unchanged.
 
 ## Phone layout
 

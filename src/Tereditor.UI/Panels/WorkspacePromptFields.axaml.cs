@@ -23,7 +23,7 @@ public sealed partial class WorkspacePromptFields : UserControl
         AvaloniaXamlLoader.Load(this);
         this.FindControl<TextBox>("WsPrompt")!.AddHandler(KeyDownEvent, (_, e) =>
         {
-            var modifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+            var modifier = Tereditor.Plugins.UI.Kit.CommandKeys.Modifier;
             if (e.Key != Key.V || !e.KeyModifiers.HasFlag(modifier)) return;
             e.Handled = true;
             _ = PasteAsync();

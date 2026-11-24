@@ -13,6 +13,8 @@ using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
+using Tereditor.Host.Abstractions;
+
 namespace Tereditor.UI.Browser;
 
 /// <summary>Hosts the shared workbench's windows and dialogs in browser surfaces.</summary>
@@ -23,7 +25,9 @@ internal sealed class BrowserWindows : IWindowingPlatform
     public static void Install()
     {
         AvaloniaLocator.CurrentMutable.Bind<IWindowingPlatform>().ToConstant(Instance);
-        AvaloniaLocator.CurrentMutable.Bind<PlatformHotkeyConfiguration>().ToConstant(BrowserInterop.IsMac()
+        var mac = BrowserInterop.IsMac();
+        ActiveKeymap.SetPlatform(mac ? KeymapPlatform.Mac : KeymapPlatform.Other);
+        AvaloniaLocator.CurrentMutable.Bind<PlatformHotkeyConfiguration>().ToConstant(mac
             ? new PlatformHotkeyConfiguration(KeyModifiers.Meta, wholeWordTextActionModifiers: KeyModifiers.Alt)
             : new PlatformHotkeyConfiguration(KeyModifiers.Control));
         Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) =>
