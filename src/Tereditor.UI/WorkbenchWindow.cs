@@ -973,8 +973,11 @@ public sealed partial class WorkbenchWindow : Window, IDialogOwner
     /// <c>Ui.ThemeChanged</c>, so the rail, Files and Changes keep their instances across a theme switch. A change of
     /// font size bakes into row metrics, so it still rebuilds them. Everything else (review, plugin tools) is rebuilt as before.
     /// </summary>
+    internal int AppearanceRefreshes { get; private set; }
+
     internal void RefreshAppearance()
     {
+        AppearanceRefreshes++;
         ApplyAppearance(); ClearDocumentContent(preserveDocuments: true); ClearRetainedTools();
         var keep = appearanceFontSize == Preferences.FontSize
             ? ThemeSurvivors.Where(toolContent.ContainsKey).ToDictionary(id => id, id => toolContent[id]) : [];

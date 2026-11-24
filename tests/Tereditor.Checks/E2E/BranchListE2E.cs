@@ -115,7 +115,17 @@ internal static class BranchListE2E
         window.RefreshAppearance();
         Settle(200);
         Require(ReferenceEquals(panes[1], Find("FilesPanel")), "Switching back must keep the panes too.");
-        Console.WriteLine("PASS branch list, rail, Files and Changes update in place; theme switch keeps their instances");
+        // A shared chip toggle shows or hides chips in place: it must not rebuild the panes.
+        var refreshes = window.AppearanceRefreshes;
+        Task.Run(() => app.Workbench.State.ChangeAsync(HostStateChange.Setting("terminal-hidden-chips", "model"))).GetAwaiter().GetResult();
+        Until(() => app.Workbench.State.Current.Settings.TerminalHiddenChips == "model");
+        Settle(200);
+        Require(window.AppearanceRefreshes == refreshes && ReferenceEquals(panes[1], Find("FilesPanel")), "A chip toggle must not rebuild the panes.");
+        Task.Run(() => app.Workbench.State.ChangeAsync(HostStateChange.Setting("terminal-hidden-chips", ""))).GetAwaiter().GetResult();
+        Until(() => app.Workbench.State.Current.Settings.TerminalHiddenChips == "");
+        Settle(200);
+        Require(window.AppearanceRefreshes == refreshes, "Showing all chips must not rebuild the panes either.");
+        Console.WriteLine("PASS branch list, rail, Files and Changes update in place; theme switch keeps their instances; a chip toggle rebuilds no pane");
     }
 
     private static Grid Open(E2eWorkspace app)

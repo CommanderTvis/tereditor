@@ -127,7 +127,8 @@ public sealed partial class WorkbenchWindow
             ClearRetainedTools(removed.Path);
         if (next.Settings != previous.Settings)
         {
-            if (next.Settings with { FileTypeIconsEnabled = previous.Settings.FileTypeIconsEnabled, FileTypeIconStyle = previous.Settings.FileTypeIconStyle, WindowDecorations = previous.Settings.WindowDecorations } != previous.Settings) RefreshAppearance();
+            // The shared chip set only shows or hides chips in place (HostStateChanged); it must not rebuild the panes.
+            if (next.Settings with { FileTypeIconsEnabled = previous.Settings.FileTypeIconsEnabled, FileTypeIconStyle = previous.Settings.FileTypeIconStyle, WindowDecorations = previous.Settings.WindowDecorations, TerminalHiddenChips = previous.Settings.TerminalHiddenChips } != previous.Settings) RefreshAppearance();
             if (next.Settings.WindowDecorations != previous.Settings.WindowDecorations) ApplyLinuxChrome();
             if (next.Settings.FileTypeIconsEnabled != previous.Settings.FileTypeIconsEnabled || next.Settings.FileTypeIconStyle != previous.Settings.FileTypeIconStyle)
             {
