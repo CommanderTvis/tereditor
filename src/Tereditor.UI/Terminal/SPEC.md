@@ -357,7 +357,7 @@ the host setting `terminal-keep-after-exit`, shared by every client and applied 
 Settings → Terminal also has the host's Shell integration switch (on by default; see
 [Terminals.SPEC.md](../../Tereditor.Host.Core/Terminals.SPEC.md#decisions)); it applies to shells started afterwards.
 
-Settings chooses Metal texture (default) or Skia (fallback) and persists the choice in app preferences.
+Settings chooses Metal (default; may use more RAM) or Skia (fallback) and persists the choice in app preferences.
 Changing it reattaches existing views to their same host session; it must not end
 the shell. Appearance changes update each renderer without reattaching.
 The integration lives in the independent `Ghostty.Avalonia` project.

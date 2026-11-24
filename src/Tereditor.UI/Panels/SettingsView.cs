@@ -1158,8 +1158,8 @@ public sealed partial class SettingsView : UserControl
         var choices = PageControl<StackPanel>(panel, "TerminalRendererChoices");
         foreach (var (renderer, label, description) in new[]
         {
-            (Terminal.TerminalRenderers.Texture, "Metal texture", "Ghostty’s Metal output composed with the workbench, supporting its overlays and clipping."),
-            (Terminal.TerminalRenderers.Skia, "Skia", "Draw terminal text with the workbench. Use when Metal textures are unavailable.")
+            (Terminal.TerminalRenderers.Texture, "Metal", "Ghostty’s Metal output composed with the workbench, supporting its overlays and clipping. May use more RAM."),
+            (Terminal.TerminalRenderers.Skia, "Skia", "Draw terminal text with the workbench. Use when Metal is unavailable.")
         })
             choices.Children.Add(Choice("TerminalRenderer_" + renderer, label, description, state.Preferences.TerminalRenderer == renderer, () =>
             {

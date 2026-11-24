@@ -247,7 +247,7 @@ could not save this change: …” inline and re-renders from host state.
   double-click window.
 - Layout offers no tab-mode or bottom-zone settings: tabs always live in Projects. In a window without a top bar the left side is not customizable, so the group limit reads "Right side groups".
 - Projects holds the shared project list with per-row removal.
-- Terminal chooses Metal texture (default) or Skia (fallback) as an app-local preference and reattaches
+- Terminal chooses Metal (default; it may use more RAM, and the option says so) or Skia (fallback) as an app-local preference and reattaches
   attached terminal views in every window without ending their host shells. Below it, the host's replay
   size (Off, 16 KB, 64 KB, 256 KB, 1 MB) is shared state: a click sends the change and the selection moves
   when the broadcast arrives.
