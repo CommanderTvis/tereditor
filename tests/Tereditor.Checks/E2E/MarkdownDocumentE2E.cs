@@ -198,7 +198,7 @@ internal static class MarkdownDocumentE2E
         source.Undo(); Settle(250);
         Require(source.Text == original && !source.IsModified, "Undo restores the original save point.");
         source.Redo(); Settle(250);
-        Edit("FrontmatterValue", "Cancelled", key: Key.Escape);
+        Edit("FrontmatterValue", "Canceled", key: Key.Escape);
         Require(Source().Contains("title: Amber talk", StringComparison.Ordinal), "Escape cancels a field draft.");
         var activeField = All<FrontmatterField>(Editor(), "FrontmatterValue").First().GetVisualDescendants().OfType<TextBox>().First();
         activeField.Focus(); activeField.SelectAll(); app.Window.KeyTextInput("Pending blur");
@@ -387,7 +387,7 @@ internal static class MarkdownDocumentE2E
             cancel.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Until(() => !prompt.IsShown());
             Require(app.Tabs.Any(tab => tab.Path == "README.md") && editable.Text.Contains("Unsaved before closing.", StringComparison.Ordinal),
-                "Cancelling a Markdown close must keep its unsaved buffer.");
+                "Canceling a Markdown close must keep its unsaved buffer.");
             app.Window.Layout.Close(group, "markdown:README.md");
             Until(() => Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).OfType<DialogWindow>().Any());
             prompt = Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).OfType<DialogWindow>().Single();

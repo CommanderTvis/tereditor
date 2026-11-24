@@ -112,7 +112,7 @@ forgetting removes its row while leaving the checkout in place. The Default work
   workspace and the agent is certain it will not touch the original one again.
   Every call then asks the user: the request rides `HostState.PendingEmigrations` (not persisted; protocol 12) and each
   window shows a Move / Keep here prompt naming both workspaces and the reason; the first client's
-  `terminal-emigration-answer` settles it for all. A denial, a 10-minute timeout or a cancelled call returns a refusal
+  `terminal-emigration-answer` settles it for all. A denial, a 10-minute timeout or a canceled call returns a refusal
   and changes nothing. On approval the tool replies at once that the session will be relaunched; after a short grace the
   host copies the agent record (and non-program titles) to the target's tab, reserves the same tab key and title in
   the target, closes the original tab (ending its shell), moves the session's lock to the target's tab and starts the

@@ -465,7 +465,7 @@ internal static class UiChecks
         Dispatcher.UIThread.RunJobs();
         Require(surface.IsDragging, "Pointer drag did not start.");
         Await(window.RefreshAsync());
-        Require(surface.IsDragging && window.Layout.Epoch == epoch, "Host refresh cancelled a drag draft.");
+        Require(surface.IsDragging && window.Layout.Epoch == epoch, "Host refresh canceled a drag draft.");
         window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
         Dispatcher.UIThread.RunJobs();
         window.MouseUp(point + new Vector(30, 40), MouseButton.Left);
@@ -505,7 +505,7 @@ internal static class UiChecks
         window.MouseDown(from, MouseButton.Left); window.MouseMove(from + new Vector(30, 0));
         Require(separator.IsActive, "Resize draft did not start.");
         Await(window.RefreshAsync());
-        Require(separator.IsActive && window.Layout.Epoch == epoch, "Host refresh cancelled a resize draft.");
+        Require(separator.IsActive && window.Layout.Epoch == epoch, "Host refresh canceled a resize draft.");
         window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
         window.MouseUp(from + new Vector(30, 0), MouseButton.Left); Dispatcher.UIThread.RunJobs();
         Require(window.Layout.State.LeftWidth == originalWidth && window.Layout.Epoch == epoch, "Escape committed resize geometry.");

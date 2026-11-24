@@ -46,15 +46,15 @@ internal static class LayoutE2E
         Control? Terminal() => app.Window.GetLogicalDescendants().OfType<Border>().SingleOrDefault(panel => panel.Name == "DockBody_" + terminalGroup.Id)?.Child;
         var terminal = TerminalsE2E.View(app, app.Window.Layout.Tabs(terminalGroup.Id).Single(tab => tab.Kind == "terminal"));
         var body = app.Find<Border>("DockBody_" + center).Child;
-        Require(body is not null && ReferenceEquals(Terminal(), terminal), "The fixture must mount a centre document and a terminal.");
+        Require(body is not null && ReferenceEquals(Terminal(), terminal), "The fixture must mount a center document and a terminal.");
         foreach (var folded in new[] { true, false })
         {
             app.Window.Layout.Fold(side.Id); Settle();
             Require(app.Window.Layout.Group(side.Id).Folded == folded, "The side group must fold and unfold.");
             Require(ReferenceEquals(app.Find<Border>("DockBody_" + center).Child, body) && ReferenceEquals(Terminal(), terminal),
-                "Folding a side group must keep the centre editor and the terminal instead of rebuilding them.");
+                "Folding a side group must keep the center editor and the terminal instead of rebuilding them.");
         }
-        Console.WriteLine("PASS upstream fold-perf.spec.ts: folding a side group does not remount the centre");
+        Console.WriteLine("PASS upstream fold-perf.spec.ts: folding a side group does not remount the center");
     }
 
     internal static void NoSpecsOpensFiles(string root)
@@ -274,7 +274,7 @@ internal static class LayoutE2E
         Require(readmePeer.IsSelected && !app.Tab("notes.txt").IsTabStop, "Tabs must expose one selected item and roving keyboard focus.");
         var body = ControlAutomationPeer.CreatePeerForElement(app.Find<Border>("DockBody_" + app.Center))!;
         Require(body.GetAutomationControlType() == AutomationControlType.Pane &&
-            ReferenceEquals(body.GetLabeledBy(), readmePeer), "The accessible pane must be labelled by its selected tab.");
+            ReferenceEquals(body.GetLabeledBy(), readmePeer), "The accessible pane must be labeled by its selected tab.");
         app.Window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
         Until(() => app.Tab("notes.txt").IsFocused);
         Require(((ISelectionItemProvider)ControlAutomationPeer.CreatePeerForElement(app.Tab("notes.txt"))!).IsSelected,

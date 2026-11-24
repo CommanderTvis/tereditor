@@ -190,7 +190,7 @@ each with a name, a one-line install hint, whether only the installation needs i
 A tool resolves from the user's host-wide path for it (host setting `LanguageTools`, JSON of executable to absolute
 path, changed through `language-tool:<executable>`; empty clears), then its home variable (`home/bin`, `home`), then the
 hardened PATH; the workspace rule above applies to all three. `RequireTool`, `FindTool`, `FindDotnet` and the host's npm
-and node lookups all use it, so a path is honoured by the probe and the launch alike. The `servers` operation probes
+and node lookups all use it, so a path is honored by the probe and the launch alike. The `servers` operation probes
 every declared tool on the host (answers reused for 30 s; a fresh probe runs before every start; the workspace file census behind "Suggested by file" is also reused for 30 s and forgotten on retry, restart, stop and configure, so the pane's poll does no tree walk or tool search in steady state) and returns them on each row, as does `catalog` for
 an existing absolute workspace (for Settings): a tool is required
 only for the managed launch, and an install-only tool only until the managed installation exists. A start refuses
@@ -241,7 +241,7 @@ reviewable. Current .NET SDK pins (linux-x64, linux-arm64, osx-arm64, osx-x64, w
 pin by its `rollForward` policy; with none, the newest pin is used. When nothing fits, `Needs dotnet` names the version
 the project asks for and the versions that are pinned.
 
-`[toolchains] source` is `path` (the default, so desktop behaviour is unchanged), `managed` or `managed-then-path`.
+`[toolchains] source` is `path` (the default, so desktop behavior is unchanged), `managed` or `managed-then-path`.
 `TEREDITOR_TOOLCHAINS` overrides the setting, and the headless host sets it to `managed`. `LanguageServers.ProbeTool`
 resolves in this order: the user's explicit path, then the managed runtime (only for `managed` and
 `managed-then-path`), then the home variable (`DOTNET_ROOT`), then PATH. `managed` stops after the managed step for
@@ -383,7 +383,7 @@ requested files when it is not running, all needed servers in parallel, and wait
 `initializing` with "N s elapsed; retry or wait". A server the user stopped explicitly stays stopped
 and disabled language services say so (the file is `skipped` with the exact `lsp_status retry` call or the
 Settings hint); terms that need the user keep blocking with their actionable message. Every `lsp_*`
-call has a 90 second deadline (`LanguageLimits.ToolDeadline`); past it the call is cancelled and
+call has a 90 second deadline (`LanguageLimits.ToolDeadline`); past it the call is canceled and
 returns state `initializing` with the servers still starting under `starting`, never a hang.
 
 The one exception is the agent edit hook (`EditDiagnostics`, served at `/mcp/<token>/edit-diagnostics`): after an
@@ -412,7 +412,7 @@ one-based, and names the query form. The tool description gives a call shape per
 for the requested language exists but is stopped, disabled or unsupported.
 
 Usage is counted per workspace and server (calls, successes, failures, last used; a failed or
-cancelled call is a failure; no caller identity is kept) in memory and in
+canceled call is a failure; no caller identity is kept) in memory and in
 `<state>/language/usage.json` (atomic replace, at most 128 pairs, least recently used dropped, removed
 with the workspace). It is `LanguageServerState.Usage`, `usage` in `lsp_status` operation `servers`, the
 "Agent calls: N (last: 12 min ago)" line of the pane row, and an "Agent calls" line in the exit details.
@@ -451,7 +451,7 @@ Each session subscribes to the host's shared workspace watcher (`WorkspaceWatche
 graph loads is still reported. Changes are debounced (250 ms, a steady stream at least every second)
 and sent as `workspace/didChangeWatchedFiles` once the server serves, and before any request that
 finds changes pending. The client declares dynamic registration with relative-pattern support and
-honours the server's `client/registerCapability` watchers (string or relative glob patterns with `*`,
+honors the server's `client/registerCapability` watchers (string or relative glob patterns with `*`,
 `**`, `?`, `{a,b}`, `[...]`, and the create/change/delete kind mask), including restore outputs
 under `obj` and reference assemblies. A server that registered none gets changes to files with its
 extensions, its manifests and project inputs, outside build and tool directories. A file born after
@@ -476,7 +476,7 @@ reads "killed by SIGKILL ... often the OOM killer or jetsam, but also a manual k
 confirmed". A server may also exit with such a number by itself.
 
 Every stop tereditor causes names its reason before the kill (a stop or restart request, a Java/Kotlin
-provider switch, suspension, workspace removal ("workspace removed"), host shutdown, a failed start, a failed draft restore, or a stdin write that failed or was cancelled and
+provider switch, suspension, workspace removal ("workspace removed"), host shutdown, a failed start, a failed draft restore, or a stdin write that failed or was canceled and
 left the JSON-RPC stream unusable). Those records are `Unexpected = false` except failures. Anything
 else, including exit 0 nobody asked for, is `Unexpected = true`. tereditor sends no `shutdown`/`exit`
 handshake; it kills the process tree.
@@ -693,7 +693,7 @@ request that would reach the server answers `actionRequired` with the reason, fo
 alike, instead of staying silent) and offer named actions (`ActionAsync`) that clients run on a running session with the
 `action` language operation (`Server`, `Query` = action name, `Configuration` = JSON arguments; the reply is `ready` with
 the action's JSON in `Detail`, `error` with its message, or `unavailable` when the server is not running; it never starts a
-server and the call is cancelled with the caller). Actions are not exposed to agents. The IntelliJ plugin uses these for
+server and the call is canceled with the caller). Actions are not exposed to agents. The IntelliJ plugin uses these for
 JetBrains' licensing protocol; its sentences and states are in the plugin's spec.
 
 A provider's terms can carry single-choice questions (`LanguageServerTerms.Questions`) shown in the same review window as
@@ -763,7 +763,7 @@ Browser, Android and real JetBrains server acceptance were not run.
 
 ## Headless validation and named settings
 
-`configurationSchema` exposes provider-labelled, catalog-version-labelled named
+`configurationSchema` exposes provider-labeled, catalog-version-labeled named
 settings over the existing language service and MCP, including when LSP execution
 is disabled. Values map to the same persisted initialization/settings JSON; there
 is no second configuration store. Empty fields retain provider defaults. Custom

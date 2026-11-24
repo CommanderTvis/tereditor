@@ -148,7 +148,7 @@ internal static class EpubChecks
                 var ratio = Contrast(Ui.TextBrush.Color, Ui.Surface.Color);
                 Require(ratio >= 4.5, $"Book text is readable on the {name} theme: contrast {ratio:0.0}.");
                 Require(preview.GetLogicalDescendants().OfType<SelectableTextBlock>().All(text => text.Foreground is null || text.Foreground == Ui.TextBrush || text.Foreground == Ui.Muted),
-                    "No book colour overrides the theme's text colour.");
+                    "No book color overrides the theme's text color.");
                 Require(viewer.Background == Ui.Surface, "The page uses the theme's surface.");
             }
         }

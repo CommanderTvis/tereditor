@@ -107,7 +107,7 @@ dependencies against live registry state right before activating: a dependency e
 fail its own activation mid-pass, and a dependent that was desired before must then be marked `Failed` in the
 same pass rather than activate on top of it. The roster is republished after every individual transition.
 
-Runs are serialised. `Schedule()` coalesces overlapping callers into one more pass rather than queuing one run per
+Runs are serialized. `Schedule()` coalesces overlapping callers into one more pass rather than queuing one run per
 caller: a caller mid-pass gets the in-flight task, and a pending flag guarantees one more full pass before that
 task completes, so a caller's own settings change is reflected by the time its await returns. A settings change
 from any client schedules a run; it never acts inline.
@@ -435,7 +435,7 @@ save without depending on any plugin id.
   in-process agent.
 - Workspace auto-naming hints.
 - `WorkspaceUpdated` for a branch switch: the host learns of workspace changes only from the published
-  workspace lists and labels, so it fires on creation, removal and relabelling.
+  workspace lists and labels, so it fires on creation, removal and relabeling.
 - Serving a plugin's static assets on its HTTP route; the app reads assets
   through `ReadFileAsync` instead.
 - Loading an external plugin's host half, in process or isolated: a plugin with one is listed and refused.

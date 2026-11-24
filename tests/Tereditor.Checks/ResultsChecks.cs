@@ -42,7 +42,7 @@ internal static class ResultsChecks
         var document = XDocument.Load(path);
         var counters = document.Descendants(ns + "Counters").Single();
         Require((int)counters.Attribute("total")! == 2 && (int)counters.Attribute("passed")! == 1 && (int)counters.Attribute("failed")! == 1, "The TRX counters must match the results.");
-        Require(document.Root!.Element(ns + "ResultSummary")!.Attribute("outcome")!.Value == "Failed", "A run with a failure must summarise as Failed.");
+        Require(document.Root!.Element(ns + "ResultSummary")!.Attribute("outcome")!.Value == "Failed", "A run with a failure must summarize as Failed.");
         Require(document.Descendants(ns + "StackTrace").Single().Value.Contains("line 3", StringComparison.Ordinal), "The failure's stack trace must be kept.");
         Require(document.Descendants(ns + "UnitTest").Count() == 2 && document.Descendants(ns + "TestEntry").Count() == 2, "Every case needs a definition and an entry.");
         var testIds = document.Descendants(ns + "UnitTestResult").Select(result => (string)result.Attribute("testId")!).ToArray();

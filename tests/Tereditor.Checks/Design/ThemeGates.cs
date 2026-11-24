@@ -29,7 +29,7 @@ internal static class ThemeGates
     /// <summary>Every curated accent and a spread of custom colours in every bundled theme meets the same floors as the bundled accent.</summary>
     private static void Accents(List<string> failures)
     {
-        if (Tereditor.UI.Rendering.Accents.Curated[0].Id != "frog") failures.Add("Frog, the app icon's colour, must be the first accent in the picker.");
+        if (Tereditor.UI.Rendering.Accents.Curated[0].Id != "frog") failures.Add("Frog, the app icon's color, must be the first accent in the picker.");
         foreach (var theme in Themes.All)
         {
             if (ReferenceEquals(Tereditor.UI.Rendering.Accents.Apply(theme, "green"), theme))
@@ -49,7 +49,7 @@ internal static class ThemeGates
                 // The chat bubble tint follows the accent where the manifest ties the two; a bubble colour of its own (Minimal's neutral) stays.
                 var tied = theme["bubbleAccent"] == theme["accent"];
                 if (derived["bubbleAccent"] != (tied ? derived["accent"] : theme["bubbleAccent"]))
-                    failures.Add($"{label}: bubbleAccent must {(tied ? "follow the accent" : "keep the manifest's own colour")}.");
+                    failures.Add($"{label}: bubbleAccent must {(tied ? "follow the accent" : "keep the manifest's own color")}.");
                 if (Contrast(derived["onAccent"], Colors.Black) > 1.5 && Contrast(derived["onAccent"], Colors.White) > 1.5)
                     failures.Add($"{label}: onAccent must be black or white by luminance.");
                 if (Contrast(derived["accentSolid"], derived["accentHover"]) < 1.1)
@@ -74,10 +74,10 @@ internal static class ThemeGates
         if (Rejected(_ => { })) failures.Add("The manifest parser rejected an unchanged bundled manifest.");
         if (!Rejected(theme => theme["syntax"]!.AsObject().Remove("keyword"))) failures.Add("The manifest parser accepted a partial syntax palette.");
         if (!Rejected(theme => theme["injectedCss"] = "body { display: none }")) failures.Add("The manifest parser accepted an unknown property.");
-        if (!Rejected(theme => theme["colors"]!["extra"] = "#000000")) failures.Add("The manifest parser accepted an unknown colour key.");
-        if (!Rejected(theme => theme["colors"]!["accent"] = "rgb(0, 0, 0)")) failures.Add("The manifest parser accepted a non-hex colour.");
-        if (!Rejected(theme => theme["colors"]!["accent"] = "#8DFF4F")) failures.Add("The manifest parser accepted a non-canonical uppercase colour.");
-        if (!Rejected(theme => theme["colors"]!["text"] = null)) failures.Add("The manifest parser accepted null for a required colour.");
+        if (!Rejected(theme => theme["colors"]!["extra"] = "#000000")) failures.Add("The manifest parser accepted an unknown color key.");
+        if (!Rejected(theme => theme["colors"]!["accent"] = "rgb(0, 0, 0)")) failures.Add("The manifest parser accepted a non-hex color.");
+        if (!Rejected(theme => theme["colors"]!["accent"] = "#8DFF4F")) failures.Add("The manifest parser accepted a non-canonical uppercase color.");
+        if (!Rejected(theme => theme["colors"]!["text"] = null)) failures.Add("The manifest parser accepted null for a required color.");
         if (!Rejected(theme => theme["id"] = "Not A Slug")) failures.Add("The manifest parser accepted an id that is not a slug.");
 
         using var schemaStream = AssetLoader.Open(new Uri("avares://Tereditor.UI/Assets/theme.schema.json"));

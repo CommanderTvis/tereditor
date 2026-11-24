@@ -234,7 +234,7 @@ internal static class PullRequestChecks
         File.Delete(Path.Combine(shim, "log"));
         var created = await host.OpenPrAsync(new("T", false, "B", true));
         Require(created is { Action: "created", Number: 7 } && File.ReadAllText(Path.Combine(shim, "log")).Contains("pr create --base main --head feature", StringComparison.Ordinal) &&
-            File.ReadAllText(Path.Combine(shim, "log")).Contains("--draft", StringComparison.Ordinal), "Create must pass an explicit base and honour draft.");
+            File.ReadAllText(Path.Combine(shim, "log")).Contains("--draft", StringComparison.Ordinal), "Create must pass an explicit base and honor draft.");
         File.Delete(Path.Combine(shim, "pr.json"));
         await File.WriteAllTextAsync(Path.Combine(shim, "fail-create"), "");
         Require((await host.OpenPrAsync(new("T", false, "B", false))).Action == "created", "A failed create followed by a found pull request must report created.");

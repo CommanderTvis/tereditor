@@ -97,7 +97,7 @@ internal static partial class TerminalHostChecks
         await screen.Run("printf 'PID_%s_\\n' \"$$\"");
         var shell = int.Parse(await screen.WaitForMatch(@"PID_(\d+)_", mode));
         Require(Tabs(await catalog.CloseTabAsync(area, "tab-a")).All(tab => tab.Key != "tab-a"), $"{mode}: closing a tab must remove it from the catalog.");
-        await Until(() => Task.FromResult(!Running(shell)), mode + " closing a catalogued tab ends its shell");
+        await Until(() => Task.FromResult(!Running(shell)), mode + " closing a cataloged tab ends its shell");
         await Everyone(tabs => tabs.Count == 2, "close");
         await session.DisposeAsync();
 
@@ -209,17 +209,17 @@ internal static partial class TerminalHostChecks
         new TerminalCatalogStore(directory).Remove(workspace, "closed");
         await using (var second = new PtyTerminalService(recordingsDirectory: directory))
         {
-            Require(!File.Exists(Recording(loose)) && !File.Exists(Recording(TerminalTab.SessionFor(workspace, "closed"))), "Recordings no catalogued tab names must be discarded on start.");
+            Require(!File.Exists(Recording(loose)) && !File.Exists(Recording(TerminalTab.SessionFor(workspace, "closed"))), "Recordings no cataloged tab names must be discarded on start.");
             Require(second.Catalog.Workspaces[workspace] is [{ Key: "kept", Title: "Kept" }], "The revived catalog must hold exactly the surviving tabs.");
             var (session, screen) = await Open(second, TerminalTab.SessionFor(workspace, "kept"), workspace);
-            Require(session.Created && screen.Text.Contains("KEPT_SEEN", StringComparison.Ordinal), "A catalogued tab must revive its recorded screen in a new shell.");
+            Require(session.Created && screen.Text.Contains("KEPT_SEEN", StringComparison.Ordinal), "A cataloged tab must revive its recorded screen in a new shell.");
             var (gone, blank) = await Open(second, TerminalTab.SessionFor(workspace, "closed"), workspace);
             Require(!blank.Text.Contains("CLOSED_SEEN", StringComparison.Ordinal), "A closed tab's screen must not come back.");
             await session.DisposeAsync(); await gone.DisposeAsync();
             await second.CloseWorkspaceAsync(workspace);
         }
         Require(!Directory.EnumerateFiles(directory, "*.rec").Any(), "A removed workspace must leave no recordings behind.");
-        Console.WriteLine("PASS host terminal revival by catalog: surviving tabs revive their screens, recordings without a catalogued tab are discarded, and a removed workspace leaves none");
+        Console.WriteLine("PASS host terminal revival by catalog: surviving tabs revive their screens, recordings without a cataloged tab are discarded, and a removed workspace leaves none");
     }
 
     // A worktree removed through the project host ends its terminals on a real remote host.

@@ -41,7 +41,7 @@ Invariants): Merman and notifications in `Tereditor.UI.csproj`, the Ghostty libr
 `src/Ghostty.Avalonia` (`build-ghostty-macos.cs`, `build-ghostty-linux.cs`, `build-ghostty-android.cs`, `build-ghostty-windows.cs`), the WASM libraries in `Tereditor.Browser.csproj` (`wasm-native.cs`) and the file
 icons in the kit. The Ghostty recipes apply the checked-in texture export and scrollback memory patches to
 the pinned Ghostty source. `android` uses the pinned Android SDK (`scripts/tool android-sdk`, or `ANDROID_HOME` when set),
-installs its pinned packages with the pinned licence hash when they are missing, and needs a JDK 17 or 21 (the pinned one `scripts/tool jdk` prints, or `JAVA_HOME` when set), fails with a message when either is missing, and installs the `android`
+installs its pinned packages with the pinned license hash when they are missing, and needs a JDK 17 or 21 (the pinned one `scripts/tool jdk` prints, or `JAVA_HOME` when set), fails with a message when either is missing, and installs the `android`
 workload into the SDK when absent. Recipes may depend on Git, `tar`, `patch`, clang/Xcode tools and,
 for the benchmark only, Node. They read source trees and write only to the machine-wide cache (`TEREDITOR_CACHE_DIR`), `obj`, `.bench` and
 `artifacts`; never to a repo-local `.tools`. Product logic, a second source of package versions, and editing sources are forbidden.
@@ -56,7 +56,7 @@ by the lock (mise installs it with Microsoft's installer); `global.json` pins it
 
 Store. Tools install into mise's data directory (default `~/.local/share/mise`), one directory per version, shared by every checkout and worktree of the user and found through `scripts/tool`, so there is no bootstrap step and no link in the checkout. Checkouts at the same pin share one
 copy; a version bump is a new directory, so older checkouts keep working. mise downloads and extracts
-into a temporary location and renames, under its own lock, so concurrent installs are safe. The SDK takes workload packs, and the workload helper serialises those
+into a temporary location and renames, under its own lock, so concurrent installs are safe. The SDK takes workload packs, and the workload helper serializes those
 installs. The SDK is an `http:dotnet` tool (Microsoft's archives with per-platform SHA-256), so each version has its own
 directory like the other tools. Store paths are versioned
 by version only: a re-published archive with the same version string and a different checksum is rejected
@@ -112,9 +112,9 @@ carry what that publish has for it.
 `dmg` packs that bundle, unchanged and with an Applications shortcut beside it, into a compressed disk
 image (`artifacts/tereditor.dmg` unless a path is given). Opened, the image shows a compact Finder window
 (540 by 380 points, no toolbar, sidebar, path bar or status bar) with 128-point icons: the app on the left,
-Applications on the right, and between them an arrow in the icon's navy and teal over a pale blue-grey gradient,
+Applications on the right, and between them an arrow in the icon's navy and teal over a pale blue-gray gradient,
 with a one-line hint below. The background stays light because Finder draws the labels in the viewer's text
-colour, which the window settings cannot change. The background is committed at 1x and 2x (`scripts/dmg`, drawn
+color, which the window settings cannot change. The background is committed at 1x and 2x (`scripts/dmg`, drawn
 by `background.py`) and combined into one TIFF, so it is sharp on Retina displays; it and the volume icon (the
 app icon) are dot-files, hidden in the window. The window's layout is the committed `scripts/dmg/DS_Store`, which the
 task copies in as the image's `.DS_Store`. `scripts/dmg/layout.py` regenerates it with dmgbuild from
@@ -206,5 +206,5 @@ license notices are included in the APK; no global Go installation is modified.
 
 The browser build runs `build-tailscale-wasm.cs` (also `scripts/mise run tailscale:wasm`) when its inputs change.
 It builds the browser's lazily downloaded Tailscale node for js/wasm with the same pinned Go and omitted-feature
-tags, writes its Brotli sidecar, Go's `wasm_exec.js`, licence notices and `manifest.json`, and caches the result
+tags, writes its Brotli sidecar, Go's `wasm_exec.js`, license notices and `manifest.json`, and caches the result
 under `$TEREDITOR_CACHE_DIR/tailscale-wasm/<key>` before copying it to `src/Tereditor.Browser/obj/tailscale-wasm`.

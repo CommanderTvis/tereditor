@@ -111,7 +111,7 @@ internal static class WorkspaceActionsE2E
         Require(ItemText(app, workspace, "WorkspaceName") == name, "A blank rename must keep the current name.");
 
         input = StartRename(app, workspace);
-        input.Text = "Cancelled Rename";
+        input.Text = "Canceled Rename";
         Press(input, Avalonia.Input.Key.Escape);
         Until(() => !Item(app, workspace).GetLogicalChildren().OfType<TextBox>().Any());
         Require(ItemText(app, workspace, "WorkspaceName") == name, "Escape must cancel a rename.");

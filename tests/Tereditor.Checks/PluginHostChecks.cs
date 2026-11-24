@@ -366,7 +366,7 @@ internal static partial class PluginHostChecks
             Require((await host.Row("lsp-css")).Status == PluginStatus.Disabled, "A headless plugin still obeys an explicit disable.");
             await host.Enable("spec-dialect");
             await host.Enable("blueprint");
-            Require((await host.Row("spec-dialect")).Status == PluginStatus.Active && (await host.Row("blueprint")).Status == PluginStatus.Active, "An explicit stored enabled state must be honoured headless.");
+            Require((await host.Row("spec-dialect")).Status == PluginStatus.Active && (await host.Row("blueprint")).Status == PluginStatus.Active, "An explicit stored enabled state must be honored headless.");
         }
         // A run that opts in (what TEREDITOR_TOOLS_ENABLE does) turns the two on in memory; a stored choice still beats it.
         var optedIn = headless.Select(plugin => optIn.Contains(plugin.Manifest.Id) ? (plugin.Manifest with { HeadlessEnabledByDefault = true }, plugin.Host) : plugin).ToArray();
@@ -385,7 +385,7 @@ internal static partial class PluginHostChecks
             Require((await host.Runtime.ListAsync()).All(entry => entry.Status == PluginStatus.Disabled), "A fresh desktop profile must have the spec graph and Blueprint disabled.");
             await host.Enable("spec-dialect");
             await host.Enable("blueprint");
-            Require((await host.Runtime.ListAsync()).All(entry => entry.Status == PluginStatus.Active), "An explicit stored enabled state must be honoured on a desktop.");
+            Require((await host.Runtime.ListAsync()).All(entry => entry.Status == PluginStatus.Active), "An explicit stored enabled state must be honored on a desktop.");
         }
         // A plugin that does not declare Yes never activates headless, even enabled and handed to the host.
         await using (var host = await Compose(Path.Combine(directory, "everything"), all, seams => seams with { Kind = HostKind.Headless }))
@@ -1019,7 +1019,7 @@ internal static partial class PluginHostChecks
             var ended = false;
             try { await next; }
             catch (OperationCanceledException) { ended = true; }
-            Require(ended, $"{mode}: cancelling a subscription ends it as cancelled, not as a dropped transport.");
+            Require(ended, $"{mode}: canceling a subscription ends it as canceled, not as a dropped transport.");
         }
 
         Require(await plugins.ReadFileAsync("fixture", "assets/icon.svg") is { Length: > 0 }, $"{mode}: staged assets are readable.");

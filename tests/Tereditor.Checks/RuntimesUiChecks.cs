@@ -90,7 +90,7 @@ internal static class RuntimesUiChecks
 
             // Cancel stops the request and says so on the row; the page is usable again.
             Find("RuntimesCancel")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            Until(() => downloadToken.IsCancellationRequested && Line() == "The download was cancelled.", "cancel: the request is cancelled and the row says so: " + Line());
+            Until(() => downloadToken.IsCancellationRequested && Line() == "The download was canceled.", "cancel: the request is canceled and the row says so: " + Line());
             Require(Label() == "Download now" && Find("RuntimesDownload")!.IsEffectivelyEnabled && Named<ProgressBar>("RuntimesProgressBar")!.Opacity == 0 && !Find("RuntimesCancel")!.IsEnabled && Slot().Bounds.Height == slotHeight, "cancel: the row is idle again at the same height");
 
             // Failed: the host's error shows on the row, in the danger colour.
@@ -100,7 +100,7 @@ internal static class RuntimesUiChecks
             Until(() => Label() == "Downloading…", "failed: a second download starts");
             pending.SetResult(state with { Error = "Bun could not be downloaded: offline." });
             Until(() => Line() == "Bun could not be downloaded: offline.", "failed: the error shows on the row: " + Line());
-            Require(Named<TextBlock>("RuntimesProgressText")!.Foreground == Kit.Ui.Danger && Label() == "Download now" && Find("RuntimesDownload")!.IsEffectivelyEnabled && Slot().Bounds.Height == slotHeight, "failed: danger colour, button back, same height");
+            Require(Named<TextBlock>("RuntimesProgressText")!.Foreground == Kit.Ui.Danger && Label() == "Download now" && Find("RuntimesDownload")!.IsEffectivelyEnabled && Slot().Bounds.Height == slotHeight, "failed: danger color, button back, same height");
 
             // Done: the row says so, Remove download is on, Download now is off, the size shows.
             pending = new();
@@ -109,7 +109,7 @@ internal static class RuntimesUiChecks
             Until(() => Label() == "Downloading…", "done: a download starts");
             pending.SetResult(state);
             Until(() => Line() == "Bun is downloaded." && !Find("RuntimesDownload")!.IsEnabled && Find("RuntimesRemove")!.IsEnabled, "done: the row says so, Download now off, Remove download on: " + Line());
-            Require(Named<TextBlock>("RuntimesProgressText")!.Foreground != Kit.Ui.Danger && Slot().Bounds.Height == slotHeight, "done: normal colour and the same height");
+            Require(Named<TextBlock>("RuntimesProgressText")!.Foreground != Kit.Ui.Danger && Slot().Bounds.Height == slotHeight, "done: normal color and the same height");
             Require(view.GetVisualDescendants().OfType<TextBlock>().Any(text => (text.Text ?? "").Contains("225 MB", StringComparison.Ordinal)) && Named<TextBlock>("RuntimesAlso") is null && Find("RuntimesClearPin") is null,
                 "installed and in use: the size shows, no 'also downloaded' line");
 
@@ -136,11 +136,11 @@ internal static class RuntimesUiChecks
             state = new([Row("bun", "system", downloaded: true, bytes: 1, downloadedPath: "/cache/bun", problem: "The downloaded Bun failed its checksum check, so it is not used."), Row("uv", "system")]);
             again();
             Until(() => Named<TextBlock>("RuntimesDownloadProblem") is not null, "damaged: the row shows the error");
-            Require(Named<TextBlock>("RuntimesDownloadProblem")!.Foreground == Kit.Ui.Danger && Find("RuntimesRemove")!.IsEnabled && Named<TextBlock>("RuntimesAlsoDownloaded") is null && Texts().Contains("In use: the one found on your computer", StringComparison.Ordinal), "damaged: danger colour, Remove download on, the computer's copy in use");
+            Require(Named<TextBlock>("RuntimesDownloadProblem")!.Foreground == Kit.Ui.Danger && Find("RuntimesRemove")!.IsEnabled && Named<TextBlock>("RuntimesAlsoDownloaded") is null && Texts().Contains("In use: the one found on your computer", StringComparison.Ordinal), "damaged: danger color, Remove download on, the computer's copy in use");
         }
         finally { window.Close(); }
         Prompts();
-        Console.WriteLine("PASS runtimes-ui: rows, not installed, start, midway (size unknown and known), cancelled, failed, done, steady row height, the download in use beside a computer install, a path of the user's, a failed check");
+        Console.WriteLine("PASS runtimes-ui: rows, not installed, start, midway (size unknown and known), canceled, failed, done, steady row height, the download in use beside a computer install, a path of the user's, a failed check");
     }
 
     // The consent prompt: one per waiting download, with Download and Not now; an answer takes it down; the same list never shows a second prompt.

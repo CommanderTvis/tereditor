@@ -46,7 +46,7 @@ public sealed record VisualizeParams(
 
     [Description("Required when type='svg'. A complete hand-written <svg> document (xmlns optional), at most 2 MB and 10000 elements. " +
         "No <script>, on* handlers, <foreignObject>, animation, DTDs or external references: href/xlink:href only to #id or data: PNG/JPEG/GIF/WebP/BMP images, url() only to #id. " +
-        "Colours follow the pane's theme: currentColor and var(--fg) are the foreground, var(--bg) the background, var(--accent), var(--muted) and var(--border) the accent, muted text and border colours.")]
+        "Colors follow the pane's theme: currentColor and var(--fg) are the foreground, var(--bg) the background, var(--accent), var(--muted) and var(--border) the accent, muted text and border colors.")]
     public string? Svg { get; init; }
 
     [Description("Required when type='markdown'. Markdown text rendered like the app's Markdown preview: headings, lists, tables (including HTML tables), code, links and fenced mermaid blocks.")]

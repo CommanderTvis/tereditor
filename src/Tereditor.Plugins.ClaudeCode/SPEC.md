@@ -49,9 +49,9 @@ the process changes. A manual session shows a persistent terminal notice explain
 commands do not get tereditor's launcher settings, tools and prompt appendix, with the
 workspace launcher offered as the way to apply them. Installed hooks and independently configured
 MCP/IDE connections may still work. Unknown origins, including unavailable environment inspection
-on Windows, are not labelled manual. Origin persists and crosses local/remote host state; hook reports
+on Windows, are not labeled manual. Origin persists and crosses local/remote host state; hook reports
 retain it. A revival is tereditor's own launch and always carries the UI marker, whatever origin the
-revived session had, so a revived session is never labelled manual. It also reapplies the current
+revived session had, so a revived session is never labeled manual. It also reapplies the current
 agent-view setting, which the process table the command is rebuilt from does not hold.
 
 Hook reports persist the session's latest model and effort, including fact-only model switches.
@@ -77,7 +77,7 @@ in the run's own arguments wins over both. The modes are the `choices` of `--per
 `claude --help`, probed on the host once per executable (`permissionModesGet`) and kept for the
 process; an unreadable help is not cached and yields the fallback default, acceptEdits, plan, auto,
 dontAsk, bypassPermissions. A saved mode the CLI no longer lists stays offered. `bypassPermissions`
-is labelled dangerous in the danger colour in both places, and Settings turns its note into a
+is labeled dangerous in the danger color in both places, and Settings turns its note into a
 warning while it is the default; like Codex's full-access sandbox it needs no confirmation.
 Revival keeps the mode in the recorded command (`--resume` accepts the flag). The running terminal
 does not show the mode, as Codex's does not.
@@ -174,7 +174,7 @@ frame (`control_request_progress`, "a long-running control request that your cli
 Questions. An `AskUserQuestion` `can_use_tool` request becomes a question item (questions with options, multi-select, a
 header; "Other" is free text the view puts in the answer), not a permission. `chatAnswerQuestion` replies with
 `updatedInput` equal to the CLI's own `questions` plus `answers`, keyed by question text (a multi-select answer is its
-labels joined by ", "); cancelling replies with a deny. The shape was read from the official extension, not probed live.
+labels joined by ", "); canceling replies with a deny. The shape was read from the official extension, not probed live.
 
 Notices. A notice may carry a category: `compaction` (from `compact_boundary`, with the trigger and token count), `failure`
 (a result that is an error or has a non-success subtype, with the subtype and whether resending the last prompt is a
@@ -257,7 +257,7 @@ usage credit limit), warning "You've used N% of your <window> · ..." from 70%, 
 lines are one "N earlier lines of this conversation could not be shown." notice.
 Held prompts: a prompt sent while busy is a queued user item. CLI 2.1.310 emits no `system/command_lifecycle` (probed with
 `--replay-user-messages`), so the echo of the prompt with the same uuid releases it; a CLI that sends `command_lifecycle`
-releases it on started, completed, cancelled, discarded or refused, and `ran_ahead` adds "Ran at once, while Claude was working."
+releases it on started, completed, canceled, discarded or refused, and `ran_ahead` adds "Ran at once, while Claude was working."
 Permissions: a `can_use_tool` request carries the card's question per tool ("Allow this bash command?", "Make this edit to
 a.cs?", ...), the "don't ask again" label rewritten from the suggestions (one rule, two rules, "and N more", directories, "Yes,
 allow all edits this session", "Yes, return to normal mode") and the five destinations with their labels and tooltips. The reply
@@ -327,7 +327,7 @@ The Account tab starts with a Provider row (`Account.Provider`, shared with Code
 
 The host reads the usage by itself, so it also works headless and on remote hosts, with no pane open: once at start in the background, then every 15 minutes (`ClaudeUsagePoller.Interval`), and when the Account tab opens with numbers or a last attempt over a minute old. Only one read runs at a time; a tick that finds one running does nothing. A background read runs only when the CLI starts and is signed in, otherwise it is skipped without an error, and it is skipped while another plugin governs Claude launches. A failed read doubles the wait (30 minutes, then one hour at most); a good read resets it. The refresh button reads at once (joining a running read), resets the failures and restarts the 15 minutes. When a read ends the host publishes `accountUsage` and open Account tabs read again in place; the age line ("Claude Code read this 3m ago") is redrawn every minute. The interval is a constant, not a setting. The terminal's spending chip is token totals from transcripts and the chat footer is the session's own, so the Account tab is the only place the account usage appears. `ClaudeCodeChecks` drives the poller with a fake clock and a fake `claude`: start read, the 15-minute tick, no overlap, failure with backoff and recovery, manual refresh, tab open, signed out and a missing CLI.
 
-The pane refreshes by itself with the same code path as its refresh button (tooltip "Refresh usage and context (also runs hourly)"): a one-minute UI tick re-renders "Measured … ago" and, when the pane is mounted, its window is active and not minimised, no refresh is running, and the last reading (the newer of the baseline's stamp and the last request) is at least `ClaudeAutoRefresh.Interval` (1 hour) old or missing, starts one refresh; the first reply after the pane appears applies the same test, so stale data refreshes on first view. Nothing polls while the pane is detached. `ClaudeContextChecks` drives the rule with a fake clock. The host matches memory paths to the resolver's
+The pane refreshes by itself with the same code path as its refresh button (tooltip "Refresh usage and context (also runs hourly)"): a one-minute UI tick re-renders "Measured … ago" and, when the pane is mounted, its window is active and not minimized, no refresh is running, and the last reading (the newer of the baseline's stamp and the last request) is at least `ClaudeAutoRefresh.Interval` (1 hour) old or missing, starts one refresh; the first reply after the pane appears applies the same test, so stale data refreshes on first view. Nothing polls while the pane is detached. `ClaudeContextChecks` drives the rule with a fake clock. The host matches memory paths to the resolver's
 with `~` expanded, made absolute and through symbolic links.
 
 `/context` (2.1.x, also `/context all` and the JSON reply) does not list an `--append-system-prompt-file` file; it
@@ -346,7 +346,7 @@ directory, with the tab process's context-shaping flags (`--append-system-prompt
 session and prompt arguments are dropped, so the tab's conversation is never touched) or, with no Claude in the tab,
 the flags the launcher would pass; with tereditor's MCP probe address, the agent-view variable and an empty status
 URL. Results are cached in host memory per (binary, directory, flags), shared by tabs; a run is background,
-single-flight per key, killed after 90 s and cancelled on deactivation, and a failure keeps the previous breakdown
+single-flight per key, killed after 90 s and canceled on deactivation, and a failure keeps the previous breakdown
 and shows an inline error with Retry. A run starts when a request finds no entry, when the stat fingerprint of its
 inputs (the configuration files the resolver names, flag files, user and project settings, `.mcp.json`) differs, or
 on Refresh; changes reported by the workspace watch or a watch of Claude's configuration directory re-run an entry
@@ -405,7 +405,7 @@ The Settings value composer suggests documented values for keys whose value set 
 `modelSettings.*.effortLevel`, `theme`, `tui`, `outputStyle`, `forceLoginMethod`,
 `autoUpdatesChannel` and similar) as chips that fill the text field; the field still saves any
 string, since a newer Claude Code may accept values the table lacks. A `*` segment matches one key
-segment. Keys the schema types as boolean are composed as two side-by-side `true` and `false` options (the current one selected, none while unset; arrows move and select) and written unquoted; a setting value that opens the editor is underlined in the link colour with a hand cursor and a focus wash, a read-only one is plain; unknown keys
+segment. Keys the schema types as boolean are composed as two side-by-side `true` and `false` options (the current one selected, none while unset; arrows move and select) and written unquoted; a setting value that opens the editor is underlined in the link color with a hand cursor and a focus wash, a read-only one is plain; unknown keys
 keep the free shape switch. Sources, cited per row: the settings JSON schema at
 https://json.schemastore.org/claude-code-settings.json, https://code.claude.com/docs/en/model-config
 and `claude --help` (`--permission-mode` choices). The edit review names its scopes "Your settings",
@@ -522,7 +522,7 @@ its own: the tab offers it and runs it only when the user chooses Resume and no 
 session open (Host Plugins.SPEC, Terminals). The hook's `Fresh` command is the same invocation with
 `--session-id` of a new id, for Start fresh. When the process poll sees a Claude in a terminal it records its pid and
 start time on the tab's agent record (`AgentPid`, `AgentStarted`), and they persist across restarts: if the app (and
-with it the terminal) went away while that Claude kept running, the revived tab recognises it as its own (same pid and
+with it the terminal) went away while that Claude kept running, the revived tab recognizes it as its own (same pid and
 start time) and says the session "is still running in an earlier tereditor terminal (pid …)", offering Start fresh and,
 when it is not an ancestor of the tab or the app, Quit that process and resume, which ends it only after the user
 confirms. A pid reused by another process (another start time) is not taken for it, and a Claude tereditor did not
@@ -649,7 +649,7 @@ The chat view follows ThinkRail's web chat (`apps/web/src/chat`) in layout and v
 | `Composer.tsx` footer | `ChatView.Composer.cs`: a bordered shell, the input over a footer row | pickers (model, effort, permission mode), attach and Skills at the left, session stats between, working time, history, Stop, Queue/Send and its menu at the right; cwd, MCP and IDE chips under the shell. A gear chip at the end of the row opens a list of those chips with a check each; a fresh profile hides the working directory, the token spending and the advisor, the choice is one per-user preference shared by every chat, and a hidden context chip still shows once under half of the context is left. Narrow, Skills and stats give way and Send is an arrow |
 | IME care, `recentPrompts`, send options | a key the input method handles (`ImeProcessed`) never sends; Enter sends (or Ctrl/Cmd+Enter, a stored option); Up and Down walk this chat's prompts then earlier chats' (30 kept, client-local) | the send menu offers Queue and Stop and send; there is no mid-turn steering, so no steer option |
 | `promptImages`, `imageAttachment` | image attachments show a thumbnail chip decoded off the UI thread; paste and drop add files and images | |
-| `ModelEffortPicker`, `ModelSelector`, `ThinkingSelector`, `pickerGroups`, `modelVisibility`, `modelPicker`, `useModelPreferences` | `ChatView.Pickers.cs` and `ModelPicks`: a searchable list (upstream's fuzzy score) with Favorites, Recent and families as groups, a star and a hide control per model, hidden models behind a toggle, arrow keys and Enter; effort levels with the current one checked | the group is the host's provider when it names one, else the family; the thinking selector offers the levels the current model reports; a change under way (`ChatHeader.Pending`) shows on its chip; favourites, recents and hidden models are stored through the plugin's client-local preference, never in a project |
+| `ModelEffortPicker`, `ModelSelector`, `ThinkingSelector`, `pickerGroups`, `modelVisibility`, `modelPicker`, `useModelPreferences` | `ChatView.Pickers.cs` and `ModelPicks`: a searchable list (upstream's fuzzy score) with Favorites, Recent and families as groups, a star and a hide control per model, hidden models behind a toggle, arrow keys and Enter; effort levels with the current one checked | the group is the host's provider when it names one, else the family; the thinking selector offers the levels the current model reports; a change under way (`ChatHeader.Pending`) shows on its chip; favorites, recents and hidden models are stored through the plugin's client-local preference, never in a project |
 | `SkillsButton`, `SkillsDialog` | Skills button listing `ChatHeader.Commands` whose source is a skill | picking inserts the command |
 | `QueueStrip` | strip above the composer listing the user items marked queued, each with Send now (only when the header has `CanSendQueuedNow`), Edit (inline, then Send) and Remove | `chatSendQueuedNow`, `chatDequeue` and `chatEditQueued`; a message the CLI already took up stays and the strip says so; a remove push drops an item from the list, its group and its thread |
 | `SessionStatsBar`, `StreamIndicator`, context pie (`sv0`) | stats text, the context pie and "Working" with elapsed seconds (or the CLI's activity word) in the footer | from `ChatHeader.Usage` and `Activity`; a UI timer, no I/O |
@@ -695,7 +695,7 @@ A change of the list's width (the page zoom steps the width) drops nothing: layo
 
 ### Picking an answer
 
-A pick in the question panel repaints in place: the option marks (fixed-size, same border and inset chosen or not, selection by colour only), the tab ticks and Submit's enabled state change, and the panel, the transcript rows and the list's layouts are untouched. The draft lives in the transcript but a pending question draws nothing in the list, so storing it replaces no row; a row that draws nothing is estimated at zero height, so replacing one never shifts the rows around it. Only switching tab, folding the panel or a new request rebuilds the panel.
+A pick in the question panel repaints in place: the option marks (fixed-size, same border and inset chosen or not, selection by color only), the tab ticks and Submit's enabled state change, and the panel, the transcript rows and the list's layouts are untouched. The draft lives in the transcript but a pending question draws nothing in the list, so storing it replaces no row; a row that draws nothing is estimated at zero height, so replacing one never shifts the rows around it. Only switching tab, folding the panel or a new request rebuilds the panel.
 
 ### Past conversations
 
@@ -770,7 +770,7 @@ uses this build’s assets directly, without a separate installed-cache version 
 
 `--claude-code` checks isolated host enable/disable, configuration provenance, review without writes,
 stale preview refusal, preservation, token routes, session identity, spending, continuation Stop,
-revive, client folding, the shipped skills' shape, direct plugin arguments and revival path replacement, a real authenticated WebSocket IDE initialization/catalogue/zero-based selection/action
+revive, client folding, the shipped skills' shape, direct plugin arguments and revival path replacement, a real authenticated WebSocket IDE initialization/catalog/zero-based selection/action
 round trip addressed to one app client, the tab tools' reply words, a file reference reaching only its workspace's session, and headless configuration/launcher/settings lifecycle,
 agent newline mode removal and retained accessory identity. `--notifications` drives the real UI half
 with injected status pushes and a recording notifier: blocked, done and failed notify while unfocused;

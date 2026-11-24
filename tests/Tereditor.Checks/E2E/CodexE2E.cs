@@ -262,7 +262,7 @@ internal static class CodexE2E
         Require(windows.Count == 2, "two usage windows");
         Require(Texts(One<Control>(panel, "CodexAccountSection")).Contains("Email", StringComparison.Ordinal) &&
             Texts(One<Control>(panel, "CodexAccountSection")).Contains("Plan", StringComparison.Ordinal) &&
-            !Texts(One<Control>(panel, "CodexAccountSection")).Contains("Version", StringComparison.Ordinal), "the account section has labelled rows, no version");
+            !Texts(One<Control>(panel, "CodexAccountSection")).Contains("Version", StringComparison.Ordinal), "the account section has labeled rows, no version");
         Require(Texts(One<Control>(panel, "CodexCliSection")).Contains("Version", StringComparison.Ordinal) && Texts(One<Control>(panel, "CodexCliSection")).Contains("1.0.0", StringComparison.Ordinal),
             "the CLI version has its own section");
         Require(Texts(windows[0]).Contains("25% used", StringComparison.Ordinal) && windows[0].GetLogicalDescendants().OfType<ProgressBar>().Single().Value == 25 &&
@@ -765,13 +765,13 @@ internal static class CodexE2E
         File.Delete(argsLog);
         var cancelled = CustomArguments();
         Require(One<TextBox>(cancelled, "CodexCustomArguments").Text == customArguments, "Custom launch remembers the last submitted arguments.");
-        One<TextBox>(cancelled, "CodexCustomArguments").Text = "--model cancelled";
+        One<TextBox>(cancelled, "CodexCustomArguments").Text = "--model canceled";
         app.Click(One<Button>(cancelled, "CodexCustomCancel"), freshGesture: false);
         E2eWorkspace.Settle();
         Require(!File.Exists(argsLog) && !app.Window.Layout.State.Groups.Any(group => app.Window.Layout.Tabs(group.Id).Any(tab => tab.Kind == "terminal")),
-            "Cancelling custom arguments starts no terminal.");
+            "Canceling custom arguments starts no terminal.");
         var reopened = CustomArguments();
-        Require(One<TextBox>(reopened, "CodexCustomArguments").Text == customArguments, "Cancelled edits do not replace the last submitted arguments.");
+        Require(One<TextBox>(reopened, "CodexCustomArguments").Text == customArguments, "Canceled edits do not replace the last submitted arguments.");
         reopened.Dismiss();
 
         // Start work: the launcher's command with a picked model, the saved permissions and the prompt.

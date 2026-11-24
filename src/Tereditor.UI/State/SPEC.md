@@ -146,7 +146,7 @@ profile entry and validated against host state before it changes what the window
 waits for the host's snapshot rather than treating an empty or disconnected state as absence. Only a
 successful read that lacks the project or workspace falls back (workspace to Project Home, project to
 Welcome); a timeout or disconnect keeps the remembered location and retries after reconnect. Superseded
-project opens are cancelled by a monotonic request counter so a late response never replaces a newer
+project opens are canceled by a monotonic request counter so a late response never replaces a newer
 location. Location is never shared between windows or clients; continuing elsewhere is an explicit action:
 a serialized link, described with the window's Back/Forward list in [../SPEC.md](../SPEC.md).
 

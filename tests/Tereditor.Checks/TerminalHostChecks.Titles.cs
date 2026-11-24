@@ -26,7 +26,7 @@ internal static partial class TerminalHostChecks
             spinner == "Foo ✳ bar" && scanner.Scan("\e]0;◑ Foo\a"u8, out var half) && half == "Foo" &&
             scanner.Scan("\e]0;✳Foo\a"u8, out var glued) && glued == "✳Foo",
             "Only a leading status glyph and its space leave a program title.");
-        Require(scanner.Scan("\e]2;cancelled\x18\e]2;kept\a"u8, out var kept) && kept == "kept", "CAN abandons a sequence.");
+        Require(scanner.Scan("\e]2;canceled\x18\e]2;kept\a"u8, out var kept) && kept == "kept", "CAN abandons a sequence.");
         var stored = Path.Combine(Path.GetTempPath(), "tereditor-stored-titles-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stored);
         try

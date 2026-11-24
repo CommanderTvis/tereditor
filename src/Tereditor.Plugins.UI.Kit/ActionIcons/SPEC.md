@@ -20,7 +20,7 @@ show its own variant of "Delete".
 - A new meaning is added to `ActionIcon` and the table in `ActionIcons.cs` with an icon from
   `Assets/Icons` (the Remix set, sources in `Assets/Icons/sources.json`); a glyph that is missing is added there in the
   same format (24x24 filled path). It is never chosen inline at the menu.
-- Actions that copy a different form of the same object keep distinct meanings, so neighbouring rows never show the same
+- Actions that copy a different form of the same object keep distinct meanings, so neighboring rows never show the same
   glyph: Copy path (relative to the project root) uses CopyPath, Copy absolute path uses CopyAbsolutePath.
 - Menus may show icons on some rows only. Avalonia's menu shares one icon column across the rows of a menu, so rows
   without an icon keep their labels on the same edge as rows with one. Menu icons are 14 px, tinted by the menu item.
@@ -63,15 +63,15 @@ sees assignments in files that mention `MenuItem` or `Ui.Menu(`; it does not fol
 
 ## Icon slot
 
-Every menu icon sits in one `LayoutRoles.MenuIconSlot` box (16 px, set once in `App.Initialize`), centred both ways and never clipped, whatever its glyph size; rows without an icon reserve the same column.
-The check `MenuIconAudit` runs on every context menu any headless check opens and fails unless each icon lies inside its slot and every clipping ancestor, is centred within 0.5 px, keeps at least the menu's border and padding between itself and the popup's visible frame, and the rows' text starts on one edge.
+Every menu icon sits in one `LayoutRoles.MenuIconSlot` box (16 px, set once in `App.Initialize`), centered both ways and never clipped, whatever its glyph size; rows without an icon reserve the same column.
+The check `MenuIconAudit` runs on every context menu any headless check opens and fails unless each icon lies inside its slot and every clipping ancestor, is centered within 0.5 px, keeps at least the menu's border and padding between itself and the popup's visible frame, and the rows' text starts on one edge.
 
 ## Mixed menus
 
 Fluent shares the icon, shortcut and chevron columns across a menu's rows, but the shared widths only settle after the first
 layout pass. A menu that mixes icon rows, plain rows and a submenu row therefore measures narrower on its first pass than once
 settled, and a popup sized from that pass clips the icons and chevrons. On desktop a menu is its own popup window, which takes
-its frame from that first pass, before the menu reports it opened, and keeps it: content wider than the frame is centred in it,
+its frame from that first pass, before the menu reports it opened, and keeps it: content wider than the frame is centered in it,
 so the icons are cut at the left edge. The app therefore settles a context menu's width as the menu enters its popup, giving
 every row's shared columns the widest content of that column across the menu and capping it by the owning window, not the popup
 (`App.Initialize`). Check mode `--menu-layout` (also in `--ui-smoke`) requires such a menu to be as wide as its widest row with

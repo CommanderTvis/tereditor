@@ -134,7 +134,7 @@ static async Task<int> RunSuite(string[] args)
                 var result = await mcp.Tool(tool, project, arguments);
                 var value = JsonNode.Parse(Suite.Text(Suite.Items(result, "content")?[0], "text") ?? throw new InvalidDataException($"{tool} returned no text content"));
                 calls.Add(new JsonObject { ["tool"] = tool, ["arguments"] = arguments.DeepClone(), ["result"] = value?.DeepClone() });
-                if (server == "scala" && tool == "lsp_navigate" && Suite.Text(value, "state") == "error" && Regex.IsMatch(Suite.Text(value, "detail") ?? "", "request .*has been cancelled", RegexOptions.IgnoreCase)
+                if (server == "scala" && tool == "lsp_navigate" && Suite.Text(value, "state") == "error" && Regex.IsMatch(Suite.Text(value, "detail") ?? "", "request .*has been canceled", RegexOptions.IgnoreCase)
                     && retry < 3 && !Suite.Interrupted)
                 {
                     await Task.Delay(1000);

@@ -146,7 +146,7 @@ internal static class LanguageDependencyChecks
                 "The Go row did not show Needs Go exactly once.");
             Console.WriteLine("PASS the Go row shows Needs Go once, with Use path… and the install hint before any start");
             Require(Tereditor.UI.Panels.LanguageDependencyList.RepeatsNeeds("Needs Go. Get it from https://go.dev/dl/ or your package manager.", "Needs Go")
-                && !Tereditor.UI.Panels.LanguageDependencyList.RepeatsNeeds("", "Needs Go"), "A failed start's detail repeating Needs Go was not recognised, so the row would show it twice.");
+                && !Tereditor.UI.Panels.LanguageDependencyList.RepeatsNeeds("", "Needs Go"), "A failed start's detail repeating Needs Go was not recognized, so the row would show it twice.");
             Console.WriteLine("PASS a failed row whose detail opens with Needs Go drops the short line");
             var mine = Tool(Path.Combine(root, "ui-mine"), "go");
             shared.ChangeAsync(HostStateChange.Setting("language-tool:go", mine)).GetAwaiter().GetResult();

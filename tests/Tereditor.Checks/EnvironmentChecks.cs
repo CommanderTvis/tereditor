@@ -500,7 +500,7 @@ internal static partial class EnvironmentChecks
             release = new TaskCompletionSource();
             var waiting = cache.PrepareAsync("/other", cancel.Token).AsTask();
             await cancel.CancelAsync();
-            try { await waiting; Require(false, "A cancelled attach cancels the wait."); }
+            try { await waiting; Require(false, "A canceled attach cancels the wait."); }
             catch (OperationCanceledException) { }
             release.SetResult();
         }

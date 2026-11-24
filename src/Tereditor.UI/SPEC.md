@@ -166,11 +166,11 @@ keeps buttons and text boxes clickable. No window menu is offered on right-click
 host's, so every client of a host shares it; non-Linux clients ignore it.
 
 The 40px header (`LayoutRoles.TopbarRow`) is the window's title bar. `WorkbenchWindow.axaml` extends the client area into the
-decorations so the native controls stay while the header provides the colour; on macOS the header leaves
+decorations so the native controls stay while the header provides the color; on macOS the header leaves
 80px for the traffic lights. In an Android desktop window the header draws into the system caption bar the same
 way (`CaptionBar`; see [Android](../Tereditor.Android/SPEC.md#windowing)): its row is never shorter than the caption,
-it keeps clear of the caption's controls at each side (at least its ordinary 12px), and those reserves do not zoom. When the system gives no control positions, the header still draws into the caption and keeps clear of a wide default room at each side (`CaptionBar.AssumedLeft`, `AssumedRight`); only controls across the centre line, or no caption, keep it below. On macOS the header row grows to 40/zoom below 100% so it never renders shorter than the fixed-size traffic lights. That height is fixed, so below 100% the header's content is counter-scaled to stay at 100% while it all fits the window's width (`WorkbenchWindow.HeaderScale`), and otherwise takes the largest scale between the zoom and 100% at which it fits, so no field disappears that the zoom would have shown; zooming in scales it as usual. The strip reports its natural width from its own measure, so the header is never measured twice. Other platforms zoom the header with the rest. The Error status can be clicked for the actual operation failure and Retry (the pending restore or
-On macOS 26 exactly (`MacWindowChrome.WantsToolbar`, pure on the OS version) `MacWindowChrome` gives the window an empty compact unified toolbar when it opens; 27 and later and earlier systems are untouched and trust the system. Tahoe rounds a window by two inputs, measured on this 2x display as the alpha edge of a window capture (px offset from the left edge at the top row, then 3, 6, 9, 12, 15 px down): an executable linked against an SDK older than 26 (the .NET apphost is stamped 15.x) keeps the old small corner whatever the style (17, 9, 5, 3, 2, 1), with or without the toolbar; linked against SDK 26, a bare titled window gets 35, 18, 13, 10, 7, 5 (TextEdit measures the same), the compact toolbar window 46, 25, 19, 15, 11, 9 (about 23 pt, close to Xcode's), a unified (non-compact) toolbar 63, 36, 28, 23, 19, 15 (Finder). `scripts/mise run package:macos` therefore restamps the packaged executable as SDK 26 with `vtool` before signing; a `scripts/mise run dev` run keeps the stock apphost and the old corner. The toolbar also moves the traffic lights 3 pt right and 4 pt down, from a centre 15.75 pt below the top to 19.75 pt, which is the centre of the 40 pt header; the header and window background are unchanged (no toolbar background or separator is drawn). The native window owns all corner clipping; the app draws no radius of its own.
+it keeps clear of the caption's controls at each side (at least its ordinary 12px), and those reserves do not zoom. When the system gives no control positions, the header still draws into the caption and keeps clear of a wide default room at each side (`CaptionBar.AssumedLeft`, `AssumedRight`); only controls across the center line, or no caption, keep it below. On macOS the header row grows to 40/zoom below 100% so it never renders shorter than the fixed-size traffic lights. That height is fixed, so below 100% the header's content is counter-scaled to stay at 100% while it all fits the window's width (`WorkbenchWindow.HeaderScale`), and otherwise takes the largest scale between the zoom and 100% at which it fits, so no field disappears that the zoom would have shown; zooming in scales it as usual. The strip reports its natural width from its own measure, so the header is never measured twice. Other platforms zoom the header with the rest. The Error status can be clicked for the actual operation failure and Retry (the pending restore or
+On macOS 26 exactly (`MacWindowChrome.WantsToolbar`, pure on the OS version) `MacWindowChrome` gives the window an empty compact unified toolbar when it opens; 27 and later and earlier systems are untouched and trust the system. Tahoe rounds a window by two inputs, measured on this 2x display as the alpha edge of a window capture (px offset from the left edge at the top row, then 3, 6, 9, 12, 15 px down): an executable linked against an SDK older than 26 (the .NET apphost is stamped 15.x) keeps the old small corner whatever the style (17, 9, 5, 3, 2, 1), with or without the toolbar; linked against SDK 26, a bare titled window gets 35, 18, 13, 10, 7, 5 (TextEdit measures the same), the compact toolbar window 46, 25, 19, 15, 11, 9 (about 23 pt, close to Xcode's), a unified (non-compact) toolbar 63, 36, 28, 23, 19, 15 (Finder). `scripts/mise run package:macos` therefore restamps the packaged executable as SDK 26 with `vtool` before signing; a `scripts/mise run dev` run keeps the stock apphost and the old corner. The toolbar also moves the traffic lights 3 pt right and 4 pt down, from a center 15.75 pt below the top to 19.75 pt, which is the center of the 40 pt header; the header and window background are unchanged (no toolbar background or separator is drawn). The native window owns all corner clipping; the app draws no radius of its own.
 mounted workspace refresh). A remote host that drops is retried automatically, and that is not an Error: the
 status reads Reconnecting (Connecting before the host first answered) with the cause on hover, and so does any transport
 failure while the host is away. A one-off action that fails that way (a save, an open, a git or file action) is not retried,
@@ -250,13 +250,13 @@ main column starts at the top edge. A phone-sized workbench keeps its own pages 
 - The rail never disappears, at any page zoom: a large zoom shrinks the window's width in layout units, and the columns then give way in a fixed order. The right side shrinks to its minimum (it never folds to nothing), then the rail shrinks to its own minimum (280 units, at most 70% of the frame, wide enough for the project, branch chip, Push and add button to show whole), and only last does the main column go under 320. The rail's width keeps the traffic lights' inset, so they never overlap the main column.
 - The left column is the fixed Projects rail alone: no title, icon, tool tabs, drag handle or drop target, not part of presets,
   not hideable, and absent from the Layout page's offerings (its group limit reads "Right side groups"). A saved layout's other left
-  tools move to the right side when it loads (and after every preset), documents there go to the centre.
+  tools move to the right side when it loads (and after every preset), documents there go to the center.
 - A header tops the rail. On macOS its first row is the title region the traffic lights sit over, at the native 40pt height, draggable
   and double-click zoomed by the system, with the add-project button at its right (the list has no caption row; the application menu holds About and Settings); where the controls are not at the left the same row holds the add-project button and the gear at its left. A right-click or long press on the header opens the View menu. Below it come the
   Project switcher, the Branch block (the branch card, and beside it the Remote block with the sync state and its one action), the
   plugins' header items as a captioned Credits block, and last the captioned Host block (Listening and the connection state), gone
   without leaving a gap while it has nothing to show.
-  A 1 px line in the border colour closes the header block, and the project list starts right below it.
+  A 1 px line in the border color closes the header block, and the project list starts right below it.
   A double-click on the header's blank space (captions, gaps; not a button or text box) zooms or restores the window like a title bar's, through the same `TitleBarDoubleClicked` path (so the macOS preference applies and full screen ignores it); a Mac's first row is left to the system. Desktop only.
   Project, Branch, Credits and Host are one pattern: a caption over a value row with the same inset, icon column and text role, the value filling the rail's width.
 - The window's right bar shows no Settings gear: Settings opens from the application menu on a Mac and from the header's gear elsewhere; the header's context menu lists it with its icon and chord above About tereditor; the right tool bar holds only the tools. The Mac menu's Settings gear is a thin outline drawn as a black-on-transparent template image, never a solid fill.
@@ -266,13 +266,13 @@ Everything else about those controls is as described in Location bar; the moved 
 ## Location bar
 
 `LocationBar.cs` renders the header's captioned segments — Project and Branch, with the Host block beside them — each a 14px row
-holding a sentence-case `ui.metadata` caption (12px, `Ui.Hint`) centred over a 20px value pill. Segments
+holding a sentence-case `ui.metadata` caption (12px, `Ui.Hint`) centered over a 20px value pill. Segments
 carry no hairlines: an 8px inset plus the pills' own padding is the separation, because full-height rules
 read as a table and never line up with the tab strip's dividers. Every pill value is one style and one
-resting colour, `title.section` in `Ui.Muted`, brightening to `Ui.TextBrush` on hover or while its menu or
+resting color, `title.section` in `Ui.Muted`, brightening to `Ui.TextBrush` on hover or while its menu or
 card is open (the pill's `open` class, which also gives it the selected fill). The chevron is hidden at rest
 and appears on hover, keyboard focus or while open. The project's initial sits in a neutral 16px tile
-(`Ui.Selected` fill, `Ui.Muted` `ui.caption` glyph), so the least important glyph is not the only coloured
+(`Ui.Selected` fill, `Ui.Muted` `ui.caption` glyph), so the least important glyph is not the only colored
 one. A caption fragment (`· from <target>`) uses the caption's own face, never a second typeface. It owns no
 host state: it shows what the window already knows and calls the same methods as the panels.
 
@@ -286,7 +286,7 @@ host state: it shows what the window already knows and calls the same methods as
 - Removing a dirty managed worktree offers a second confirmation explaining that modified and
   untracked files will be permanently lost. Cancel has focus; only an explicit Delete anyway action
   retries with force. The committed branch remains, locked worktrees still refuse, and other deletion
-  failures do not offer force removal. Cancelling or a failed retry leaves the workspace registered.
+  failures do not offer force removal. Canceling or a failed retry leaves the workspace registered.
 - Rename uses the Projects rail's inline input only.
 - Remove asks through the shared confirmation, which names the workspace it was opened for. When that was
   the active workspace and the window lands elsewhere before the answer, the dialog dismisses itself, so
@@ -319,10 +319,10 @@ host state: it shows what the window already knows and calls the same methods as
   (project badge, branch and pull-request icons, the Remote block's cloud, never the Processes plugin's node tree, the Host block's state glyphs; an empty state keeps its icon, muted, beside muted
   text), so the caption and the value's first element share one left edge in every field.
 - HOST, in the top bar's trailing group and as the rail header's last block, is captioned Host (the Settings section that starts and
-  stops the listener) over the Listening mark and the connection state (Connecting, Reconnecting, Error in the danger colour, or
+  stops the listener) over the Listening mark and the connection state (Connecting, Reconnecting, Error in the danger color, or
   a remote host's name), each a muted 14px glyph in the icon column beside `title.section` text, like the branch and cloud glyphs:
   Listening wears a radio tower, a connected host's name a plug, Connecting and Reconnecting (while the host is retried)
-  the loader turning like the other spinners, and Error (retrying stopped or cannot help) an unplugged plug. No colour dot. It is hidden, holding no place, while neither shows, and a hidden loader
+  the loader turning like the other spinners, and Error (retrying stopped or cannot help) an unplugged plug. No color dot. It is hidden, holding no place, while neither shows, and a hidden loader
   does not turn. Settings' Host section keeps its plain Listening at / Not listening text.
 - `LocationStrip` lays the segments out. As width shrinks the provider items yield first, then the branch; a
   segment that would fall under 72px is dropped whole, and the project keeps what is left.
@@ -459,12 +459,12 @@ which the first window opens once it has restored its own location, and by `Navi
 ## Styling and theming
 
 Static layouts, styles and templates live in compiled `.axaml`; dynamic docking and host wiring stay in
-C#. Colours come from the shared brushes that `Ui.Apply` writes from the active theme manifest, never from
-literals at call sites. Bundled `*.theme.json` manifests are the theme catalogue (`Rendering/Themes.cs`);
+C#. Colors come from the shared brushes that `Ui.Apply` writes from the active theme manifest, never from
+literals at call sites. Bundled `*.theme.json` manifests are the theme catalog (`Rendering/Themes.cs`);
 adding a theme is adding a manifest. The theme preference is host state: the fixed id, the fixed/system
 mode and the optional light/dark pair. Each client resolves system mode against its own operating-system
 appearance; an appearance change is a local effect and never a host write, so two clients may render
-different themes at once. Surfaces that bake colours (Mermaid, Scintilla, Ghostty) listen to
+different themes at once. Surfaces that bake colors (Mermaid, Scintilla, Ghostty) listen to
 `Ui.ThemeChanged` and update without reopening documents. Fonts ship inside the app under
 `Assets/Fonts`; nothing is fetched at runtime.
 
@@ -776,7 +776,7 @@ Saved acceptance appears checked and read-only, with an explicit Start action; n
 is shown inline with logs and requires an authorized newer build or selection of existing providers.
 The language module owns artifact and licensing limitations; no paid-license support is claimed.
 
-Workspace LSP configuration windows load version-labelled named controls from the
+Workspace LSP configuration windows load version-labeled named controls from the
 host's `configurationSchema` operation. Typed values update the existing advanced
 JSON while preserving unknown properties, and invalid numeric edits block save.
 They use the same workspace persistence, live updates and restart actions as raw
@@ -796,9 +796,9 @@ fabricated module marker. Inventory rows retain compact runtime/import progress;
 long resolution descriptions and manifest lists remain in analysis coverage.
 
 Discovery is asynchronous and starts no servers. Files refreshes project metadata
-with workspace/file changes, keeps expanded folders and rejects cancelled/stale workspace
+with workspace/file changes, keeps expanded folders and rejects canceled/stale workspace
 responses. Folder context menus use the nearest root for each provider and open the
-existing workspace-scoped configuration window, labelled with its scope. They also offer
+existing workspace-scoped configuration window, labeled with its scope. They also offer
 the detected build definitions as editable documents. These actions do not automatically
 rewrite Gradle/Maven/MSBuild models or claim native module configuration/import controls.
 

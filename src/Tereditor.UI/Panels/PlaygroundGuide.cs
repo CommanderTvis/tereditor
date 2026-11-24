@@ -19,7 +19,7 @@ internal static class PlaygroundGuide
         steps.Children.Add(Step("2.", "Connect a model: paste an API key for Anthropic, OpenAI, Google or another provider.", "Open Model providers", providers, "PlaygroundGuideProviders"));
         steps.Children.Add(Step("3.", "Play: open the project folder, start a Pi chat and let the agent read, edit and commit, or use the terminal for git and file commands."));
         var credits = new StackPanel { Spacing = 4 };
-        credits.Children.Add(Wrapped("Have a subscription? " + ProviderCatalog.AnthropicCredits + " " + ProviderCatalog.GoogleCredits + " A JetBrains AI licence token works too, but it expires after an hour. A Claude subscription sign-in is not supported here.", Ui.Muted, 12));
+        credits.Children.Add(Wrapped("Have a subscription? " + ProviderCatalog.AnthropicCredits + " " + ProviderCatalog.GoogleCredits + " A JetBrains AI license token works too, but it expires after an hour. A Claude subscription sign-in is not supported here.", Ui.Muted, 12));
         var links = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         links.Children.Add(Link("Claim Claude credits", () => openLink(ProviderCatalog.AnthropicCreditsUrl), "PlaygroundGuideClaudeCredits"));
         links.Children.Add(Link("Activate Google credits", () => openLink(ProviderCatalog.GoogleCreditsUrl), "PlaygroundGuideGoogleCredits"));

@@ -11,7 +11,7 @@ settings, plugins and shells stay on the host.
 
 ## Layout
 
-- A wide window gets the desktop layout: the project rail, the centre and the side tools, with Settings in the top bar.
+- A wide window gets the desktop layout: the project rail, the center and the side tools, with Settings in the top bar.
   That is a tablet in either orientation, an unfolded foldable, or the app's window on a monitor in Android's desktop
   mode (with a mouse and keyboard, as on the desktop). Wide means at least 600 × 480 dp, or 600 × 360 dp on a tablet
   or an external monitor, so a 1280×720 px desktop-mode window counts.

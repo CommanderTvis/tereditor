@@ -68,7 +68,7 @@ internal static class BottomPanelE2E
                 Require(Math.Abs((side == "left" ? after.Left : after.Right) - (side == "left" ? before.Left : before.Right)) > .001,
                     $"Resizing the {side} side at a narrow width must persist that side ({(keyboard ? "keyboard" : "pointer")}).");
                 Require(Math.Abs((side == "left" ? after.Right : after.Left) - (side == "left" ? before.Right : before.Left)) < .005,
-                    "Resizing one side must not persist its compressed neighbour.");
+                    "Resizing one side must not persist its compressed neighbor.");
             }
         Console.WriteLine("PASS upstream bottom-panel.spec.ts: narrow side resizing persists only the side whose separator moved");
     }

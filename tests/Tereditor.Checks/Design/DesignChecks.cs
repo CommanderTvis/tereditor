@@ -45,7 +45,7 @@ internal static partial class DesignChecks
         LayoutRoles(root, failures);
         TypographyUsage(DesignSources.LoadTypography(root), sources, failures);
         if (failures.Count > 0) throw new InvalidOperationException("Design checks failed:\n" + string.Join("\n", failures));
-        Console.WriteLine("PASS generated design sources are current, colours are named only through roles and rhythm stays on the spacing scale, text takes its type from roles");
+        Console.WriteLine("PASS generated design sources are current, colors are named only through roles and rhythm stays on the spacing scale, text takes its type from roles");
     }
 
     /// <summary>The UI project's hand-written XAML and C#, with comments blanked so prose may name a value.</summary>
@@ -106,7 +106,7 @@ internal static partial class DesignChecks
             if (role.Over is not null && (!Themes.ColorKeys.Contains(role.Over) || Themes.NullableKeys.Contains(role.Over) || role.Alpha is null))
                 failures.Add($"colors.json: role {role.Name} composites a tint over {role.Over}, which must be a required palette key, and needs an alpha step.");
             if (DesignSources.Nullable(role) && (!role.IsColor || role.Alpha is not null))
-                failures.Add($"colors.json: role {role.Name} reads a nullable key, so it must be an untinted colour role.");
+                failures.Add($"colors.json: role {role.Name} reads a nullable key, so it must be an untinted color role.");
         }
         var claimed = colors.Roles.Select(role => role.From).ToHashSet();
         foreach (var key in Themes.ColorKeys)
@@ -117,8 +117,8 @@ internal static partial class DesignChecks
         foreach (var key in colors.Unclaimed.Except(Themes.ColorKeys)) failures.Add($"colors.json: unclaimed lists the unknown palette key {key}.");
 
         var controls = sources.Where(source => !ColorOwners.Contains(source.Path)).ToArray();
-        Scan(controls.Where(source => source.Path.EndsWith(".cs", StringComparison.Ordinal)), RawColorCode(), "raw colour; name a role from Ui", failures);
-        Scan(controls.Where(source => source.Path.EndsWith(".axaml", StringComparison.Ordinal)), RawColorXaml(), "raw colour; bind a role from Ui", failures);
+        Scan(controls.Where(source => source.Path.EndsWith(".cs", StringComparison.Ordinal)), RawColorCode(), "raw color; name a role from Ui", failures);
+        Scan(controls.Where(source => source.Path.EndsWith(".axaml", StringComparison.Ordinal)), RawColorXaml(), "raw color; bind a role from Ui", failures);
         Scan(controls, PaletteRead(), "palette key read outside Ui; add a role to colors.json", failures);
         Scan(controls, PartialOpacity(), "opacity used as a tint; add a role on the alpha scale", failures);
 

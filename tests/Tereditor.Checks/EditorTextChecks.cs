@@ -197,14 +197,14 @@ internal static class EditorTextChecks
         using (var lined = Capture(window))
         {
             var band = lined.GetPixel(lined.Width - 40, row);
-            Require(band.Blue > 200 && band.Red < 60 && band.Green < 60, $"The current line must be painted in its colour to the right edge (saw {band}).");
+            Require(band.Blue > 200 && band.Red < 60 && band.Green < 60, $"The current line must be painted in its color to the right edge (saw {band}).");
         }
         editor.Colors = editor.Colors with { CurrentLine = null };
         Pump(); Pump();
         using (var plain = Capture(window))
         {
             var band = plain.GetPixel(plain.Width - 40, row);
-            Require(band is { Red: > 240, Green: > 240, Blue: > 240 }, $"Without a current-line colour the caret's line keeps the background (saw {band}).");
+            Require(band is { Red: > 240, Green: > 240, Blue: > 240 }, $"Without a current-line color the caret's line keeps the background (saw {band}).");
         }
         Console.WriteLine("PASS Scintilla paints reordered text and selection at their visual positions");
     }
@@ -232,7 +232,7 @@ internal static class EditorTextChecks
         var height = (int)Send(editor, ScintillaMessage.TextHeight);
         var red = Columns(pixels, row + height, color => color.Red > 200 && color.Green < 80 && color.Blue < 80).Count;
         var band = pixels.GetPixel(pixels.Width - 40, row + 2 * height);
-        Require(red > 0, "A line style must colour its line's text.");
+        Require(red > 0, "A line style must color its line's text.");
         Require(band.Blue > 200 && band.Red < 60, $"A line style's background must fill its line to the right edge (saw {band}).");
         editor.Text = string.Join(' ', Enumerable.Range(0, 40).Select(i => i % 3 == 0 ? "tab\tword" : "lorem")) + "\nnext";
         editor.WrapWidth = 300;
@@ -252,7 +252,7 @@ internal static class EditorTextChecks
         editor.ShowLineNumbers = true;
         editor.WrapWidth = double.PositiveInfinity;
         editor.LineStyles = []; editor.StyleLines([]);
-        Console.WriteLine("PASS Scintilla line styles colour text and fill line backgrounds");
+        Console.WriteLine("PASS Scintilla line styles color text and fill line backgrounds");
     }
 
     // A wheel step inside the first visible line only shifts the last recording; an edit records again.

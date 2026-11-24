@@ -124,7 +124,7 @@ internal static partial class HeadlessChecks
 
         // Not accepted, Kotlin files get a hint saying why IntelliJ is not in use; Java files get the terms. Accepted, nothing of the sort.
         var waiting = NewConsent(Path.Combine(root, "waiting"));
-        Require(waiting.WaitingFor(Args("""{"path":"src/Main.kt"}""")) is { Id: "intellij" } && waiting.WaitingFor(Args("""{"path":"src/Main.java"}""")) is null && waiting.WaitingFor(Args("""{"path":"a.cs"}""")) is null, "The files served by the previous server are not recognised.");
+        Require(waiting.WaitingFor(Args("""{"path":"src/Main.kt"}""")) is { Id: "intellij" } && waiting.WaitingFor(Args("""{"path":"src/Main.java"}""")) is null && waiting.WaitingFor(Args("""{"path":"a.cs"}""")) is null, "The files served by the previous server are not recognized.");
         var hinted = await new LanguageConsentTools(waiting, null, null).Guard(new McpServer.McpTool("lsp_navigate", "t", "d", [], (_, _) => Task.FromResult(("""{"state":"ready"}""", false)))).Call(Args("""{"path":"src/Main.kt"}"""), default);
         Require(!hinted.Error && hinted.Text.Contains("not in use", StringComparison.Ordinal) && hinted.Text.Contains("accept_terms", StringComparison.Ordinal), "A Kotlin answer must say why IntelliJ is not in use: " + hinted.Text);
         // The unlicensed message says plainly that a window-less host needs a license; no trial is ever started or switchable there.

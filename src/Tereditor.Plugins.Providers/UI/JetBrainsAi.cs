@@ -19,7 +19,7 @@ internal static partial class JetBrainsAi
     public const string CentralDocs = "https://www.jetbrains.com/help/central-cli/quickstart.html";
     public const string Licences = "https://account.jetbrains.com/licenses";
 
-    public const string Disclaimer = "This is unofficial software, not affiliated with or endorsed by JetBrains; its author takes no responsibility for what happens to your account, licence or tokens. It signs in with Central's login outside Central and talks to JetBrains AI from a client JetBrains did not make: JetBrains may treat that as a breach of its terms and could suspend your account or licence. You use it at your own risk.";
+    public const string Disclaimer = "This is unofficial software, not affiliated with or endorsed by JetBrains; its author takes no responsibility for what happens to your account, license or tokens. It signs in with Central's login outside Central and talks to JetBrains AI from a client JetBrains did not make: JetBrains may treat that as a breach of its terms and could suspend your account or license. You use it at your own risk.";
 
     [GeneratedRegex(@"^[A-Za-z0-9-]+$")]
     private static partial Regex LicenceShape();
@@ -55,9 +55,9 @@ internal static partial class JetBrainsAi
         var warning = Ui.Text(Disclaimer, Ui.Warning, 12);
         warning.TextWrapping = TextWrapping.Wrap;
         notice.Children.Add(warning);
-        notice.Children.Add(Step("Uses your JetBrains AI licence through Central's sign-in, with Claude's models. A hosted page cannot sign in to JetBrains itself, so you run one command on your computer and paste its token; it lasts an hour."));
+        notice.Children.Add(Step("Uses your JetBrains AI license through Central's sign-in, with Claude's models. A hosted page cannot sign in to JetBrains itself, so you run one command on your computer and paste its token; it lasts an hour."));
         var links = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Left };
-        foreach (var (label, url) in new[] { ("Central CLI quickstart", CentralDocs), ("Your licences", Licences) })
+        foreach (var (label, url) in new[] { ("Central CLI quickstart", CentralDocs), ("Your licenses", Licences) })
         {
             var link = Ui.Button(label, () => { });
             link.Click += (_, _) => TopLevel.GetTopLevel(link)?.Launcher.LaunchUriAsync(new Uri(url));

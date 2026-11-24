@@ -499,7 +499,7 @@ public sealed partial class LanguageService : IAsyncDisposable
                         }
                     }
                     else if (task.IsFaulted) { state = task.Exception!.GetBaseException() is LanguageTermsRequiredException ? "requiresAcceptance" : "error"; detail = task.Exception!.GetBaseException().Message; }
-                    else if (task.IsCanceled) { state = "stopped"; detail = "Startup was cancelled."; }
+                    else if (task.IsCanceled) { state = "stopped"; detail = "Startup was canceled."; }
                 }
             }
             if (NotInUse(workspace, catalogServer) is { } unused) { state = "error"; detail = $"Not in use: {unused} The servers it replaces answer instead. Use Retry to try it again."; }

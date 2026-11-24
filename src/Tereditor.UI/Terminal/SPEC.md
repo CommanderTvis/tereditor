@@ -74,11 +74,11 @@ protocols keep Ghostty's own encoding; default mode also restores Ghostty's own 
 embedding shim reads protocol state under the renderer lock and queues raw input, avoiding clipboard
 paste transformation. Native checks capture actual AppKit key bytes for all four cases.
 
-Projects lists host-catalogued terminals on every client, including workspaces the
+Projects lists host-cataloged terminals on every client, including workspaces the
 window has never opened and terminals whose tab strips are hidden or elsewhere.
 Saved host agent titles take precedence over catalog titles in these lists too.
 Choosing one reveals its tab and watches another client's live shell without taking
-it over. Centre file-tab previews still follow the client's tabs-in-Projects setting.
+it over. Center file-tab previews still follow the client's tabs-in-Projects setting.
 
 ## Resume offer
 
@@ -223,7 +223,7 @@ once. Re-attaching a view (a tab switch) is not a gesture: the Metal view applie
   the complete replay rather than a clipped initial screen.
 - A host that predates watching returns a watch attach detached: the body is then hidden and the same bar
   reads "This terminal is in use by another client." (or "This terminal is open somewhere else." for the
-  previous holder) with the same button, which is the earlier behaviour.
+  previous holder) with the same button, which is the earlier behavior.
 - Output goes to the holder and to every watcher. A fresh view receives a bounded snapshot of the main
   screen, preceded by the observed private modes except mouse tracking. If the live shell is on the
   alternate screen, the host also supplies its retained live output and modes; watchers do not require
@@ -303,7 +303,7 @@ passes through when there is nothing to undo; each operation keeps its own timeo
   input ignores Command chords.
 - Closing the window ends the sessions it kept for undo; stopping the host ends any left.
 - `--shared-terminals` (and `--terminals`) cover close → toast → Cmd+Z restoring the same live session in place
-  for both clients, Ctrl+Z left to a focused terminal, redo, and zero turning undo off; host behaviour is covered
+  for both clients, Ctrl+Z left to a focused terminal, redo, and zero turning undo off; host behavior is covered
   by `TerminalUndoCloseChecks.cs`.
 
 ## Tab lifecycle
@@ -325,18 +325,18 @@ naming a tab key in another workspace reserves a separate tab with its own shell
 place. The one exception is `workspace_emigrate`, which the user approves per call
 (Host Core `WorkspaceMcpTools.cs`).
 Appearance changes keep live terminal views (`DocumentCache.cs`); Ghostty receives the new background,
-foreground, ANSI palette, cursor and selection colours and its contrast floor without restarting the
-shell. Ordinary themes preserve terminal foreground colours without minimum-contrast adjustment
+foreground, ANSI palette, cursor and selection colors and its contrast floor without restarting the
+shell. Ordinary themes preserve terminal foreground colors without minimum-contrast adjustment
 (Ghostty's default of 1); high-contrast themes use a minimum ratio of 7.
-Reverse-screen mode (DECSCNM) swaps the default text and background colours together,
+Reverse-screen mode (DECSCNM) swaps the default text and background colors together,
 and resetting the mode restores both.
 The Metal bridge loads theme values through a temporary Ghostty configuration file,
 then deletes it after applying the configuration; it does not modify user config files.
 That file sets `window-colorspace = display-p3`: Ghostty's output is Display P3 and would otherwise
 convert the sRGB theme into it, while Avalonia composes the texture untagged, as it draws its own
 brushes. Taking theme values as written keeps the terminal background byte-identical to Avalonia chrome
-of the same colour on every display; `--native-texture` compares the texture with an Avalonia swatch
-rather than an absolute value, which changed with the display's colour profile.
+of the same color on every display; `--native-texture` compares the texture with an Avalonia swatch
+rather than an absolute value, which changed with the display's color profile.
 
 ## Program signals
 
@@ -407,7 +407,7 @@ while hidden is parsed as usual and shows after the next draw, and a hidden view
 idempotent and runs only while the surface is occluded. `--native-surface-memory` measures it (8 terminals at 1400x900:
 IOSurface 523 MB visible, 252 MB with 7 hidden past the delay, 523 MB when shown again) and checks the properties above.
 A view also follows its ancestors' `IsVisible` flags while attached (another workspace's tabs, a collapsed drawer hide a
-terminal that way and never detach it), and a minimised window occludes it, so a terminal nobody looks at is always
+terminal that way and never detach it), and a minimized window occludes it, so a terminal nobody looks at is always
 occluded and Ghostty frees its whole swap chain. The one texture it still holds is the last presented frame, kept so a quick
 tab flip shows content at once; after 30 seconds hidden (`DefaultDropDelay`, `gav_texture_drop`) the view lets that go too, so a
 terminal left alone owns no GPU memory. Showing it again draws a fresh frame, and until that completes (a few milliseconds) the
@@ -456,7 +456,7 @@ must invalidate affected rows. Cached native text blobs batch compatible ASCII
 cells while preserving the grid and existing complex-grapheme behavior. Queued
 draw operations retain row resources until released.
 Cells are whole device pixels, the framebuffer is copied to the screen pixel for pixel from a whole-pixel origin, and a face
-narrower than its cells is centred by a whole number of device pixels, so the same letter has the same ink in every column
+narrower than its cells is centered by a whole number of device pixels, so the same letter has the same ink in every column
 at any scale (`--ghostty-skia` compares 'o' and 'c' columns at 1x, 1.25x, 1.5x and 2x).
 The Skia adapter reads live output independently into a bounded queue (128 pieces of at most
 8 KiB) and drains available pieces in one UI dispatch, up to 256 KiB or a cooperative 2 ms
@@ -527,7 +527,7 @@ alternate screen or mouse modes, resume without duplication, busy detection and 
 them with terminal translations and checks for empty startup and explicit tab-group placement over local and remote hosts. Native acceptance
 additionally requires live shell output with nonuniform pixels in Ghostty's IOSurface, keyboard input,
 resizing and disposal (`scripts/mise run check:terminal`, `--native-terminal`); headless docking checks alone do
-not establish terminal execution. `--ghostty-skia` verifies real rendered colours,
+not establish terminal execution. `--ghostty-skia` verifies real rendered colors,
 wide/combining text, keyboard and SGR mouse press/release, paste, selection,
 scrollback, resize, a real host shell surviving a renderer restart, and a watching view of a held shell
 (the holder's grid in a smaller pane, its resize, no keys or query replies sent, Enter on the offer).
@@ -624,8 +624,8 @@ no call to the system launcher seam. It then Command-clicks an OSC 8 `file://hos
 Metal view (no mouse tracking) and requires the document callback, not the launcher, while a web
 hyperlink still reaches the launcher; and it streams red link lines and wheel-scrolls Metal and Skia
 views, capturing the check window repeatedly: every underline run in each captured frame must be the
-link's own colour (drawn by the renderer) with link text directly above it in that frame. Before the
-fix the Metal frames carried the foreground-coloured overlay. Every `ITerminalService` wrapper must forward `FindFileLinksAsync`: the interface's
+link's own color (drawn by the renderer) with link text directly above it in that frame. Before the
+fix the Metal frames carried the foreground-colored overlay. Every `ITerminalService` wrapper must forward `FindFileLinksAsync`: the interface's
 empty default once silently disabled all links in the app while direct-host checks passed. `--loopback-terminals`
 requires `LoopbackTerminals` and `LocalTerminalAdapter` to implement every `ITerminalService` member themselves
 (the throwing `SaveClipboardImageAsync` default once refused every local clipboard image) and pastes a PNG
@@ -652,7 +652,7 @@ own terminal state keeps, so local and remote terminals behave alike.
   non-blank row before the next prompt; prompt and input rows select nothing. Metal answers through
   `gav_ghostty_command_output` (Native/prompt-surface.zig, prompts.zig; the native Ghostty did not apply the gesture to events
   the view forwards, so the view selects on Avalonia's third click itself); Skia uses libghostty-vt's
-  `ghostty_terminal_select_output` and the gesture's output behaviour. Skia's repeat clicks now carry Ghostty's 500 ms
+  `ghostty_terminal_select_output` and the gesture's output behavior. Skia's repeat clicks now carry Ghostty's 500 ms
   interval and one-cell distance; without them double and triple clicks never counted.
 - Click to move (Ghostty's `cursor-click-to-move`, default true; a plain click since Ghostty's current docs, Option+click in
   older Ghostty): a plain click without dragging or selecting, on the input line while the shell waits for input (OSC 133 B
@@ -704,7 +704,7 @@ with exactly three choices, each inserting through the same callback without sub
 - Choose path from host: a folder browser over the host's folder listing
   ([Files.SPEC.md](../../Tereditor.Host.Core/Files.SPEC.md#host-folder-listing)), starting at the workspace
   root, with Up, Home and the current path shown. Folders load off the UI thread and a pending load is
-  cancelled by opening another folder or closing; a missing or unreadable folder shows its error inline
+  canceled by opening another folder or closing; a missing or unreadable folder shows its error inline
   and Up and Home still lead out. The picked file's absolute host path (joined with the host's separator)
   is inserted; nothing is uploaded. Hidden against hosts below protocol 11.
 - Choose file from workspace: the same browser over the workspace's file listing from its root (no Home);

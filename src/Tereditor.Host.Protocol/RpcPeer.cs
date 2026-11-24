@@ -197,7 +197,7 @@ public sealed class RpcStream : IAsyncDisposable
     public CancellationToken Token => token;
     public CallContext Context(string method) => new(options with { CancellationToken = Token }) { Method = method };
     internal RpcException Cancelled() => new(new(deadlineLifetime.IsCancellationRequested || (options.Deadline is { } deadline && deadline <= DateTime.UtcNow)
-        ? StatusCode.DeadlineExceeded : StatusCode.Cancelled, "The RPC was cancelled or exceeded its deadline."));
+        ? StatusCode.DeadlineExceeded : StatusCode.Cancelled, "The RPC was canceled or exceeded its deadline."));
     internal void Receive(RpcFrame frame)
     {
         lock (gate)

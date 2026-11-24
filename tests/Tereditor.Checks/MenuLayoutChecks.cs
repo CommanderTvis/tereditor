@@ -65,12 +65,12 @@ internal static class MenuLayoutChecks
         Tereditor.Checks.E2E.E2eWorkspace.Until(() => menu.IsOpen);
         var submenu = menu.Items.OfType<MenuItem>().Single(item => item.Name == "GroupWithMenu");
         Require(submenu.Items.OfType<MenuItem>().Select(item => (string?)item.Header).SequenceEqual(new[] { "b.txt", "c.txt", "d.txt", "z.txt" }),
-            "Group with lists every other tab in strip order, not only the neighbours.");
+            "Group with lists every other tab in strip order, not only the neighbors.");
         Require(menu.Items.OfType<MenuItem>().Any(item => item.Name == "TabShowInDirectory"), "A file tab offers Show in directory.");
         submenu.Items.OfType<MenuItem>().Single(item => item.Name == "GroupWith_file_c.txt").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         menu.Close();
         Require(app.Window.Layout.PaneFor(app.Center, "file:a.txt") is { } pane && pane.TabIds.Contains("file:c.txt") && !pane.TabIds.Contains("file:b.txt"),
-            "Choosing a non-neighbour tab groups the two tabs.");
+            "Choosing a non-neighbor tab groups the two tabs.");
 
         var filesGroup = app.Window.Layout.State.Groups.Single(group => group.Tools.Any(tool => tool.Id == "files"));
         app.Window.Layout.Visible(filesGroup.Region, false);
@@ -91,7 +91,7 @@ internal static class MenuLayoutChecks
         Tereditor.Checks.E2E.E2eWorkspace.Until(() => shell.ContextMenu!.IsOpen);
         Require(!shell.ContextMenu!.Items.OfType<MenuItem>().Any(item => item.Name == "TabShowInDirectory"), "A terminal tab does not offer Show in directory.");
         shell.ContextMenu.Close();
-        Console.WriteLine("PASS menu layout: Group with lists every tab and groups a non-neighbour, Show in directory reveals deep files");
+        Console.WriteLine("PASS menu layout: Group with lists every tab and groups a non-neighbor, Show in directory reveals deep files");
     }
 
     internal static void Run()
@@ -197,7 +197,7 @@ internal static class MenuLayoutChecks
             }
         }
         finally { MenuIconAudit.Probing = false; }
-        Console.WriteLine($"PASS menu layout: icons sit in one {LayoutRoles.MenuIconSlot}px slot, centred and unclipped, in every audited menu ({MenuIconAudit.Audited} audited); the audit fails on broken icons");
+        Console.WriteLine($"PASS menu layout: icons sit in one {LayoutRoles.MenuIconSlot}px slot, centered and unclipped, in every audited menu ({MenuIconAudit.Audited} audited); the audit fails on broken icons");
     }
 
     // The add-project menu's recent paths read as folder name plus a muted parent, cut in the middle, and never widen the menu past its bound.

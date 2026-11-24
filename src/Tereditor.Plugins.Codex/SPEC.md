@@ -86,7 +86,7 @@ invitation is excluded by the tereditor product contract; a Codex chat component
   tereditor intentionally does not apply launcher settings, tools or the prompt appendix to typed CLI
   commands; the workspace launcher applies the user's settings. Existing hooks and separately configured
   MCP/IDE connections may still work. Unknown origins (including unavailable process inspection on Windows)
-  are not labelled manual. Origin persists and crosses local/remote host state; status reports retain it.
+  are not labeled manual. Origin persists and crosses local/remote host state; status reports retain it.
 - Instructions follow Codex's AGENTS.md discovery: the first non-empty `AGENTS.override.md` /
   `AGENTS.md` in `$CODEX_HOME`, then one file per directory from the nearest repository root down to
   the visible Codex tab's CWD, with `project_doc_fallback_filenames` appended; without a repository
@@ -215,7 +215,7 @@ notice is not ported because Pi is out of scope.
 A live status push that settles a terminal blocked (`PermissionRequest`) or done (`Stop`) asks core for
 an away notification through `NotifyAttention`, worded by the shared `AgentAttention` ("Codex needs
 you", "Codex finished", scoped to the reported CWD's folder). Codex has no failed status, its hooks
-carry no summary, and `Interrupt` settles idle, so a cancelled run stays silent. The fork's Codex plugin
+carry no summary, and `Interrupt` settles idle, so a canceled run stays silent. The fork's Codex plugin
 raises no desktop notification; this follows its Claude Code plugin so both agents behave alike.
 `--notifications` covers it with injected pushes and a recording notifier.
 

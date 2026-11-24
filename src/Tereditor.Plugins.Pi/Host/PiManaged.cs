@@ -199,7 +199,7 @@ internal sealed class PiManaged(string root, Func<string, CancellationToken, Tas
         }
         catch (OperationCanceledException)
         {
-            lock (gate) error = "The download was cancelled.";
+            lock (gate) error = "The download was canceled.";
             throw;
         }
         catch (Exception problem) when (problem is InvalidOperationException or IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)

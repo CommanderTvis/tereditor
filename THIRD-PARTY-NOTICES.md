@@ -142,10 +142,10 @@ and Svg.Skia share in this app;
 SkiaSharp, Skia, HarfBuzzSharp and HarfBuzz retain their NuGet package licenses. No Cocoa Scintilla view
 or Lexilla binary is bundled.
 
-File Icons bundles 1,251 recoloured SVGs generated from Material Icon Theme 5.38.1
+File Icons bundles 1,251 recolored SVGs generated from Material Icon Theme 5.38.1
 (MIT; Copyright 2025 Material Extensions). See licenses/Material-Icon-Theme-MIT.txt.
 The source archive checksum is pinned in the plugin generator; generated assets are build output.
-Settings › Plugins draws the single-colour language logos from this set on its category chips.
+Settings › Plugins draws the single-color language logos from this set on its category chips.
 
 Codex uses Tomlyn 2.10.1 (BSD-2-Clause; Copyright 2019–2026 Alexandre Mutel).
 See licenses/Tomlyn-BSD-2-Clause.txt. Its Codex SVG derives from LobeHub Icons
@@ -177,8 +177,8 @@ the Play services and ML Kit libraries it packages are covered by the Android So
 and the ML Kit terms); the
 two QR icons come from the same Remix Icon set as the other SVG glyphs.
 Syntax highlighting uses TextMateSharp and TextMateSharp.Grammars 2.0.4 (MIT),
-with their Onigwrap 1.0.11 / Oniguruma native dependency. The engine licence is
-in licenses/TextMateSharp-MIT.txt; native dependency notices and licences are in
+with their Onigwrap 1.0.11 / Oniguruma native dependency. The engine license is
+in licenses/TextMateSharp-MIT.txt; native dependency notices and licenses are in
 licenses/Onigwrap-MIT.txt and licenses/Onigwrap-NOTICES.txt. Bundled grammars retain their upstream provenance
 in the embedded grammar resources. Supplementary grammar files under the UI kit's Editor/Grammars are:
 
@@ -255,7 +255,7 @@ itself and Anthropic's VS Code and JetBrains extensions, and the checks pin them
 from the tools' documentation.
 
 The ACP plugin's `assets/acp.svg` is the Agent Client Protocol logomark from its official brand assets
-(https://agentclientprotocol.com/brand), recoloured to currentColor on a square canvas; see NOTICE.
+(https://agentclientprotocol.com/brand), recolored to currentColor on a square canvas; see NOTICE.
 
 Bun 1.4.4 (https://github.com/oven-sh/bun, MIT License; its release also carries the notices of the libraries linked into it,
 among them JavaScriptCore under the LGPL-2.1) is not bundled. tereditor downloads the official release archive for the platform

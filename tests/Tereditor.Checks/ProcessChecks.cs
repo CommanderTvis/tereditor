@@ -84,7 +84,7 @@ internal static class ProcessChecks
             try
             {
                 await Sh(directory, $"sleep 20 & echo $! > '{pidFile}'; wait", 20, cancel.Token);
-                throw new InvalidOperationException("A cancelled child completed.");
+                throw new InvalidOperationException("A canceled child completed.");
             }
             catch (OperationCanceledException) { }
             await RequireGone(pidFile, "Cancellation left the child's process group running.");

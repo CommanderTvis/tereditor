@@ -44,7 +44,7 @@ public readonly record struct CaptionBar(double Height, double Left, double Righ
         {
             if (end <= start) continue;
             any = true;
-            if (start < centre && end > centre) { branch = "controls cross the centre, header below"; return null; }
+            if (start < centre && end > centre) { branch = "controls cross the center, header below"; return null; }
             if (end <= centre) left = Math.Max(left, end);
             else right = Math.Max(right, width - start);
         }

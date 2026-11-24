@@ -30,7 +30,7 @@ acceptance or fabricate a terminal identity.
 The manifest pins repository commits, source-count floors and exact probe files.
 Each case asserts semantic symbols and an actual diagnostic publication. Cases
 marked `crossFile` also require a reference outside the queried file. Document-only
-providers are explicitly labelled; a PASS there does not establish a project-wide
+providers are explicitly labeled; a PASS there does not establish a project-wide
 index. A `protocol` hover at line zero only tests request handling. Unversioned
 push diagnostics are retained as unversioned, never described as a clean build.
 Reports preserve calls, coverage, runtime output, provider catalog version and logs.

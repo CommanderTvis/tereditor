@@ -130,7 +130,7 @@ internal static class DrawerChecks
         _ = window.OpenDocumentAsync("notes.txt");
         Pump(() => !layout.State.RightVisible, "Opening a document must return to the current page.");
         Require(!Named<Border>(window, "CenterRegion").GetLogicalDescendants().OfType<Tereditor.UI.Docking.DockTabButton>().Any(),
-            "Tabs kept in Projects must not fall back to a strip in the centre.");
+            "Tabs kept in Projects must not fall back to a strip in the center.");
         Click(projects);
         Pump(() => Region("left").GetLogicalDescendants().OfType<Tereditor.UI.Docking.DockTabButton>().Any(), "The open document's tab must be listed in Projects.");
         Require(Region("left").GetLogicalDescendants().OfType<Button>().Where(button => button.Name == "CloseTab").All(close => close.Opacity == 1) &&
@@ -190,7 +190,7 @@ internal static class DrawerChecks
         Click(current);
         var menus = window.GetLogicalDescendants().OfType<Control>().Select(control => control.ContextMenu).OfType<ContextMenu>().Distinct().ToArray();
         Require(menus.Length > 0 && !menus.SelectMany(menu => menu.Items.OfType<MenuItem>()).Any(item => item.Header is string header && header.StartsWith("New split", StringComparison.Ordinal)),
-            "A workbench that keeps its tabs in Projects must not offer to split the centre.");
+            "A workbench that keeps its tabs in Projects must not offer to split the center.");
 
         Click(Named<Button>(window, "PageTools"));
         Drag(width * 0.8, width * 0.3);
@@ -290,7 +290,7 @@ internal static class DrawerChecks
         Pump(() => Named<Border>(window, "AuxiliaryRegion_left").Bounds.Width > 0 && Named<Border>(window, "AuxiliaryRegion_right").Bounds.Width > 0, "The side panels did not lay out.");
         double Left(string name) => Named<Border>(window, name).TranslatePoint(default, window)!.Value.X;
         Require(Left("AuxiliaryRegion_left") < Left("CenterRegion") && Left("CenterRegion") < Left("AuxiliaryRegion_right") && Named<Border>(window, "CenterRegion").Bounds.Width > 0,
-            "The frame must lay out the project rail, the centre and the side tools from left to right.");
+            "The frame must lay out the project rail, the center and the side tools from left to right.");
         group = layout.State.Center.Leaves().First();
         Require(layout.State.ActiveWorkspace == workspace && layout.Selected(group)?.Id == tab, "The other shell must open on the same workspace and tab.");
 
@@ -379,27 +379,27 @@ internal static class DrawerChecks
             Require(surface.ShownPage == page, message);
         }
 
-        AtRest(0, "A compact window must start on the centre alone.");
+        AtRest(0, "A compact window must start on the center alone.");
         Require(Region("left").Child is null && Region("right").Child is null, "Side pages must not be built before they are first shown.");
 
         _ = window.OpenDocumentAsync("notes.txt");
-        Pump(() => center.GetVisualDescendants().OfType<Tereditor.Scintilla.ScintillaEditor>().Any(editor => editor.IsEffectivelyVisible), "The document did not open in the centre.");
+        Pump(() => center.GetVisualDescendants().OfType<Tereditor.Scintilla.ScintillaEditor>().Any(editor => editor.IsEffectivelyVisible), "The document did not open in the center.");
         var focusable = center.GetVisualDescendants().OfType<Tereditor.Scintilla.ScintillaEditor>().First();
-        Require(focusable.Focus(), "The centre's editor must take focus.");
+        Require(focusable.Focus(), "The center's editor must take focus.");
         var group = center.Child;
         Require(Region("left").Child is null && Region("right").Child is null, "Opening a document must not build the hidden side pages.");
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         var startMemory = GC.GetTotalMemory(true);
         var startVisuals = window.GetVisualDescendants().Count();
         Click(Named<Button>(window, "PageProjects"));
-        AtRest(-1, "Projects must slide in and leave the centre hidden.");
+        AtRest(-1, "Projects must slide in and leave the center hidden.");
         var middle = window.Bounds.Center;
         Require(window.InputHitTest(middle) is Visual hit && Region("left").IsVisualAncestorOf(hit) && !center.IsHitTestVisibleAt(window, middle),
-            "Touch on Projects must reach Projects, never the hidden centre under it.");
+            "Touch on Projects must reach Projects, never the hidden center under it.");
         Click(Named<Button>(window, "PageCurrent"));
-        AtRest(0, "The current page's button must slide the centre back.");
-        Require(ReferenceEquals(center.Child, group), "Returning to the centre must keep the same controls, not rebuild them.");
-        Require(TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() == focusable, "Returning to the centre must give focus back where it was.");
+        AtRest(0, "The current page's button must slide the center back.");
+        Require(ReferenceEquals(center.Child, group), "Returning to the center must keep the same controls, not rebuild them.");
+        Require(TopLevel.GetTopLevel(window)!.FocusManager!.GetFocusedElement() == focusable, "Returning to the center must give focus back where it was.");
 
         // A finger drags Projects in: the pages follow it, and stay apart by exactly one page.
         var width = window.Bounds.Width;
@@ -455,7 +455,7 @@ internal static class DrawerChecks
         Require(ReferenceEquals(Region("right").Child, sections) && ReferenceEquals(Region("left").Child, projectsPage) && ReferenceEquals(center.Child, group),
             "Pages must keep their controls across switches.");
         Click(Named<Button>(window, "PageCurrent"));
-        AtRest(0, "The centre must come back last.");
+        AtRest(0, "The center must come back last.");
 
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         var keptMemory = GC.GetTotalMemory(true);

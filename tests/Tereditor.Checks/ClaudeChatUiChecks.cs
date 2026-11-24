@@ -200,7 +200,7 @@ internal static class ClaudeChatUiChecks
             var at = cross.TranslatePoint(default, row)!.Value;
             var freshAt = fresh.TranslatePoint(default, row)!.Value;
             Require(at.X >= freshAt.X + fresh.Bounds.Width && Math.Abs(at.X + cross.Bounds.Width - (row.Bounds.Width - 8)) < 0.5, $"The cross follows Start fresh at the right edge (x {at.X}, row {row.Bounds.Width}).");
-            Require(Math.Abs(at.Y + cross.Bounds.Height / 2 - row.Bounds.Height / 2) <= 1, "The cross is centred in the row (the row border is 1px).");
+            Require(Math.Abs(at.Y + cross.Bounds.Height / 2 - row.Bounds.Height / 2) <= 1, "The cross is centered in the row (the row border is 1px).");
             cross.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Frame(window);
             Require(!row.IsVisible && answers == 0, "Dismissing hides the row and answers nothing.");
             terminal.ShowResumeOffer("Claude session 1aec5204 " + owner, null, () => answers++, key: "s|" + owner); Frame(window);
@@ -755,7 +755,7 @@ internal static class ClaudeChatUiChecks
                 {
                     Frame(window); Frame(window);
                     var strip = (terminal.GetLogicalDescendants().OfType<Border>().Single(border => border.Name == "TerminalAccessoriesStrip").Background as ISolidColorBrush)?.Color;
-                    Require(strip == Tereditor.UI.Terminal.TerminalTheme.Colors().Background, $"{theme.Id}: the strip under the terminal is the colour the terminal paints.");
+                    Require(strip == Tereditor.UI.Terminal.TerminalTheme.Colors().Background, $"{theme.Id}: the strip under the terminal is the color the terminal paints.");
                 }
                 finally { window.Close(); }
             }
@@ -3246,7 +3246,7 @@ internal static class ClaudeChatUiChecks
         var none = new HashSet<string>();
         var plain = ModelPicks.Rows(models, ModelPreferences.Empty, "", null, false, none);
         Require(plain.All(row => row.Kind == PickRowKind.Model) && plain.Select(row => row.Model!.Id).SequenceEqual(["default", "opus", "sonnet", "haiku"]),
-            "With no favourites or recents the picker is a flat list, the Default entry first and the CLI's order after it.");
+            "With no favorites or recents the picker is a flat list, the Default entry first and the CLI's order after it.");
         var prefs = ModelPreferences.Empty.ToggleFavorite("haiku").Picked("opus").ToggleHidden("sonnet");
         var ordered = ModelPicks.Rows(models, prefs, "", null, false, none);
         Require(ordered[0] is { Title: "Favorites" } && ordered[1].Model!.Id == "haiku" && ordered[2] is { Title: "Recent" } && ordered[3].Model!.Id == "opus" &&
@@ -3319,7 +3319,7 @@ internal static class ClaudeChatUiChecks
             using var layout = ChatRowLayout.Build(new ChatRow(item, 0, 1, open, null), 700, true);
             var (chevron, dotY, text) = layout.GlyphCentres();
             Require(chevron is { } c && text is { } t && Math.Abs(c - t) <= 1 && (!dot || dotY is { } d && Math.Abs(d - c) < 0.01),
-                $"{name}: chevron {chevron}, dot {dotY} and first line {text} share one vertical centre.");
+                $"{name}: chevron {chevron}, dot {dotY} and first line {text} share one vertical center.");
         }
     }
 
@@ -4162,7 +4162,7 @@ internal static class ClaudeChatUiChecks
             Frame(window);
             view.CancelQuestion((ChatQuestionItem)transcript.Item("ask2")!);
             E2eWorkspace.Until(() => transcript.Item("ask2") is ChatQuestionItem { Decision: ChatPermissionDecision.Denied });
-            Require(chat.QuestionAnswers.Last().Cancelled == true, "Cancel answers the question as cancelled.");
+            Require(chat.QuestionAnswers.Last().Cancelled == true, "Cancel answers the question as canceled.");
 
             // Own text typed into the real field counts as the answer on any tab, replaces a picked option, and enables Submit once every question has an answer.
             ChatQuestion[] three = [new("Caption?", [new("A"), new("B")]) { Header = "Caption" }, new("Model?", [new("M1"), new("M2")]) { Header = "Model" }, new("Display?", [new("D1")]) { Header = "Display" }];
@@ -4300,7 +4300,7 @@ internal static class ClaudeChatUiChecks
         app.Window.Layout.Close(group, "plugin:fixture-doc:a");
         Require(closes.SequenceEqual(["a"]), "Closing a tab tells its document's owner once.");
         Require(ChatLauncher.Handles("") && ChatLauncher.Handles("--continue") && ChatLauncher.Handles("--resume --fork-session") && ChatLauncher.Handles("--model opus") &&
-            !ChatLauncher.Handles("--teleport") && !ChatLauncher.Handles("--add-dir ../x"), "Chat mode takes the presets a chat can honour and leaves the rest to the terminal.");
+            !ChatLauncher.Handles("--teleport") && !ChatLauncher.Handles("--add-dir ../x"), "Chat mode takes the presets a chat can honor and leaves the rest to the terminal.");
         var open = ChatLauncher.Params(app.Root, "c1", new ClaudeCodeSettings { Effort = "high" }, "--model opus", "plan");
         Require(open is { Model: "opus", Effort: "high", PermissionMode: "plan" }, "A preset's model and the run's mode reach the chat's open params.");
         app.Window.Close();

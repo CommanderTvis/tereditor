@@ -23,7 +23,7 @@ Two projects, `Contract` (`Tereditor.Plugins.EnvJavaScript`: manifest, empty set
 (`Tereditor.Plugins.EnvJavaScript.Host`). The namespace avoids `Environment`, which would shadow `System.Environment` in
 every plugin. The pipeline itself is the host's mechanism with `Env`'s policy: [Plugins.SPEC.md](../Tereditor.Host.Core/Plugins.SPEC.md), [Env](../Tereditor.Plugins.Env/SPEC.md).
 
-## Behaviour
+## Behavior
 
 Applied in this order, each step putting its directory first on PATH, so the project's own binaries end up first:
 

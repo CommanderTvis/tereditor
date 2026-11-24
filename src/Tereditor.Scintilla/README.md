@@ -19,10 +19,10 @@ editor.TextChanged += (_, _) => { /* editor.Text, editor.IsModified */ };
 editor.SelectionChanged += (_, _) => { /* editor.Selection: one-based lines and UTF-16 columns, and its text */ };
 ```
 
-`StyleText` accepts one palette index per UTF-8 document byte and an opaque colour
+`StyleText` accepts one palette index per UTF-8 document byte and an opaque color
 palette, allowing an editor-independent tokenizer to style text without editing it.
 Its style IDs start at 40, separate from whole-line styles and Scintilla defaults.
-While text styles are applied, inserted bytes take the neighbouring style (tereditor extension to `CellBuffer`) instead of style 0, so typing never flashes default-coloured text before the tokenizer restyles; `ClearTextStyles` turns this off and restores the default style in one document operation. The UI kit
+While text styles are applied, inserted bytes take the neighboring style (tereditor extension to `CellBuffer`) instead of style 0, so typing never flashes default-colored text before the tokenizer restyles; `ClearTextStyles` turns this off and restores the default style in one document operation. The UI kit
 supplies background TextMate highlighting for file and diff frames.
 
 `LineStyles` is a palette of whole-line styles (a foreground and an optional
@@ -38,7 +38,7 @@ scroll in step listen to `VerticalOffsetChanged` and call `ScrollToPixel`.
 selection and history. The static `LineSpacing` (1.0–2.0, like the static `TextSize`) scales every editor's rows from
 the font's natural line height, adding half the extra space above the text and half below.
 
-Colours are opaque; composite translucent theme colours before passing them. `ScintillaColors.Caret`
+Colors are opaque; composite translucent theme colors before passing them. `ScintillaColors.Caret`
 overrides the caret (the foreground otherwise), and `CurrentLine` highlights the caret's line when set. The
 control exposes scroll extents (`VerticalScroll`, `HorizontalScroll`, `ScrollChanged`)
 for external scrollbars, `ContentHeight` for surfaces that grow to show every document row, and `OperationFailed` for clipboard errors.
@@ -86,7 +86,7 @@ Text layout is bidirectional for every line:
    selection and indicator intervals; text and backgrounds are drawn at their visual positions.
 
 Caret keys, Backspace and Delete step over whole grapheme clusters; word movement, line ends and
-selections keep Scintilla's behaviour.
+selections keep Scintilla's behavior.
 
 ## Building
 
@@ -100,7 +100,7 @@ The ported upstream unit tests (`test/unit`) and the bidi, shaping, view and edi
 A finger taps to place the caret, drags to scroll with inertia and holds to select a word; mouse
 and pen keep selecting by dragging. The soft keyboard edits through Avalonia's input connection,
 which addresses text by offsets, so on Android the input client exposes the caret line with its
-neighbours, counts a line break as one character and keeps that window until an edit has finished.
+neighbors, counts a line break as one character and keeps that window until an edit has finished.
 A read-only editor requests no keyboard there.
 
 ## Limits

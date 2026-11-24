@@ -13,7 +13,7 @@ parent: module-ui
 The dependency-light shared layer every workbench surface builds on: the theme brushes and control
 factories in `Ui`, the native Markdown document renderer, the diff viewer, Mermaid rendering and small
 helpers. It references no workbench, docking or host-state code, so any panel, dialog or the Settings overlay
-can use it without a cycle. Theme catalogue and colour roles have their own documents:
+can use it without a cycle. Theme catalog and color roles have their own documents:
 [Themes.SPEC.md](Themes.SPEC.md), [COLOR.md](COLOR.md), [SPACING.md](SPACING.md) and
 [TYPOGRAPHY.md](TYPOGRAPHY.md).
 
@@ -23,9 +23,9 @@ The shared controls this spec describes moved into [the plugin UI kit](../../Ter
 (`Tereditor.Plugins.UI.Kit`), so a plugin's UI half renders with the same copy the app uses: `Ui`, `ThemeManifest`,
 `DialogWindow`, `FindBar`, `LineWidths`, `ViewerLimits`, the Markdown controls, `EditorFrame` and the Mermaid
 controls, with `Assets/Icons` and `Assets/Fonts`. Their rules below apply unchanged wherever they live. This folder
-keeps the theme catalogue (`Themes.cs`), `DiffView`, `MarkdownDiff` and `MarkdownContexts`, which binds the kit's
+keeps the theme catalog (`Themes.cs`), `DiffView`, `MarkdownDiff` and `MarkdownContexts`, which binds the kit's
 Markdown views to a workspace's host (image reads, the spec catalog behind `[[id]]` links) and the window's
-preferences (font size and reading measure). The app applies the catalogue's default theme in `App.Initialize`,
+preferences (font size and reading measure). The app applies the catalog's default theme in `App.Initialize`,
 since the kit has no theme of its own.
 
 ## Boundary
@@ -35,7 +35,7 @@ since the kit has no theme of its own.
   `Frame`, `Menu` and `Place`. These play the role of upstream's shared primitives; a panel composes them
   rather than restyling Fluent controls ad hoc.
 - `Icon` uses the shared vector masks described by [the kit's icon contract](../../Tereditor.Plugins.UI.Kit/SPEC.md),
-  so glyphs scale with their box and take their colour from a live brush.
+  so glyphs scale with their box and take their color from a live brush.
 - `MarkdownPreview` renders Markdown natively through Markdig into Avalonia controls. `Frontmatter` reads properties and spec identity; `FindBar` searches rendered documents. The `Preview | Source`
   header of a Markdown file is the resource pane's view toggle ([../SPEC.md](../SPEC.md)).
 - `DiffView` is a diff tab's pane: its slim header, the source diff it draws itself, and the other views
@@ -52,7 +52,7 @@ since the kit has no theme of its own.
   an error card is announced assertively, the others politely.
 - `LineWidths` converts symbol-count line widths to logical pixels, like CSS `ch` units.
 - `MarkdownLink` is the inline link button that keeps the text baseline of the surrounding paragraph.
-- Forbidden: workbench, docking or host-state types; per-call-site raw colours (see COLOR.md).
+- Forbidden: workbench, docking or host-state types; per-call-site raw colors (see COLOR.md).
 
 ## Primitive rules
 
@@ -77,7 +77,7 @@ since the kit has no theme of its own.
 - `.md` and `.markdown` files open rendered by default; the extension check is the Markdown gate shared by
   file tabs and diff tabs.
 - Source is a lazy editable file buffer. On macOS it uses the normal file editor / Scintilla with the same font,
-  theme colours, selection and scrollbars as code files; other platforms retain selectable source text.
+  theme colors, selection and scrollbars as code files; other platforms retain selectable source text.
   Creating the rendered preview does not allocate the source editor. Source shows the complete file,
   including YAML frontmatter, alert markers and Mermaid fences, and follows the file line-width preference.
 - The choice is per tab, survives tab switches, and is not persisted across reload. Switching Preview
@@ -148,7 +148,7 @@ since the kit has no theme of its own.
 
 Fenced `mermaid` blocks render as themed diagrams. Rendering blocks on native parsing and layout, so it
 runs off the UI thread; Svg.Skia displays the SVG. The base theme variables are captured from the current
-brushes at render time, and because Mermaid bakes colour into the SVG, every diagram renders again on
+brushes at render time, and because Mermaid bakes color into the SVG, every diagram renders again on
 `Ui.ThemeChanged`. Inline, a diagram draws at its natural size up to the document width, in a box capped at
 480 px that clips rather than scrolls, so a tall diagram never pushes the prose out of reach. The box carries
 the same zoom controls as the full-screen viewer, and ⌘/Ctrl+wheel zooms: zoom scales the drawing, never the
@@ -178,7 +178,7 @@ runs as top-level blocks, whole-document selection/search and offscreen anchor r
   always shows the effective view, and a click pins it
   for that tab while wide enough. Narrow panes hide the toggle and use inline even after a pinned split.
   Markdown Source uses the same toggle and width rule outside continuous Changes review. Source
-  lines wrap at the file line width. Upstream's diffs stopped honouring that width when they moved off the
+  lines wrap at the file line width. Upstream's diffs stopped honoring that width when they moved off the
   editor component to a diff library that scrolls horizontally; tereditor's source diffs are still editors,
   so they keep wrapping.
 - On macOS source diffs are read-only Scintilla editors (`Editor/EditorFrame`), so only visible lines are laid
@@ -255,7 +255,7 @@ commit rows in the scope menu append it to the short SHA and author.
 
 - Theme-baked surfaces subscribe to `Ui.ThemeChanged` on attach and unsubscribe on detach, so a detached
   preview never re-renders diagrams for a window that no longer shows it.
-  The subscription belongs to the shared primitive layer, independent of theme catalogue and preference
+  The subscription belongs to the shared primitive layer, independent of theme catalog and preference
   resolution; consumers observe a completed swap rather than the window's appearance directly.
 - Links never become native navigation: a relative target is always routed through the callback.
 - Nothing here catches workbench errors on behalf of a panel; failures surface through the workbench's own
@@ -276,12 +276,12 @@ commit rows in the scope menu append it to the short SHA and author.
 - Syntax highlighting for Markdown code blocks beyond the minimal keyword/string/comment tinting, and a
   manifest-driven syntax palette. Highlighting must stay off the dispatcher and reject stale results.
 - A single notice look. Toasts and inline notices share a neutral
-  elevated fill whatever the severity; severity is only the one-pixel muted border and the icon colour, with
+  elevated fill whatever the severity; severity is only the one-pixel muted border and the icon color, with
   one line glyph per info, success, warning and error, and a fourth `warning` severity next to the existing
-  three. Body text keeps the default colour. A notice is a single row (icon, message, actions) or, when it has a
+  three. Body text keeps the default color. A notice is a single row (icon, message, actions) or, when it has a
   secondary line or can wrap, a content row over a right-aligned action row; toasts always use the latter.
-  Actions are small outline buttons, a secondary one ghost, never filled or coloured. tereditor's toasts still
-  draw a coloured variant stripe, and its inline error text is not a notice.
+  Actions are small outline buttons, a secondary one ghost, never filled or colored. tereditor's toasts still
+  draw a colored variant stripe, and its inline error text is not a notice.
 - Swipe-to-dismiss on toasts, and pausing a toast's timer while the pointer or focus is on it.
 - Full typography adoption. [TYPOGRAPHY.md](TYPOGRAPHY.md) is the one vocabulary and the design gate holds
   literal sizes, weights and line heights to it, but most controls still write a size on the scale

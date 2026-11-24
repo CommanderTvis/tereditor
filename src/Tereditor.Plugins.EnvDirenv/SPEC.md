@@ -23,7 +23,7 @@ Two projects, `Contract` (`Tereditor.Plugins.EnvDirenv`: manifest, empty setting
 (`Tereditor.Plugins.EnvDirenv.Host`). The namespace avoids `Environment`, which would shadow `System.Environment` in
 every plugin. The pipeline itself is the host's mechanism with `Env`'s policy: [Plugins.SPEC.md](../Tereditor.Host.Core/Plugins.SPEC.md), [Env](../Tereditor.Plugins.Env/SPEC.md).
 
-## Behaviour
+## Behavior
 
 When the workspace has an `.envrc` and `direnv` is found (on PATH or in a well-known directory such as `/opt/homebrew/bin`), applies `direnv export json` (a null value removes the variable from the step's copy). It runs after mise, so `use mise` sees the same tools; nix and devenv setups work through the `.envrc`.
 

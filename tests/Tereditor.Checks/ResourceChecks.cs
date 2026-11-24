@@ -335,7 +335,7 @@ internal static partial class ResourceChecks
         var entries = Enumerable.Range(1, 10).Select(index => $"{index}. entry {index}").ToArray();
         string FocusText() => "# Focus title\n\n" + string.Join("\n\n", paragraphs) + "\n\n## Entries\n\n" + string.Join("\n", entries) + "\n";
         File.WriteAllText(Path.Combine(root, "FOCUS.md"), FocusText());
-        File.WriteAllText(Path.Combine(root, "HTML.md"), "# Html\n\n<p align=\"center\">\n  <img src=\"photo.png\" width=\"2\" alt=\"centred\">\n</p>\n\n<img src=\"javascript:alert(1)\">\n\n<script>alert(2)</script>\n\n" +
+        File.WriteAllText(Path.Combine(root, "HTML.md"), "# Html\n\n<p align=\"center\">\n  <img src=\"photo.png\" width=\"2\" alt=\"centered\">\n</p>\n\n<img src=\"javascript:alert(1)\">\n\n<script>alert(2)</script>\n\n" +
             "<details>\n<summary>More</summary>\n\nHidden **markdown** body.\n\n</details>\n\n<details open><summary>Open one</summary>Inline body</details>\n\n" +
             "<picture><source srcset=\"x.webp\"><img src=\"photo.png\" align=\"right\"></picture>\n\nAfter <img src=\"photo.png\" width=\"1\"> inline.\n");
         var large = "# Big\n\n" + string.Concat(Enumerable.Range(0, 40_000).Select(index => $"Paragraph {index} with some text.\n\n"));
@@ -406,7 +406,7 @@ internal static partial class ResourceChecks
         var page = Shown<Tereditor.Plugins.UI.Kit.Markdown.MarkdownPreview>(app, "MarkdownPreview")!;
         var pictures = page.GetLogicalDescendants().OfType<Border>().Where(border => border.Classes.Contains("html-image")).ToArray();
         Require(pictures[0] is { HorizontalAlignment: Avalonia.Layout.HorizontalAlignment.Center, MaxWidth: 2 } && pictures[1].HorizontalAlignment == Avalonia.Layout.HorizontalAlignment.Right && pictures[2].MaxWidth == 1,
-            "Raw HTML pictures load from the worktree, centred or sent to a side, at their stated width.");
+            "Raw HTML pictures load from the worktree, centered or sent to a side, at their stated width.");
         string PageText() => string.Join(" ", page.GetLogicalDescendants().OfType<TextBlock>().Where(text => text.IsEffectivelyVisible).Select(text => text is SelectableTextBlock rich && rich.Inlines is { Count: > 0 } inlines ? inlines.Text : text.Text));
         Require(!PageText().Contains("alert", StringComparison.Ordinal), "Script and scripted sources are dropped: " + PageText());
         var disclosures = page.GetLogicalDescendants().OfType<StackPanel>().Where(panel => panel.Classes.Contains("html-details")).ToArray();

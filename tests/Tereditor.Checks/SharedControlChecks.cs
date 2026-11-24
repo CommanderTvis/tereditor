@@ -79,7 +79,7 @@ internal static class SharedControlChecks
             var sourceText = (TextBlock)source.Content!;
             var line = (Border)separator.Child!;
             Require(ReferenceEquals(sourceText.Foreground, Ui.Muted) && sourceText.TextDecorations is null, "A source path rests muted without an underline.");
-            Require(ReferenceEquals(line.Background, Ui.BorderBrush), "A pane separator rests in the border colour.");
+            Require(ReferenceEquals(line.Background, Ui.BorderBrush), "A pane separator rests in the border color.");
             void Hover(Control control) { window.MouseMove(control.TranslatePoint(new Point(2, 2), window)!.Value); Settle(10); }
             Hover(source);
             Require(ReferenceEquals(sourceText.Foreground, Ui.Accent) && sourceText.TextDecorations is { Count: > 0 }, "Hovering a source path accents and underlines it by style.");
@@ -93,10 +93,10 @@ internal static class SharedControlChecks
             window.MouseMove(new Point(390, 290));
             Settle(10);
             Require(ReferenceEquals(line.Background, Ui.BorderBrush) && ReferenceEquals(((TextBlock)danger.Content!).Foreground, Ui.Hint),
-                "Leaving clears the hover colours.");
+                "Leaving clears the hover colors.");
         }
         finally { window.Close(); }
-        Console.WriteLine("PASS hover colours come from styles and clear on exit");
+        Console.WriteLine("PASS hover colors come from styles and clear on exit");
     }
 
     private static double Contrast(Color first, Color second)

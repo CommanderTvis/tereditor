@@ -163,7 +163,7 @@ internal static class ProjectPickerE2E
         var dialog = Dialog(app);
         Require(Equals(dialog.Tag, "CloneProjectDialog"), "Clone repository opens its dialog.");
         Require(dialog.ActualThemeVariant == app.Window.ActualThemeVariant,
-            $"A dialog takes its window's theme variant, so its inputs use the theme's colours, not the OS appearance's ({dialog.ActualThemeVariant} beside {app.Window.ActualThemeVariant}).");
+            $"A dialog takes its window's theme variant, so its inputs use the theme's colors, not the OS appearance's ({dialog.ActualThemeVariant} beside {app.Window.ActualThemeVariant}).");
         Named<TextBox>(dialog, "CloneProjectUrl").Text = "file://" + remote;
         app.Click(Named<Button>(dialog, "CloneProjectBrowse"), freshGesture: false);
         Until(() => Named<TextBox>(dialog, "CloneProjectParent").Text == parent);

@@ -121,14 +121,14 @@ internal static class BlueprintStartChecks
             picker = Pick();
             app.Click(picker.GetLogicalDescendants().OfType<Button>().Single(button => button.Content is TextBlock { Text: "Cancel" } || Equals(button.Content, "Cancel")));
             Require(start.IsEnabled && Find<TextBlock>("Path").Text == document,
-                "Cancelling a second document pick preserves the original selection and start availability.");
+                "Canceling a second document pick preserves the original selection and start availability.");
             app.Click(Find<RadioButton>("Idea"));
             Require(start.IsEnabled && Find<TextBox>("Brief").Text == "  Build a light controller  ",
                 "Switching source preserves the idea text.");
             app.Click(dialog.GetLogicalDescendants().OfType<Button>().Single(button => button.Content is TextBlock { Text: "Cancel" } || Equals(button.Content, "Cancel")));
             Until(() => !Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Contains(dialog));
-            Require(!File.Exists(Path.Combine(project, "BLUEPRINT.md")), "Cancelling the start dialog creates no blueprint.");
-            Require(launches.Count == 0, "Cancelling does not launch an author.");
+            Require(!File.Exists(Path.Combine(project, "BLUEPRINT.md")), "Canceling the start dialog creates no blueprint.");
+            Require(launches.Count == 0, "Canceling does not launch an author.");
 
             // blueprint.spec.ts: a takeover starts only from inside the project; an outside document is refused.
             var outside = project + "-outside.md";

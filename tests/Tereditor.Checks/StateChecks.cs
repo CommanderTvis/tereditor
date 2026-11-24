@@ -66,7 +66,7 @@ internal static class StateChecks
             Require(frame.Groups.All(group => group.Region != "bottom") && view.Documents.Values.SelectMany(tabs => tabs).Select(tab => tab.Id).SequenceEqual(["kept", "bottom-file", "bottom-diff"]),
                 "Loading an old window or preset must migrate bottom files and diffs without duplicate tabs or terminal placements.");
             Require(view.Selected[center] == "kept" && view.Panes[center].Single().Weights.SequenceEqual([.3, .7]) && !frame.ToolRestore.ContainsKey("review"),
-                "Bottom migration must preserve centre selection and document panes without obsolete tool restore entries.");
+                "Bottom migration must preserve center selection and document panes without obsolete tool restore entries.");
             var before = System.Text.Json.JsonSerializer.Serialize(frame);
             frame.RemoveBottomZone();
             Require(System.Text.Json.JsonSerializer.Serialize(frame) == before, "Bottom migration must be idempotent for windows and custom presets.");
@@ -77,7 +77,7 @@ internal static class StateChecks
         emptyView.Documents[emptyCenterId].Clear();
         emptyView.Selected.Remove(emptyCenterId);
         emptyCenter.RemoveBottomZone();
-        Require(emptyView.Selected[emptyCenterId] == "bottom-diff", "A migrated bottom document selection must survive when the centre has no selection.");
+        Require(emptyView.Selected[emptyCenterId] == "bottom-diff", "A migrated bottom document selection must survive when the center has no selection.");
 
         var splitProfile = Path.Combine(root, "center-split-profile");
         Directory.CreateDirectory(splitProfile);

@@ -81,7 +81,7 @@ deleted from the graph.
 ## CI status on commits
 
 A commit with checks shows one small icon at the right end of its row: a green check circle (success), a red x circle
-(failure), an amber loader (queued or running) or a grey dot (cancelled, skipped, neutral or unknown). A commit without checks, a
+(failure), an amber loader (queued or running) or a gray dot (canceled, skipped, neutral or unknown). A commit without checks, a
 repository without a supported host, and a host that is off, signed out or rate limited show nothing and no error. The tooltip
 reads "CI: 3 of 4 checks passed" and then the names of the failing or running checks, five at most, then "and N more". A click on the
 icon opens the commit's workflow run in the repo host's own tab (GitHub's Actions tab) and does not select the row; the system browser opens the link only when the host has no tab for it.

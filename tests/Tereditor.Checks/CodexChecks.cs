@@ -526,7 +526,7 @@ internal static class CodexChecks
         Equal(off.Url, "http://localhost/status/token", "off: the status URL is untagged");
         Require(!CodexLaunch.HasTereditorPrompt(off.Line), "off: no tag");
         Require(!CodexLaunch.Line("codex", new(false, true) { AppendSystemPrompt = true }).Contains("developer_instructions", StringComparison.Ordinal),
-            "Windows launches keep their previous behaviour");
+            "Windows launches keep their previous behavior");
     }
 
     // Instructions follow a tab's CWD from the repository root, and tereditor's launch file is listed last; fork config.test.ts.

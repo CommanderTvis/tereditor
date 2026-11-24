@@ -421,10 +421,10 @@ internal static class ClaudeCodeChecks
         {
             var text = link.GetLogicalDescendants().OfType<TextBlock>().Single();
             Require(Equals(text.TextDecorations, Avalonia.Media.TextDecorations.Underline) && Equals(text.Foreground, Ui.Accent) && link.Cursor?.ToString() == new Cursor(StandardCursorType.Hand).ToString(),
-                "A clickable setting value is underlined in the link colour with a hand cursor.");
+                "A clickable setting value is underlined in the link color with a hand cursor.");
         }
         app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_context"));
-        Console.WriteLine($"PASS Claude setting values: {links.Length} clickable value(s) underlined in the link colour, read-only ones are not buttons or underlined");
+        Console.WriteLine($"PASS Claude setting values: {links.Length} clickable value(s) underlined in the link color, read-only ones are not buttons or underlined");
     }
 
     /// <summary>
@@ -1497,7 +1497,7 @@ internal static class ClaudeCodeChecks
         using (var generated = JsonDocument.Parse(Tereditor.Plugins.Providers.Host.AgentModelFiles.ClaudeJson(sourceProvider, sourceProvider.Apis[0], "helper")))
             Require(generated.RootElement.EnumerateObject().All(property => ClaudeLaunchOverrides.For(property.Name) is not null), "Every key of the generated model source settings file is in the overridden-settings list.");
         Require(ClaudeLaunchOverrides.For("env.ANTHROPIC_BASE_URL") is not null && ClaudeLaunchOverrides.For("permissions.allow") is null && ClaudeLaunchOverrides.For("permissions.deny") is not null && ClaudeLaunchOverrides.For("modelSettings.opus.effortLevel") is null,
-            "A key inside an overridden object is overridden; a neighbour with a similar name is not.");
+            "A key inside an overridden object is overridden; a neighbor with a similar name is not.");
     }
 
     public static async Task Run(string root)
@@ -1666,7 +1666,7 @@ internal static class ClaudeCodeChecks
         // The record above says manual: a revival is tereditor's own launch whatever started the session it resumes.
         // The environment is not in the process table the command is rebuilt from, so revival reapplies the agent-view setting too.
         Require(OperatingSystem.IsWindows() || terminals.RevivePrefill!(terminal)?.Text.StartsWith("TEREDITOR_UI_LAUNCH=claude CLAUDE_CODE_DISABLE_AGENT_VIEW=true claude ", StringComparison.Ordinal) == true,
-            "A revived session is launched by tereditor, never labelled manual, with the agent view off as the setting says: " + terminals.RevivePrefill!(terminal)?.Text);
+            "A revived session is launched by tereditor, never labeled manual, with the agent view off as the setting says: " + terminals.RevivePrefill!(terminal)?.Text);
         Require(terminals.RevivePrefill!(terminal)?.Text.Contains("--continue", StringComparison.Ordinal) == true,
             "A Claude terminal with no surviving transcript gets the fork's continue offer.");
         await SessionIdRevival(state, terminals, terminal, Report);
@@ -2353,7 +2353,7 @@ internal static class ClaudeCodeChecks
         await Send(new { jsonrpc = "2.0", id = 2, method = "tools/list" });
         var catalogue = (await Receive()).GetProperty("result").GetProperty("tools");
         Require(catalogue.EnumerateArray().Any(tool => tool.GetProperty("name").GetString() == "openFile") &&
-            catalogue.EnumerateArray().Any(tool => tool.GetProperty("name").GetString() == "getCurrentSelection"), "The IDE catalogue exposes its editor actions and selections.");
+            catalogue.EnumerateArray().Any(tool => tool.GetProperty("name").GetString() == "getCurrentSelection"), "The IDE catalog exposes its editor actions and selections.");
         await runtime.CallAsync(new("claude-code", "selectionChanged", new IdeSelectionChanged(project, "CLAUDE.md", "Fixture", new(1, 1, 1, 8)), "claude-client"));
         await Send(new { jsonrpc = "2.0", id = 3, method = "tools/call", @params = new { name = "getCurrentSelection", arguments = new { } } });
         var content = (await Receive()).GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!;
@@ -2430,7 +2430,7 @@ internal static class ClaudeCodeChecks
         socket.Abort();
         await timeout.CancelAsync();
         try { await peerNext; } catch (OperationCanceledException) { }
-        Console.WriteLine("PASS Claude Code IDE: token authorization, initialization, catalogue, zero-based selection, addressed action replies and file references");
+        Console.WriteLine("PASS Claude Code IDE: token authorization, initialization, catalog, zero-based selection, addressed action replies and file references");
     }
 
     private sealed class TypingTerminal : Tereditor.Plugins.Api.UI.ITerminalAccessoryApi

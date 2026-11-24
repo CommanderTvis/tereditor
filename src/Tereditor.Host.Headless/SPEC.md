@@ -23,10 +23,10 @@ stdio for exactly one workspace. An agent such as Claude Code uses tereditor's l
 - Allowed deps: `Tereditor.Host.Core` and what it reaches. Forbidden: Avalonia, Skia, any UI project, Kestrel or any network
   listener, terminals, per-terminal tokens. `BoundaryChecks` fails on a project reference or source mention, and
   `--headless` fails on any UI or web package in the restore graph, transitive ones included.
-- Tool behaviour is Core's and the plugins'. This project only frames messages. The one change to Core is the optional
+- Tool behavior is Core's and the plugins'. This project only frames messages. The one change to Core is the optional
   `instructions` argument of `McpServer.HandleAsync` and the `BuiltinPlugins.Headless` roster, which follows the manifests' `Headless` declaration.
 
-## Behaviour
+## Behavior
 
 - Commands: `tereditor-headless mcp|check-config [--workspace <dir>]`. The workspace is `--workspace`, else `TEREDITOR_ROOT`, else the current directory.
 - State (settings, language server installs and sessions) lives in `TEREDITOR_STATE_DIR`, else `~/.tereditor/headless`. A store with no
@@ -53,8 +53,8 @@ stdio for exactly one workspace. An agent such as Claude Code uses tereditor's l
   its terms are accepted, it started, and it is licensed. When any of these fails, the previous server keeps serving, nothing regresses, and the answer's hint or
   message says why IntelliJ is not in use; `retry` for it tries again, and a reason is kept for five minutes so the servers do not flap. There is no setting to keep
   the old server once IntelliJ works. A choice left waiting for the user's acceptance in a window is not a failure.
-- Licence. There is no trial and no sign-in without a window, and no variable that starts a trial. The server needs a license the user owns, given with the vendor's
-  variables `INTELLIJ_SERVER_LICENSE`, `INTELLIJ_SERVER_LICENSE_FILE` or `JETBRAINS_LICENSE_SERVER`, or found by the server's own discovery, or the offline activation download mounted read-only at `/license` (the IntelliJ plugin's spec has the rules; the licence id and its state show in the server row's `mountedLicense`). Unlicensed, the
+- License. There is no trial and no sign-in without a window, and no variable that starts a trial. The server needs a license the user owns, given with the vendor's
+  variables `INTELLIJ_SERVER_LICENSE`, `INTELLIJ_SERVER_LICENSE_FILE` or `JETBRAINS_LICENSE_SERVER`, or found by the server's own discovery, or the offline activation download mounted read-only at `/license` (the IntelliJ plugin's spec has the rules; the license id and its state show in the server row's `mountedLicense`). Unlicensed, the
   unlicensed message says so plainly and the previous server answers.
 - One workspace per process. A tool's optional `workspace` argument is dropped, so a path the agent knows from outside a
   container still works. Relative paths resolve against the workspace.
@@ -70,7 +70,7 @@ stdio for exactly one workspace. An agent such as Claude Code uses tereditor's l
 - Requests run concurrently and answer in any order. Each reply is one line written under a lock and flushed.
   `notifications/cancelled` cancels the request with that id, which then gets no reply.
 - stdout holds frames only. At start `Console.Out` is redirected to stderr, so a stray print cannot corrupt the stream. Logs go to stderr.
-- End of input, SIGINT or SIGTERM: running calls get 5 s to finish, then are cancelled; plugins stop, then language servers; exit 0.
+- End of input, SIGINT or SIGTERM: running calls get 5 s to finish, then are canceled; plugins stop, then language servers; exit 0.
   A closed stdout counts as a stop.
 - `languages` prints one line per served language server (id, name, file extensions, and a note when the server needs the user's agreement to its terms) and exits 0.
 - `warm [server ...]` installs the pinned .NET SDK and the named language servers (default `csharp`) into the state directory, without a session.

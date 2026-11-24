@@ -173,7 +173,7 @@ internal static partial class FileIconsChecks
         Ui.Apply(original with { Id = original.Id + "-file-icons", Colors = colors });
         Until(() => !ReferenceEquals(image.Source, source));
         Settle(50);
-        Require(!Raster(app, icon).SequenceEqual(before), "The SVG follows the theme's text colour in the rendered frame.");
+        Require(!Raster(app, icon).SequenceEqual(before), "The SVG follows the theme's text color in the rendered frame.");
         Require(ReferenceEquals(Asset(app.FileRow("README.md"), "readme"), icon), "A theme change retains the row's icon control.");
         Ui.Apply(original);
 
@@ -249,7 +249,7 @@ internal static partial class FileIconsChecks
         Loaded(app.FileRow("server.py"), "material/python");
         Loaded(app.FileRow("src"), "material/folder");
         var material = Raster(app, Icon("server.py", "material/python"));
-        Require(!material.SequenceEqual(plain) && !material.SequenceEqual(coloredBefore), "The Material style renders its own colours in the Files row.");
+        Require(!material.SequenceEqual(plain) && !material.SequenceEqual(coloredBefore), "The Material style renders its own colors in the Files row.");
         Pick("plain");
         Until(() => app.Workbench.State.Current.Settings.FileTypeIconStyle.Length == 0);
         Loaded(app.FileRow("server.py"), "python");
@@ -299,11 +299,11 @@ internal static partial class FileIconsChecks
         {
             Require(!Ui.ColoredAgentIcons && !app.Workbench.State.Current.Settings.AgentIconsColored, "Agent icons are plain by default.");
             Require(Ui.AgentColor("claude") is { } orange && orange == Color.Parse("#D97757") && Ui.AgentColor("codex") is null && Ui.AgentColor("omp") is null && Ui.AgentColor("pi") is null,
-                "Only Claude has a brand colour; Codex, Pi and omp have none to apply.");
+                "Only Claude has a brand color; Codex, Pi and omp have none to apply.");
             Settle(100);
             var plain = Raster(window, mark);
             var plainOther = Raster(window, other);
-            Require(plain.SequenceEqual(plainOther), "Plain, an agent's mark is the text colour, the same for Claude and the others.");
+            Require(plain.SequenceEqual(plainOther), "Plain, an agent's mark is the text color, the same for Claude and the others.");
             app.Window.ShowSettings("Appearance");
             Until(() => app.Window.OpenSettingsViews.Any());
             var settings = app.Window.OpenSettingsViews.Single();
@@ -313,7 +313,7 @@ internal static partial class FileIconsChecks
             Choices().SelectedIndex = 1;
             Until(() => app.Workbench.State.Current.Settings.AgentIconsColored && Ui.ColoredAgentIcons);
             Until(() => !Raster(window, mark).SequenceEqual(plain));
-            Require(Raster(window, other).SequenceEqual(plainOther), "Colored leaves an agent without a brand colour plain.");
+            Require(Raster(window, other).SequenceEqual(plainOther), "Colored leaves an agent without a brand color plain.");
             Until(() => Choices().SelectedIndex == 1);
             Choices().SelectedIndex = 0;
             Until(() => !app.Workbench.State.Current.Settings.AgentIconsColored && !Ui.ColoredAgentIcons);
@@ -339,7 +339,7 @@ internal static partial class FileIconsChecks
             finally { pinned.Free(); }
             int Channel(int x, int y) => pixels[((int)(y * window.RenderScaling) * frame.PixelSize.Width + (int)(x * window.RenderScaling)) * 4];
             Require(Channel(40, 24) >= 250 && Channel(48, 64) is >= 110 and <= 120,
-                "The Python icon renders its primary at full colour and its secondary at 45% opacity, as in the fork.");
+                "The Python icon renders its primary at full color and its secondary at 45% opacity, as in the fork.");
         }
         finally { window.Close(); }
     }

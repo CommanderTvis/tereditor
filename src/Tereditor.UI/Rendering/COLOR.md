@@ -1,6 +1,6 @@
-# Colour system
+# Color system
 
-Colour arrives in two layers, and a control may only ever name the second one.
+Color arrives in two layers, and a control may only ever name the second one.
 
 ```
 Assets/Themes/*.theme.json          the PALETTE: one file per theme, the only place a theme's hex lives
@@ -13,12 +13,12 @@ App.axaml                           application styles that bind those brushes w
 
 `colors.json` is the single source. A role there is keyed by its brush name and records the upstream role it
 translates (`role`), the palette key it reads (`from`) and, for a tint, its step on the alpha scale. A role
-whose consumer bakes colours instead of binding a brush is `"kind": "color"` and becomes a `Color` property
+whose consumer bakes colors instead of binding a brush is `"kind": "color"` and becomes a `Color` property
 (nullable when its palette key is). `effects` holds the per-appearance values that no palette supplies
 (the modal scrim and the two shadow strengths). The checks executable writes the generated file with
 `-- --design --write`; the file is committed, and `-- --design` fails while it differs from its source.
 
-A palette entry answers which colour (`hint`, `elevated`, `borderStrong`). A brush answers what for
+A palette entry answers which color (`hint`, `elevated`, `borderStrong`). A brush answers what for
 (`Ui.Hint`, `Ui.Elevated`, `Ui.BorderBrush`). Controls and styles name roles; the manifest dictionary
 is read only by the generated `Ui.ApplyRoles`.
 
@@ -29,7 +29,7 @@ new Border { Background = new SolidColorBrush(Color.Parse("#27272a")) } // no
 
 ## Why the split
 
-A theme changes which colour a role resolves to without touching a control, and a role can be re-pointed
+A theme changes which color a role resolves to without touching a control, and a role can be re-pointed
 once in `Ui.Apply` instead of at every call site. The brushes are long-lived `SolidColorBrush` instances whose
 `Color` is rewritten in place, so every control and every `{x:Static}` style setter repaints on a swap
 without rebuilding the tree.
@@ -39,31 +39,31 @@ without rebuilding the tree.
 | Family | Brushes | Notes |
 | --- | --- | --- |
 | Text | `TextBrush` · `Muted` · `Hint` | `Hint` (the `hint` key) is the quiet metadata tier: branch lines, spec roles, counts, empty states |
-| Container | `Workspace` · `Sidebar` · `Terminal` · `Surface` · `Header` · `Elevated` | `Workspace` (the `background` key) is the app surface and the opened-document canvas: the window, the file editor, the Markdown preview and source. `Surface` is the recessed `content` canvas a diff is read on, and the centre column's backdrop. `Terminal` is the terminal's own canvas, from `sidebar`. `Elevated` is every raised surface: menus, dialogs, inactive tab chrome, resting buttons |
+| Container | `Workspace` · `Sidebar` · `Terminal` · `Surface` · `Header` · `Elevated` | `Workspace` (the `background` key) is the app surface and the opened-document canvas: the window, the file editor, the Markdown preview and source. `Surface` is the recessed `content` canvas a diff is read on, and the center column's backdrop. `Terminal` is the terminal's own canvas, from `sidebar`. `Elevated` is every raised surface: menus, dialogs, inactive tab chrome, resting buttons |
 | Control | `ControlFill` · `Hover` · `Selected` · `PrimaryFill` · `PrimaryFillHover` · `OnPrimary` | `ControlFill` is an input's fill. `Hover` is pointer hover; `Selected` is the persistent selected or active fill (active project and change rows, selected tab, checked toggle segment, selected tree and list rows). Both read `hover` today, and are separate roles so a theme key can part them. The primary trio is the solid primary button, its hover step and its label |
-| Disabled | `ControlDisabledFill` · `ControlDisabledText` · `ControlDisabledBorder` · `PrimaryDisabledFill` · `PrimaryDisabledText` | the enabled colour at the 60% step: a disabled control keeps its semantic colour, dimmed at the role, never a separate palette value and never `Opacity` |
+| Disabled | `ControlDisabledFill` · `ControlDisabledText` · `ControlDisabledBorder` · `PrimaryDisabledFill` · `PrimaryDisabledText` | the enabled color at the 60% step: a disabled control keeps its semantic color, dimmed at the role, never a separate palette value and never `Opacity` |
 | Border | `BorderBrush` · `ControlBorder` · `ControlBorderActive` | `BorderBrush` is the structural border (`borderStrong`); `ControlBorder` is an input's quiet resting border (`border`); `ControlBorderActive` is the neutral strengthening for focused, pressed and open controls, never the accent |
 | Primary | `Accent` · `PrimarySubtle` · `PrimarySoft` · `PrimaryMuted` | accent @ 10%, 20% and 40%: the selected Settings choice's fill and border; dock drop hints rest at subtle fill with a soft border and activate to a soft fill with an accent border |
 | Chat prompt | `PromptFill` · `PromptBorder` | the human prompt bubble: `bubbleAccent` @ 12% composited over `elevated` (opaque, so a clipped prompt's fade can end in it) inside `bubbleAccent` @ 40%. `bubbleAccent` follows the chosen accent where the manifest ties it to `accent` (see Themes.SPEC.md), so the bubble wears the accent; Minimal's neutral bubble stays neutral |
-| Feedback | `Info` · `Success` · `Warning` · `Danger` + `*Wash` | a wash is the solid colour @ 12%, the feedback-surface fill |
+| Feedback | `Info` · `Success` · `Warning` · `Danger` + `*Wash` | a wash is the solid color @ 12%, the feedback-surface fill |
 | Selection | `TextSelection` | Inputs and the Markdown preview share `selection`. Upstream mixes the preview at 40% because browsers wash whole line boxes; Avalonia highlights only glyph runs, and the mix left dark selections nearly invisible. The nullable selected-text foreground is the `ThemeSelectionForeground` dynamic resource |
-| Selection colours | `SelectionText` · `EditorSelection` · `EditorSelectionText` | colour roles for the baking consumers below; the two foregrounds are null when the theme keeps the native one |
+| Selection colors | `SelectionText` · `EditorSelection` · `EditorSelectionText` | color roles for the baking consumers below; the two foregrounds are null when the theme keeps the native one |
 | Effects | `Overlay` · `DifferenceBase` · `PopoverShadow` · `DialogShadow` · `FadeFromElevated` · `FadeToElevated` | the modal scrim; the black a pixel difference is measured from, which is data and the same in every theme; shadow alpha differs per appearance (upstream `shadow-md` and `shadow-lg`); the fades are the tab strip's overflow edges, derived from `Elevated` in `Ui.Apply` |
 
 ## Transparency: one form only
 
 A tint is a role on the alpha scale (`scale` in `colors.json`), computed by `Ui.Alpha` as a percentage of
-the colour's own alpha:
+the color's own alpha:
 
 ```
 subtle 10%   ·   wash 12%   ·   soft 20%   ·   muted 40%   ·   strong 60%
 ```
 
 `wash` sits one step above `subtle` so primary fills stay at 10% while feedback backgrounds read at 12%.
-Control-level `Opacity` is not a colour tool: it dims nested content and bypasses role ownership. It is used
+Control-level `Opacity` is not a color tool: it dims nested content and bypasses role ownership. It is used
 only to hide and reveal affordances (the workspace kebab, the change-row menu button), so the guard accepts
 only 0 and 1. A new tint is a new role on the scale, never a one-off alpha at the call site. A role whose
-consumer needs an opaque colour names the surface it sits on with `"over"`: the generated code composites the
+consumer needs an opaque color names the surface it sits on with `"over"`: the generated code composites the
 tint onto that palette key with `Ui.Over`.
 
 ## Control states
@@ -73,27 +73,27 @@ the resource keys behind those states at roles once, for the whole application (
 toggle buttons, inputs, combo boxes and menu items take the disabled trio; inputs rest on `ControlFill` inside
 `ControlBorder`; focus, press and open take `ControlBorderActive`. No control restyles its own states.
 
-`Ui.Button` and `Ui.IconButton` build labels and icons that carry their own colour, so they repaint that
+`Ui.Button` and `Ui.IconButton` build labels and icons that carry their own color, so they repaint that
 content from `ControlDisabledText` (`PrimaryDisabledText` on a primary button) while disabled and restore it
 afterwards. A dialog's primary button takes `PrimaryDisabledFill` from the dialog card's style.
 
 ## Non-brush consumers
 
-Surfaces that bake colours cannot bind a brush. They read the same roles, as colours, and rebuild on
-`Ui.ThemeChanged`. Scintilla and Ghostty.Avalonia are independent libraries that take their colours as
+Surfaces that bake colors cannot bind a brush. They read the same roles, as colors, and rebuild on
+`Ui.ThemeChanged`. Scintilla and Ghostty.Avalonia are independent libraries that take their colors as
 input and reference no tereditor project, so the app's adapters to them are where the contract applies:
 
 | Consumer | We set | The rest comes from |
 | --- | --- | --- |
 | Scintilla editor | text, its canvas (`Workspace` for a document, `Surface` for a diff), muted gutter, `EditorSelection` composited over the canvas (`Ui.Over`), the nullable editor selection foreground, the accent caret and, for a document, the `Hover` current line | the control's own defaults |
-| Ghostty terminal | `Terminal` background, text foreground, accent cursor, composited editor selection and its foreground, all 16 ANSI colours | Ghostty's configuration shim |
+| Ghostty terminal | `Terminal` background, text foreground, accent cursor, composited editor selection and its foreground, all 16 ANSI colors | Ghostty's configuration shim |
 | Mermaid | the base theme variables derived in `MermaidRenderer` | Merman's base theme |
 | Fluent | the palette accent for the current variant | Fluent's own palette |
 
 This is a bounded, accepted gap. If a theme looks wrong in one of these, add that specific value rather than
 adopting the library's whole surface.
 
-## Adding or changing a colour
+## Adding or changing a color
 
 1. A theme should look different: edit its `Assets/Themes/<theme>.theme.json`.
 2. A role should point somewhere else: change its `from` in `colors.json`.
@@ -115,8 +115,8 @@ a control lives, and fails on:
 - a role naming an unknown palette key or alpha step, and a palette key that no role claims unless
   `colors.json` lists it under `unclaimed` with the reason;
 - a role no control uses;
-- a raw colour: a hex literal, `Color.Parse`/`FromArgb`/`FromRgb`, a named `Colors.*` or `Brushes.*` other
-  than `Transparent`, a brush constructed at the call site, or a literal colour in a XAML brush attribute or
+- a raw color: a hex literal, `Color.Parse`/`FromArgb`/`FromRgb`, a named `Colors.*` or `Brushes.*` other
+  than `Transparent`, a brush constructed at the call site, or a literal color in a XAML brush attribute or
   setter;
 - a palette key read outside `Ui`;
 - `Opacity` other than 0 or 1.

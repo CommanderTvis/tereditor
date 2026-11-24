@@ -125,7 +125,7 @@ internal static class ContentChecks
 
     private static void CheckUi(string diff)
     {
-        Require(DiffView.IsBinaryDiff(diff) && !DiffView.IsBinaryDiff("diff --git a/x b/x\n@@ -1 +1 @@\n-Binary files x\n+y\n"), "Binary diffs are recognised by Git's notice and the absence of hunks.");
+        Require(DiffView.IsBinaryDiff(diff) && !DiffView.IsBinaryDiff("diff --git a/x b/x\n@@ -1 +1 @@\n-Binary files x\n+y\n"), "Binary diffs are recognized by Git's notice and the absence of hunks.");
         Console.WriteLine("PASS byte-only content UI checks");
     }
 

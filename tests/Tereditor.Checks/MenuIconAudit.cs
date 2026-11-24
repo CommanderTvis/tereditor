@@ -66,9 +66,9 @@ internal static class MenuIconAudit
                 $"{name}: the icon of '{label}' spans {inSlot} outside its {size}x{size} slot.");
             var offX = inSlot.Center.X - slot.Bounds.Width / 2;
             var offY = inSlot.Center.Y - slot.Bounds.Height / 2;
-            Require(Math.Abs(offX) <= Tolerance && Math.Abs(offY) <= Tolerance, $"{name}: the icon of '{label}' is {offX:0.##}, {offY:0.##} px off the centre of its slot.");
+            Require(Math.Abs(offX) <= Tolerance && Math.Abs(offY) <= Tolerance, $"{name}: the icon of '{label}' is {offX:0.##}, {offY:0.##} px off the center of its slot.");
             var inRow = Box(slot, row);
-            Require(Math.Abs(inRow.Center.Y - row.Bounds.Height / 2) <= 1, $"{name}: the icon slot of '{label}' is centred at y={inRow.Center.Y:0.##} in a row {row.Bounds.Height:0.##} high.");
+            Require(Math.Abs(inRow.Center.Y - row.Bounds.Height / 2) <= 1, $"{name}: the icon slot of '{label}' is centered at y={inRow.Center.Y:0.##} in a row {row.Bounds.Height:0.##} high.");
             // Everything the icon draws, not only its outer box: a child cut by its own parent is a trimmed glyph too.
             foreach (var part in icon.GetSelfAndVisualDescendants().Where(part => part.Bounds.Width > 0 && part.Bounds.Height > 0))
                 foreach (var ancestor in part.GetVisualAncestors())

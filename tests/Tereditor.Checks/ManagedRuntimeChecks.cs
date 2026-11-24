@@ -156,7 +156,7 @@ internal static class ManagedRuntimeChecks
         Env(Toolchains.SourceVariable, "path");
         Require(empty.ProbeTool("dotnet", workspace, "DOTNET_ROOT", fresh: true).Source == "home" && empty.Toolchain == ToolchainSource.Path, "TEREDITOR_TOOLCHAINS did not override the setting.");
         Env(Toolchains.SourceVariable, "managed");
-        Require(empty.Toolchain == ToolchainSource.Managed, "TEREDITOR_TOOLCHAINS=managed was not honoured.");
+        Require(empty.Toolchain == ToolchainSource.Managed, "TEREDITOR_TOOLCHAINS=managed was not honored.");
         Env(Toolchains.SourceVariable, null);
         Console.WriteLine("PASS an empty managed cache is reported with the pinned version and the variable overrides the setting");
 

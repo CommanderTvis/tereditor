@@ -12,7 +12,7 @@ build logs, step-by-step progress or rebase notes.
 ## History before 2026-10-26 (summary)
 
 The full chronological log is in Git history (`git log -p -- context-log.md`). In short: September 2026 built the
-Avalonia prototype over the transport-independent host and ported the upstream docking, layout and E2E behaviour;
+Avalonia prototype over the transport-independent host and ported the upstream docking, layout and E2E behavior;
 the separate validation ledger was retired on 2026-10-15 with its durable facts moved into module specs and
 STATUS.md. October added language servers (later each its own builtin plugin through Plugin API H21), the optional
 IntelliJ provider with explicit terms, embedded Air Context (enabled per project), the Linux x64 and arm64 AppImage

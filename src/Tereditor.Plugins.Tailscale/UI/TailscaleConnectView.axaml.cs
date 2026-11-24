@@ -112,7 +112,7 @@ public sealed partial class TailscaleConnectView : UserControl
                 _ => "Found " + found.Count + " hosts."
             };
         }
-        catch (Exception error) when (Expected(error)) { progress.Text = current.IsCancellationRequested ? "Search cancelled." : error.Message; }
+        catch (Exception error) when (Expected(error)) { progress.Text = current.IsCancellationRequested ? "Search canceled." : error.Message; }
         finally { attempt = null; Busy(false); }
     }
 
@@ -151,7 +151,7 @@ public sealed partial class TailscaleConnectView : UserControl
         }
         catch (Exception error) when (Expected(error))
         {
-            progress.Text = current.IsCancellationRequested ? "Pairing cancelled or timed out." : "Could not pair: " + error.Message;
+            progress.Text = current.IsCancellationRequested ? "Pairing canceled or timed out." : "Could not pair: " + error.Message;
             remembered = null;
         }
         finally { attempt = null; Busy(false); }

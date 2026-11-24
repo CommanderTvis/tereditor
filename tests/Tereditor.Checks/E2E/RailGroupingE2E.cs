@@ -517,7 +517,7 @@ internal static class RailGroupingE2E
             Require(name.Bounds.Left == MarkedRow.LeadingWidth + MarkedRow.Gap && name.Bounds.Width <= marked.Bounds.Width - name.Bounds.Left + 0.5, "The title starts after the icon column and stays within the row: " + path);
             var branch = row.GetLogicalDescendants().OfType<TextBlock>().FirstOrDefault(text => text.Name == "WorkspaceBranch");
             var rowDot = row.GetLogicalDescendants().OfType<Border>().Single(item => item.Name == "WorkspaceUnread");
-            if (dotShown) Require(Math.Abs(rowDot.Bounds.Center.Y - (name.Bounds.Top + name.LineHeight / 2)) <= 0.5, $"The indicator is centred on the title's first line: dot {rowDot.Bounds}, title {name.Bounds}: " + path);
+            if (dotShown) Require(Math.Abs(rowDot.Bounds.Center.Y - (name.Bounds.Top + name.LineHeight / 2)) <= 0.5, $"The indicator is centered on the title's first line: dot {rowDot.Bounds}, title {name.Bounds}: " + path);
             if (branch is not null) foreach (var number in row.GetLogicalDescendants().OfType<StackPanel>().Single(item => item.Name == "WorkspaceDiffStats").Children.OfType<TextBlock>())
                 Require(number.FontSize == branch.FontSize && number.LineHeight == branch.LineHeight && number.VerticalAlignment == branch.VerticalAlignment, "Change numbers share the branch line's size and line height: " + path);
         }
@@ -549,7 +549,7 @@ internal static class RailGroupingE2E
             row.Measure(new Size(200, 36)); row.Arrange(new Rect(0, 0, 200, 36));
             Require(Math.Abs(dot.Bounds.Left - (title.Bounds.Right + MarkedRow.Gap)) < 0.01, $"The indicator sits one gap after the title: dot {dot.Bounds}, title {title.Bounds}");
             Require(dot.Bounds.Right <= row.Bounds.Width + 0.01 && dot.Bounds.Left >= title.Bounds.Right, "The indicator stays inside the row, after the title.");
-            Require(Math.Abs(dot.Bounds.Center.Y - (title.Bounds.Top + title.Bounds.Height / 2)) <= 0.5, "A one-line title's indicator is centred on it.");
+            Require(Math.Abs(dot.Bounds.Center.Y - (title.Bounds.Top + title.Bounds.Height / 2)) <= 0.5, "A one-line title's indicator is centered on it.");
             if (name.Length > 10)
             {
                 var whole = new TextBlock { Text = name, FontSize = 14 };
@@ -568,7 +568,7 @@ internal static class RailGroupingE2E
             row.Add(dot, RowRole.Mark);
             if (below) row.Add(new TextBlock { Text = "branch", FontSize = 12, LineHeight = 15 }, RowRole.Below);
             row.Measure(new Size(width, double.PositiveInfinity)); row.Arrange(new Rect(row.DesiredSize));
-            Require(Math.Abs(dot.Bounds.Center.Y - (title.Bounds.Top + 17.5 / 2)) <= 0.5, $"The indicator centres on the title's first line ({text.Length} chars, below {below}): dot {dot.Bounds}, title {title.Bounds}");
+            Require(Math.Abs(dot.Bounds.Center.Y - (title.Bounds.Top + 17.5 / 2)) <= 0.5, $"The indicator centers on the title's first line ({text.Length} chars, below {below}): dot {dot.Bounds}, title {title.Bounds}");
         }
         Console.WriteLine("PASS rail titles: one shared line budget per list, wrapped between words, full title in the tooltip");
     }

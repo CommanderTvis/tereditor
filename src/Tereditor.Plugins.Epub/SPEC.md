@@ -65,7 +65,7 @@ words as plain paragraphs). Structure survives; presentation does not:
 | `br` | hard line break |
 
 Everything else contributes its text. `head`, `script`, `style`, `noscript`, `template` and MathML are dropped. All
-CSS (style sheets, `style` elements and attributes), fonts, sizes and colours are ignored: text takes the theme's
+CSS (style sheets, `style` elements and attributes), fonts, sizes and colors are ignored: text takes the theme's
 foreground on the theme's surface, so a book styled black-on-white stays readable on a dark theme. Text is escaped
 so nothing in a book is read as Markdown or HTML. The cover is shown first unless a chapter already shows it.
 The TOC comes from the EPUB 3 nav document or the EPUB 2 NCX; without either, each chapter is an entry.
@@ -100,7 +100,7 @@ VersOne.Epub is a managed .NET Standard 2.0 library with no package dependencies
 `--epub` (gate case `epub-reader`) generates an EPUB 3 package with a nav document and an EPUB 2 package with an
 NCX (three chapters with headings, lists, in-book and external links, an image, a cover and black-on-white CSS)
 and checks: conversion of both; disabled by default with no viewer; enabling in Settings › Plugins and opening;
-TOC jumps; in-book link; external link URL; images and cover rendering; theme text colour and at least 4.5:1
+TOC jumps; in-book link; external link URL; images and cover rendering; theme text color and at least 4.5:1
 contrast in dark and light themes; Find across chapters with stepping and selection; paged mode page count,
 Next/Previous and arrow keys, chapters starting pages, no line cut at a page's bottom edge, a TOC jump, a resize
 that keeps the location, Find turning pages; the EPUB 2 TOC; and a 6,000-paragraph book opening and paginating

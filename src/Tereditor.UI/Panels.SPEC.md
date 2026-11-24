@@ -27,12 +27,12 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
 - A panel is built on demand and cached in the window's tool-content map; a refresh drops the cached control
   and asks the surface to rebuild only the affected tool. A Git refresh drops Changes and Review only when
   what they show changed (scope, target, commit, view, loading or error state, branch, change rows, branch
-  and commit catalogues; for Review the branch, change count and pull request), so a watcher refresh that
+  and commit catalogs; for Review the branch, change count and pull request), so a watcher refresh that
   changes nothing leaves an open menu and the control under the pointer in place.
 - Panes keep their objects and are updated to reflect state. The branch card reconciles its rows by branch name
   (kept rows are updated, reordered, gain or lose their worktree path and delete state; only added or removed
   branches create or drop controls). A theme or other appearance change keeps the rail, Files and Changes
-  instances (theme colours reach them through the kit's shared brushes and `Ui.ThemeChanged`); a font-size change
+  instances (theme colors reach them through the kit's shared brushes and `Ui.ThemeChanged`); a font-size change
   and every other tool (Review, plugin tools) still rebuild. Switching to another project keeps the Files frame and
   swaps its roots, and builds a new Changes pane because its rows belong to one project. The 15 s Files timer
   only reconciles when the discovered language projects changed.
@@ -87,7 +87,7 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   that created it in the creator's workspace, whether that list is the open workspace's live one or a closed
   workspace's preview (a chat is recorded by its chat id, matched against its plugin tab's path after the scheme).
   When that tab is in a tab group, the nested row sits inside the group's box, under that tab and before the group's next tab.
-  The rows sit in a slot the centre tab row keeps right below it, at the same place in the live strip and in the preview,
+  The rows sit in a slot the center tab row keeps right below it, at the same place in the live strip and in the preview,
   so their spacing, indent, width, guide line and gap to the tab stay the same whether the creator's workspace, its tab or a
   nested workspace is focused. A terminal this window only knows from the host's catalog (an agent running on the host, as a phone sees it) keeps its slot in a closed workspace's preview too. With it off, a created workspace stays in the flat list.
   The nested rows are not tabs: reordering, drops and arrow keys count only tabs. A creator tab that is closed, or a
@@ -107,7 +107,7 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   writers of the rail's offset: a tab strip inside a row reveals its active tab within the strip and its bring-into-view
   request stops at the rail, so a switch never scrolls the rail out and back.
 - While the focused row is scrolled out of the rail's view, an edge pill floats over the list at the top edge (the row is
-  above) or the bottom edge (below): an accent pill, centred, with a chevron pointing that way, the row's own icon (in the pill's label colour, none when the row shows none) and the
+  above) or the bottom edge (below): an accent pill, centered, with a chevron pointing that way, the row's own icon (in the pill's label color, none when the row shows none) and the
   row's name on one line, trimmed to the rail's width, with the full name in its tooltip. The focused row is the open workspace's current
   tab row when the rail marks one, otherwise the open workspace's row; Project Home has none. The pill hides once at
   least half of the row's height shows, and during a tab drag. Clicking it scrolls the rail at once just far enough to
@@ -164,17 +164,17 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   a remote host uses the typed parent path. Creating runs off the UI thread, rejects existing targets
   and traversal names, and opens the new empty folder at Project Home. A failure keeps the input and
   dialog available for retry; dismissing before submission creates nothing.
-- A folder that is not a Git repository opens directly, with no offer to initialise one. Workspace
+- A folder that is not a Git repository opens directly, with no offer to initialize one. Workspace
   creation stays disabled for it, since there is no repository for a worktree to attach to.
 
 - Workspace rows show an unread dot after the name (ThinkRail #770, `WorkspaceUnread.cs`): success for a finished or
   hand-marked result, warning for an agent waiting for input, danger for a failure, with the reason as tooltip. The dot has its own
-  Auto column right of the name, vertically centred on the row, so a wrapping name never extends under it.
+  Auto column right of the name, vertically centered on the row, so a wrapping name never extends under it.
   The workspace menu (rail row and header) offers Mark as unread or Mark as read for the current mark; see
   HostState.SPEC.md "Unread workspaces".
-- The unread dot sits in its own right-hand column of the workspace row, centred on the whole row and clear of the
+- The unread dot sits in its own right-hand column of the workspace row, centered on the whole row and clear of the
   actions button. Tab rows' status dots (agent status, failed mark) end on the same column: workspace and tab rows
-  share one trailing inset (`RailDotInset`), so their dots have equal right edges and each is centred on its own row. A failure names its agents: the row tooltip reads "Claude Code in “Orchestrator” hit an
+  share one trailing inset (`RailDotInset`), so their dots have equal right edges and each is centered on its own row. A failure names its agents: the row tooltip reads "Claude Code in “Orchestrator” hit an
   error" (up to three agent/tab pairs, then "and N more"; "An agent hit an error" when only the host mark is known),
   and each failing agent terminal's own tab row (Projects tab list and tab strip) carries a danger dot in the tab's
   adornment slot with the same wording for that agent. Both come from in-memory state: the terminal signal board's
@@ -236,7 +236,7 @@ reveal Files and select Changed in one step. The Changed label carries the scope
 
 - Marks come from the window's one Git snapshot, the same list Changed shows, so count, marks and list cannot
   disagree, and they are applied to in-memory rows only. A changed file shows its name and a trailing `M`/`A`/`U`/`R`
-  letter in the status colour (modified `Warning`, added and untracked `Success`, renamed `Info`); every ancestor
+  letter in the status color (modified `Warning`, added and untracked `Success`, renamed `Info`); every ancestor
   folder, expanded or collapsed, shows its name and a trailing dot in `Warning`. Deleted files are not listed and
   mark no folder. Paths are the host's `/`-spelled relative paths (see #775 below), so Windows separators cannot hide nested marks. A failed refresh keeps
   the last marks; a switched workspace starts with none until its first read.
@@ -253,9 +253,9 @@ reveal Files and select Changed in one step. The Changed label carries the scope
   the header row; Mod+P reveals Files first. Typing matches file paths by name (the host's `FindFilesAsync` rule,
   see [host files](../Tereditor.Host.Core/Files.SPEC.md#search)): best first, at most 200, ignored files left out. The
   matches show as a flat list in place of the tree or Changed, each row the icon, the file name and its folder
-  dimmed, the matched characters in the accent colour. It is a flat list rather than a pruned tree because the tree
+  dimmed, the matched characters in the accent color. It is a flat list rather than a pruned tree because the tree
   is listed lazily one folder at a time and its expansion is remembered state, which a filter must not touch; the
-  tree underneath is never rebuilt. All asks the host, debounced, cancelling the previous query; a reply to an older
+  tree underneath is never rebuilt. All asks the host, debounced, canceling the previous query; a reply to an older
   query, another workspace or a closed box is dropped. Changed ranks the window's Git snapshot in memory by the same
   rule, deletions left out, and runs again when the snapshot or the mode changes. Up and Down move the selection,
   Enter opens it kept and closes the box, a click opens it as a preview and a double click keeps it. Clearing the
@@ -350,11 +350,11 @@ Git-ignored Files rows remain openable and show a muted icon and chevron, a subt
   saves to the new path; another body is rebuilt once from the content it already read. Opening the new path
   selects that tab, and a new file at an old path opens a separate tab. The Files tree's Rename and Move
   follow directly after the host action succeeds. A rename made elsewhere (shell, agent, `git mv`) is
-  recognised from the watcher: when an open file is missing, a changed path in the same batch, or in a later
+  recognized from the watcher: when an open file is missing, a changed path in the same batch, or in a later
   batch while the tab is marked deleted, whose content hash equals what the tab last read is its new name.
   Candidates are the batch's paths and, for a file under a changed folder that vanished, that relative path
   under the batch's other changed folders; paths another open tab shows are skipped, a matching file name is
-  tried first, and an empty file only matches the same name. No match keeps the deleted behaviour above.
+  tried first, and an empty file only matches the same name. No match keeps the deleted behavior above.
   Moving a file into another workspace is not followed.
 
 ## Specs
@@ -364,7 +364,7 @@ Git-ignored Files rows remain openable and show a muted icon and chevron, a subt
   A visited guard avoids repeated descendants. Parent cycles have no root and are reported by `spec_validate`.
   Rows start expanded and mark the active file without rebuilding the panel.
 - Rows stay on one line: role icon, title (a ` — ` or ` – ` separator collapses to ` · `), then the role
-  (`ARCH`, `MODULE`, `SUBMODULE`, `TASK`, `GOAL`, or the normalised type) revealed on hover or keyboard
+  (`ARCH`, `MODULE`, `SUBMODULE`, `TASK`, `GOAL`, or the normalized type) revealed on hover or keyboard
   focus. The top-level `goal-and-requirements` spec reads `Main spec` in the accent. The automation help text
   carries path and role unconditionally.
 - Row click previews the spec's document and double click or Enter keeps it, through the same flow as
@@ -377,7 +377,7 @@ Git-ignored Files rows remain openable and show a muted icon and chevron, a subt
 
 ## Changes
 
-Opening the comparison menu reloads the host's branch catalogue off the UI thread, so a branch
+Opening the comparison menu reloads the host's branch catalog off the UI thread, so a branch
 created since the last snapshot is available without closing the menu or refreshing the panel.
 
 Git refreshes retain an open scope or comparison menu and its trigger. The latest snapshot or error
@@ -390,17 +390,17 @@ scroll position and expansion. A loaded snapshot stays visible while its replace
   or one commit from the branch), the comparison-branch pill (`vs <branch>`, with Refresh git), and the
   List | Tree toggle at the right. When the three do not fit at their natural widths, the comparison pill
   moves to a second 32px row instead of being clipped; it ellipsizes (full label as tooltip) only when even
-  that row is too narrow. A commit scope is labelled by its short SHA with the full subject as tooltip, so the
+  that row is too narrow. A commit scope is labeled by its short SHA with the full subject as tooltip, so the
   branch pill is not squeezed. The scope, comparison and selected commit belong to the workspace and persist
-  in the profile; the commit catalogue is reloaded from Git, capped at 200.
+  in the profile; the commit catalog is reloaded from Git, capped at 200.
 - The scope menu's contents load on each open, never when the panel mounts: `ListCommitsAsync` for the
   commit rows and an uncommitted-scope status probe, which lets the Uncommitted row read “No uncommitted
   changes”, disabled, instead of opening an unexplained empty list. Each degrades on its own: a failed
   commit read says “Commits could not be loaded” when there are no earlier rows to keep, and a failed probe
   leaves the row as it was. The menu opens only once both answers are in
   (`MenuFill`), so its native popup is measured with its final rows; the comparison-branch menu likewise
-  re-reads the branch catalogue before it opens. Before the first read the rows say `Loading commits…`;
-  a reopened menu shows the rows of its new read. A selected commit scope already read the catalogue to
+  re-reads the branch catalog before it opens. Before the first read the rows say `Loading commits…`;
+  a reopened menu shows the rows of its new read. A selected commit scope already read the catalog to
   validate its commit, so its rows are present without opening. Changing the comparison target or the
   workspace drops the rows.
 - A selected commit that no longer exists (rebase, reset) resets the scope to All changes with a notice.
@@ -472,7 +472,7 @@ Explicit navigation retains the selected file even when it cannot scroll to the 
 to the focused review and do not consume editor or text-entry input.
 
 Keep is review progress for mutable scopes, never a Git write. A removed/added-content hash survives
-neighbouring line shifts and expires when the block changes. Identical blocks include duplicate-group
+neighboring line shifts and expires when the block changes. Identical blocks include duplicate-group
 size and original position, so removing a twin cannot transfer its decision. Keeping the final block
 marks the file viewed in the same update; explicitly unviewing it survives remounts. Historical and
 staged scopes have no Keep or Revert. Progress is session-local and clears when the tab closes.
@@ -537,7 +537,7 @@ whose diffs load and unload editors. These are synthetic results, not native pre
     copy…, which writes the bytes the card describes to a place the user picks. A byte diff shows one such
     card per side.
 - Raw HTML in a rendered Markdown document is read, never run (`MarkdownPreview.Html.cs`). `<img>` loads
-  an http(s) or worktree-relative source at its stated width and height, centred or sent to a side by its
+  an http(s) or worktree-relative source at its stated width and height, centered or sent to a side by its
   own `align` or an enclosing `<p>`, `<div>` or `<center>`; `<picture>` shows its `<img>`; `<details>`
   is a disclosure titled by its `<summary>`, open when it says so, whose body may be ordinary Markdown
   between the opening and closing tags; headings, emphasis, code, links, line breaks and rules map to
@@ -550,10 +550,10 @@ whose diffs load and unload editors. These are synthetic results, not native pre
   `bgcolor`) is ignored, script, style and frames are dropped, and text of unknown tags is kept. A cell is raw
   HTML, so Markdown in it stays literal until a blank line ends the HTML block, as in CommonMark and on GitHub;
   blocks after a blank line render as Markdown inside the cell and the table continues to its `</table>` across
-  blocks. A pixel width on a cell or picture is honoured and lifts the 360-pixel text wrap, so a picture beside
+  blocks. A pixel width on a cell or picture is honored and lifts the 360-pixel text wrap, so a picture beside
   text keeps its stated width; a percentage width shares the remaining width and turns off horizontal
   scrolling. Limits: nesting 20 tables (deeper ones show their text), 2,000 rows, 200 columns, 20,000 cells;
-  spans are clamped to them. Known deviations: cells are vertically centred by default and `th` is left
+  spans are clamped to them. Known deviations: cells are vertically centered by default and `th` is left
   aligned; `<picture>` shows its `<img>` (no light/dark `<source>` choice); `align`/`valign` on `tr`,
   `thead` and `colgroup` are ignored; text and picture selection inside a table is per block, as for
   `<details>`; a table split by blank lines is not regrouped in a rendered diff focus.
@@ -607,7 +607,7 @@ whose diffs load and unload editors. These are synthetic results, not native pre
 
 ## Review
 
-The tool summarises the changed-file count on the current branch, offers Show Changes (which reveals or
+The tool summarizes the changed-file count on the current branch, offers Show Changes (which reveals or
 restores Files and selects Changed) and, through the repo hosting registration (W28, `ReviewPullRequestHost`), hosts the branch's pull
 request section contributed by the repo hosting provider that owns the remote ([GitHub](../Tereditor.Plugins.GitHub/SPEC.md)
 today): a deterministic host flow of push plus the provider's calls (see Git.SPEC.md). The slot is empty, and only
@@ -624,7 +624,7 @@ description comes from the host's draft (branch name and commit subjects).
   toasts “Couldn't prepare the PR”) and opens the compose dialog with editable Title and Description; only
   its submit pushes. The submit reports whether the title was touched, is disabled for a blank title and
   reads `Pushing…` while it runs, during which the dialog cannot be closed. The dialog closes on success and
-  stays open with its edits on a failure (“Open PR failed”); cancelling forgets them.
+  stays open with its edits on a failure (“Open PR failed”); canceling forgets them.
 - With a pull request the action reads Push updates, `Push updates (N)` and primary-filled with “N new
   commits aren't in PR #N yet” when the lookup reports unpushed commits. Unlike upstream it goes through
   the same dialog, titled Push updates and warning that the description overwrites the open PR's: the only
@@ -691,7 +691,7 @@ disappearance shows.
 - A shared searchable branch combobox for the comparison target; the Changes pill uses a tree menu:
   Local contains branch path folders, Remote contains configured remote names and branch path folders.
   Leaves display the final path segment, retain the full ref for selection and tooltips, and mark the
-  selected target. Empty groups and remote HEAD aliases are omitted using the host branch catalogue.
+  selected target. Empty groups and remote HEAD aliases are omitted using the host branch catalog.
 - The full review surface: per-file accordion, comment lifecycle, selection-triggered commenting in
   editors and rendered previews, tab review flags and send actions.
 - Chat deep links into Changes and Specs.

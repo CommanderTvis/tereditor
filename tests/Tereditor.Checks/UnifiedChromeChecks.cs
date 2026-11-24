@@ -141,7 +141,7 @@ internal static class UnifiedChromeChecks
         var top = app.Find<Border>("FixedLeftHeader");
         var body = app.Find<Control>("DockBody_" + app.Window.Layout.State.Groups.Single(group => group.Region == "left").Id);
         var group = (Control)top.Parent!;
-        Require(top.BorderThickness == new Thickness(0, 0, 0, 1) && Equals(top.BorderBrush, Ui.BorderBrush), "The rail header's bottom edge is a 1 px line in the border colour.");
+        Require(top.BorderThickness == new Thickness(0, 0, 0, 1) && Equals(top.BorderBrush, Ui.BorderBrush), "The rail header's bottom edge is a 1 px line in the border color.");
         Require(Math.Abs(top.Bounds.Width - group.Bounds.Width) <= 1 && Math.Abs(top.Bounds.Left) <= 1, $"The line spans the rail's full width ({top.Bounds.Width}, {group.Bounds.Width}).");
         Require(Math.Abs(top.Bounds.Bottom - body.Bounds.Top) <= 1, $"The project list starts right at the line, with no gap ({top.Bounds.Bottom}, {body.Bounds.Top}).");
     }
@@ -200,8 +200,8 @@ internal static class UnifiedChromeChecks
             Require(mark.Content is Border { OpacityMask: not null } glyph && glyph.Width == branchGlyph.Width && glyph.Height == branchGlyph.Height &&
                 ReferenceEquals(glyph.Background, branchGlyph.Background) &&
                 !host.GetLogicalDescendants().Any(control => control is Avalonia.Controls.Shapes.Ellipse || control is TextBlock { Text: "●" }),
-                $"The Host block's {mark.Name} is a plain glyph like the branch's, not a coloured dot.");
-        Require(ReferenceEquals(status.Foreground, Tereditor.Plugins.UI.Kit.Ui.Danger), "The Host block's Error text carries the problem's colour.");
+                $"The Host block's {mark.Name} is a plain glyph like the branch's, not a colored dot.");
+        Require(ReferenceEquals(status.Foreground, Tereditor.Plugins.UI.Kit.Ui.Danger), "The Host block's Error text carries the problem's color.");
         // One glyph per state: the listener's radio tower, unplug for Error, a turning loader while reconnecting.
         Require(Equals(app.Find<ContentControl>("HostListeningIcon").Tag, "radioTower"), "The Listening mark wears the radio tower.");
         Require(Equals(dot.Tag, "unplug") && !dot.Classes.Contains("turning"), $"Error wears the unplugged glyph, still ({dot.Tag}).");
@@ -291,7 +291,7 @@ internal static class UnifiedChromeChecks
                 var centre = app.Find<Border>("CenterRegion");
                 var right = app.Find<Border>("AuxiliaryRegion_right");
                 var shell = surface.Bounds.Width - DockSurface.RailWidth;
-                var step = $"at {zoom:0.##}x ({shell:0} wide: rail {rail.Bounds.Width:0.#}, centre {centre.Bounds.Width:0.#}, right {right.Bounds.Width:0.#})";
+                var step = $"at {zoom:0.##}x ({shell:0} wide: rail {rail.Bounds.Width:0.#}, center {centre.Bounds.Width:0.#}, right {right.Bounds.Width:0.#})";
                 var minimum = Math.Min(.7 * shell, SideGeometry.RailMinimumWidth);
                 Require(rail.IsVisible && rail.Bounds.Width >= minimum - 1, $"The Projects rail keeps its minimum {step}.");
                 Require(rail.Bounds.Width * zoom >= 80 - 1, $"The rail holds the traffic lights' inset {step}.");
@@ -454,7 +454,7 @@ internal static class UnifiedChromeChecks
             app.Window.WindowState = Avalonia.Controls.WindowState.Normal; Dispatcher.UIThread.RunJobs();
             var pill = app.Find<Button>("ScopeProject");
             DoubleClick(pill.TranslatePoint(new Point(pill.Bounds.Width / 2, pill.Bounds.Height / 2), app.Window)!.Value);
-            Require(app.Window.WindowState == Avalonia.Controls.WindowState.Normal, "A double-click on a header button keeps the button's behaviour and does not zoom.");
+            Require(app.Window.WindowState == Avalonia.Controls.WindowState.Normal, "A double-click on a header button keeps the button's behavior and does not zoom.");
             (pill.Flyout as Avalonia.Controls.Primitives.FlyoutBase)?.Hide(); Dispatcher.UIThread.RunJobs();
             Console.WriteLine("PASS unified chrome: no top bar, the rail header, its menus and popups open, no Settings gear in the right bar");
         }

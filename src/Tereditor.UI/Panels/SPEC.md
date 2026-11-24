@@ -47,13 +47,13 @@ agents merely by opening Settings. Static controls live in the compiled page tem
 
 ## Dialog card
 
-- One borderless, transparent `DialogWindow` centred on its owner: an elevated card with an 8px radius,
+- One borderless, transparent `DialogWindow` centered on its owner: an elevated card with an 8px radius,
   the strong border, 16px padding and gaps, and a large appearance-dependent shadow. The owner window dims
   behind it while it is open.
 - Heading, optional explanation, optional fields and right-aligned actions. An empty field area is hidden so
   it adds no gap. Standard dialogs use a 448px card.
 - Buttons are 32px tall; the confirming action is the solid primary (`primary` class: `PrimaryFill`,
-  `PrimaryFillHover` on hover, `OnPrimary` label), others are outlined in the text colour.
+  `PrimaryFillHover` on hover, `OnPrimary` label), others are outlined in the text color.
 - Every dialog is content in the window overlay, like Settings. Over a workbench window a `DialogWindow` is not an owned
   window but a layer of the window's own (`WorkbenchWindow.Present`, one `OverlayHost` per dialog, stacked above Settings
   and each other), so clicking the owner cannot re-order or re-create it, which is what made the owned Clone repository
@@ -79,9 +79,9 @@ agents merely by opening Settings. Static controls live in the compiled page tem
   the user asked for by picker, path or recent entry that the host cannot open says “Couldn't open project”
   there with the host's reason, and leaves the shown project in place. Confirmation stays `Dialogs.Confirm`.
 - A rejected action whose dialog has already closed is an error toast titled with what failed, never the
-  window's error line: “Couldn't create workspace” (the branch catalogue read or the creation, with Git's
+  window's error line: “Couldn't create workspace” (the branch catalog read or the creation, with Git's
   own error) and “Couldn't remove the worktree”.
-- `PrDialogs` holds the pull request compose and setup dialogs; their behaviour is specified with the
+- `PrDialogs` holds the pull request compose and setup dialogs; their behavior is specified with the
   Review panel in [Panels.SPEC.md](../Panels.SPEC.md).
 
 ## Create project
@@ -114,7 +114,7 @@ expressions, a case toggle, a glob filter and replace.
   Project Home hides its Create workspace card until Git discovery confirms a repository;
   Work in project folder and plugin project actions remain available for plain folders.
 - The dialog names its project. When the host lists several open projects that row is a picker over them,
-  checked on the dialog's own. Picking another project loads its branch catalogue through a separate
+  checked on the dialog's own. Picking another project loads its branch catalog through a separate
   project session, so the window does not move and the base returns to that project's default; a project
   whose branches cannot be read is reported and leaves the dialog where it was. Submitting for another
   project opens its Project Home first, then creates or enters the workspace there.
@@ -127,11 +127,11 @@ expressions, a case toggle, a glob filter and replace.
 - Each remote subgroup's heading collapses and expands it; a collapsed remote's rows are not built, so search
   skips them. The choice is remembered per remote name in the profile (`CollapsedRemotes`), one preference
   for every branch picker rather than one per surface.
-- The dialog opens from a cached branch catalogue and a fresh catalogue is prefetched in the background;
+- The dialog opens from a cached branch catalog and a fresh catalog is prefetched in the background;
   when it lands it replaces the list and, unless the user already picked, the default base. The default base
   is whatever the host reports, never a literal `HEAD` sentinel that would be believed and persisted.
 - Worktree mode has a Name field prefilled with the host's next free `workspace-N`, so the name is visible
-  before creation and follows a prefetched catalogue while untouched. Prompt text never replaces this
+  before creation and follows a prefetched catalog while untouched. Prompt text never replaces this
   suggestion. An agent's first task title names an untouched generated workspace after launch through
   the host's `set_title`; creation does not wait for a separate AI request. Editing Name takes precedence.
   A manually entered name is stored as the new workspace's label and supplies its branch:
@@ -139,7 +139,7 @@ expressions, a case toggle, a glob filter and replace.
   with `workspace` as the empty-slug fallback. Existing local branches (including branch directories)
   receive a numeric suffix starting at `-2`. Later label renames do not rename branches.
 - Folder mode hides the base picker and the name, and says where the work lands with an “On {branch}” line
-  read from the catalogue's checked-out branch (absent when HEAD is detached); submitting enters the
+  read from the catalog's checked-out branch (absent when HEAD is detached); submitting enters the
   project's Default workspace, creating nothing.
 - A “Start in a terminal with” row offers Nothing, Terminal and each registered agent launcher (W9),
   using the launcher's icon factory for plugin assets. An unavailable launcher is disabled with its reason
@@ -154,7 +154,7 @@ expressions, a case toggle, a glob filter and replace.
   their generated starting command in an editable field; edits retain the prompt and images as launcher
   arguments. Switching launchers preserves each command draft.
 - Pasting an image into the prompt adds a removable preview. Up to eight PNG attachments of 8 MB each
-  remain in memory until submission. Cancelled or removed drafts write no files. Submission uploads
+  remain in memory until submission. Canceled or removed drafts write no files. Submission uploads
   attachments to the host clipboard directory before starting the agent; both local and remote agents
   receive paths on their own host. Switching launchers preserves attachments. Codex attaches them with
   `--image`; Claude Code receives instructions to read the image files.
@@ -165,7 +165,7 @@ expressions, a case toggle, a glob filter and replace.
 
 ## Settings
 
-Appearance includes a shared Accent colour choice: a row of named swatches (Frog is the default and first) plus an optional custom `#rrggbb` field, keyboard reachable, with the selection checked. The app itself is the preview: a choice applies to open windows at once, and each theme adjusts the lightness so the accent stays legible (Themes SPEC, Accent colour). It includes a shared File type icons choice of Plain (default, single-colour), Colored, Material, None (generic glyphs) and Hidden (no icon at all; offered only by a host at protocol 20). It controls the core bundled icon set independently of Settings › Plugins. Hidden also hides plugin file icons, and names start where the icon was, with no blank slot. Choosing None keeps the style, so returning to a style restores it; changing the choice redraws Files, tabs and Changes in place. An Agent icons choice follows it: Plain (default) or Colored, host setting `agent-icons-colored` (protocol 26, `HostProtocol.AgentIconColors`; disabled on an older host). Colored draws Claude Code's mark in its brand orange wherever the app draws it (chat tabs, New chat menus, rails, the Claude pane); Codex, Pi, omp, OpenAI, Air Gateway and ACP agents ship single-colour marks, so they stay plain, and an ACP agent's own registry colours are untouched. Open icons redraw on the broadcast through `Ui.AgentIconsChanged`; no view is rebuilt. The Interface font size row carries no subtitle, so the app does not name its fonts in Settings.
+Appearance includes a shared Accent color choice: a row of named swatches (Frog is the default and first) plus an optional custom `#rrggbb` field, keyboard reachable, with the selection checked. The app itself is the preview: a choice applies to open windows at once, and each theme adjusts the lightness so the accent stays legible (Themes SPEC, Accent color). It includes a shared File type icons choice of Plain (default, single-colour), Colored, Material, None (generic glyphs) and Hidden (no icon at all; offered only by a host at protocol 20). It controls the core bundled icon set independently of Settings › Plugins. Hidden also hides plugin file icons, and names start where the icon was, with no blank slot. Choosing None keeps the style, so returning to a style restores it; changing the choice redraws Files, tabs and Changes in place. An Agent icons choice follows it: Plain (default) or Colored, host setting `agent-icons-colored` (protocol 26, `HostProtocol.AgentIconColors`; disabled on an older host). Colored draws Claude Code's mark in its brand orange wherever the app draws it (chat tabs, New chat menus, rails, the Claude pane); Codex, Pi, omp, OpenAI, Air Gateway and ACP agents ship single-colour marks, so they stay plain, and an ACP agent's own registry colors are untouched. Open icons redraw on the broadcast through `Ui.AgentIconsChanged`; no view is rebuilt. The Interface font size row carries no subtitle, so the app does not name its fonts in Settings.
 
 A modal two-pane card laid out as upstream ThinkRail's: a section rail under uppercase muted group headers, INTERFACE (Appearance, Highlighting, Editor, Layout, Keymap, Terminal) then SYSTEM (Projects, Workspaces, Notifications, Host, GitHub, Plugins, About, then each
 active plugin's own sections in registration order), with the selected section tinted. No AGENT group: tereditor has no such pages and a scrolling
@@ -178,7 +178,7 @@ behind it, and returns focus to the control that had it. While Settings is open 
 the other window chords) stay out of reach except the Settings chord, which only focuses the open overlay (and
 `ShowSettings(section)` switches section); interface zoom still applies, since Settings sits inside the zoomed layout.
 An owned window was avoided because the macOS native backend re-orders owned windows when the owner is clicked, which made
-Settings flicker. The card is 832 wide and 80% of the window's height (at least 440), clamped to the window and centred in
+Settings flicker. The card is 832 wide and 80% of the window's height (at least 440), clamped to the window and centered in
 it (`SettingsView.FitSize`); the close button, Escape and Mod+W dismiss, and `Closed` fires once. A compact workbench keeps its
 page: the overlay leaves the page bar uncovered, fills the rest with no scrim, and the system Back returns from a section to
 the list and from the list closes Settings.
@@ -209,11 +209,11 @@ could not save this change: …” inline and re-renders from host state.
   theme mutation may be in flight from this page: the mode cards, the theme list and both slot selectors
   take their real disabled state, painted from the disabled roles, until the request settles, so rapid
   complete-pair writes cannot overwrite one another with stale sibling slots. The page
-  re-renders when the device appearance changes. All catalogue, resolution and pair logic comes from
+  re-renders when the device appearance changes. All catalog, resolution and pair logic comes from
   `Rendering/Themes` (see Rendering/Themes.SPEC.md). The interface font size is an app preference below. A Zoom
   row (−, the factor, +, Reset) steps and resets this device's page zoom with the window's zoom command; on the phone
   pages it is the phone's own zoom.
-- Small-number fields (font sizes, tab width, group limits) are sized from the digits of their maximum plus the stepper and padding, centred, on the row's right edge.
+- Small-number fields (font sizes, tab width, group limits) are sized from the digits of their maximum plus the stepper and padding, centered, on the row's right edge.
 - Editor is one section: Editor font size (this device; separate from the interface size; pinch changes it too), Font,
   Line height, Indent with, Indent size, Detect from file and Line numbers rows, then the wrapping rows. Everything but
   the size is shared host state and follows the broadcast. Font is an editable list: “JetBrains Mono” (bundled, sent as
@@ -293,7 +293,7 @@ could not save this change: …” inline and re-renders from host state.
 - A Windows shell picker.
 - Keeping the Create workspace dialog open to retry after a rejected creation; the dialog has closed by
   then and the failure is a toast.
-- Toasts for the remaining rejections that follow a confirmation (closing a project, initialising a
+- Toasts for the remaining rejections that follow a confirmation (closing a project, initializing a
   repository, closing busy terminals); they still use the window's error line.
 
 Settings › Host, while listening, offers a QR button beside the copy buttons. It draws the connect link
@@ -322,13 +322,13 @@ header is the one-line summary ("20 running · 28 MiB"); the section starts coll
 It polls the host's `running` operation every 5 s off the UI thread while shown.
 
 Settings › Code Intelligence is the Code Intelligence plugin's own section, listed under Plugins (hidden while the plugin is off). The page is built by the plugin (`Tereditor.Plugins.CodeIntelligence/UI`). It holds only configuration in a Limits section (`LanguageLimitsView` in the plugin; every number row shares one grid: label, a fixed 128 px box column, and one shared unit column, so boxes and units align): the idle
-timeout and memory budget as two optional-number rows (`OptionalNumberRow` in the plugin: a check box, a number and its unit; unchecked greys the number out, keeps its value and means never or automatic, which the host stores as 0; an unchecked budget shows the budget in force; the automatic derivation and memory pressure are noted), the
+timeout and memory budget as two optional-number rows (`OptionalNumberRow` in the plugin: a check box, a number and its unit; unchecked grays the number out, keeps its value and means never or automatic, which the host stores as 0; an unchecked budget shows the budget in force; the automatic derivation and memory pressure are noted), the
 explanation of when servers stop, and the C#, JVM and other count caps, saved as the `language-limits` host
 setting and re-shown from its broadcast; its rows form two groups (timeout and budget, then the three caps) with one hairline between them and none between rows of a group or above Save. Settings shows no live server state. `--lsp-limits` checks it headless.
 
 The memory guard's settings are not on Settings › Terminal: they are the Processes plugin's section (Settings › Processes), a switch, the per-terminal and
 the total limit (automatic or a fixed size) and a comma-separated list of protected programs, saved as the plugin's settings and re-shown from their broadcast;
-the limits hide while the switch is off. The section explains the escalation and says that the guard samples. The behaviour is in the
+the limits hide while the switch is off. The section explains the escalation and says that the guard samples. The behavior is in the
 Terminals spec ("Memory guard").
 
 Server rows are a grid at every width (static, in `LanguagePanel.axaml`): one header line holds the

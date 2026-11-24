@@ -238,7 +238,7 @@ Vary: Accept-Encoding and representation-specific static-file ETags preserve cac
 Missing/stale sidecars fall back to identity, or 406 when identity is explicitly forbidden.
 Default documents retain negotiation; direct sidecar URLs return 404. Compression applies only
 to public static assets, never RPC. No request-time compression is performed.
-The bundle's `tailscale/` directory (the browser's lazily downloaded Tailscale node, its manifest and licences)
+The bundle's `tailscale/` directory (the browser's lazily downloaded Tailscale node, its manifest and licenses)
 is served the same way; nothing requests it until the user downloads Tailscale in the browser.
 
 File-transfer RPC maps entry names, directory flags and bytes to the host import operation, preserving
@@ -266,7 +266,7 @@ the listener’s master token.
 Every approved credential is bound to the exact browser Origin and loopback transport on each
 RPC call. It can reconnect during the browser session. In-memory origins are listed in the local
 Host settings, where Revoke access invalidates all sessions from that origin. Existing subscriptions
-are cancelled within the existing one-second credential recheck interval; new calls fail immediately.
+are canceled within the existing one-second credential recheck interval; new calls fail immediately.
 Stopping/restarting the listener forgets grants and rejects old credentials. Manual master-token
 and Tailscale authentication retain their existing behavior. Approval is transport bootstrap rather
 than a new host domain operation, so the typed RPC contract and protocol version are unchanged.

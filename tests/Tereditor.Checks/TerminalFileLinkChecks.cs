@@ -565,7 +565,7 @@ internal static class TerminalFileLinkChecks
                 for (; x < image.Width && Ink(image.GetPixel(x, y)); x++) if (Red(image.GetPixel(x, y))) red++;
                 if (x - start < minimum) continue;
                 runs++;
-                if (red < (x - start) * 0.8) return $"an underline at y={y}, x={start}..{x} is not the link's colour (an overlay, not the renderer)";
+                if (red < (x - start) * 0.8) return $"an underline at y={y}, x={start}..{x} is not the link's color (an overlay, not the renderer)";
                 var text = 0;
                 for (var above = Math.Max(0, y - (int)cellHeight); above < y - 1; above++)
                     for (var column = start; column < x; column++)

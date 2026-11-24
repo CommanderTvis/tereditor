@@ -47,7 +47,7 @@ Listings mark Git-ignored entries without hiding them, using a NUL-delimited `gi
   `a/b/c` row.
 
 - A read is decided by the shared classification (`ContentClassifier.Classify`, below) and always carries
-  its metadata. Text is returned decoded. A byte-only file (a recognised magic number, NUL in the sniffed
+  its metadata. Text is returned decoded. A byte-only file (a recognized magic number, NUL in the sniffed
   prefix or invalid UTF-8) answers empty text plus metadata instead of failing; a raster picture (PNG,
   JPEG, GIF, WebP, BMP, by its bytes rather than its extension) no larger than `FileLimits.PreviewBytes`
   also carries its bytes, and the workbench shows any other byte-only file as a card with its type, size
@@ -57,7 +57,7 @@ Listings mark Git-ignored entries without hiding them, using a NUL-delimited `gi
 - `ContentClassifier` is the one byte classification: media type from magic numbers (PNG, JPEG, GIF,
   WebP, AVIF, BMP, ICO, PDF, zip, gzip, WOFF/WOFF2), SVG from a text root element (after an optional
   XML prolog), a Git LFS pointer from its exact three-line form, and the filename only when the bytes
-  say nothing. Text means no recognised magic number, no NUL in the first 8 KiB and a strict UTF-8
+  say nothing. Text means no recognized magic number, no NUL in the first 8 KiB and a strict UTF-8
   decode, so an ASCII-only PDF is still byte-only. The metadata is `ContentMetadata` (SHA-256, byte
   length, textness, media type) and `IsActive` marks HTML, XHTML and SVG, which a client must show inert.
   Diff sides, file reads and the line counts of untracked files in a Git snapshot all use it, so a file
@@ -89,7 +89,7 @@ the root is neither the session's current workspace nor another checkout of the 
 open in a workspace the window left saves to its own checkout, which is how quitting saves every workspace's
 edits), when the file on disk no longer matches that original text (the editor keeps
 the user's edits and the save fails as the named `HostErrorCode.FileChangedOnDisk`, so local and remote
-clients recognise it by code instead of by message), and when the text exceeds the editable limit. A request
+clients recognize it by code instead of by message), and when the text exceeds the editable limit. A request
 with `Overwrite` (since `HostProtocol.SaveOverwrite`, protocol 17) skips only that comparison: containment,
 symlink, external-file, size and generated-instruction refusals, the temporary file and the check that the
 file did not change during the write all still apply, and a caller that does not set it is unchanged.

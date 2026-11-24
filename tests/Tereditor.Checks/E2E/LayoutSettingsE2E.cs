@@ -203,7 +203,7 @@ internal static class LayoutSettingsE2E
         using var app = new E2eWorkspace(Path.Combine(root, "layout-settings-sync"));
         var settings = Open(app);
         var name = settings.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Name == "PresetName");
-        Require(Avalonia.Automation.AutomationProperties.GetName(name) == "Custom preset name", "The preset name field must be labelled.");
+        Require(Avalonia.Automation.AutomationProperties.GetName(name) == "Custom preset name", "The preset name field must be labeled.");
         name.Text = "My workbench";
         app.Click(settings.GetLogicalDescendants().OfType<Button>().Single(button => Avalonia.Automation.AutomationProperties.GetName(button) == "Save preset"));
         Until(() => PresetRow(settings, "My workbench") is not null);

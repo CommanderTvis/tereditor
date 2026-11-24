@@ -77,7 +77,7 @@ internal static partial class GitHubActionsChecks
         var (found, free) = GitHubActionsTab.ParseSearch("branch:main status:failure fix bug nosuch:x");
         Require(found.Count == 2 && found["branch"] == "main" && found["status"] == "failure" && free == "fix bug nosuch:x", "The search box splits runs qualifiers from free text");
         Require(GitHubLogView.Plain("\x1b[36;1mmake\x1b[0m done") == "make done" && GitHubLogView.Runs("\x1b[31mred\x1b[0m plain", Ui.TextBrush).ToList() is [{ Text: "red" } red, { Text: " plain" }] && ReferenceEquals(red.Foreground, Ui.Danger),
-            "Colour codes become runs in the theme's own colours");
+            "Color codes become runs in the theme's own colors");
 
         var version = 0;
         var requests = new List<GitHubViewParams>();
@@ -223,7 +223,7 @@ internal static partial class GitHubActionsChecks
         Require(log.Rows.Count == 100_001 && log.Height < 500, "A 100,000 line log is data: one row per line, a bounded viewport");
         var rows = log.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.FontFamily == Ui.CodeFont).ToList();
         Require(rows.Count is > 0 and < 60, "Only the visible log lines are controls (" + rows.Count + ")");
-        Require(Text(log).Contains("Run make", StringComparison.Ordinal) && Text(log).Contains("line 0", StringComparison.Ordinal) && !Text(log).Contains('\x1b'), "Log lines show with line numbers and no raw colour codes");
+        Require(Text(log).Contains("Run make", StringComparison.Ordinal) && Text(log).Contains("line 0", StringComparison.Ordinal) && !Text(log).Contains('\x1b'), "Log lines show with line numbers and no raw color codes");
         log.Toggle(0, false);
         Layout(window);
         Require(log.Rows.Count == 1, "Closing a group hides its lines");

@@ -32,7 +32,7 @@ public sealed record TerminalColors(Color Background, Color Foreground, IReadOnl
 
     private IEnumerable<uint> Palette()
     {
-        if (Ansi.Count != 16) throw new ArgumentException("A terminal palette has 16 ANSI colours.");
+        if (Ansi.Count != 16) throw new ArgumentException("A terminal palette has 16 ANSI colors.");
         return Ansi.Select(color => color.ToUInt32());
     }
 }

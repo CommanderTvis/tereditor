@@ -311,7 +311,7 @@ internal static class AcpChecks
         var waiting = client.PromptAsync(sessionId, new JsonArray(new JsonObject { ["type"] = "text", ["text"] = "wait" }), CancellationToken.None);
         await Until(() => handler.Kinds().Length >= 8, "The long turn starts.");
         await client.CancelAsync(sessionId);
-        Require(await waiting == "cancelled", "session/cancel ends the turn with the cancelled stop reason.");
+        Require(await waiting == "cancelled", "session/cancel ends the turn with the canceled stop reason.");
 
         // A request the client does not serve is answered with method-not-found rather than hanging the agent.
         var loaded = await client.LoadSessionAsync("old", "/work", CancellationToken.None);
@@ -383,8 +383,8 @@ internal static class AcpChecks
         await session.SendAsync("ask", null);
         await Until(() => session.Header.Status == ChatStatus.AwaitingPermission, "A third request waits.");
         await session.InterruptAsync();
-        await Until(() => Items(session).OfType<ChatAssistantItem>().Any(item => item.Text == "outcome cancelled"), "Cancelling answers a waiting permission as cancelled.");
-        await Until(() => session.Header.Status == ChatStatus.Idle, "The chat is idle after cancelling a request.");
+        await Until(() => Items(session).OfType<ChatAssistantItem>().Any(item => item.Text == "outcome cancelled"), "Canceling answers a waiting permission as canceled.");
+        await Until(() => session.Header.Status == ChatStatus.Idle, "The chat is idle after canceling a request.");
 
         await session.SendAsync("wait", null);
         await Until(() => Items(session).OfType<ChatAssistantItem>().Any(item => item.Text == "working"), "A long turn starts.");
@@ -645,7 +645,7 @@ internal static class AcpChecks
             session.AnswerOption(Items(session).OfType<ChatPermissionItem>().Last().RequestId, "always");
             await Until(() => Items(session).OfType<ChatAssistantItem>().Any(item => item.Text == "outcome always"), "allow_always answers with its option.");
         }
-        Require(Tereditor.Plugins.Chat.UI.PermissionFacts.Unified(null, "a\nb") == "+ a\n+ b" && Tereditor.Plugins.Chat.UI.PermissionFacts.Unified("a\nb\nc\nd", "a\nb\nX\nd") == "  a\n  b\n- c\n+ X\n  d", "A short diff shows only the changed lines and their neighbours.");
+        Require(Tereditor.Plugins.Chat.UI.PermissionFacts.Unified(null, "a\nb") == "+ a\n+ b" && Tereditor.Plugins.Chat.UI.PermissionFacts.Unified("a\nb\nc\nd", "a\nb\nX\nd") == "  a\n  b\n- c\n+ X\n  d", "A short diff shows only the changed lines and their neighbors.");
     }
 
     // The agent's file and terminal calls through a session whose workspace is a temporary directory: reads and writes stay inside it.
@@ -990,7 +990,7 @@ internal static class AcpChecks
             Require(!AcpIconRules.IsAllowedUrl(url, registry), "The icon url " + url + " is refused.");
         Require(AcpIconRules.IsSafeId("goose") && AcpIconRules.IsSafeId("pi-acp") && !AcpIconRules.IsSafeId("../x") && !AcpIconRules.IsSafeId("a/b") && !AcpIconRules.IsSafeId("") && !AcpIconRules.IsSafeId(".hidden"), "An agent id becomes a file name only when it is plain.");
 
-        Require(AcpIconRules.Reject(GoodIcon) is null, "A plain SVG with currentColor, a fixed colour and a local gradient is accepted.");
+        Require(AcpIconRules.Reject(GoodIcon) is null, "A plain SVG with currentColor, a fixed color and a local gradient is accepted.");
         var unsafeIcons = new Dictionary<string, string>
         {
             ["script element"] = """<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>""",
@@ -1112,7 +1112,7 @@ internal static class AcpChecks
         Require(asked.Count == 1, "The host is asked once per workspace.");
         Require(!icons.SetAgents("w", new Dictionary<string, string> { ["c1"] = "goose", ["c2"] = "mine" }), "Agents without icons on disk change nothing on screen.");
         Require(icons.SetIcons(new Dictionary<string, string> { ["goose"] = goose }), "Icons arriving for a chat's agent change its tab.");
-        Require(icons.Decorate(chat("c1")) is { IconSvg: { } svg, Icon: null } && svg == goose, "A chat tab of a known agent carries that agent's SVG, drawn through currentColor in the tab's text colour.");
+        Require(icons.Decorate(chat("c1")) is { IconSvg: { } svg, Icon: null } && svg == goose, "A chat tab of a known agent carries that agent's SVG, drawn through currentColor in the tab's text color.");
         Require(icons.Decorate(chat("c2")) is null, "A custom agent, or one with no icon on disk, keeps the generic ACP icon.");
         Require(icons.Decorate(chat("unknown")) is null && icons.Decorate(new PluginDocumentTabRef("w", "other-scheme", "c1")) is null && icons.Decorate(new TerminalTabRef("w", "c1")) is null, "Other chats and other tabs are left alone.");
         Require(icons.SetIcons(new Dictionary<string, string> { ["goose"] = " " }) && icons.Decorate(chat("c1")) is null, "A blank icon is the generic one, never an empty slot.");
@@ -1144,7 +1144,7 @@ internal static class AcpChecks
         Require(Tereditor.Plugins.Acp.UI.AcpLauncher.Resolve("b", [one, two, three]) is { Kind: "start", Agent.Id: "b" }, "A default that is configured starts at once, without the picker.");
         Require(Tereditor.Plugins.Acp.UI.AcpLauncher.Resolve("", [one, two, three]) is { Kind: "ask", Agent: null }, "With no default and several agents the picker opens.");
         Require(Tereditor.Plugins.Acp.UI.AcpLauncher.Resolve("", [one]) is { Kind: "start", Agent.Id: "a" }, "With no default the only agent starts.");
-        Require(Tereditor.Plugins.Acp.UI.AcpLauncher.Resolve("gone", [one, two]) is { Kind: "ask" } && Tereditor.Plugins.Acp.UI.AcpLauncher.Resolve("gone", [one]) is { Kind: "start", Agent.Id: "a" }, "A removed default falls back to today's behaviour.");
+        Require(Tereditor.Plugins.Acp.UI.AcpLauncher.Resolve("gone", [one, two]) is { Kind: "ask" } && Tereditor.Plugins.Acp.UI.AcpLauncher.Resolve("gone", [one]) is { Kind: "start", Agent.Id: "a" }, "A removed default falls back to today's behavior.");
         Require(Tereditor.Plugins.Acp.UI.AcpLauncher.Resolve("a", []) is { Kind: "none" }, "With no agent at all there is nothing to start.");
         Require(Tereditor.Plugins.Acp.UI.AcpLauncher.DefaultIsMissing("gone", [one]) && !Tereditor.Plugins.Acp.UI.AcpLauncher.DefaultIsMissing("a", [one]) && !Tereditor.Plugins.Acp.UI.AcpLauncher.DefaultIsMissing("", [one]), "Only a set default that no agent has counts as removed.");
         var menu = Tereditor.Plugins.Acp.UI.AcpLauncher.MenuEntries("b", [one, two, three]);

@@ -42,7 +42,7 @@ internal static class WorkspaceCloneChecks
         Require(measured < Own + Shared + (512 << 10), $"A symlink to a folder outside the worktree must not be followed, got {measured}.");
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
-        try { WorkspaceDiskUsage.Measure(copy, cancelled.Token); throw new InvalidOperationException("A cancelled measurement must stop."); }
+        try { WorkspaceDiskUsage.Measure(copy, cancelled.Token); throw new InvalidOperationException("A canceled measurement must stop."); }
         catch (OperationCanceledException) { }
         Require(Tereditor.UI.WorkbenchWindow.WorkspaceSizeText(0) == "<1 MiB" && Tereditor.UI.WorkbenchWindow.WorkspaceSizeText((1 << 20) - 1) == "<1 MiB" &&
             Tereditor.UI.WorkbenchWindow.WorkspaceSizeText(1 << 20) == "1 MiB" && Tereditor.UI.WorkbenchWindow.WorkspaceSizeText((1L << 30) - 1) == "1023 MiB" &&

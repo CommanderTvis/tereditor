@@ -48,7 +48,7 @@ independent; their order is not assumed:
   Scheduling latency is included; this is not an exact render-thread timestamp or physical screen presentation. If rendering is unavailable or fails, the
   raw marker retains that status and no successful time is invented.
 - `workspace-layout`: workspace mounting and the layout pass completed; files and Git may still load.
-- `workspace-ready`: the initial file cache and Git snapshot/branch catalogue have been applied.
+- `workspace-ready`: the initial file cache and Git snapshot/branch catalog have been applied.
   Gitless workspaces can complete successfully. Errors invalidate the sample. Background workspace
   statistics, spec scans, agent initialization and arbitrary document loading are outside this boundary.
 

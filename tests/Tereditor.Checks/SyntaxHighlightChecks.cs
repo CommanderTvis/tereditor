@@ -95,7 +95,7 @@ internal static class SyntaxHighlightChecks
         Require(highlighter.Highlight("words", "a.unknown", null, default).All(style => style == 0), "Unknown files should stay plain.");
         const string patch = "--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new";
         var patchStyles = highlighter.Highlight(patch, "a.patch", null, default);
-        Require(At(patchStyles, patch, "old") != At(patchStyles, patch, "new") && At(patchStyles, patch, "new") != 0, "Patch additions and removals need distinct colours.");
+        Require(At(patchStyles, patch, "old") != At(patchStyles, patch, "new") && At(patchStyles, patch, "new") != 0, "Patch additions and removals need distinct colors.");
         const string custom = """{"name":"Example","scopeName":"source.example","patterns":[{"name":"keyword.control.example","match":"\\bhello\\b"}]}""";
         var definition = CustomHighlighting.Import(custom, "*.example, Examplefile");
         try
@@ -120,7 +120,7 @@ internal static class SyntaxHighlightChecks
         Require(updated.SequenceEqual(new TextMateHighlighter().Highlight(edited, "a.cs", null, default)), "Incremental highlighting differs from a fresh parse.");
         Require(highlighter.Highlight("// comment\rpublic class A {}", "a.cs", null, default).Any(style => style == Role("keyword")), "CR line endings lost state.");
         using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
-        try { highlighter.Highlight(text, "a.cs", null, cancelled.Token); throw new InvalidOperationException("Cancelled highlighting ran."); }
+        try { highlighter.Highlight(text, "a.cs", null, cancelled.Token); throw new InvalidOperationException("Canceled highlighting ran."); }
         catch (OperationCanceledException) { }
         Require(highlighter.Highlight(new string('x', TextMateHighlighter.MaximumCharacters + 1), "a.cs", null, default).All(style => style == 0), "Large file highlighting is unbounded.");
         // Editors share one grammar, so passes from several threads must match a lone pass.
@@ -151,7 +151,7 @@ internal static class SyntaxHighlightChecks
         {
             var syntax = Themes.Resolve(id).Syntax;
             Require(syntax["property"] != syntax["string"] && syntax["property"] != syntax["type"] && syntax["string"] != syntax["comment"],
-                $"TOML keys, strings and comments share a colour in {id}.");
+                $"TOML keys, strings and comments share a color in {id}.");
         }
     }
 
@@ -185,7 +185,7 @@ internal static class SyntaxHighlightChecks
             var syntax = new Dictionary<string, Color>(theme.Syntax) { ["keyword"] = Color.Parse("#12ab34") };
             Ui.Apply(theme with { Syntax = syntax }); Pump();
             var color = frame.Editor.Document.Send(ScintillaMessage.StyleGetFore, keywordStyle);
-            Require(color == 0x34ab12, "Theme did not update native syntax colours.");
+            Require(color == 0x34ab12, "Theme did not update native syntax colors.");
             Require(frame.Editor.Selection == selection && !frame.Editor.IsModified, "Theme changed selection or dirty state.");
             frame.Editor.ClearTextStyles();
             Require(NativeStyle(frame.Editor, "public") == 0 && frame.Editor.Selection == selection && !frame.Editor.IsModified, "Restoring plain text changed the document.");
@@ -366,7 +366,7 @@ internal static class SyntaxHighlightChecks
             var field = Find<TextBox>("HighlightingGrammar");
             CustomHighlighting.Apply(CustomHighlighting.Current);
             Require(ReferenceEquals(field, Find<TextBox>("HighlightingGrammar")) && field.Text == json,
-                "Catalogue updates replaced the custom-highlighting form.");
+                "Catalog updates replaced the custom-highlighting form.");
             Click(Find<Button>("HighlightingImport"));
             Until(() => Find<TextBlock>("HighlightingError").IsVisible);
             Require(app.State!.Current.Settings.CustomHighlighting.Length == 0, "Rejected grammar changed shared settings.");
@@ -409,7 +409,7 @@ internal static class SyntaxHighlightChecks
                 var pixel = pixels.GetPixel(x, y);
                 if (Math.Abs(pixel.Red - color.R) <= 1 && Math.Abs(pixel.Green - color.G) <= 1 && Math.Abs(pixel.Blue - color.B) <= 1) count++;
             }
-        Require(count > 2, "Syntax colours did not reach the rendered view.");
+        Require(count > 2, "Syntax colors did not reach the rendered view.");
     }
 
     private static void SingleSidedDiffs()

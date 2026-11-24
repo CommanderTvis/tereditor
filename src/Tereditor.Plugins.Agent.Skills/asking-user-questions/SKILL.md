@@ -63,7 +63,7 @@ otherwise ask in a plain message, numbering the questions and their options, and
 
 ## Options
 
-- Recommended option first, labelled "(Recommended)", with one line on why you recommend it over the
+- Recommended option first, labeled "(Recommended)", with one line on why you recommend it over the
   alternatives.
 - Every option: a concise label (1–5 words) + a description carrying the trade-off or consequence of
   choosing it. Tailor options to the work at hand — never generic placeholders.

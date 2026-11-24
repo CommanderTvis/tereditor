@@ -150,14 +150,14 @@ and roster registration still precede reconciliation, preserving dormant tools a
   arrives. It refuses settings that name `enabled`: only the user turns a plugin on or off, and `Settings<T>()`
   never shows that key.
 - Shown terminal keys include terminals displayed beside the selected editor in a pane, with the last-focused
-  centre group first. Hidden tabs outside that selected pane do not become the configuration context.
+  center group first. Hidden tabs outside that selected pane do not become the configuration context.
 - The workspace projection includes host-published catalogs and each mounted window's host-resolved
   project/workspace identity. A directly opened worktree is routable by plugin actions before a catalog
   refresh; this requires no Git scan or extra persisted workspace list.
 - `OpenTerminalAsync` with a tab key already open in the target workspace selects that tab without changing it;
-  an unknown key places a new terminal tab with that key in the requested or last-focused centre group and
+  an unknown key places a new terminal tab with that key in the requested or last-focused center group and
   has the host run the command as the new shell's program (then an interactive shell in the same directory), so
-  nothing is typed; the program runs once, and restarting the tab later opens a plain shell. Plugin-opened terminals are centre resources unless the caller names
+  nothing is typed; the program runs once, and restarting the tab later opens a plain shell. Plugin-opened terminals are center resources unless the caller names
   another group.
 - Terminal accessory mounts survive shared-state updates while their registration remains the same;
   removing or replacing a registration unmounts only its control. This preserves an active picker,
@@ -195,7 +195,7 @@ and roster registration still precede reconciliation, preserving dormant tools a
 - Companions (W6) open beside a terminal tab in an embedded split inside the terminal's body, never as a tab of
   their own; the open companion per terminal is window view state. The pane has a top-right close
   button that clears that selection, leaving its terminal and its strip available to reopen it.
-  A companion shows as a slim strip at the very top of the tab body, full width (a pane header strip tall, so its divider meets the neighbouring pane header's), above the transcript or terminal: its icon, the
+  A companion shows as a slim strip at the very top of the tab body, full width (a pane header strip tall, so its divider meets the neighboring pane header's), above the transcript or terminal: its icon, the
   drawing's title and "· N visualizations", in muted text on the tab's own background with a divider below. Pressing the strip
   opens or closes the pane; with several items a chevron lists them and choosing one shows it in the pane. The strip exists only
   while the tab has something to show (no strip, no gap), and is the same on terminals and chat tabs; there is no chip.
@@ -241,10 +241,10 @@ and roster registration still precede reconciliation, preserving dormant tools a
 with icon, label, version (external plugins only; a builtin's version is the app's), origin, status, a reason
 line for failed and refused rows, a contribution summary, a switch, Retry on failed rows
 (`IPluginService.RetryAsync`), a Rescan button (`RescanAsync`), and an editor for the extra plugin roots (add
-and remove, each change a `plugin-paths` host change). The chip row above the list has one chip per heading, each with its category's icon (`PluginCategories.Icons`, monochrome, following the chip's text colour; the letter languages C & C++, C#, CSS, Go, JavaScript & TypeScript, PHP and R have none). Rows sit under one heading per manifest
+and remove, each change a `plugin-paths` host change). The chip row above the list has one chip per heading, each with its category's icon (`PluginCategories.Icons`, monochrome, following the chip's text color; the letter languages C & C++, C#, CSS, Go, JavaScript & TypeScript, PHP and R have none). Rows sit under one heading per manifest
 category (`PluginCategories.Order` first: the languages alphabetically, then the tool groups; other names alphabetically;
 `Other` for plugins without one, last), by label inside a group, so a language's server and its environment plugin are
-neighbours. Each row is its
+neighbors. Each row is its
 own control keyed by plugin id, and a roster change updates rows and headings in place.
 
 Enabling and disabling walk the roster's `DependsOn` edges rather than touching one row:
@@ -284,7 +284,7 @@ plugin deleted from disk.
   factory shows its failure in place.
 - Viewer tabs use the kind `viewer` (`viewer:<path>`). The open path consults `FileViewer` before core's kinds, and
   a registration's `Open` may take the open over; core's image and Markdown handling stays in the open path rather
-  than registering under `core`, which keeps the existing behaviour for every file no plugin claims.
+  than registering under `core`, which keeps the existing behavior for every file no plugin claims.
 - File icons (W17) override core's bundled file-type icons in tabs and Files rows. Changes rows gain an icon when either a plugin or the enabled core set answers.
 - Workspace actions follow New terminal in every center group's tab strip, as the fork's `renderCenterActions`
   does; project actions render beside Create workspace on Project Home.

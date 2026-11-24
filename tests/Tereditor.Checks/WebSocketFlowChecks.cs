@@ -112,7 +112,7 @@ internal static class WebSocketFlowChecks
                 do reply = await RpcWire.Receive(late, timeout.Token);
                 while (reply.Kind != RpcFrameKind.Complete);
                 lateRelease.TrySetResult();
-                Require(reply.Id == 2 && reply.Code == StatusCode.OK, "Frames arriving for a cancelled call must be dropped without failing the connection or other calls.");
+                Require(reply.Id == 2 && reply.Code == StatusCode.OK, "Frames arriving for a canceled call must be dropped without failing the connection or other calls.");
             }
             using var malformed = new ClientWebSocket();
             malformed.Options.AddSubProtocol(RpcWire.Subprotocol);

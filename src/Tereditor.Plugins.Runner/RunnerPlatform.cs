@@ -49,7 +49,7 @@ internal static class RunnerPlatform
         {
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
-            static Color Parse(JsonElement value) => Color.Parse(value.GetString() ?? throw new FormatException("A colour is missing."));
+            static Color Parse(JsonElement value) => Color.Parse(value.GetString() ?? throw new FormatException("A color is missing."));
             var colors = root.GetProperty("colors").EnumerateObject().ToDictionary(color => color.Name, color => color.Value.ValueKind == JsonValueKind.Null ? (Color?)null : Parse(color.Value));
             var ansi = root.GetProperty("ansi").EnumerateArray().Select(Parse).ToArray();
             var syntax = root.GetProperty("syntax").EnumerateObject().ToDictionary(color => color.Name, color => Parse(color.Value));

@@ -1444,7 +1444,7 @@ internal static class LanguageChecks
             E2E.E2eWorkspace.Until(() => termsWindow.FindControl<TextBox>("TermsText")!.Text?.Contains("Synthetic", StringComparison.Ordinal) == true);
             Require(termsWindow.FindControl<CheckBox>("TermsConsent")!.IsChecked == false && !termsWindow.FindControl<Button>("AcceptTerms")!.IsEnabled, "EULA consent defaulted to accepted or enabled acceptance before acknowledgement.");
             termsWindow.Close();
-            Require(!Directory.Exists(Path.Combine(statePath, "language", "agreements", "intellij")), "Cancelling terms review recorded acceptance.");
+            Require(!Directory.Exists(Path.Combine(statePath, "language", "agreements", "intellij")), "Canceling terms review recorded acceptance.");
             ReviewTerms();
             termsWindow = intellijWindow.OwnedWindows.OfType<Tereditor.UI.Panels.LanguageTermsWindow>().Single();
             E2E.E2eWorkspace.Until(() => termsWindow.FindControl<CheckBox>("TermsConsent")!.IsEnabled);

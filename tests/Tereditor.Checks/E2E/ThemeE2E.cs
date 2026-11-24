@@ -32,12 +32,12 @@ internal static class ThemeE2E
     {
         var ids = Themes.All.Select(theme => theme.Id).ToArray();
         Require(ids.SequenceEqual(["dark", "light", "minimal-dark", "minimal-light", "high-contrast-dark", "high-contrast-light"]),
-            "The catalogue must mirror the reference's bundled manifests in manifest order.");
+            "The catalog must mirror the reference's bundled manifests in manifest order.");
         var dark = Themes.Exact("dark")!;
         var contrast = Themes.Exact("high-contrast-light")!;
         Require(dark.Label == "Dark" && dark["content"] == Color.Parse("#18181b") && dark["selection"] == Color.FromArgb(0x59, 0x6a, 0xc8, 0xff) &&
             dark.Colors["selectionForeground"] is null && dark.Ansi.Count == 16 && dark.Ansi[1] == Color.Parse("#cd3131"),
-            "Manifest colours, eight-digit alpha and nullable foregrounds must parse exactly.");
+            "Manifest colors, eight-digit alpha and nullable foregrounds must parse exactly.");
         Require(contrast.Label == "High Contrast Light" && contrast.IsLight && contrast.IsHighContrast &&
             contrast["selectionForeground"] == Colors.White && contrast["accent"] == Color.Parse("#164f58"),
             "High-contrast manifests must carry their appearance, contrast and selected-text foreground.");
@@ -48,7 +48,7 @@ internal static class ThemeE2E
         var wrongSlot = new Preferences { ThemeMode = "system", SystemThemePair = new() { Light = "dark", Dark = "gone" } };
         Require(Themes.Resolve(wrongSlot, "light") is { Fallback: true, Theme.Id: "light" } && Themes.Resolve(wrongSlot, "dark") is { Fallback: true, Theme.Id: "dark" },
             "An unavailable or wrong-appearance slot must fall back to the lowest-order normal theme of that appearance.");
-        Console.WriteLine("PASS bundled theme catalogue mirrors the reference manifests, pair derivation and fallback");
+        Console.WriteLine("PASS bundled theme catalog mirrors the reference manifests, pair derivation and fallback");
     }
 
     private static void PersistsAcrossReload(string root)

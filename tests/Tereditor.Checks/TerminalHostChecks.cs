@@ -268,7 +268,7 @@ internal static partial class TerminalHostChecks
         File.WriteAllBytes(Path.Combine(junk, Convert.ToHexString("big"u8) + ".rec"), new byte[TerminalRecordingStore.MaxBytes + 1]);
         var store = new TerminalRecordingStore(junk);
         for (var index = 0; index < TerminalRecordingStore.MaxEntries + 10; index++) store.Save("s" + index, "x"u8.ToArray());
-        Require(store.LoadAll().Count == TerminalRecordingStore.MaxEntries, "The recording store must honour its entry cap.");
+        Require(store.LoadAll().Count == TerminalRecordingStore.MaxEntries, "The recording store must honor its entry cap.");
         Require(store.Load("big") is null, "An oversized recording must be ignored.");
         Require(new TerminalRecordingStore(Path.Combine(root, "revival-none")).LoadAll().Count == 0, "A missing store must be empty.");
         Console.WriteLine("PASS host terminal revival (local): recorded screen shown by a new shell, close removes it, failed start keeps it, alternate screen and mouse modes dropped, corrupt/oversized/surplus files ignored");

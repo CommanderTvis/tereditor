@@ -35,7 +35,7 @@ their MCP identities. The host waits for shell shutdown before completing the pr
 
 - POSIX shell selection: an existing `SHELL` wins, else `/bin/zsh` on macOS, else `/bin/sh`. It starts as a
   login shell (`-l`) in the workspace root, matching Terminal.app; the PTY supplies interactivity. The
-  environment is the host's minus `TEREDITOR_TOKEN` and any `TEREDITOR_*_STATUS_URL`/`THINKRAIL_*_STATUS_URL` (an outer tereditor's per-terminal identity, which would make an inner agent report to the outer tab; plugins add their own after), with 256-colour/truecolour `TERM` and a UTF-8 locale
+  environment is the host's minus `TEREDITOR_TOKEN` and any `TEREDITOR_*_STATUS_URL`/`THINKRAIL_*_STATUS_URL` (an outer tereditor's per-terminal identity, which would make an inner agent report to the outer tab; plugins add their own after), with 256-color/truecolor `TERM` and a UTF-8 locale
   when none is set. `USER` and `LOGNAME` are stamped from the uid: the PTY registers no utmpx record, so a
   login shell without `LOGNAME` would ask `getlogin()`, which reads whatever stale record the reused device
   carries and can name another user.
@@ -293,15 +293,15 @@ Every step is also appended, as one JSON line (time, kind, terminal name, worksp
 the guard's switch, a restart and the terminal; the file does not, so `IProcessHost.MemoryGuardReport` (the Processes plugin's read-only `processes_status` MCP tool) can answer after the fact why a build in a terminal died with exit 143 or 137: guard on or off, the effective limits, each terminal of the
 host against its limit with its state and largest program, and the newest 50 events from the file. It names only terminals tereditor started and carries no command line or environment.
 
-Which process. The largest one is chosen, never the shell. A recognised agent (Claude Code, Codex, omp, Pi, goose) is what the user is working
+Which process. The largest one is chosen, never the shell. A recognized agent (Claude Code, Codex, omp, Pi, goose) is what the user is working
 with, so when it is the largest the guard ends its heaviest subprocess instead (a build, a test run, a language server it started), then,
 when it has none, the heaviest other program in the terminal. The agent itself is ended only as a last resort: when it alone is over
 the per-terminal limit, so no subprocess could bring the terminal back under; then it gets the stop request and the grace period first. An agent under that limit with
-nothing else to end is only warned about, once, whatever the reason (also the total limit and system pressure). Agents are recognised by
+nothing else to end is only warned about, once, whatever the reason (also the total limit and system pressure). Agents are recognized by
 name and by executable path against the one list of agent executables the Processes pane also uses (`claude`, `codex`, `omp`, `pi`, and
 `goose`, the ACP registry's agent that ships its own binary; Pi and ACP chats run as host children, not in a terminal, so the guard never
 sees them). The path matters because a native Claude Code runs as a binary named after its version (`…/claude/versions/2.1.3`); an agent
-started through a generic runtime (an npm install runs as `node`, an ACP adapter under `bun` or `python`) is not recognised. A protected program is never ended: if it is the largest,
+started through a generic runtime (an npm install runs as `node`, an ACP adapter under `bun` or `python`) is not recognized. A protected program is never ended: if it is the largest,
 the terminal is only warned, once.
 Before the kill the guard checks the process is still the one it sampled (same start and name), so a reused pid is never hit.
 
@@ -324,7 +324,7 @@ What the guard cannot do, honestly.
 - Ghostty's default (`wait-after-command = false`, Surface.zig `childExited`) closes a surface when its
   command exits, whatever the code, unless the run was abnormal: at most `abnormal-command-exit-runtime`
   (250 ms), with any code on macOS and only a non-zero one elsewhere; Ghostty then keeps the surface to
-  show the failure. The host follows it: when a catalogued session's process exits, it closes the tab as
+  show the failure. The host follows it: when a cataloged session's process exits, it closes the tab as
   `CloseAsync` does (catalog, recording and session go, every client's tab follows the catalog) unless the
   host setting `TerminalKeepAfterExit` is on or the exit was abnormal. Runtime counts from the attach that
   started the shell. A shell that fails to start never had a session and keeps its tab with Retry.
@@ -405,7 +405,7 @@ What the guard cannot do, honestly.
   locally and through a real WebSocket RPC host.
 - `CloseTabAsync` removes the tab and ends its shell; `CloseAsync` by session id does the same for the tab
   that session belongs to. `CloseWorkspaceAsync` forgets the workspace and ends every shell started in
-  that folder, catalogued or not, with their recordings. The composition root calls it when
+  that folder, cataloged or not, with their recordings. The composition root calls it when
   `HostStateStore.WorkspaceRemoved` fires after a worktree removal.
 - `TerminalCatalogChecks.cs` covers all of this locally and through a real WebSocket RPC host, including a worktree
   removed through the project host.
@@ -432,7 +432,7 @@ signals. `MemoryTerminalCatalog` has no shells and reports `NotSupportedExceptio
 ## Program titles
 
 - The host follows OSC 0 and OSC 2 (BEL or ST terminated) in each tab's output as it records it, with a bounded
-  scanner that survives chunk boundaries; OSC 1, an over-long (4 KiB) or cancelled sequence and every other OSC are
+  scanner that survives chunk boundaries; OSC 1, an over-long (4 KiB) or canceled sequence and every other OSC are
   ignored. A leading status glyph followed by whitespace (Claude Code's `✳`, its spinner frames `◐ ◑ ✻ ✽ ✶ ✢ ·` and
   braille U+2800–U+28FF) is dropped so every client shows the bare title; a glyph elsewhere, or one not followed by
   whitespace, stays, and user renames and `set_title` are never touched. Control characters become spaces and the title is cut to the catalog's 1000-character bound.
@@ -452,7 +452,7 @@ signals. `MemoryTerminalCatalog` has no shells and reports `NotSupportedExceptio
   upstream's WebSocket latch and one-second buffered-byte reconciler have no counterpart.
 - A reader coalesces already queued, contiguous output up to 128 KiB before yielding it. This reduces
   framing and browser thread transitions without waiting for more output. Resizes and watcher
-  resynchronisations remain ordered boundaries; the position describes the last byte in the batch.
+  resynchronizations remain ordered boundaries; the position describes the last byte in the batch.
 - Output buffers are pooled. The read pump reads into one reused buffer per session and copies each read
   once into a right-sized `ArrayPool` array, a reference-counted chunk. The recorder parses it in place and
   copies it into its preallocated resume ring and snapshot buffers; every attachment that queues the chunk
@@ -500,10 +500,10 @@ signals. `MemoryTerminalCatalog` has no shells and reports `NotSupportedExceptio
   then consumes its entry: `TerminalRecorder.Restore` re-parses the bytes like live output, so modes are
   tracked again rather than copied and the alternate screen and mouse modes stay absent. The attach reports
   `Created` and replays the old picture; no redraw nudge runs. A failed spawn keeps the pending recording.
-- Replay strips historical cursor, colour and capability queries so their replies cannot enter the new
+- Replay strips historical cursor, color and capability queries so their replies cannot enter the new
   shell. Live reconnect output retains its query bytes.
 - Revival is keyed to the catalog. Membership is on disk after every change, so an unclean exit gives back
-  the right tabs with blank screens. On start, once a catalog file exists, a recording that no catalogued
+  the right tabs with blank screens. On start, once a catalog file exists, a recording that no cataloged
   tab names is deleted rather than left for the cap to evict; a directory that never had a catalog keeps
   every recording until its clients have brought their tabs.
 - `CloseAsync` drops the pending entry and deletes the file. Without a recordings directory nothing is
@@ -551,7 +551,7 @@ signals. `MemoryTerminalCatalog` has no shells and reports `NotSupportedExceptio
   host is POSIX only and a Windows PTY cannot be verified on the machines this port is built on.
 - A streaming variant of the bounded child runner that relays output while the child runs, closing the
   stream only after a zero exit and failing it after a nonzero exit, expiry or failed launch, so a
-  truncated relay is never mistaken for a complete one, and cancelling it kills the child. Nothing here
+  truncated relay is never mistaken for a complete one, and canceling it kills the child. Nothing here
   streams a child's output yet; it belongs with the streamed byte route ([Git.SPEC.md](Git.SPEC.md)).
 
 ## File references in terminal output

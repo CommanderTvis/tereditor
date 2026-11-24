@@ -425,7 +425,7 @@ internal static class LanguagePaneNarrowChecks
     /// <summary>The path line prints the whole path and trims whole middle segments to its width, keeping the last segment and the full path as tooltip.</summary>
     private static void PathLineTrims()
     {
-        const string path = "/Users/someone/Projects/a-rather-long-organisation-name/nested/deeper/still-deeper/the-project";
+        const string path = "/Users/someone/Projects/a-rather-long-organization-name/nested/deeper/still-deeper/the-project";
         var previousHome = Tereditor.Plugins.UI.Kit.ScopedSetting.HostHome;
         Tereditor.Plugins.UI.Kit.ScopedSetting.HostHome = "/Users/someone";
         var line = new Tereditor.Plugins.UI.Kit.PathLine { Path = path, Width = 220 };
@@ -437,7 +437,7 @@ internal static class LanguagePaneNarrowChecks
             var text = line.GetVisualDescendants().OfType<TextBlock>().Single(block => block.Name == "PathLineText");
             var shown = text.TextLayout.TextLines.Single();
             var printed = string.Concat(shown.TextRuns.Select(run => run.Text.ToString()));
-            Require(text.Text == "~/Projects/a-rather-long-organisation-name/nested/deeper/still-deeper/the-project" && shown.HasCollapsed && line.Bounds.Width <= 220 && printed.Contains('…') && printed.EndsWith("/the-project", StringComparison.Ordinal),
+            Require(text.Text == "~/Projects/a-rather-long-organization-name/nested/deeper/still-deeper/the-project" && shown.HasCollapsed && line.Bounds.Width <= 220 && printed.Contains('…') && printed.EndsWith("/the-project", StringComparison.Ordinal),
                 $"A path wider than its line must lose middle segments and keep its end, but it printed '{printed}'.");
             Require(ToolTip.GetTip(line) as string == path, "The path line's tooltip is not the full path.");
             HomeAbbreviation();

@@ -131,7 +131,7 @@ Directory.CreateDirectory(assetsDirectory);
 foreach (var (name, svg) in svgs) File.WriteAllText(Path.Combine(assetsDirectory, name + ".svg"), svg);
 Directory.CreateDirectory(materialDirectory);
 foreach (var name in material) File.WriteAllText(Path.Combine(materialDirectory, name + ".svg"), originals[name]);
-Console.WriteLine($"file icons: wrote {svgs.Count} recoloured icons, {material.Count} original-colour icons and the name table (v{Version})");
+Console.WriteLine($"file icons: wrote {svgs.Count} recolored icons, {material.Count} original-color icons and the name table (v{Version})");
 return 0;
 
 static string Sha256(string path)

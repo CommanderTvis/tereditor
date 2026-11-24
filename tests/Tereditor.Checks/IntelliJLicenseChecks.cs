@@ -202,9 +202,9 @@ internal static class IntelliJLicenseChecks
             await Task.Delay(50);
             var before = server.Requests.Count;
             cancel.Cancel();
-            try { await pending; throw new InvalidOperationException("A cancelled sign-in completed."); }
+            try { await pending; throw new InvalidOperationException("A canceled sign-in completed."); }
             catch (OperationCanceledException) { }
-            Require(server.Requests.Skip(before).Any(request => request.StartsWith("jetbrains/licensing/jba/logout", StringComparison.Ordinal)) && View(server)["busy"]!.ToString() == "", "Cancelling a sign-in did not end the server's wait.");
+            Require(server.Requests.Skip(before).Any(request => request.StartsWith("jetbrains/licensing/jba/logout", StringComparison.Ordinal)) && View(server)["busy"]!.ToString() == "", "Canceling a sign-in did not end the server's wait.");
         }
 
         // A request the server never answers times out with a message instead of hanging; the sign-in waits longer than the server's five minutes.

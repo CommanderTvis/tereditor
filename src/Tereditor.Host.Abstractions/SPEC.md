@@ -32,7 +32,7 @@ interchangeable adapter choices. Wire DTOs live in `Tereditor.Host.Protocol`, im
 - Allowed deps: the .NET base library and `Tereditor.Plugins.Api`, whose roster, agent-record and project
   records `HostState` and `IPluginService` share with plugins rather than mirror.
 - Forbidden: serialization attributes, WebSocket RPC, Avalonia, filesystem or process access, and any AI or agent
-  behaviour. A terminal's agent record is data a plugin writes; the host only stores and broadcasts it.
+  behavior. A terminal's agent record is data a plugin writes; the host only stores and broadcasts it.
 
 ## Surfaces
 
@@ -60,7 +60,7 @@ interchangeable adapter choices. Wire DTOs live in `Tereditor.Host.Protocol`, im
   It replays nothing; a client rehydrates from the state snapshot.
 - `WatchFilesAsync` subscribes to the current workspace and yields bounded `FileChange` invalidations.
   Its first frame requests a rescan; later frames name paths or request a full rescan when paths are
-  unavailable or capped. Cancelling the subscription releases its share of the workspace's watchers.
+  unavailable or capped. Canceling the subscription releases its share of the workspace's watchers.
   `PrewarmWorkspaceAsync` is a hint to start them for a workspace about to be opened.
 - `InspectProjectPathAsync` classifies a host path as `ProjectPathKind` (`Repository`, `Initable`,
   `Missing`, `NotDirectory`) without opening it. It and `OpenProjectAsync` take `~` as the host user's
@@ -87,7 +87,7 @@ interchangeable adapter choices. Wire DTOs live in `Tereditor.Host.Protocol`, im
 - The core file-type icon setting is enabled by default and independent of the plugin roster. Protocol version 7 (`HostProtocol.FileTypeIcons`) introduces its shared toggle; older hosts do not accept that setting. Protocol version 14 (`HostProtocol.FileTypeIconStyle`) adds `FileTypeIconStyle` (empty or `plain`, `colored`, `material`) beside it; the toggle stays the None choice, and an older host reads as plain. Protocol version 20 (`HostProtocol.FileTypeIconsHidden`) adds the `hidden` style, stored with the toggle off: Hidden draws no icon at all, and an older client, which maps the unknown style to plain behind a disabled toggle, shows it as None.
 - Protocol version 22 (`HostProtocol.TerminalHiddenChips`) adds the `terminal-hidden-chips` setting, the terminal chips the user hid; a host below it rejects the key, so a client shows no chip gear there.
 - Protocol version 25 (`HostProtocol.RailGroupingFollowsHost`) makes Projects' grouping of workspaces under their creator one host setting, `group-workspaces-under-creator` (`HostSettings.GroupWorkspacesUnderCreator`, nullable, wire member 40, default off). The host's first load seeds it once from the profile of the machine running it; after that every client shows and edits the host's value. A host below it serves none (null), so a client keeps its own profile value and the Settings box edits that.
-- Protocol version 26 (`HostProtocol.AgentIconColors`) adds the `agent-icons-colored` setting (`HostSettings.AgentIconsColored`, wire member 43, default off): agent icons with a brand colour of their own are drawn in it. A host below it rejects the key, so a client leaves the choice disabled.
+- Protocol version 26 (`HostProtocol.AgentIconColors`) adds the `agent-icons-colored` setting (`HostSettings.AgentIconsColored`, wire member 43, default off): agent icons with a brand color of their own are drawn in it. A host below it rejects the key, so a client leaves the choice disabled.
 - Protocol version 23 (`HostProtocol.FileNameSearch`) adds `IProjectServices.FindFilesAsync`, Go to file's match by name ([host files](../Tereditor.Host.Core/Files.SPEC.md#search)); a host below it answers `Unimplemented`, so a client shows no Go to file button and its chord does nothing there. `FileNameMatch` is the pure rule both sides use.
 - Protocol version 24 (`HostProtocol.TerminalMemoryInPlugin`) moves the memory guard's limits from the `terminal-memory` host setting (wire member 34, retired) into the Processes plugin's settings; a host below it keeps them as that setting.
 - `IHostStateService` is the shared state of one host. `GetStateAsync` reads, `ChangeAsync` applies a

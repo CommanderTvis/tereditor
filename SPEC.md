@@ -315,7 +315,7 @@ the counts out of the box. The dir prefix yields completely before the basename
 gives up a pixel. File and folder labels truncate before the reserved counts and action gutter
 in both List and Tree views; resizing preserves the gap. See [Panels.SPEC.md](src/Tereditor.UI/Panels.SPEC.md).
 Markdown diffs offer the reference's Source|Preview toggle: Preview shows one merged
-document with insertions and deletions marked and long unchanged runs collapsed, merged off the UI thread, cancelled when
+document with insertions and deletions marked and long unchanged runs collapsed, merged off the UI thread, canceled when
 the file changes again, and replaced by an error placeholder if the merge fails.
 Files and folders can be dragged from the file tree into Codex or Claude prompts as attachments,
 or onto tree folders to move or copy. External drops copy into the workspace; remote clients
@@ -381,7 +381,7 @@ Resize hides sides below minimum and preserves restore size. The bottom zone is 
 including its automatic terminal, alignment controls, shortcut and hidden drop target. Older profiles
 move nonterminal document tabs from bottom groups into the center before validation; live terminal
 tabs return from the host catalog without starting a second shell.
-Centre tabs live only under their workspace in Projects; hiding Projects never adds editor tabs.
+Center tabs live only under their workspace in Projects; hiding Projects never adds editor tabs.
 Split groups retain their tab lists there, and new workspaces start with no terminal.
 
 ### Keyboard and tab navigation

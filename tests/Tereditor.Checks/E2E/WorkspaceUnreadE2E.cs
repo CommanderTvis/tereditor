@@ -119,7 +119,7 @@ internal static class WorkspaceUnreadE2E
         double FirstLineCentre(TextBlock title) => Within(title).Top + (title.Padding.Top +
             (title.LineHeight > 0 ? title.LineHeight : title.TextLayout.TextLines.FirstOrDefault()?.Height ?? title.Bounds.Height)) / 2;
         Require(Math.Abs(Within(tabDot).Center.Y - FirstLineCentre(tabTitle)) < 1 && Math.Abs(Within(Dot(app, other)).Center.Y - FirstLineCentre(nameBox)) < 1,
-            $"Each dot must be centred on its own title's first line: tab dot {Within(tabDot)}, title {Within(tabTitle)}; dot {Within(Dot(app, other))}, name {Within(nameBox)}.");
+            $"Each dot must be centered on its own title's first line: tab dot {Within(tabDot)}, title {Within(tabTitle)}; dot {Within(Dot(app, other))}, name {Within(nameBox)}.");
         WorkspaceTabsE2E.Switch(app, other);
         app.Window.Activate();
         Until(() => Mark(other) is null && !app.Workbench.Signals.Failed(Tereditor.UI.Terminal.TerminalLaunch.SessionFor(other, failedTab)));

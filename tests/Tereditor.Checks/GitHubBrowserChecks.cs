@@ -170,7 +170,7 @@ internal static partial class GitHubBrowserChecks
 
         var title = (TextBlock)Named(window, "GitHubTitle1")!;
         var row = Named(window, "GitHubRow1")!;
-        Require(title.TextDecorations is null && ReferenceEquals(title.Foreground, Ui.TextBrush), "A row title is plain text colour at rest");
+        Require(title.TextDecorations is null && ReferenceEquals(title.Foreground, Ui.TextBrush), "A row title is plain text color at rest");
         var inside = row.TranslatePoint(new Point(row.Bounds.Width / 2, row.Bounds.Height / 2), window)!.Value;
         window.MouseMove(new Point(0, 0)); Frame(window);
         window.MouseMove(inside); Frame(window);
@@ -218,10 +218,10 @@ internal static partial class GitHubBrowserChecks
             var window = Show(scroll);
             var text = scroll.Scroll.GetLogicalDescendants().OfType<TextBlock>().First();
             var centre = text.TranslatePoint(new Point(text.Bounds.Width / 2, text.Bounds.Height / 2), window)!.Value;
-            Require(Math.Abs(centre.X - window.Bounds.Width / 2) <= 1 && Math.Abs(centre.Y - window.Bounds.Height / 2) <= 1, tab.GetType().Name + " centres its loading text both ways, got " + centre);
+            Require(Math.Abs(centre.X - window.Bounds.Width / 2) <= 1 && Math.Abs(centre.Y - window.Bounds.Height / 2) <= 1, tab.GetType().Name + " centers its loading text both ways, got " + centre);
             window.Close();
         }
-        Console.WriteLine("PASS GitHub tabs centre their loading text");
+        Console.WriteLine("PASS GitHub tabs center their loading text");
         PinnedHeader();
     }
 
@@ -415,7 +415,7 @@ internal static partial class GitHubBrowserChecks
         jobDone = true;
         var log = await browser.LogAsync("/w", new("w", "5"), default);
         Require(log.Problem is null && log.Steps.Count == 2 && log.Steps[0] is { Number: 1, Name: "Build", HasError: true } && log.Steps[0].Lines[0] is { Header: true, Text: "Run build", Time: "10:00:00" }
-            && log.Steps[0].Lines[1] is { Time: "10:00:01", Grouped: true, Text: "\x1b[36;1mmake\x1b[0m" } && log.Steps[0].Lines[2] is { Error: true, Text: "Process completed with exit code 2." }, "A log is split into steps by time, groups are marked and colour codes stay for the view");
+            && log.Steps[0].Lines[1] is { Time: "10:00:01", Grouped: true, Text: "\x1b[36;1mmake\x1b[0m" } && log.Steps[0].Lines[2] is { Error: true, Text: "Process completed with exit code 2." }, "A log is split into steps by time, groups are marked and color codes stay for the view");
         Require(log.Steps[1] is { Number: 2 } && log.Steps[1].Lines.Select(l => l.Text).SequenceEqual(["Post job cleanup."]), "A line after the next step started belongs to that step");
         var before = calls.Count;
         await browser.LogAsync("/w", new("w", "5"), default);

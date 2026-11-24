@@ -302,7 +302,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         turnOnRuntime.IsVisible = false;
         var problem = "";
         try { problem = await turnOn(offer.Kind, source.Token); }
-        catch (OperationCanceledException) { problem = "The download was cancelled."; }
+        catch (OperationCanceledException) { problem = "The download was canceled."; }
         catch (Exception error) { problem = error.Message; }
         finally
         {

@@ -81,7 +81,7 @@ internal static class VisualizeSelectionChecks
         frame.Show();
         Until(() => comparison.GetVisualDescendants().OfType<PanZoomView>().Any());
         frame.Close();
-        Console.WriteLine("PASS hand-written SVG renders with an ok verdict, selectable text and theme colours; refusals report; comparison options draw SVG");
+        Console.WriteLine("PASS hand-written SVG renders with an ok verdict, selectable text and theme colors; refusals report; comparison options draw SVG");
     }
 
     private static void Flowchart()

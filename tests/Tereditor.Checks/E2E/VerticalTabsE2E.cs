@@ -230,7 +230,7 @@ internal static class VerticalTabsE2E
             var host = app.Window.GetLogicalDescendants().OfType<ContentControl>().Single(control => control.Name == "WorkspaceTabs" && Equals(control.Tag, app.Window.WorkspaceRoot));
             Require(host.GetLogicalDescendants().OfType<Button>().Any(button => button.Name == "Tab_markdown_README.md") &&
                 !app.Window.GetLogicalDescendants().OfType<ResizeHandle>().Any(handle => handle.Name == "VerticalTabsResize_" + app.Center),
-                "The strip renders under the active workspace's row and the centre keeps only its editor.");
+                "The strip renders under the active workspace's row and the center keeps only its editor.");
             app.Click(app.Tab("README.md"));
             Require(app.Window.Layout.Selected(app.Center)?.Path == "README.md", "Its tabs still select.");
             app.Open("notes.txt", true); app.Click(app.Tab("README.md"));

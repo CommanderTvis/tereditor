@@ -83,7 +83,7 @@ internal static partial class CommitChecksChecks
         Require(byState[Sha(1)] is { State: "success", Passed: 4, Total: 4, Attention: [] }, "All checks passed is success.");
         Require(byState[Sha(2)] is { State: "failure", Passed: 3, Total: 4 } failing && failing.Attention.SequenceEqual(["windows"]), "One failure is failure and names the check.");
         Require(byState[Sha(3)] is { State: "pending", Passed: 2, Total: 4 } busy && busy.Attention.SequenceEqual(["linux", "mac"]), "Running and queued checks make it pending.");
-        Require(byState[Sha(5)].State == "neutral" && byState[Sha(2)].Url == "https://github.com/o/r/commit/" + Sha(2) + "/checks", "Cancelled is neutral and the link opens the commit's checks.");
+        Require(byState[Sha(5)].State == "neutral" && byState[Sha(2)].Url == "https://github.com/o/r/commit/" + Sha(2) + "/checks", "Canceled is neutral and the link opens the commit's checks.");
 
         var calls = gh.Asked.Count;
         await checks.ReadAsync("o/r", "/w", [Sha(1), Sha(2), Sha(3), Sha(4), Sha(5)], default);

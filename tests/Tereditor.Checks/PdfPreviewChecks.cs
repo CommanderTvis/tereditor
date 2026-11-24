@@ -218,7 +218,7 @@ internal static class PdfPreviewChecks
         using (var stale = new CancellationTokenSource())
         {
             stale.Cancel();
-            try { PdfEngine.Render(MinimalPdf(), 6, stale.Token); Require(false, "A cancelled render must not draw."); }
+            try { PdfEngine.Render(MinimalPdf(), 6, stale.Token); Require(false, "A canceled render must not draw."); }
             catch (OperationCanceledException) { }
         }
         var rotated = PdfEngine.Read(PagesPdf(["Turned"], rotation: 90)).Single();

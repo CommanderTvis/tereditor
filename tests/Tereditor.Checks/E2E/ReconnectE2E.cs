@@ -82,7 +82,7 @@ internal static class ReconnectE2E
             Settle(600);
             var icon = app.Find<ContentControl>("ConnectionIcon");
             Require(status.Text == "Error" && Equals(icon.Tag, "unplug") && !icon.Classes.Contains("turning") && ReferenceEquals(status.Foreground, Tereditor.Plugins.UI.Kit.Ui.Danger),
-                $"A refused client shows the unplugged glyph and the Error in the danger colour, and keeps it while retrying ({status.Text}, {icon.Tag}).");
+                $"A refused client shows the unplugged glyph and the Error in the danger color, and keeps it while retrying ({status.Text}, {icon.Tag}).");
         }
         finally { Task.Run(() => server.StopAsync()).GetAwaiter().GetResult(); }
         Console.WriteLine("PASS a host that refuses the client's token is a final Error, not a reconnect");

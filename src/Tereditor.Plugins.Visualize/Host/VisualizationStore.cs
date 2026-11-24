@@ -27,7 +27,7 @@ internal sealed class VisualizationStore(TimeSpan? verdictTimeout = null)
         "classDiagram, stateDiagram, erDiagram, gantt); 'svg' renders hand-written SVG (set `svg` to a " +
         "complete <svg> document; scripts, event handlers, foreignObject, animation and any reference other than #id or " +
         "a data: raster image are refused, as is anything over 2 MB or 10000 elements; use currentColor or var(--fg), " +
-        "var(--bg), var(--accent), var(--muted), var(--border) for colours so it reads in light and dark); 'markdown' renders Markdown text (set `markdown`) with the app's Markdown preview, including tables and code; 'comparison' renders side-by-side option cards " +
+        "var(--bg), var(--accent), var(--muted), var(--border) for colors so it reads in light and dark); 'markdown' renders Markdown text (set `markdown`) with the app's Markdown preview, including tables and code; 'comparison' renders side-by-side option cards " +
         "(set `options` to the alternatives, each with pros/cons, an optional `recommended` flag, and an " +
         "optional inline `mermaid` or `svg`). Calling again replaces this terminal's view in place, so you can " +
         "iterate on a diagram and the user watches it evolve. visualize_read returns what this view shows now and " +

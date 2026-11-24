@@ -76,7 +76,7 @@ internal static partial class FileIconsChecks
         foreach (var name in FileIconTable.Material)
         {
             var (bytes, tint) = FileTypeIcons.Resolve("material/" + name);
-            Require(bytes is not null && tint is null && !System.Text.Encoding.UTF8.GetString(bytes).Contains("currentColor", StringComparison.Ordinal), "A Material icon keeps its own colours: " + name);
+            Require(bytes is not null && tint is null && !System.Text.Encoding.UTF8.GetString(bytes).Contains("currentColor", StringComparison.Ordinal), "A Material icon keeps its own colors: " + name);
         }
         Require(FileTypeIcons.Key("material", "x.qqqq") == "material/" + FileIconTable.Fallback && FileTypeIcons.Resolve("material/" + FileIconTable.Fallback).Bytes is not null,
             "An unknown name falls back to the default Material file icon.");

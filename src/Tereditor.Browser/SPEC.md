@@ -73,7 +73,7 @@ never raises their close questions.
 The page fits the visible area: the soft keyboard and the address bar resize the layout (`interactive-widget`) and
 the visual viewport sets the window's height and top, notch and gesture-bar insets pad the workbench, and
 pull-to-refresh is off. The browser Back button does not yet step out of a page. What only a real phone can show:
-keyboard and address-bar behaviour on iOS and Android, safe-area insets, touch scrolling and long press in the
+keyboard and address-bar behavior on iOS and Android, safe-area insets, touch scrolling and long press in the
 canvas, pinch, and the on-screen keyboard over terminals.
 
 The host-less Playground greets a newcomer with a getting-started card, in the Default workspace's empty view (under
@@ -94,7 +94,7 @@ of Tailscale v1.104.1 (`Tailscale.Wasm`, adapted from upstream `cmd/tsconnect`),
 Brotli. It is never in the initial bundle: the host serves it under `tailscale/` beside the app, and
 `tailscale/manifest.json` names the build, its files and sizes. `tailscale.js` is imported only when the option
 opens. The option reads the manifest and Cache Storage, then shows "Download Tailscale (~N MB)"; nothing is
-fetched until it is pressed. The download shows progress and can be cancelled; only a complete, size-checked
+fetched until it is pressed. The download shows progress and can be canceled; only a complete, size-checked
 download is cached, under `tereditor-tailscale-<version>-<build>` (a new pin or bridge change gets a new cache and
 older builds' caches are deleted). Later visits start from the cache. A server without the module, a failed
 download and a node that cannot start show the reason with retry.

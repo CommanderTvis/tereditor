@@ -23,7 +23,7 @@ Two projects, `Contract` (`Tereditor.Plugins.EnvPython`: manifest, empty setting
 (`Tereditor.Plugins.EnvPython.Host`). The namespace avoids `Environment`, which would shadow `System.Environment` in
 every plugin. The pipeline itself is the host's mechanism with `Env`'s policy: [Plugins.SPEC.md](../Tereditor.Host.Core/Plugins.SPEC.md), [Env](../Tereditor.Plugins.Env/SPEC.md).
 
-## Behaviour
+## Behavior
 
 Applied in this order; an earlier step that already chose `VIRTUAL_ENV` or `CONDA_PREFIX` (direnv's `layout python`)
 keeps it, and nothing is created or installed.

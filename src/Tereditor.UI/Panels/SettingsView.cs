@@ -488,9 +488,9 @@ public sealed partial class SettingsView : UserControl
         var fileIcons = PageControl<ComboBox>(panel, "FileTypeIconChoices");
         var fileIconStyles = new[]
         {
-            ("", "Plain: single-colour icons that follow the text colour"),
-            ("colored", "Colored: the same icons tinted by file kind with the theme’s colours"),
-            ("material", "Material: Material Icon Theme in its own colours"),
+            ("", "Plain: single-color icons that follow the text color"),
+            ("colored", "Colored: the same icons tinted by file kind with the theme’s colors"),
+            ("material", "Material: Material Icon Theme in its own colors"),
             ("none", "None: generic file glyphs only"),
             ("hidden", "Hidden: no icons beside file names")
         };
@@ -534,7 +534,7 @@ public sealed partial class SettingsView : UserControl
         refreshers.Add(FileIconChoices);
         // Host state too: the choice follows the broadcast, and open agent icons redraw from it.
         var agentIcons = PageControl<ComboBox>(panel, "AgentIconChoices");
-        var agentIconStyles = new[] { (false, "Plain: single-colour icons that follow the text colour"), (true, "Colored: Claude Code in its brand colour; the other agents stay plain") };
+        var agentIconStyles = new[] { (false, "Plain: single-color icons that follow the text color"), (true, "Colored: Claude Code in its brand color; the other agents stay plain") };
         var syncingAgentIcons = false;
         void AgentIconChoices()
         {
@@ -602,7 +602,7 @@ public sealed partial class SettingsView : UserControl
         {
             if (Accents.ParseCustom(custom.Text) is not { } hex)
             {
-                message.Text = "Enter a colour as six hex digits, such as #3b82f6.";
+                message.Text = "Enter a color as six hex digits, such as #3b82f6.";
                 message.IsVisible = true;
                 return;
             }
@@ -613,7 +613,7 @@ public sealed partial class SettingsView : UserControl
         custom.KeyDown += (_, e) => { if (e.Key == Key.Enter) { UseCustom(); e.Handled = true; } };
         if (isCustom)
         {
-            message.Text = "Each theme adjusts a custom colour’s lightness so it stays legible.";
+            message.Text = "Each theme adjusts a custom color’s lightness so it stays legible.";
             message.IsVisible = true;
         }
     }

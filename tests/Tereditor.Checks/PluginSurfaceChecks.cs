@@ -91,7 +91,7 @@ internal static class PluginSurfaceChecks
         {
             var output = new ArrayBufferWriter<byte>();
             var codec = TileCodec.Encode(source, stride, x, y, w, h, output);
-            Require(codec == TileCodecKind.Qoi, "A tile of many colours is compressed.");
+            Require(codec == TileCodecKind.Qoi, "A tile of many colors is compressed.");
             var target = new byte[source.Length];
             TileCodec.Decode(codec, output.WrittenSpan, target, stride, x, y, w, h);
             for (var row = 0; row < h; row++)
@@ -102,7 +102,7 @@ internal static class PluginSurfaceChecks
         var solid = new byte[64 * 64 * 4];
         for (var index = 0; index < solid.Length; index += 4) (solid[index], solid[index + 1], solid[index + 2], solid[index + 3]) = (10, 20, 30, 255);
         var flat = new ArrayBufferWriter<byte>();
-        Require(TileCodec.Encode(solid, 256, 0, 0, 64, 64, flat) == TileCodecKind.Solid && flat.WrittenCount == 4, "A tile of one colour is 4 bytes.");
+        Require(TileCodec.Encode(solid, 256, 0, 0, 64, 64, flat) == TileCodecKind.Solid && flat.WrittenCount == 4, "A tile of one color is 4 bytes.");
         var filled = new byte[solid.Length];
         TileCodec.Decode(TileCodecKind.Solid, flat.WrittenSpan, filled, 256, 0, 0, 64, 64);
         Require(filled.SequenceEqual(solid), "A solid tile fills its pixels.");

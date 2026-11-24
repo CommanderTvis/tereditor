@@ -142,7 +142,7 @@ internal sealed partial class LanguageConfigurationView
             succeeded = outcome?["ok"]?.GetValue<bool>() == true;
             message.Text = outcome is null ? result.Detail : succeeded ? "License updated." : outcome["message"]?.ToString() ?? "";
         }
-        catch (OperationCanceledException) { if (lifetime == current) message.Text = action == "signIn" ? "Sign-in cancelled." : "Cancelled."; }
+        catch (OperationCanceledException) { if (lifetime == current) message.Text = action == "signIn" ? "Sign-in canceled." : "Canceled."; }
         catch (Exception error) { if (lifetime == current) message.Text = error.Message; }
         finally
         {

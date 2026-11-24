@@ -90,7 +90,7 @@ It also writes the Blueprint format specification (frontmatter, control syntax, 
 
 Two start actions open one dialog: a workspace action resolves its project, and a
 project action works from Project Home. Sources are An idea, This project and A
-document. Changing sources retains the idea text and selected document. Cancelling
+document. Changing sources retains the idea text and selected document. Canceling
 the document picker preserves any previous selection. Remote document selection asks
 for a file on the host, with file-specific title, explanation and confirm action.
 The author selector offers registered `claude` and `codex` launchers; Claude Code is

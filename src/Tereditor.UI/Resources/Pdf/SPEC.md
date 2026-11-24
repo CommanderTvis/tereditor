@@ -147,4 +147,4 @@ verification. A macOS framework-dependent publish contains a loadable, initializ
 and no former PDF plugin assemblies. PDFium notices remain in `licenses/PDFium.txt`, copied by the
 existing package scripts; complete canonical-package and Windows runtime verification are separate.
 
-PDF paper is an invariant white design effect; selection uses the theme selection colour at 40% alpha. Toolbar padding follows the shared spacing scale.
+PDF paper is an invariant white design effect; selection uses the theme selection color at 40% alpha. Toolbar padding follows the shared spacing scale.

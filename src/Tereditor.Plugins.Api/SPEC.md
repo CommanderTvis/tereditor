@@ -61,7 +61,7 @@ commit that changes this contract. An external plugin is owned by someone else, 
 and installed by a user.
 
 Both declare the same manifest, receive the same capabilities, and appear in the same roster. Ownership affects
-trust and lifecycle only: whether the manifest's default enablement is honoured, whether the API generation is
+trust and lifecycle only: whether the manifest's default enablement is honored, whether the API generation is
 guaranteed to match, and what the user is told they are trusting. Delivery follows from ownership rather than
 defining it.
 
@@ -97,7 +97,7 @@ of the API.
 `TerminalAgentRecord.LaunchedByUi` is nullable launch provenance: true for a detected UI launch,
 false for a detected manual launch, null when unknown. Hosts persist and broadcast it, including over
 WebSocket RPC. Providers determine it independently of optional prompts or MCP settings; status-only updates
-retain it. Older state and hosts leave it unknown rather than mislabelling sessions.
+retain it. Older state and hosts leave it unknown rather than mislabeling sessions.
 
 `TerminalAgentRecord.Model` and `Effort` retain the latest choices reported by the session for
 revival. Both persist and cross WebSocket RPC; an absent field in a later report preserves the known value
@@ -241,7 +241,7 @@ names and enum values, unknown members refused).
 | `version` | the plugin's own version, informational |
 | `apiGeneration` | refused before load if it does not match `PluginApi.Generation` |
 | `wireVersion` | incremented when the plugin's methods or channels change, so a separately shipped half can detect drift |
-| `enabledByDefault` | honoured for builtin plugins; an external plugin always arrives disabled |
+| `enabledByDefault` | honored for builtin plugins; an external plugin always arrives disabled |
 | `headless` | whether the plugin works in headless tereditor, which has no window, terminal or agent of its own: `yes`, `no` or `undeclared` (the default). A builtin must say `yes` or `no`, and a headless host (`HostKind.Headless`) runs only plugins that say `yes`, refusing the rest and their dependents. An external plugin that says nothing is not headless |
 | `headlessEnabledByDefault` | optional; replaces `enabledByDefault` on a headless host, so a headless plugin can start on there while a desktop leaves it off |
 | `agentRouting` | optional, for an agent plugin: what its model can come from. A list of `accepts` (API kind, how a provider is injected, which credentials it takes: `api-key`, `oauth`) and `ownLogin`. Kinds are `anthropic-messages`, `openai-responses`, `openai-chat`, `google-generative`, `vertex` and `bedrock`; injections are `settings-file`, `config-override` and `models-file`. It is plain data in the roster, so it exists whether or not any plugin reads it. An agent never depends on a plugin that fills it in; tereditor never translates one API kind into another |
@@ -299,11 +299,11 @@ assemblies and kit, and types unify. Nothing loads an assembly into the app at r
 is not loaded at all, since a separate copy of the UI runtime is what isolation from the app would need.
 
 A plugin styles itself with the kit's brushes and fonts (`Ui`), which are what a theme change rewrites. A
-plugin that writes literal colours will stop following theme changes, and nothing will report it.
+plugin that writes literal colors will stop following theme changes, and nothing will report it.
 
 The UI kit is a real assembly, `Tereditor.Plugins.UI.Kit`. It carries the primitives and the heavy shared
 pieces: the Markdown renderer, the code editor frame, and the diagram view. It is the single home for the
-primitives the app uses, and the app uses them from it, because two copies would drift. The theme catalogue
+primitives the app uses, and the app uses them from it, because two copies would drift. The theme catalog
 stays in the app; the kit owns the brush tokens a theme writes, which makes the token names a contract
 documented in the kit's own spec.
 
@@ -325,7 +325,7 @@ part of the build. An external plugin is not run until it can run isolated from 
 ### Depending on another plugin
 
 One plugin may be built on another: a document format owned by one plugin, consumed by a second. That names one
-specific plugin rather than a behaviour any provider could supply, and it is ordinarily a dependency across
+specific plugin rather than a behavior any provider could supply, and it is ordinarily a dependency across
 ownership, external on builtin.
 
 A dependency is declared in the manifest and grants three things.
@@ -490,7 +490,7 @@ the runtime currently has activated. A single reconciler converges the two and t
 every event that can change either side goes through it: host start, a settings change, a dependency cascade, a
 retry, and a rescan. There is no separate toggle path to keep in step with the start path.
 
-The reconciler is serialised, one run at a time per host. A settings change enqueues a run rather than acting
+The reconciler is serialized, one run at a time per host. A settings change enqueues a run rather than acting
 inline, so two rapid toggles collapse into one convergence on the final desired state rather than racing. A run
 computes the target set, then walks it in dependency order.
 
@@ -591,7 +591,7 @@ wire version. The typebox schemas of the fork become C# records; the fork's `Met
 typed from the descriptor it names. What the UI half needs at runtime beyond its descriptors (a channel's kind,
 its snapshot method, its key fields, and the wire version to check against) travels on `PluginRosterEntry`
 (`Channels`, `WireVersion`), built by the host from the contract it has loaded. The app's runtime reads channel
-behaviour from the roster rather than from a UI half's descriptor, and compares a builtin UI half's manifest
+behavior from the roster rather than from a UI half's descriptor, and compares a builtin UI half's manifest
 `WireVersion` against the roster's; an external UI half is trusted, since its assembly and the manifest that
 produced the roster row come from the same plugin directory.
 
@@ -722,7 +722,7 @@ set is closed.
 | H20 | contribute text to the instructions agent plugins give sessions, and read what the host and the enabled plugins contribute: a list item about its tools or a section, for one agent or all, with an order hint and a condition evaluated each time the instructions are composed (`Prompt` with a `PromptContribution`, `ToolGuidance`, `PromptTexts`, `ToolGuidanceSections`). `PromptTexts` with a workspace makes the host's Code Intelligence text name that project's languages with examples on its symbols; it never waits for the workspace's census (the generic text until one finished). The host's own text comes first and is gated on its feature (Code Intelligence guidance only while language services are enabled); then plugins by ascending `Order`, ties in activation order. Ids are `[a-z0-9._-]` up to 64 characters, unique per plugin; text is at most 16000 characters with no control characters but line feeds and tabs; a condition that throws leaves the text out. Additively, `WorkspaceText` appends text computed for the workspace a session starts in, once when its instructions are composed (the state at session start, never polled; omitted from workspace-independent text, and a throw or out-of-bounds result adds nothing). A contribution may carry a `Title` and `Description` for the instructions view; its project-facing id is `plugin.<plugin id>.<id>` (the host's are `core.<id>`). `InstructionSectionsAsync` lists one agent's sections in a workspace with their text and the project's choice, `SetInstructionSectionAsync` turns one on or off in the project's `.tereditor/instructions.toml` disable-list, and `OnInstructionSectionsChanged` reports changes by project root; `PromptTexts` with a workspace leaves the project's disabled sections out (schema: [Plugins](../Tereditor.Host.Core/Plugins.SPEC.md#agent-instruction-sections)). The value types `InstructionSection`, `InstructionSectionList`, `InstructionSectionQuery`, `InstructionSectionToggle` and `InstructionSectionsChanged` live in the base plugin API so contracts and UI share them. The registration belongs to the activation | the agent plugins' instruction texts named the tools of other plugins and advertised language services whatever the setting |
 | H21 | provide a language server (`LanguageServer` with a `LanguageServerSpec`; `LanguageServerPlugin` is the host half of a plugin that provides only one): its id, pinned version, owned extensions and file names, aliases, implementation and provenance, pinning with its archives, NuGet packages or embedded lock files, configuration controls, project manifests and scope, LSP language ids, defaults for initialization options and settings, and the hooks that install, launch and adjust a launch through `ILanguageServerInstallation`; its name and icon, typed option groups, the servers it replaces when chosen, terms the host must record as accepted before launch, vendor expiry, initialization shaping from the typed options and manifests (`ILanguageServerStart`), extra manifests and manifest directories, workspace folders, initialize timeout and progress token, project-load waiting, server messages, dependency sources and reported source roots through `ILanguageServerSession`; and, additively, custom LSP requests to its running server (`RequestAsync`), server notifications and requests (`OnMessage`), experimental client capabilities and `window/showDocument` acceptance, a plugin-owned JSON state surfaced to clients (`SetState`, listed as `PluginState`), a hold on language answers with a short reason (`SetUnavailable`, answered as `actionRequired`) and named plugin actions that clients run on a running session, cancellably (`ActionAsync`, the `action` language operation; it never starts a server) and single-choice questions answered with a server's terms (`LanguageServerTerms.Questions`, recorded with the acceptance and returned in `AcceptedTerms.Answers`). The host keeps the session, the protocol, the installation lock and readiness marker, archive and npm installs, executable overrides and the PATH policy. A server is in the catalog only while its plugin is active; deactivation stops its sessions and keeps its saved settings. Ids are `[a-z0-9-]` up to 64 characters and unique among active plugins | language servers were a fixed host catalog with per-server code in the host |
 | H22 | own the workspace environment policy (`WorkspaceEnvironment`): the order of steps, the merge of their variables, failure and timeout rules, and the observer of each finished resolution (`OnWorkspaceEnvironment`). One active owner (`Env`); the host resolves before a shell starts, bounded, shared per workspace, kept as the last good result | `TerminalEnvironment` is synchronous and runs under the terminal service's lock, so it cannot run a tool |
-| H23 | provide a workspace environment step: edit variables and PATH, run tools through the host (`WorkspaceEnvironmentStep` with `IWorkspaceEnvironmentEdit`), add shell init and report a labelled fact for the chips; the policy (H22), not the step, decides its order. Exactly one step per plugin, which declares `dependsOn` `Env` | `TerminalEnvironment` is synchronous and runs under the terminal service's lock, so it cannot run a tool |
+| H23 | provide a workspace environment step: edit variables and PATH, run tools through the host (`WorkspaceEnvironmentStep` with `IWorkspaceEnvironmentEdit`), add shell init and report a labeled fact for the chips; the policy (H22), not the step, decides its order. Exactly one step per plugin, which declares `dependsOn` `Env` | `TerminalEnvironment` is synchronous and runs under the terminal service's lock, so it cannot run a tool |
 | H24 | provide a repo hosting provider for the remotes it recognizes (`RepoHost` with a `RepoHostProvider`): recognition by remote URL, sign-in status, pull request lookup and state in the neutral `PullRequest` model, create/update, ready/merge/reopen, a compare URL; observe each finished branch status (`OnBranchStatus`), and answer the checks of commits for a plugin that asks (`CommitChecksAsync`, a call from any plugin's host half to core, not to the provider's plugin); the host routes by `origin` and owns git, guards, push, cache and budgets | `PullRequests.cs`, `BranchStatus.cs` and `GitHubAuthentication.cs` call `gh` inline and recognize only GitHub and GitLab by URL |
 | H27 | read the host process table, per-process CPU and memory, the running language servers and the owned-process registry, and switch agent-owned process management on or off (`Processes`, an `IProcessHost`, null on a host without one); only the Processes plugin uses it | the registry stays inert and nothing is listed |
 | H28 | find a runtime for a program the plugin starts: `ResolveRuntimeAsync(RuntimeKind.Bun, Uv or Jdk, workspace)` answers the command, the arguments that go before the package (`x` for Bun, `tool run` for uv), the environment (caches in the host's cache; configuration files and `.env` in the working directory ignored) and the source (pinned path, system install, downloaded copy), or "unavailable" with a plain sentence and `OfferEnable` when only the Runtimes for tooling plugin is missing; `TrackRuntimeProcess` lets the host stop a process that runs from the downloaded copy when that copy is removed; `BunPathAsync` is the path of the same answer; `OnUserDisabled` and `PluginDownloads.Purge` (see Disabling); the status, download, remove and purge members are for the Runtimes for tooling plugin | each plugin looked for Bun on its own, and nothing downloaded was ever deleted |
@@ -794,7 +794,7 @@ to pi.
 
 W27 has no counterpart in the fork. `PluginDocumentRegistration.MenuEntries` adds entries to the context menu of the tabs of that registration's scheme, and of no other
 scheme: one group after Close and Rename, behind a separator, in list order, each with a label, an optional icon, and optional `Visible` (hides the entry) and `Enabled`
-(greys it out) predicates over the document's `PluginDocumentProps`. Core reads the predicates as the menu opens, from in-memory facts only; a predicate that throws hides
+(grays it out) predicates over the document's `PluginDocumentProps`. Core reads the predicates as the menu opens, from in-memory facts only; a predicate that throws hides
 or disables its entry. Choosing an entry runs its `Run` off the UI thread with the document's identity, and a failure is reported against the plugin. There are no submenus
 and no checkable items. `PluginDocumentRegistration.Closed` runs once per document, on the UI thread, when its tab leaves the
 layout (closed by the user, its group removed, or its window closed); a plugin deactivation or a workspace switch that only unmounts the control
@@ -838,7 +838,7 @@ Chat parts are not built: chat companion hosts, `openChat`, tool renderers and t
 as plugins.
 
 Some contributions are excluded. There is no state-slice contribution, since a plugin owns its own state.
-There are no plugin centre-tab kinds. There are no layout-mode, drop-target, context-menu, or group-metadata
+There are no plugin center-tab kinds. There are no layout-mode, drop-target, context-menu, or group-metadata
 contributions, because layout modes stay in the app. Viewer and decoration ordering is registration order,
 first non-null wins. A disabled plugin's tool tab is hidden but keeps its slot. No layout-arrangement verb is offered at all
 (architecture Decision 5). W3 is a read projection rather than the app's state: no raw file-change map, which W14
@@ -852,7 +852,7 @@ it a `plugin:` id validates, renders an empty name, and never appears in a revea
 
 Tool controls and workspace actions are retained per window and workspace. An optional W5 `Retarget`
 callback reuses one control for another workspace: on true the control shows the new workspace's state and none of the old
-one's (in-flight work cancelled or rejected by a generation or workspace check, unsaved drafts dropped, subscriptions still
+one's (in-flight work canceled or rejected by a generation or workspace check, unsaved drafts dropped, subscriptions still
 registered once); returning false leaves it unchanged and the host builds a separate instance.
 Plugin removal, project/workspace closure, appearance changes and window closure release retained controls.
 
@@ -1022,7 +1022,7 @@ applied yet.
   by name.
 - Frames are a 4-byte little-endian length and an `IsoFrame` in the same generated protobuf codec as the RPC
   (`Tereditor.Wire`), at most 4 MiB each. The host allocates odd call ids and the runner even ones. A call gets a
-  reply or a fault, can be cancelled, and can carry a deadline that both sides enforce. One-ways run one at a time in
+  reply or a fault, can be canceled, and can carry a deadline that both sides enforce. One-ways run one at a time in
   arrival order. A stream sends at most 16 items ahead of the reader's credit. Objects lent across are handles; a
   released or revoked handle answers `Released` or `Denied` with its permission, and only an id never lent on that
   connection is a violation. Each side queues at most 1,024 frames or 32 MiB; a runner that stops reading is cut off.
@@ -1120,7 +1120,7 @@ outsider fixture installed from disk). Shipping compositions do not run it: the 
   every 200 ms otherwise. Scrolling seen since the last frame goes first as moves, which both ends apply the same
   way, so a scroll sends only the uncovered rows. Messages from the client are applied one at a time in arrival
   order. The host holds a surface's messages until the runner has shown it, so none arrives before its control.
-- Tiles are lossless: one colour is 4 bytes, anything else is QOI without its header. One light measurement on the
+- Tiles are lossless: one color is 4 bytes, anything else is QOI without its header. One light measurement on the
   fixture's side tool (356×417, 42 tiles) chose it: QOI 9,972 bytes, encode 0.11 ms, decode 0.10 ms; zlib at its
   fastest level over left-filtered rows 14,462 bytes, 0.30 ms and 0.25 ms (measured while the surface was still
   opaque). Rendering cost, measured once on the same
@@ -1305,7 +1305,7 @@ isolated runtime, while the trusted runtime keeps them as they are.
 | --- | --- | --- |
 | `ILanguageServerInstallation.Http` | a raw `HttpClient` | an `HttpClient` over a brokered handler, so every request passes the `net:` check |
 | `IRepoHostSurface.Owner` | the app's `Window` | not available; dialogs go through the surface's own methods |
-| `IPluginUIContext.WorkspaceChips`, another plugin's `AgentLauncher.CreateIcon` | controls owned by core or by another plugin | `WorkspaceChips` is consumed only by the chat plugin's environment row, and `CreateIcon` (taking a size and an `IBrush`) by two places that fall back to a named icon. In the isolated runtime both return a placeholder control in the plugin's tree, with the app compositing the real control into that rectangle; `CreateIcon` instead takes a named icon and a colour. Unconfirmed: the placeholder is the reverse direction of a remote surface, and no precedent in Avalonia is known |
+| `IPluginUIContext.WorkspaceChips`, another plugin's `AgentLauncher.CreateIcon` | controls owned by core or by another plugin | `WorkspaceChips` is consumed only by the chat plugin's environment row, and `CreateIcon` (taking a size and an `IBrush`) by two places that fall back to a named icon. In the isolated runtime both return a placeholder control in the plugin's tree, with the app compositing the real control into that rectangle; `CreateIcon` instead takes a named icon and a color. Unconfirmed: the placeholder is the reverse direction of a remote surface, and no precedent in Avalonia is known |
 | `PluginToolDefinition.ParametersType`, the settings type behind H13 and W2 | a `System.Type` the trusted side reflects over | a JSON schema generated at build time and sent with the registration; arguments and settings are validated against it, then deserialized in the plugin process. Pending: until the host-mode runner sends it, a UI-only plugin's settings are stored unvalidated |
 
 The public-API analyzer is extended so that a new plugin-facing member which cannot cross fails the build, with
@@ -1456,7 +1456,7 @@ Contributing into another plugin's surfaces, and cross-plugin UI composition; op
 ranges; any registry, marketplace, installer, updater, or signature check, since installing is a copy into a
 directory; sandboxing or crash isolation, and so running external plugins at all; loading any assembly at
 runtime, in the host or the app; compatibility shims for an
-older generation; plugin centre-tab kinds, layout intents, and layout modes; plugin-defined theme tokens; a host
+older generation; plugin center-tab kinds, layout intents, and layout modes; plugin-defined theme tokens; a host
 event bus; core agent-kind detection; a generic settings form rendered by core, since a plugin has the kit and
 can ship a real section; native menu contributions; runtime validation of results and pushes; and an
 external-file tab kind beyond the exact-file allowlist below. Everything agent-side: pi, the agent tool surface,

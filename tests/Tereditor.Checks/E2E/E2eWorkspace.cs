@@ -136,7 +136,7 @@ internal sealed class E2eWorkspace : IDisposable
         File.WriteAllText(Path.Combine(root, "LINKS.md"), "# Link demo\n\nJump to [Section two](#section-two), open [the spec](SPEC.md), and see the logo:\n\n![logo](logo.png)\n\n## Section two\n\nTarget of the in-document anchor.\n");
         File.WriteAllText(Path.Combine(root, "SPEC.md"), "---\nid: sample-root\ntype: goal-and-requirements\ntitle: Sample Project\n---\n\n## Goal\n\nA throwaway fixture project.\n");
         Directory.CreateDirectory(Path.Combine(root, "styles"));
-        File.WriteAllText(Path.Combine(root, "styles", "COLOR.md"), "# Colour system\n\nSee [`themes/SPEC.md`](../themes/SPEC.md).\n");
+        File.WriteAllText(Path.Combine(root, "styles", "COLOR.md"), "# Color system\n\nSee [`themes/SPEC.md`](../themes/SPEC.md).\n");
         Directory.CreateDirectory(Path.Combine(root, "themes"));
         File.WriteAllText(Path.Combine(root, "themes", "SPEC.md"), "# Theme spec target\n\nReached through a parent-relative Markdown link.\n");
         File.WriteAllBytes(Path.Combine(root, "logo.png"), Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII="));

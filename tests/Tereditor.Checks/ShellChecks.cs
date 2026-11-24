@@ -496,8 +496,8 @@ internal static class ShellChecks
         // shorter than the caption, and only its buttons take the caption's touches, so its blank space still drags the window.
         Require(CaptionBar.FromPixels(0, 2560, [(2200, 2560)], 2) is null, "Without a caption bar the header stays as it is.");
         Require(CaptionBar.FromPixels(96, 2560, [(0, 2560)], 2) is null, "A caption whose controls leave no room keeps the header below it.");
-        Require(CaptionBar.FromPixels(96, 2560, [(1000, 1600)], 2) is null, "Controls across the centre line keep the header below the caption.");
-        Require(CaptionBar.FromPixels(96, 2560, [(0, 200), (1200, 1400)], 2) is null, "Any control across the centre line keeps the header below the caption.");
+        Require(CaptionBar.FromPixels(96, 2560, [(1000, 1600)], 2) is null, "Controls across the center line keep the header below the caption.");
+        Require(CaptionBar.FromPixels(96, 2560, [(0, 200), (1200, 1400)], 2) is null, "Any control across the center line keeps the header below the caption.");
         Require(CaptionBar.FromPixels(96, 2560, [], 2) == new CaptionBar(48, CaptionBar.AssumedLeft, CaptionBar.AssumedRight),
             "A caption that does not say where its controls are is drawn into with the usual room reserved at both sides.");
         Require(CaptionBar.FromPixels(96, 400, [], 2) == new CaptionBar(48, 80, 80), "The assumed room never takes more than 40% of a narrow window per side.");
@@ -744,7 +744,7 @@ internal static class ShellChecks
         app.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
         app.Window.MouseUp(start, MouseButton.Left); Settle();
         Require(!surface.IsDragging, "Escape cancels the drag.");
-        Untouched("Cancelling a drag must keep every mounted body and strip.");
+        Untouched("Canceling a drag must keep every mounted body and strip.");
 
         var separator = app.Find<ResizeHandle>("rightSeparator");
         var grip = separator.TranslatePoint(new Point(separator.Bounds.Width / 2, separator.Bounds.Height / 2), app.Window)!.Value;

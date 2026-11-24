@@ -187,7 +187,7 @@ internal static partial class GitHubBrowserChecks
             Require(circle.ClipToBounds && circle.CornerRadius.TopLeft == circle.Bounds.Width / 2 && circle.Bounds.Width == circle.Bounds.Height, name + " clips to a circle");
             Require(circle.BorderThickness == default, name + " draws its border as a ring over the picture, not as its own edge");
             var ring = circle.GetLogicalDescendants().OfType<Border>().Single(b => b.Name == "GitHubAvatarRing");
-            Require(ReferenceEquals(ring.BorderBrush, Ui.BorderBrush) && ring.BorderThickness == new Thickness(1) && ring.CornerRadius == circle.CornerRadius && ring.Bounds.Size == circle.Bounds.Size && !ring.IsHitTestVisible, name + " has a 1 px ring in the theme border colour over its full circle");
+            Require(ReferenceEquals(ring.BorderBrush, Ui.BorderBrush) && ring.BorderThickness == new Thickness(1) && ring.CornerRadius == circle.CornerRadius && ring.Bounds.Size == circle.Bounds.Size && !ring.IsHitTestVisible, name + " has a 1 px ring in the theme border color over its full circle");
             Require(circle.Child is Grid { Children: [_, var top] } && ReferenceEquals(top, ring), name + " draws the ring last, above the picture");
         }
         Require(GitHubAvatars.Face((Border)Named(window, "GitHubAvataruser0")!) is Image picture && RenderOptions.GetBitmapInterpolationMode(picture) == BitmapInterpolationMode.HighQuality, "The picture scales at high quality");

@@ -711,7 +711,7 @@ internal static class ClaudeContextChecks
         { Detail = "https://api.example.com/mcp", Status = state.Status, StatusText = "? odd" }).ToArray();
         var badges = new ClaudeCapabilitiesSurface(host, servers).View.GetLogicalDescendants().OfType<TextBlock>().Where(block => block.Name == "ClaudeMcpStatus").ToArray();
         Require(badges.Length == states.Length && badges.Zip(states).All(pair => pair.First.Text == pair.Second.Word && ReferenceEquals(pair.First.Foreground, pair.Second.Brush)),
-            "A server row shows its status as a badge worded and coloured by state; an unknown status shows Claude's text, muted.");
+            "A server row shows its status as a badge worded and colored by state; an unknown status shows Claude's text, muted.");
         var localServer = new ClaudeCapability(ClaudeCapabilityKind.Mcp, "scratch", new(ClaudeConfigScope.Local, "/home/.claude.json") { KeyPath = ["projects", "/p", "mcpServers", "scratch"] }, true);
         var localRow = new ClaudeCapabilitiesSurface(host, [localServer]).View;
         var localChips = localRow.GetLogicalDescendants().OfType<Border>().Where(border => border.Name == "ClaudeScopeChip").ToArray();

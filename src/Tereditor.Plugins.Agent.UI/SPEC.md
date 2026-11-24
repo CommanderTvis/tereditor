@@ -29,8 +29,8 @@ the module owns no session, account or terminal state.
   characters so a dropped filename cannot submit or split the prompt. The directory chip shows the path in full, as
   the terminal does (a long one loses its middle), with no home abbreviation. Every chip, the companion buttons above
   the rows included, is the kit's `Chips` family and takes its gap from the `ChipGap` layout role: rows share one left
-  edge and one row gap. A chip is filled with the terminal background nudged 10% towards the text colour and its label is in the normal text
-  colour; the chat's chip strip is exactly the terminal's default background, so the chips float on it in every theme.
+  edge and one row gap. A chip is filled with the terminal background nudged 10% towards the text color and its label is in the normal text
+  color; the chat's chip strip is exactly the terminal's default background, so the chips float on it in every theme.
   `TerminalFacts.ChipKinds` names the chip kinds agent terminals share under one id each, whichever agent shows them, so the
   terminal strip's gear menu hides a kind in every agent's row; the chat keeps its own chip choice under the input.
 - `InstructionSectionsView` is tereditor's instructions as one context-table entry: a row with the PROJECT

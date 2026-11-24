@@ -76,7 +76,7 @@ internal static class GhosttySkiaChecks
         CheckWatching(root);
         CheckRendererSetting(root);
         TerminalHostChecks.ReplaySetting(root);
-        Console.WriteLine("PASS Skia terminal renderer: libghostty-vt cells, colours, wide/combining text, box drawing, cursor, keyboard and mouse encoding, paste, selection, scrollback, resize, touch and soft-keyboard input, and a host PTY session that survives a renderer restart");
+        Console.WriteLine("PASS Skia terminal renderer: libghostty-vt cells, colors, wide/combining text, box drawing, cursor, keyboard and mouse encoding, paste, selection, scrollback, resize, touch and soft-keyboard input, and a host PTY session that survives a renderer restart");
     }
 
     // An agent's empty prompt draws its hint faint, with its own cursor as an inverse cell on the hint's first glyph. The
@@ -779,7 +779,7 @@ internal static class GhosttySkiaChecks
             view.Colors = TerminalColors.Default with { Background = Color.FromRgb(0x10, 0x80, 0x10) };
             Pump();
             using (var frame = window.CaptureRenderedFrame()!)
-                Require(Pixels(frame).Count(p => p == Color.FromRgb(0x10, 0x80, 0x10)) > 1000 && view.Frames > frames, "a colour change did not repaint.");
+                Require(Pixels(frame).Count(p => p == Color.FromRgb(0x10, 0x80, 0x10)) > 1000 && view.Frames > frames, "a color change did not repaint.");
 
             sizes.Clear();
             window.Width = 400; Pump();

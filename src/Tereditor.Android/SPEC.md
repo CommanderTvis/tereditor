@@ -15,7 +15,7 @@ No upstream counterpart: the reference has no Android client.
 The Android application: the workbench of `Tereditor.UI` compiled for Android and composed as a client of a
 host that runs elsewhere. It owns the application and activity entry points, the windowing layer Avalonia's
 Android backend lacks, the connect screen, the remembered host endpoint and the packaging of the native
-terminal, editor, PDF and embedded Tailscale libraries. It adds no workbench behaviour of its own; the one screen it contributes
+terminal, editor, PDF and embedded Tailscale libraries. It adds no workbench behavior of its own; the one screen it contributes
 is the connect screen, and the one page it replaces is Settings › Host.
 
 ## Boundary
@@ -26,7 +26,7 @@ is the connect screen, and the one page it replaces is Settings › Host.
   status it reads), the Android half of `SettingsView` (`HostSettings.cs`),
   `Windowing/` and the project's native-library build hook.
 - Forbidden: an embedded host, a local PTY, a terminal relay child or a served endpoint; a second copy of
-  workbench sources; behaviour that only Android has outside this folder, other than a platform test in the
+  workbench sources; behavior that only Android has outside this folder, other than a platform test in the
   shared code that owns it (`TerminalBackends`, `ScintillaEditor.IsSupported`, the Ghostty Skia control's
   touch and soft-keyboard input).
 
@@ -45,7 +45,7 @@ composition in `App.OnFrameworkInitializationCompleted`, `Workbench.Listener` an
 subscriptions in `SettingsView`. `HostSettings.cs` in this folder supplies the `ServingSettings` partial the
 excluded file otherwise provides.
 
-Consequences the shared sources must keep honouring:
+Consequences the shared sources must keep honoring:
 
 - Every file under `src/Tereditor.UI` is an Android source unless the project excludes it. Code that needs
   `Tereditor.Host.Remote`, ASP.NET Core or a desktop lifetime goes under `#if !ANDROID` or into an excluded
@@ -84,7 +84,7 @@ Contract:
 - A window needs a running activity; creating one without it throws. Windows cannot outlive the activity.
 - The window shown without an owner while no other window fills the activity becomes the root. Its view
   replaces the activity's content inside a frame padded by the status bar, navigation bar, display cutout and
-  soft keyboard, and the frame is painted in the window's background colour so the bars sit over it.
+  soft keyboard, and the frame is painted in the window's background color so the bars sit over it.
   Avalonia's automatic safe-area padding is turned off for its content, since the frame already applies it.
 - In an Android desktop window (desktop windowing, Android 15 / API 35 and later) the desktop frame's header is the
   window's title bar, as on a Mac. A wide workbench wears the unified chrome (`UnifiedChrome`): the same rail header, fixed Projects rail, single main group and right side as the Mac and browser windows, with the add button and a Settings gear at the left of the rail header's first row, after the room the system's app chip takes. When the root is a wide workbench and the window has a caption bar
@@ -92,18 +92,18 @@ Contract:
   (`WindowInsetsController.setSystemBarsAppearance` with `APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND`), the frame
   drops the caption from its top padding, and the header takes its row: never shorter than the caption, and clear
   of the system's controls by their bounding rects (`WindowInsets.getBoundingRects(captionBar())`, relative to the
-  window frame): a rect left of the centre line reserves room at the left (the app chip), one right of it at the
+  window frame): a rect left of the center line reserves room at the left (the app chip), one right of it at the
   right (minimize, maximize, close); with several rects on a side the outermost edge counts. When the system
   reports a caption height but no rects, the header still draws into the caption and reserves 140 dp at the left and
   180 dp at the right (each at most 40% of the width), a wide guess for the chip and the buttons. Only a rect across
-  the centre line, or no caption at all, keeps the header below it. The window turns the caption transparent as soon
+  the center line, or no caption at all, keeps the header below it. The window turns the caption transparent as soon
   as its decor view has a caption bar, and not when the frame sees one: while the caption is opaque the decor view takes
   the caption out of the insets the views get (`DecorView.updateColorViews`, `FLAG_FORCE_CONSUMING_OPAQUE_CAPTION_BAR`), so the frame
   sees a height of 0 until the background is transparent. It also makes the activity's window edge-to-edge, and asks for the insets again after a
   layout when its shell changed since they arrived. One log line (tag `tereditor`, starting `Caption:`) records, on
   each change, the API level, caption height (the frame's and the window's own), raw rects, frame, density, the branch taken and the result. There is no
   About page on Android to show it in.
-  `APPEARANCE_LIGHT_CAPTION_BARS` follows the header's colour (set on a light header, cleared on a dark one) and
+  `APPEARANCE_LIGHT_CAPTION_BARS` follows the header's color (set on a light header, cleared on a dark one) and
   follows theme changes, so the system's buttons stay readable. The system keeps the caption's touches and drags
   the window from them, so the header's buttons and text boxes claim theirs, cut to the caption's height, with
   `View.setSystemGestureExclusionRects` on the root's view; the header's blank space stays the system's and drags
@@ -112,10 +112,10 @@ Contract:
   connect screen and Android before 15 keep the caption bar above the window, untouched; a root that does not
   draw into it clears the transparent appearance a previous one set, since the appearance belongs to the activity.
   The margins and row height are shared code (`CaptionBar`, ShellChecks' chrome case); the platform calls, the
-  touch routing and the button colours are verified only on a device.
+  touch routing and the button colors are verified only on a device.
 - The shell follows the activity's window, not the screen (`ShellSwitch`): a window at least 600 dp wide (the
   activity configuration's `ScreenWidthDp`) and at least 480 dp high (`ScreenHeightDp`) gets the desktop frame, the
-  same one the desktop app uses, with the project rail, the centre and the side tools, Settings in the top bar and no
+  same one the desktop app uses, with the project rail, the center and the side tools, Settings in the top bar and no
   page bar. On a display whose smallest side is at least 600 dp (a tablet's, or the external monitor of Android's
   desktop mode; read from the window manager's largest window, since the configuration's smallest width follows the
   window) 360 dp of height is enough, so a 1280×720 px desktop-mode window at density 2 (640×360 dp) is wide. That
@@ -139,8 +139,8 @@ Contract:
   desktop frame does not follow the window onto the phone pages, and the frame gets its zoom back after the trip.
   The phone has no keyboard, so Settings › Appearance has a Zoom row (−, value, +, Reset) on the same command.
   `DrawerChecks.Wide` covers the decision, the reopen and the zoom headlessly.
-- On every Android screen centre tabs live in Projects, under their workspace (as on every client):
-  the centre shows no tab strip even while Projects is hidden, and Settings › Layout offers no other place
+- On every Android screen center tabs live in Projects, under their workspace (as on every client):
+  the center shows no tab strip even while Projects is hidden, and Settings › Layout offers no other place
   for them. Split groups list their tabs there too. A terminal listed there that this device never opened wears the
   icon its agent wears on the host (Claude Code, Codex, omp), read from the host's agent records
   ([Plugins/SPEC.md](../Tereditor.UI/Plugins/SPEC.md)); the browser client renders the same rail the same way.
@@ -206,7 +206,7 @@ The host is any tereditor WebSocket RPC endpoint: a desktop app listening from S
 - On success the endpoint is saved, the connect window closes and `ClientSession` composes one `Workbench`
   with `remote: true`: remote state, terminal, terminal catalog, plugin and per-window project adapters over
   one `HostConnection`, and a terminal factory fixed to the Skia renderer. The catalog is what makes the phone
-  show the host's existing terminal tabs, in the centre and so in Projects under their workspace; one a
+  show the host's existing terminal tabs, in the center and so in Projects under their workspace; one a
   desktop holds is shown live and read-only with Take over rather than taken
   ([Terminal/SPEC.md](../Tereditor.UI/Terminal/SPEC.md#shared-terminals)). Only the profile's first window entry
   is opened; later entries are dropped.
@@ -307,7 +307,7 @@ package carries the SDK's default signature.
 
 Checked on emulators (tablet and phone-sized) and briefly on a Pixel 8: connect screen with the soft keyboard, automatic
 reconnect, workbench, menus, dialogs, file tree, Markdown, editor, terminal, Settings and Back. A fresh profile on a screen
-narrower than 600 dp starts on the centre-only `focus` preset, with the panels behind their toggles.
+narrower than 600 dp starts on the center-only `focus` preset, with the panels behind their toggles.
 
 Not verified: a recorded physical-device acceptance pass, input methods other than Gboard, TalkBack and other
 accessibility services, plugin UI beyond what the default workbench shows, HTTPS endpoints and CI.

@@ -85,7 +85,7 @@ activating a tab. Dispose the control on the UI thread when releasing the view.
 `Write`, appearance changes and input operations also belong on the UI thread.
 A supplied `SKTypeface` remains caller-owned and must outlive the control.
 
-`Colors` supplies background, foreground, 16 ANSI colours, cursor, selection and
+`Colors` supplies background, foreground, 16 ANSI colors, cursor, selection and
 minimum contrast. The Skia path supports wide cells, combining clusters, HarfBuzz
 shaping within a cell, font fallback, procedural box drawing, SGR decorations,
 cursor styles, scrollback, mouse reporting, bracketed paste and IME preedit.
@@ -145,8 +145,8 @@ platform NSView required internally by libghostty stays unparented; no
 `Exited` and `GhosttyLaunch` work as for the native control. Application Command
 shortcuts bubble through Avalonia; text and image paste use Ghostty's callbacks.
 Subscribe to `OperationFailed` for compositor errors and dispose on the UI thread.
-Theme colours are written to the texture as given (Ghostty takes them as Display P3, its output
-space, instead of converting from sRGB), so they match Avalonia brushes of the same colour.
+Theme colors are written to the texture as given (Ghostty takes them as Display P3, its output
+space, instead of converting from sRGB), so they match Avalonia brushes of the same color.
 
 The pinned `MetalTexture.patch` exposes completed source textures and guards each
 target before Ghostty reuses it. An Avalonia custom draw operation wraps the
@@ -184,8 +184,8 @@ thread before releasing callback state; it does not close the caller's PTY.
 `gav_ghostty_reclaim_targets`, wrapped as `gav_texture_reclaim`: a renderer-thread message that, only while the surface is
 occluded, replaces the swap chain's targets other than the last presented one with 1x1 targets. The next draws recreate
 them at the surface size, so no grid, PTY or terminal state changes. `GhosttyTextureView` occludes a hidden or detached
-view and requests the reclaim after five seconds (`DefaultReclaimDelay`), cancelling it on show.
-The view occludes itself when it, any ancestor (`IsVisible` flags are watched while attached) or its window (minimised) hides it,
+view and requests the reclaim after five seconds (`DefaultReclaimDelay`), canceling it on show.
+The view occludes itself when it, any ancestor (`IsVisible` flags are watched while attached) or its window (minimized) hides it,
 not only when it detaches. Ghostty then releases its whole swap chain; after `DefaultDropDelay` (30 s) hidden the view also
 calls `gav_texture_drop`, which lets go of the last presented frame (`GhosttyTexture.m`), the one pane-sized texture a hidden
 surface still held. The next visible draw presents a new frame; until then nothing is painted.
@@ -312,7 +312,7 @@ Browser builds link libghostty-vt and the existing C bridge into WASM. The bridg
 allocator to share the managed runtime heap. `GhosttySkiaView.SaveClipboardImage` can store PNG bytes
 on a remote host and paste the returned shell path instead of writing a client-local file.
 
-Both renderers also accept `ResolveHighlightedLinks` for background resolution of visible references. Valid ranges are underlined independently of hover, and a plain click (no drag) on one opens it through `OpenFileLink`; the press still reaches selection or a mouse-tracking program. Resolution is debounced, bounded, cancelled on detach/disposal, and never runs on the UI thread.
+Both renderers also accept `ResolveHighlightedLinks` for background resolution of visible references. Valid ranges are underlined independently of hover, and a plain click (no drag) on one opens it through `OpenFileLink`; the press still reaches selection or a mouse-tracking program. Resolution is debounced, bounded, canceled on detach/disposal, and never runs on the UI thread.
 
 Underlines are drawn by the renderer in the frame that shows their text, never as an overlay. Resolved
 links are attached to the text of the logical line they were found on (trailing blanks ignored), as

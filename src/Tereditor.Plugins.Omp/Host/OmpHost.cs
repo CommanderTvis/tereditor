@@ -134,7 +134,7 @@ public sealed partial class OmpHost : PluginHostModule
             if (import.ExitCode != 0) return new(false, $"omp auth import failed (exit {import.ExitCode}){Sanitize(await importErrors)}");
             return new(true, $"Your omp sign-in now works in tereditor's \"{OmpLaunch.Profile}\" profile.");
         }
-        catch (OperationCanceledException) { return new(false, cancellationToken.IsCancellationRequested ? "Cancelled." : "omp auth timed out."); }
+        catch (OperationCanceledException) { return new(false, cancellationToken.IsCancellationRequested ? "Canceled." : "omp auth timed out."); }
         catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
         {
             return new(false, $"{executable} could not be run.");

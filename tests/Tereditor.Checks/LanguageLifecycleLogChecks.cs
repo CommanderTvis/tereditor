@@ -99,7 +99,7 @@ internal static class LanguageLifecycleLogChecks
                 }
                 catch (TimeoutException) { timedOut = true; }
                 Require(timedOut, "The slow host call did not time out.");
-                Require(seen.IsCancellationRequested == cancelOnTimeout, cancelOnTimeout ? "A read that timed out was not cancelled." : "A start that outlasted the pane's timeout was cancelled in the host.");
+                Require(seen.IsCancellationRequested == cancelOnTimeout, cancelOnTimeout ? "A read that timed out was not canceled." : "A start that outlasted the pane's timeout was canceled in the host.");
             }
         }
         finally { SynchronizationContext.SetSynchronizationContext(previous); }

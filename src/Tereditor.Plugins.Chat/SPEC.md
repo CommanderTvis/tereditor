@@ -190,7 +190,7 @@ workspace, never by the view.
 - tereditor's own MCP tools (server `plugin_tereditor_tereditor`, `tereditor` or `plugin:tereditor:tereditor`) read "tereditor [LSP navigate]" with a short line from the call's input (operation and query, first path, search query, title, id, description); the long `workspace` argument is never shown, in the header or the expanded IN row.
 - Header fields that only Claude Code has (`Chrome`, `ChatQuestionItem`'s AskUserQuestion shape, rewind and fork by message uuid,
   `StopTask`) are simply never set by another host; ACP has no equivalent of rewind or fork except `session/fork` where offered.
-- Session list: `ChatSessionInfo` has id, title and time, which fits `session/list`; paging and `cwd` filtering are not modelled.
+- Session list: `ChatSessionInfo` has id, title and time, which fits `session/list`; paging and `cwd` filtering are not modeled.
 - Model and mode discovery assume the header carries the lists; ACP's session config options (with categories and values) would need
   the host half to flatten them into models, effort and modes.
 - Authentication (`authenticate`, agent auth methods) has no contract method; a host half would surface it as a Failure notice.

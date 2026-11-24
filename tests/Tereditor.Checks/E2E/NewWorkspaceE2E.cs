@@ -221,7 +221,7 @@ internal static class NewWorkspaceE2E
         Require(main is not null && Text(main).Contains("default", StringComparison.Ordinal), "main is listed as the default branch.");
         Require(!Options(options).Any(option => Equals(option.Tag, "origin")), "No stray origin entry may be listed.");
         var search = Search(app, dialog);
-        Require(search.PlaceholderText == "Search branches…", "The branch search must be labelled.");
+        Require(search.PlaceholderText == "Search branches…", "The branch search must be labeled.");
         Settle(100);
         var popup = (StackPanel)search.Parent!;
         Require(Math.Abs(search.Bounds.Width - popup.Bounds.Width) < 1 && Math.Abs(search.Bounds.X) < 1,
@@ -235,7 +235,7 @@ internal static class NewWorkspaceE2E
         Require(dialog.IsShown(), "Escape in the branch picker closes only the picker.");
         Press(dialog, Avalonia.Input.Key.Escape);
         Until(() => !Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Any());
-        Require(!WorktreePaths(app).Any(), "Cancelling must not create a workspace.");
+        Require(!WorktreePaths(app).Any(), "Canceling must not create a workspace.");
 
         dialog = OpenNewWorkspaceDialog(app);
         app.Click(Create(dialog));

@@ -78,10 +78,10 @@ internal static class DockInputChecks
         var frames = rail.GetLogicalDescendants().OfType<Border>().Where(border => border.Name == "RailEntryFrame").ToArray();
         var accents = rail.GetLogicalDescendants().OfType<Border>().Where(border => border.Name == "RailAccent" && border.IsVisible).ToArray();
         Require(accents.Length > 0 && accents.All(accent => Math.Abs(CentreY(accent) - CentreY(frames.Single(frame => ReferenceEquals(frame.Parent, accent.Parent)))) < .5),
-            "A rail entry's accent bar must share the vertical centre of its icon frame.");
+            "A rail entry's accent bar must share the vertical center of its icon frame.");
         Require(frames.Length > 0 && rail.GetLogicalDescendants().OfType<Border>().Where(border => border.Height == 1 && border.Bounds.Width > 0)
                 .All(line => Math.Abs(CentreX(line) - CentreX(frames[0])) < .5),
-            "Rail separators must share the horizontal centre of the icons.");
+            "Rail separators must share the horizontal center of the icons.");
         window.Layout.Close(right[1].Id, DockState.ReviewTool);
         var unplaced = Find<Button>("RailUnplaced_plugin_review_review");
         Require(unplaced.Content is Border { Background: var dimmed } && ReferenceEquals(dimmed, Ui.Hint) && Find<StackPanel>("rightRailEntries").Children.IndexOf(unplaced.GetLogicalAncestors().OfType<Grid>().First()) >
@@ -204,7 +204,7 @@ internal static class DockInputChecks
             Require(add.ContextMenu.Items.OfType<MenuItem>().Select(item => item.Name).Where(name => name?.StartsWith("ShowTool_", StringComparison.Ordinal) == true)
                 .SequenceEqual(Hidden().Select(tool => "ShowTool_" + tool.Id.Replace(':', '_'))) &&
                 !add.ContextMenu.Items.OfType<MenuItem>().Any(item => item.Header is string header && header.StartsWith("New terminal", StringComparison.Ordinal)),
-                "The header menu offers the current catalogue without duplicating already-placed singleton tools, and never a new terminal.");
+                "The header menu offers the current catalog without duplicating already-placed singleton tools, and never a new terminal.");
             add.ContextMenu.Close();
         }
         window.Layout.ApplyPreset(DockState.Preset("balanced"));
@@ -325,7 +325,7 @@ internal static class DockInputChecks
         Drag(DockState.SpecsTool, new Point(Bounds(Find<Button>("Tab_files")).Center.X, Bounds(Find<Button>("Tab_files")).Bottom - 4));
         Require(window.Layout.Group(fallbackGroup.Id).Tools.Select(tab => tab.Id).SequenceEqual(new[] { "files", DockState.SpecsTool }) &&
             window.Layout.State.Groups.Count(group => group.Region == "right") == 2,
-            "An entry's lower half must reorder within its pane without creating a neighbouring group.");
+            "An entry's lower half must reorder within its pane without creating a neighboring group.");
         window.Width = 2200; window.Height = 920;
         window.Layout.ApplyPreset(DockState.Preset("balanced"));
         window.Layout.Geometry(state =>
@@ -376,7 +376,7 @@ internal static class DockInputChecks
                 var groups = window.Layout.State.Groups.Where(item => item.Region == region).ToArray();
                 Require(groups.Length == originalCount + 1 && groups[before ? 0 : 1].Tools.Any(tab => tab.Id == source) &&
                     window.Layout.Group(group.Id).Folded,
-                    "A rail boundary must insert a neighbour while preserving the folded pane.");
+                    "A rail boundary must insert a neighbor while preserving the folded pane.");
             }
         foreach (var region in new[] { "left" })
             foreach (var limited in new[] { false, true })
@@ -449,7 +449,7 @@ internal static class DockInputChecks
         Require(surface.IsDragging, "Holding a tab before moving must start a touch drag.");
         window.TouchMove(finger, new Point(-20, -20), RawInputModifiers.None);
         window.TouchEnd(finger, new Point(-20, -20), RawInputModifiers.None);
-        Require(!surface.IsDragging && window.Layout.Epoch == epoch, "A cancelled touch drag must preserve placement.");
+        Require(!surface.IsDragging && window.Layout.Epoch == epoch, "A canceled touch drag must preserve placement.");
         foreach (var region in new[] { "left" })
         {
             window.Layout.ApplyPreset(DockState.Preset("balanced"));

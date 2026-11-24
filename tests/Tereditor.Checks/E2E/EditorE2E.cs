@@ -164,7 +164,7 @@ internal static class EditorE2E
         using var app = Workspace(root, "editor-themes");
         var original = app.Window.Preferences.Theme;
         var mount = ThemeCatalog.All.First(theme => theme.IsLight).Id;
-        Require(ThemeCatalog.All.Any(theme => theme.IsHighContrast), "The catalogue must include a high-contrast theme.");
+        Require(ThemeCatalog.All.Any(theme => theme.IsHighContrast), "The catalog must include a high-contrast theme.");
         var settings = OpenSettings(app);
         if (app.Window.Preferences.ThemeMode != "fixed")
         {

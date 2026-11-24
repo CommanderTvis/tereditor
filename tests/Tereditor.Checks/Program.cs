@@ -1227,6 +1227,11 @@ internal static class Program
             DockInputChecks.Run(root);
             return;
         }
+        if (args.SequenceEqual(["--spelling"]))
+        {
+            SpellingChecks.Run();
+            return;
+        }
         if (args.SequenceEqual(["--gc-settings"]))
         {
             GcSettingsChecks.Run(root);
@@ -1612,6 +1617,7 @@ internal static class Program
         Gate.Case("packaged-app", PackagedApp.Run);
         Gate.Case("packaged-binaries", () => PackagedBinaries.Run(root).GetAwaiter().GetResult());
         Gate.Case("gc-settings", () => GcSettingsChecks.Run(root));
+        Gate.Case("spelling", () => SpellingChecks.Run());
         Gate.Case("boundaries", () => BoundaryChecks.Run(root));
         Gate.Case("action-icons", ActionIconChecks.Run);
         Gate.Case("zig-deps", () => ZigDepsChecks.Run());

@@ -126,7 +126,7 @@ public sealed partial class LanguageService
         foreach (var (key, entry) in entries)
             if (key.StartsWith(workspace + "\0", StringComparison.Ordinal) && !(entry.Session.IsValueCreated && entry.Session.Value.IsCompleted))
                 starting.Add(new(key[(workspace.Length + 1)..], "", entry.State, entry.Detail, ""));
-        return new("initializing", $"Server initializing or busy, {(int)elapsed.TotalSeconds} s elapsed; this call reached its {(int)deadline.TotalSeconds} s deadline and was cancelled. Retry or wait, and poll lsp_status operation=servers.")
+        return new("initializing", $"Server initializing or busy, {(int)elapsed.TotalSeconds} s elapsed; this call reached its {(int)deadline.TotalSeconds} s deadline and was canceled. Retry or wait, and poll lsp_status operation=servers.")
         { Freshness = "pending", Servers = starting };
     }
 

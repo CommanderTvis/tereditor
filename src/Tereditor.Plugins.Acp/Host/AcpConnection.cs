@@ -128,7 +128,7 @@ internal sealed class AcpConnection : IAsyncDisposable
             var reply = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = requestId };
             try { reply["result"] = await onRequest(method, parameters, lifetime.Token) ?? new JsonObject(); }
             catch (AcpException error) { reply["error"] = new JsonObject { ["code"] = error.Code, ["message"] = error.Message }; }
-            catch (OperationCanceledException) { reply["error"] = new JsonObject { ["code"] = AcpException.Internal, ["message"] = "Cancelled." }; }
+            catch (OperationCanceledException) { reply["error"] = new JsonObject { ["code"] = AcpException.Internal, ["message"] = "Canceled." }; }
             catch (Exception error) when (error is not OutOfMemoryException) { reply["error"] = new JsonObject { ["code"] = AcpException.Internal, ["message"] = error.Message }; }
             try { await WriteAsync(reply, CancellationToken.None); } catch (Exception error) when (error is IOException or ObjectDisposedException) { }
         });

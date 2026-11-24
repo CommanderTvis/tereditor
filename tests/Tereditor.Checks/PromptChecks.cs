@@ -67,7 +67,7 @@ internal static class PromptChecks
         {
             [SpecDialectManifest.Manifest.Id] = "If this project uses a spec graph and the `spec_*` tools are available, you MUST use them (`spec_graph`, `spec_get`, `spec_grep`) to read the affected specs before changing governed behavior, and maintain and validate (`spec_validate`) them in the same change. Projects without specs need no spec workflow; do not create specs unless asked.",
             [BlueprintContract.Manifest.Id] = "`blueprint_check`: you MUST call it to verify tereditor's rendered view after writing or rewriting BLUEPRINT.md.",
-            [VisualizeContract.Manifest.Id] = "`visualize`: Mermaid diagrams, hand-written SVG (theme colours via currentColor/var(--fg|--bg|--accent)) or option comparisons instead of ASCII art/tables when clearer. Each call replaces the live view; `visualize_read` returns what it shows and what the user selected.",
+            [VisualizeContract.Manifest.Id] = "`visualize`: Mermaid diagrams, hand-written SVG (theme colors via currentColor/var(--fg|--bg|--accent)) or option comparisons instead of ASCII art/tables when clearer. Each call replaces the live view; `visualize_read` returns what it shows and what the user selected.",
         };
         foreach (var (id, text) in texts)
         {
@@ -214,7 +214,7 @@ internal static class PromptChecks
         Require(ProjectInstructionsFile.Parse("version = 1\ndisabled = [\"Not An Id\", 3, \"core.ok\"]\n", "f", "s") is { Disabled: ["core.ok"], Diagnostics.Count: 2, Writable: false },
             "Malformed entries were used, or the file would be rewritten without them.");
         Require(!ProjectInstructionsFile.ValidId("core.") && !ProjectInstructionsFile.ValidId("other.a") && ProjectInstructionsFile.ValidId("plugin.air-context.tool-guidance"), "Identifier validation is wrong.");
-        Console.WriteLine("PASS instruction sections: stable ids on by default, project disable-list honoured by Claude and Codex, unknown ids kept and ignored, round-trip, validation, broadcast");
+        Console.WriteLine("PASS instruction sections: stable ids on by default, project disable-list honored by Claude and Codex, unknown ids kept and ignored, round-trip, validation, broadcast");
     }
 
     /// <summary>The server ids the text lists as the project's, in order.</summary>

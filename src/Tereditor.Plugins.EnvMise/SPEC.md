@@ -23,7 +23,7 @@ Two projects, `Contract` (`Tereditor.Plugins.EnvMise`: manifest, empty settings,
 (`Tereditor.Plugins.EnvMise.Host`). The namespace avoids `Environment`, which would shadow `System.Environment` in
 every plugin. The pipeline itself is the host's mechanism with `Env`'s policy: [Plugins.SPEC.md](../Tereditor.Host.Core/Plugins.SPEC.md), [Env](../Tereditor.Plugins.Env/SPEC.md).
 
-## Behaviour
+## Behavior
 
 When the workspace has mise configuration (`mise.toml`, `.mise.toml`, the `.local` variants, `.tool-versions`, `.config/mise*`, `.mise/config.toml`) and `mise` is found, applies `mise env --json`: the tool versions' PATH and the `[env]` table.
 

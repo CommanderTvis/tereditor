@@ -106,7 +106,7 @@ directory, whether Git tracks anything in it (`ls-files`) and whether the ignore
 text never do). `ExcludeTereditorDirectoryAsync()` appends `/.tereditor/` to `info/exclude` in the common
 Git directory (`rev-parse --git-common-dir`), so every workspace of the project is covered and linked
 worktrees never get their own copy. It keeps the file's text and line endings, adds a missing final
-newline, creates `info/`, writes through a temporary file moved into place, serialises appends within the
+newline, creates `info/`, writes through a temporary file moved into place, serializes appends within the
 host and does nothing, with a `Detail` saying why, when the directory is absent, tracked (excluding would
 have no effect) or already ignored. It never touches `.gitignore`. A client of a host without either call
 gets an absent directory, or an unsupported-operation failure for the exclusion.

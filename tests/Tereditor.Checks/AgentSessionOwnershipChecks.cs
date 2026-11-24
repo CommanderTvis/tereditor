@@ -36,11 +36,11 @@ internal static class AgentSessionOwnershipChecks
         // b: the recorded pid with the same start time is the tab's own earlier agent.
         var ours = Ownership(new() { [orphan.Pid] = Started }, host, shell, orphan).Inspect("claude", Session, [shell.Pid], (orphan.Pid, Started));
         Require(ours is { Kind: SessionOwnerKind.Stray, Recorded: true, CanQuit: true } && ours.Pid == orphan.Pid,
-            "The tab's own earlier Claude, still running, is recognised by pid and start time: " + ours);
+            "The tab's own earlier Claude, still running, is recognized by pid and start time: " + ours);
         Require(ours!.Describe() == "is still running in an earlier tereditor terminal, as pid 47558 (started 17 hours ago). The tereditor run that started it has ended.",
             "The earlier terminal's agent is described as tereditor's: " + ours.Describe());
         Require(ours.QuitConfirmation().StartsWith("End pid 47558 ", StringComparison.Ordinal), "Ending it is offered behind a confirmation naming the pid.");
-        Console.WriteLine("PASS agent session ownership: a tab's own earlier agent is recognised by pid and start time and offered as tereditor's");
+        Console.WriteLine("PASS agent session ownership: a tab's own earlier agent is recognized by pid and start time and offered as tereditor's");
 
         // A reused pid (same number, another start time) is not ours: one naming the session is foreign as before.
         var reused = Ownership(new() { [orphan.Pid] = Started + TimeSpan.TicksPerSecond }, host, shell, orphan).Inspect("claude", Session, [shell.Pid], (orphan.Pid, Started));

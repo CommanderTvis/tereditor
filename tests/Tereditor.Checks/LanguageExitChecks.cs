@@ -258,7 +258,7 @@ internal static class LanguageExitChecks
             await host.LanguageAsync(new(workspace, Operation: "stop", Server: "typescript"));
             var stopped = await Died(crashed.Time);
             Require(!stopped.Unexpected && stopped.Initiator.Contains("a stop was requested", StringComparison.Ordinal) && stopped.Reason.StartsWith("Stopped by tereditor", StringComparison.Ordinal) &&
-                stopped.Details.Contains("cancelled or timed out", StringComparison.Ordinal), "A stop of a hung server was not recorded as requested: " + stopped.Reason);
+                stopped.Details.Contains("canceled or timed out", StringComparison.Ordinal), "A stop of a hung server was not recorded as requested: " + stopped.Reason);
             Require((await Row()).State == "stopped" && (await Row()).Detail.StartsWith("Last run: ", StringComparison.Ordinal), "A requested stop is described as a failure.");
             await Task.Delay(300);
             Require((await Deaths()).Count == deathsBefore && (await Deaths())[workspace + "\0typescript"] == lastDeath, "Stopping a server notified the user.");

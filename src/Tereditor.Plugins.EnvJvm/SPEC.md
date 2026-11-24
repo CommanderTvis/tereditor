@@ -21,7 +21,7 @@ builtin and **enabled by default**, independent of the other providers, `depends
 
 Two projects, `Contract` (`Tereditor.Plugins.EnvJvm`) and `Host` (`Tereditor.Plugins.EnvJvm.Host`). The pipeline is the host's mechanism with `Env`'s policy: [Plugins.SPEC.md](../Tereditor.Host.Core/Plugins.SPEC.md), [Env](../Tereditor.Plugins.Env/SPEC.md).
 
-## Behaviour
+## Behavior
 
 - `.sdkmanrc`: its `java=<identifier>` line names the sdkman candidate `candidates/java/<identifier>` under `$SDKMAN_DIR`,
   else `~/.sdkman`, else Homebrew's sdkman (`<prefix>/opt/sdkman-cli/libexec` for `/opt/homebrew`, `/usr/local` and

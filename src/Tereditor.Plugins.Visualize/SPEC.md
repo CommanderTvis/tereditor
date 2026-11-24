@@ -58,10 +58,10 @@ Three projects under `Contract`, `Host` and `UI`: `Tereditor.Plugins.Visualize` 
   `@import`, `expression(` and `javascript:`. The XML reader has no resolver, so nothing is fetched from the
   network or filesystem. Theme: the root gets the pane foreground as `color` unless it sets one, and
   `currentColor`, `var(--fg)`, `var(--bg)`, `var(--accent)`, `var(--muted)` and `var(--border)` in attributes and
-  `<style>` become the pane's text, surface, accent, muted and border colours (an unknown variable takes its
+  `<style>` become the pane's text, surface, accent, muted and border colors (an unknown variable takes its
   fallback), re-applied on theme change. A missing `xmlns` is supplied.
 - Markdown (`type: markdown`) draws `markdown` with the kit's `MarkdownPreview`, the same renderer as the Markdown
-  preview (tables, HTML tables, code, fenced Mermaid, theme colours), with no workspace: images and links resolve to
+  preview (tables, HTML tables, code, fenced Mermaid, theme colors), with no workspace: images and links resolve to
   nothing. It cannot fail to render, so it settles when shown. It is a top-level type only, not a comparison field.
 - A Markdown drawing is also a real file on the host, so what the user selects in it is an IDE selection like one in a
   file's Markdown preview. The source is kept exactly, with no title added, in a `visualize` folder of the host's state

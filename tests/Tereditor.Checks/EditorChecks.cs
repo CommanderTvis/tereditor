@@ -250,7 +250,7 @@ internal static class EditorChecks
             Require(editor.IsFocused && Selected() == (8, 8), $"A tap must focus the editor and place the caret ({Selected()}).");
             var ime = editor.InputMethodClient;
             Require(ime.SurroundingText == "one\ntwo\nthree" && ime.Selection == new TextSelection(7, 7),
-                $"The soft keyboard must see the neighbouring lines with single-character breaks ({ime.Selection}).");
+                $"The soft keyboard must see the neighboring lines with single-character breaks ({ime.Selection}).");
 
             Key(window, Avalonia.Input.Key.Home);
             ime.Selection = new(3, 4);

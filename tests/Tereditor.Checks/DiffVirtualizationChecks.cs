@@ -175,7 +175,7 @@ internal static class DiffVirtualizationChecks
             Until(() => hosts[40] is Border { Child: not null } && hosts[0] is Border { Child: null });
             Settle();
             var top = hosts[40].TranslatePoint(default, scroll)!.Value.Y;
-            Require(Math.Abs(top) < 2, "The anchored hunk stays at the viewport top while neighbours realize: " + top);
+            Require(Math.Abs(top) < 2, "The anchored hunk stays at the viewport top while neighbors realize: " + top);
             Require(view.HunkHeights[0].Measured, "A released hunk keeps its measured height.");
             EditorSelection? selected = null;
             view.SelectionChanged += (_, selection) => selected = selection;

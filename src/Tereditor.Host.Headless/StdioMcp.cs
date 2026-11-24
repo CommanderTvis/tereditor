@@ -40,7 +40,7 @@ internal sealed class StdioMcp(Stream input, Stream output, Func<IReadOnlyList<M
         var all = Task.WhenAll(running.Keys);
         if (await Task.WhenAny(all, Task.Delay(Grace)) != all)
         {
-            log.WriteLine($"stopping: cancelling {running.Count} call(s) still running after {Grace.TotalSeconds:0} s");
+            log.WriteLine($"stopping: canceling {running.Count} call(s) still running after {Grace.TotalSeconds:0} s");
             await drain.CancelAsync();
             await Task.WhenAny(all, Task.Delay(Grace));
         }

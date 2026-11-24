@@ -77,7 +77,7 @@ internal static partial class AirGatewayChecks
           fi
           current=$(cat "$stub/access" 2>/dev/null || echo workspace:org-1:ws-1)
           for id in workspace:org-1:ws-1 license:lic-9; do
-            name="Team workspace"; [ "$id" = license:lic-9 ] && name="Personal licence"
+            name="Team workspace"; [ "$id" = license:lic-9 ] && name="Personal license"
             if [ "$id" = "$current" ]; then printf '* %s  %s\n' "$id" "$name"; else printf '  %s  %s\n' "$id" "$name"; fi
           done
           printf '  not-a-source  E2E_CENTRAL_CHILD_SENTINEL_access\n' ;;
@@ -367,7 +367,7 @@ internal static partial class AirGatewayChecks
     private const string Options = """
         {"aiAccessOptions":[
           {"type":"workspace","orgId":"org-1","workspaceId":"ws-1","workspaceName":"Team\u0007 workspace","aiAccessEnabled":true},
-          {"type":"license","licenseId":"lic-9","licenseName":"Personal licence","aiAccessEnabled":true},
+          {"type":"license","licenseId":"lic-9","licenseName":"Personal license","aiAccessEnabled":true},
           {"type":"license","licenseId":"lic-off","licenseName":"Disabled","aiAccessEnabled":false}]}
         """;
 
@@ -754,7 +754,7 @@ internal static partial class AirGatewayChecks
             Require(workbench.PluginRegistry.LaunchContributions("claude").Count == 1 && workbench.PluginRegistry.LaunchContributions("pi").Single().Wrapper.SequenceEqual(["/usr/local/bin/central", "run", "pi", "--"]),
                 "Each agent follows its own Model source, Pi included.");
 
-            fake.Replies["access-sources"] = new AirAccessList([new("workspace:o:w", "Team workspace", true), new("license:l", "Personal licence", false)], null);
+            fake.Replies["access-sources"] = new AirAccessList([new("workspace:o:w", "Team workspace", true), new("license:l", "Personal license", false)], null);
             // An agent on Central but sign-in unknown: nothing is listed, and the pane says what it waits for. No list button exists.
             E2eWorkspace.Until(() => Find<TextBlock>("AirAccessNote").Text!.Contains("sign-in", StringComparison.Ordinal));
             Require(!settings.GetLogicalDescendants().OfType<Button>().Any(button => button.Name == "AirListAccess") && fake.Calls.All(call => call.Method != "access-sources") &&
@@ -939,7 +939,7 @@ internal static partial class AirGatewayChecks
             Choose("claude-code", "codex");
             E2eWorkspace.Until(() => Text() == "1.50 / 20.00 credits");
             Require(Probes() > before && ReferenceEquals(label.Foreground, Tereditor.Plugins.UI.Kit.Ui.Warning) && Tip().Contains("Claude Code and Codex", StringComparison.Ordinal) && Tip().Contains("Top-up: 0.25", StringComparison.Ordinal),
-                "A Model source change reads at once; under a tenth left turns the warning colour and the tooltip names the top-up.");
+                "A Model source change reads at once; under a tenth left turns the warning color and the tooltip names the top-up.");
 
             fake.Replies["status"] = Status("signed-out");
             Choose("codex");

@@ -42,7 +42,7 @@ internal static class NumberBoxCenteringChecks
                         var origin = presenter.TranslatePoint(default, box)!.Value;
                         // The presenter draws its line at its top, so the line's centre is half its desired height down.
                         var offset = Math.Abs(origin.Y + presenter.DesiredSize.Height / 2 - box.Bounds.Height / 2);
-                        Require(offset <= 1, $"{variant} {name} number box: the value's centre is {offset:0.0}px from the field's centre (value top {origin.Y:0.0}, line {presenter.DesiredSize.Height:0.0}, field {box.Bounds.Height:0.0}).");
+                        Require(offset <= 1, $"{variant} {name} number box: the value's center is {offset:0.0}px from the field's center (value top {origin.Y:0.0}, line {presenter.DesiredSize.Height:0.0}, field {box.Bounds.Height:0.0}).");
                         Require(Math.Abs(origin.X - textInset) <= 0.5, $"{variant} {name} number box: the value starts {origin.X:0.0}px in, a text box's {textInset:0.0}px.");
                         var scroll = box.GetVisualDescendants().OfType<ScrollViewer>().First();
                         Require(scroll.Extent.Height <= scroll.Viewport.Height + 0.5, $"{variant} {name} number box scrolls its value ({scroll.Extent.Height:0.0} in {scroll.Viewport.Height:0.0}px).");
@@ -62,7 +62,7 @@ internal static class NumberBoxCenteringChecks
             }
         }
         finally { app.RequestedThemeVariant = previous; }
-        Console.WriteLine("PASS Number box centering: number boxes centre their value and inset it like a text box in light and dark");
+        Console.WriteLine("PASS Number box centering: number boxes center their value and inset it like a text box in light and dark");
     }
 
     private static TextPresenter Value(Control field) =>

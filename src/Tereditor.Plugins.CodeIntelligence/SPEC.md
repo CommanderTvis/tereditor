@@ -135,7 +135,7 @@ Recommendation: the pane stays in core on host types.
 
 Every step ends green on the ten focused modes: `--code-intelligence-plugin`, `--lsp-limits`, `--lsp-settings`, `--lsp-ui`, `--lsp-dependencies`, `--lsp-narrow`, `--plugin-crossing`, `--plugins-settings`, `--context-ui` and `--boundary`, plus the format verify. A queue-heavy run is one build plus the modes; the estimate counts runs.
 
-1. Contract DTOs and method and channel declarations, no behaviour (2 runs).
+1. Contract DTOs and method and channel declarations, no behavior (2 runs).
 2. The two `IPluginHostContext` members with permissions, `PublicAPI.Unshipped.txt`, crossing pins and isolation pending entries, plus their host implementation and checks (3 runs).
 3. `CodeIntelligenceHost` implements the read methods (catalog, resolution, running, configurationSchema) and the `settings` channel, with a check that compares them to `LanguageAsync` (3 runs).
 4. The write methods (provision, terms, setServerOptions, setLimits, setEnabled, setProvider) with checks that saved-state keys and broadcasts are unchanged (3 runs).

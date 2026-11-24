@@ -93,7 +93,7 @@ URL regressions cover soft wraps, resize reflow, hard newline boundaries,
 balanced punctuation and Skia cursor/underline pixels when modifiers change.
 OSC 52 checks use a private AppKit pasteboard and scripted read confirmation,
 restoring both after each case. `--ghostty-skia` covers fragmented ST/BEL writes,
-Unicode, selection destinations, malformed/cancelled data, embedded NULs, large
+Unicode, selection destinations, malformed/canceled data, embedded NULs, large
 and empty payloads, approved/denied reads, repeated permission and terminal reset.
 `--terminal-resume-hint` exercises the real overlay and offer state with a portable backend,
 including delayed acknowledgements, input, query replies and teardown. Supported native platforms
@@ -118,10 +118,10 @@ live and read-only rather than taken, resized or typed into, Take over and Take 
 size while the other side keeps watching, and a relaunched client watches the holder's terminal and attaches
 once nobody holds it. A client composed as the Android phone (compact, tabs in Projects, bottom panel hidden)
 lists a workspace's terminals under its row on the Projects page before opening it, returns to the current
-page when one is chosen and has them all in the centre and its strip after, and a view whose renderer cannot watch, or whose host predates watching, falls back as specified.
+page when one is chosen and has them all in the center and its strip after, and a view whose renderer cannot watch, or whose host predates watching, falls back as specified.
 `-- --shared-terminals` runs this file alone. The upstream translations whose second client
 enters a workspace now press Take over first, and "a terminal opened in one browser never creates placement in
-another" is replaced by the passive-arrival check, since tereditor shares every catalogued terminal.
+another" is replaced by the passive-arrival check, since tereditor shares every cataloged terminal.
 `--notifications` (`AwayNotificationChecks.cs`) enables the real Claude Code and Codex UI halves, injects
 status pushes on their channels and records what would reach the system: which transitions notify, the
 focused-app, continuation-Stop, interrupted-run, answered-attention, closed-tab and setting-off silences,
@@ -369,7 +369,7 @@ through the embedded host and a real WebSocket RPC host with equal results: byte
 and a frozen original commit, no commit for a root commit or untracked file, a binary notice for an untracked
 byte-only diff, exact bytes for the commit, working tree and index, an original that survives the branch
 moving, and refusal of refs, abbreviations, unknown, tree and blob ids, path escape, missing paths and a
-symbolic link. The headless UI part checks how a byte diff is recognised and then runs the resource checks.
+symbolic link. The headless UI part checks how a byte diff is recognized and then runs the resource checks.
 
 ## Resource checks
 

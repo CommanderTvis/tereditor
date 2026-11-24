@@ -122,7 +122,7 @@ internal static class SpecChecks
             try { SpecAuthoring.ResolvePath(workspace, path); throw new InvalidOperationException($"The path rule accepted {path}."); }
             catch (ArgumentException) { }
         Require(SpecAuthoring.ResolvePath(workspace, "./new/dir//spec.md") == "new/dir/spec.md" && SpecAuthoring.ResolvePath(workspace, "build.md") == "build.md",
-            "The path rule must normalise an acceptable path and refuse only ignored directories, not names that resemble them.");
+            "The path rule must normalize an acceptable path and refuse only ignored directories, not names that resemble them.");
 
         var created = SpecAuthoring.Create(workspace, new("new/dir/spec.md", "fresh", "submodule-design", "Fresh: a spec")
         { Parent = "goal", DependsOn = ["core", "shared"], Tags = ["x, y"], Body = "\n# Fresh\n" });

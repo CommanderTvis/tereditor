@@ -136,7 +136,7 @@ internal static class AwayNotificationChecks
 
         Claude(ClaudeCodeStatus.Running, "prompt_submit");
         Claude(ClaudeCodeStatus.Idle, "interrupted");
-        Quiet("A run the user cancelled settles idle and never notifies.");
+        Quiet("A run the user canceled settles idle and never notifies.");
 
         Claude(ClaudeCodeStatus.Blocked, "permission_request");
         Claude(ClaudeCodeStatus.Running, "tool_complete");

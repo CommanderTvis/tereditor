@@ -314,7 +314,7 @@ internal static class LanguageLimitChecks
                 Require(units.Length == 2 && Math.Abs(At(units[0]).X - At(units[1]).X) < .5 && At(units[0]).X >= At(idle.Input).X + 128, "The units do not start at one shared edge right of the boxes.");
                 // Unchecked means never: the number greys out but keeps its value, and the host gets 0.
                 idle.Check.IsChecked = false;
-                Require(!idle.Input.IsEnabled && idle.Value is null && idle.Number == 10, "An unchecked idle row did not grey out and keep its number.");
+                Require(!idle.Input.IsEnabled && idle.Value is null && idle.Number == 10, "An unchecked idle row did not gray out and keep its number.");
                 view.FindControl<Button>("LimitsSave")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 E2E.E2eWorkspace.Until(() => state.Current.Settings.LanguageLimits.Contains("\"idleMinutes\":0", StringComparison.Ordinal) && state.Current.Settings.LanguageLimits.Contains("\"memoryBudgetMb\":0", StringComparison.Ordinal));
                 view.Refresh();

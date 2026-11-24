@@ -45,7 +45,7 @@ internal static class Osc52Checks
             foreach (var invalid in new[] { "\e]52;c;!!!\a", "\e]52;c;eA==\x18", "\e]52;c;/w==\a" })
             {
                 Write(invalid);
-                Require(Get() == "sentinel", "malformed, cancelled or invalid UTF-8 write changed the clipboard");
+                Require(Get() == "sentinel", "malformed, canceled or invalid UTF-8 write changed the clipboard");
             }
             Write(Sequence("hello\0world"));
             Require(Get() == "hello\0world", "embedded NUL was truncated");
@@ -78,7 +78,7 @@ internal static class Osc52Checks
             Require(view.ReadScreen().Trim().Length == 0, "OSC 52 payload leaked onto the screen");
             Write("\ec" + Sequence("after reset"));
             Require(Get() == "after reset", "terminal reset lost clipboard callbacks");
-            Console.WriteLine("PASS OSC 52 Skia: fragmented ST/BEL, Unicode, selectors, malformed/cancelled data, NUL, large/empty writes, denied/approved/empty reads, permission and reset");
+            Console.WriteLine("PASS OSC 52 Skia: fragmented ST/BEL, Unicode, selectors, malformed/canceled data, NUL, large/empty writes, denied/approved/empty reads, permission and reset");
         }
         finally { End(); }
     }

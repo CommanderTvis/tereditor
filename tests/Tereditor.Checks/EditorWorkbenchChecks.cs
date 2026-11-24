@@ -205,7 +205,7 @@ internal static class EditorWorkbenchChecks
             Require(Dotted(window, "first.cs"), "Modified tab did not show the unsaved dot.");
             window.Layout.Close(group, "file:first.cs");
             Answer(window, "Cancel");
-            Require(window.Layout.Tabs(group).Any(tab => tab.Path == "first.cs") && editor.IsModified, "Cancelling the save prompt closed a dirty editor.");
+            Require(window.Layout.Tabs(group).Any(tab => tab.Path == "first.cs") && editor.IsModified, "Canceling the save prompt closed a dirty editor.");
             window.Close(); Answer(window, "Cancel");
             Require(window.IsVisible, "Window closed with unsaved editor text.");
             var edited = editor.Text;
@@ -283,7 +283,7 @@ internal static class EditorWorkbenchChecks
             Require(failure.Contains("second.cs", StringComparison.Ordinal) && failure.Contains("changed on disk", StringComparison.Ordinal),
                 "The save failure dialog did not name the file and the reason: " + failure);
             Answer(window, "Cancel");
-            Require(window.IsVisible && Editor(window).IsModified, "Cancelling a failed save closed the window or lost the buffer.");
+            Require(window.IsVisible && Editor(window).IsModified, "Canceling a failed save closed the window or lost the buffer.");
             window.Layout.Close(group, "file:second.cs"); Answer(window, "Save");
             AwaitConflict(window); Answer(window, "Reload from disk");
             Answer(window, "Reload from disk");

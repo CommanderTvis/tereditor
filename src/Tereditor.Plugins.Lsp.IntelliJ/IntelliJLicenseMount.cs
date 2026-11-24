@@ -53,12 +53,12 @@ internal static class IntelliJLicenseMount
         if (source is null) { Current = null; return none; }
         if (!string.IsNullOrWhiteSpace(environment("INTELLIJ_SERVER_LICENSE")))
         {
-            Current = new("overridden", null, "INTELLIJ_SERVER_LICENSE is set and wins over the mounted licence, which is ignored.", false);
+            Current = new("overridden", null, "INTELLIJ_SERVER_LICENSE is set and wins over the mounted license, which is ignored.", false);
             return none;
         }
         if (!string.IsNullOrWhiteSpace(environment("JETBRAINS_LICENSE_SERVER")))
         {
-            Current = new("overridden", null, "JETBRAINS_LICENSE_SERVER is set and wins over the mounted licence, which is ignored.", false);
+            Current = new("overridden", null, "JETBRAINS_LICENSE_SERVER is set and wins over the mounted license, which is ignored.", false);
             return none;
         }
         var outcome = Resolve(source, today ?? DateOnly.FromDateTime(DateTime.UtcNow));
@@ -77,7 +77,7 @@ internal static class IntelliJLicenseMount
         try { path = Write(sessionDirectory, outcome.Code.Text); }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            Current = new("unreadable", outcome.Code.Id, $"Licence {outcome.Code.Id} was found but could not be written for the server (the cache is not writable).", false);
+            Current = new("unreadable", outcome.Code.Id, $"License {outcome.Code.Id} was found but could not be written for the server (the cache is not writable).", false);
             return none;
         }
         Current = new(outcome.Kind, outcome.Code.Id, outcome.Message, true);
@@ -134,18 +134,18 @@ internal static class IntelliJLicenseMount
             if (Directory.Exists(source))
             {
                 var files = Directory.EnumerateFiles(source).Where(file => !Path.GetFileName(file).StartsWith('.')).Order(StringComparer.Ordinal).ToList();
-                if (files.Count > MaxFiles) return Bad("invalid", $"The licence directory holds {files.Count} files; keep only the downloaded zip or its text files (at most {MaxFiles}).");
+                if (files.Count > MaxFiles) return Bad("invalid", $"The license directory holds {files.Count} files; keep only the downloaded zip or its text files (at most {MaxFiles}).");
                 foreach (var file in files) Collect(file, Offer);
-                if (files.Count == 0) return Bad("invalid", "The licence directory is empty. Put the zip downloaded from account.jetbrains.com (or the \"for 2018.2 or later\" text file from it) there.");
+                if (files.Count == 0) return Bad("invalid", "The license directory is empty. Put the zip downloaded from account.jetbrains.com (or the \"for 2018.2 or later\" text file from it) there.");
             }
             else Collect(source, Offer, userChose);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            return Bad("unreadable", "The licence directory or file could not be read (check the mount and that the container user can read it).");
+            return Bad("unreadable", "The license directory or file could not be read (check the mount and that the container user can read it).");
         }
         if (codes.Count == 0)
-            return Bad("invalid", problems.Count == 0 ? "No offline activation code was found in the licence directory." : "No usable offline activation code: " + string.Join("; ", problems.Distinct().Take(3)) + ".");
+            return Bad("invalid", problems.Count == 0 ? "No offline activation code was found in the license directory." : "No usable offline activation code: " + string.Join("; ", problems.Distinct().Take(3)) + ".");
         var distinct = codes.GroupBy(code => code.Id, StringComparer.Ordinal).Select(group => group.First()).ToList();
         Code chosen;
         if (distinct.Count == 1) chosen = distinct[0];
@@ -153,12 +153,12 @@ internal static class IntelliJLicenseMount
         {
             var matching = distinct.Where(code => code.Products.Any(product => product?["code"]?.GetValue<string>() is { } id && ProductCodes.Contains(id))).ToList();
             if (matching.Count != 1)
-                return Bad("ambiguous", $"The licence directory holds {distinct.Count} licences ({string.Join(", ", distinct.Select(code => code.Id).Order(StringComparer.Ordinal))}) and {(matching.Count == 0 ? "none" : "more than one")} is for IntelliJ IDEA; mount a directory with only the one you want.");
+                return Bad("ambiguous", $"The license directory holds {distinct.Count} licenses ({string.Join(", ", distinct.Select(code => code.Id).Order(StringComparer.Ordinal))}) and {(matching.Count == 0 ? "none" : "more than one")} is for IntelliJ IDEA; mount a directory with only the one you want.");
             chosen = matching[0];
         }
         if (Expired(chosen, today))
-            return new(chosen, "expired", $"Licence {chosen.Id} looks expired (paid up to {chosen.PaidUpTo:yyyy-MM-dd}); it is handed to the server anyway, whose own verdict decides.");
-        return new(chosen, "provided", $"Licence {chosen.Id} was handed to the server; its own state shows whether it accepted it.");
+            return new(chosen, "expired", $"License {chosen.Id} looks expired (paid up to {chosen.PaidUpTo:yyyy-MM-dd}); it is handed to the server anyway, whose own verdict decides.");
+        return new(chosen, "provided", $"License {chosen.Id} was handed to the server; its own state shows whether it accepted it.");
     }
 
     /// <summary>Reads a zip (its entry for 2018.2 or later) or a text file (not the one for 2018.1 or earlier) and offers each code found.</summary>
@@ -222,7 +222,7 @@ internal static class IntelliJLicenseMount
         catch (Exception error) when (error is FormatException or JsonException or DecoderFallbackException) { json = null; }
         if (json?["licenseId"] is not JsonValue licence || !licence.TryGetValue<string>(out var id) || id.Length == 0)
         {
-            problem = "its first base64 part is not a licence description";
+            problem = "its first base64 part is not a license description";
             return false;
         }
         var products = json["products"] as JsonArray ?? [];

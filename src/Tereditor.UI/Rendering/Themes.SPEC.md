@@ -6,12 +6,12 @@ title: Themes
 parent: module-ui
 ---
 
-# Themes: bundled manifest catalogue and application
+# Themes: bundled manifest catalog and application
 
 ## Responsibility
 
 `Themes.cs` loads and validates the bundled declarative theme manifests at startup, owns the resulting
-fixed catalogue, and resolves the active manifest for fixed or system mode. `Ui.Apply` then writes that
+fixed catalog, and resolves the active manifest for fixed or system mode. `Ui.Apply` then writes that
 manifest onto the shared brushes. The host owns only the opaque theme id, the fixed/system mode and the
 optional light/dark pair (`IHostStateService` settings `theme`, `theme-mode`, `system-light`,
 `system-dark`); this module owns what those values mean on this app, including operating-system appearance
@@ -27,14 +27,14 @@ all themes, not a theme.
 
 ## Boundary
 
-- Owns the manifest contract (`ThemeManifest`), the bundled set under `Assets/Themes`, catalogue
+- Owns the manifest contract (`ThemeManifest`), the bundled set under `Assets/Themes`, catalog
   construction, fixed/system resolution (`ThemeResolution`), pair derivation (`Themes.DerivePair`) and
   same-appearance fallback (`Themes.Fallback`).
 - `Ui` owns application: `Ui.Apply` writes every brush, then the Fluent accent and the nullable
   selected-text foreground resource, then raises `Ui.ThemeChanged`. That event is the one way to observe a
-  completed swap; Mermaid diagrams, the Scintilla editor and Ghostty terminals rebuild their baked colours
+  completed swap; Mermaid diagrams, the Scintilla editor and Ghostty terminals rebuild their baked colors
   from it rather than each watching the window's theme variant.
-  The subscription lives in the shared `Ui` layer independently of catalogue and preference resolution,
+  The subscription lives in the shared `Ui` layer independently of catalog and preference resolution,
   matching upstream's shared UI theme-observation seam; theme selection and application stay app-owned.
 - Forbidden: host state writes, UI state, runtime theme registration or discovery, executable theme code,
   layout or arbitrary style supplied by a manifest.
@@ -43,19 +43,19 @@ all themes, not a theme.
 
 A theme is exactly one `*.theme.json`. Schema version 2 is strict and self-contained: a lowercase slug id,
 label and order, light or dark appearance, normal or high contrast, a complete semantic UI palette, all 16
-ANSI colours and a syntax palette. Colours are canonical lowercase six- or eight-digit hex (`#rrggbbaa`;
+ANSI colors and a syntax palette. Colors are canonical lowercase six- or eight-digit hex (`#rrggbbaa`;
 Avalonia's own parser reads eight digits as `#aarrggbb`, so `Themes.Hex` decodes them itself). An unknown
 property at any level rejects the manifest, as a missing one does.
 
 `Assets/theme.schema.json` is the authoring schema each manifest's `$schema` points at, bundled beside the
 themes. `Themes.RequireSchemaAgreement` runs before the first manifest is read and fails loading unless the
-schema and `Themes.Parse` describe the same thing: the same root, colour, ANSI and syntax keys in the same
+schema and `Themes.Parse` describe the same thing: the same root, color, ANSI and syntax keys in the same
 order, the same nullable keys, the same id and hex patterns, and no additional properties. The two selected-text foregrounds
 (`selectionForeground`, `editorSelectionForeground`) may be `null` to keep the consumer's native foreground.
 There is no inheritance or partial overlay. Typography, spacing, radii, fonts and motion are product values,
 not theme values.
 
-A manifest supplies the palette, not the roles. It answers which colour; what each colour is for is the
+A manifest supplies the palette, not the roles. It answers which color; what each color is for is the
 brush layer in `Ui` (`Sidebar`, `Elevated`, `Hint`, `PrimarySubtle`), the only layer controls name. See
 [COLOR.md](COLOR.md).
 
@@ -80,37 +80,37 @@ distinguishable (at least 1.15) from every resting surface. A `contrast: "high"`
 against their selection fills: the stricter floor is what makes high contrast an enforced property rather
 than a label.
 
-## Accent colour
+## Accent color
 
 The user's accent is one more host setting (`accent`, empty by default: Frog, the accent every bundled manifest carries). It is an
 opaque id to the host, validated only for shape (a curated slug or a custom `#rrggbb`). `Accents.cs` owns its
 meaning: a curated palette (frog, the app icon's cyan, the default and listed first; then green, blue, purple, pink, red, orange,
-yellow, graphite) and custom hex colours; Teal was merged into its near twin Frog, so a stored `teal` reads as
+yellow, graphite) and custom hex colors; Teal was merged into its near twin Frog, so a stored `teal` reads as
 `frog`. `Accents.Apply` returns the theme with exactly four keys replaced (`accent`, `accentSolid`, `accentHover`,
 `onAccent`), plus `bubbleAccent`, the chat bubble tint, wherever the manifest ties it to the accent by giving both
 the same value (the standard and High Contrast manifests do; Minimal's neutral bubble is its own and stays; the chat's human prompt bubble is tinted from it through the `PromptFill` and `PromptBorder` roles, see COLOR.md), cached
-per theme and accent so `Ui.Apply` recognises it; every role, tint, Fluent
+per theme and accent so `Ui.Apply` recognizes it; every role, tint, Fluent
 accent and baking consumer then follows with no control knowing about it. Frog is the bundled accent, so the
 default (an empty or `frog` setting) is the manifest itself. Green, the accent the manifests carried before Frog,
-is a curated entry that pins those earlier colours per bundled theme (a theme it does not name is solved like the
+is a curated entry that pins those earlier colors per bundled theme (a theme it does not name is solved like the
 others; a pinned text accent that misses the floor on the prompt bubble keeps its hue and takes the nearest lightness that meets it); a stored `green` therefore stays Green, and only users who never chose an accent moved to Frog. Each accent keeps its hue and saturation (scaled by the theme's own accent
-saturation so Minimal stays quiet; custom colours keep theirs) and each theme solves the lightness: the text
+saturation so Minimal stays quiet; custom colors keep theirs) and each theme solves the lightness: the text
 accent meets the theme's text floor on every resting surface, on `hover` and on the prompt bubble it tints (links and Show more
 are accent text there), the solid fill is chosen with a
 black or white label that clears 4.5 on both fills, and the hover fill stays distinguishable from the solid fill.
-Feedback colours never follow the accent. `WorkbenchWindow.ApplyTheme` applies it on every settings broadcast,
-so open windows change live. The design check holds every curated accent and a spread of custom colours in every
+Feedback colors never follow the accent. `WorkbenchWindow.ApplyTheme` applies it on every settings broadcast,
+so open windows change live. The design check holds every curated accent and a spread of custom colors in every
 bundled theme to the same floors as a manifest, and holds `text`, `muted` and `accent` to 4.5 (7.0 in High
 Contrast) on the composited prompt bubble fill.
 
 Bundled files are enumerated from the `Assets/Themes` avares folder rather than named in code, and validated
 all-or-nothing at first use of `Themes.All`. They are our own files, so an invalid or duplicate manifest, a
-missing default (`dark`), or a catalogue without at least one light and one dark theme fails loudly. The
-catalogue orders by `order`, then label, then id.
+missing default (`dark`), or a catalog without at least one light and one dark theme fails loudly. The
+catalog orders by `order`, then label, then id.
 
 ## Runtime contract
 
-The catalogue is fixed for the process lifetime. Fixed mode resolves `theme`; an unknown id falls back to
+The catalog is fixed for the process lifetime. Fixed mode resolves `theme`; an unknown id falls back to
 the default and reports `Fallback`. System mode reads the application's actual theme variant, which follows
 the operating system (an unreported appearance reads as light), and resolves that appearance's slot.
 
@@ -131,7 +131,7 @@ and resources are written before `ThemeChanged` fires. The listener is per windo
 state, so one device's appearance never affects another client.
 
 Coverage lives in `tests/Tereditor.Checks` (`E2E/ThemeE2E.cs`, `StateChecks.cs`, `Design/ThemeGates.cs`):
-catalogue order and ids, high-contrast metadata, pair derivation, host round-tripping of mode and pair,
+catalog order and ids, high-contrast metadata, pair derivation, host round-tripping of mode and pair,
 all-or-nothing rejection of partial, unknown and non-canonical manifests, schema agreement and the contrast
 floors. `-- --design` runs the theme translations and gates alone.
 
@@ -139,11 +139,11 @@ floors. `-- --design` runs the theme translations and gates alone.
 
 Users cannot add themes except through a source change. Runtime registration, extension loading, hot
 discovery, external theme formats, OS contrast following and schedule UI are out of scope; if runtime themes
-ever arrive, the seam is a validated registration path in front of the same catalogue.
+ever arrive, the seam is a validated registration path in front of the same catalog.
 
 ## Not built
 
 - Consumption of the manifest's `syntax` palette; `Themes.Parse` validates and carries it
-  (`ThemeManifest.Syntax`), but code surfaces still pick their own colours. The target is one syntax scope map for both Markdown code blocks and the file editor: the
-  editor resolves it to concrete colours after each swap, and a colour it cannot resolve is omitted so the
+  (`ThemeManifest.Syntax`), but code surfaces still pick their own colors. The target is one syntax scope map for both Markdown code blocks and the file editor: the
+  editor resolves it to concrete colors after each swap, and a color it cannot resolve is omitted so the
   editor's own default stays usable rather than painting a wrong one.

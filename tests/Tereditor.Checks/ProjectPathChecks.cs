@@ -24,7 +24,7 @@ internal static class ProjectPathChecks
     {
         var home = Path.Combine(root, "path-home");
         Require(ProjectPaths.Resolve("~", home) == home && ProjectPaths.Resolve("~/a/../b", home) == Path.Combine(home, "b") &&
-            ProjectPaths.Resolve(Path.Combine(root, "x", "..", "y"), home) == Path.Combine(root, "y"), "Project paths resolve ~ against the host home and normalise.");
+            ProjectPaths.Resolve(Path.Combine(root, "x", "..", "y"), home) == Path.Combine(root, "y"), "Project paths resolve ~ against the host home and normalize.");
         foreach (var relative in new[] { "relative", "./here", "~user/x", "" })
             try { ProjectPaths.Resolve(relative, home); throw new InvalidOperationException($"A relative project path was accepted: {relative}"); }
             catch (ArgumentException) { }

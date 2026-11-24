@@ -178,7 +178,7 @@ internal sealed class LanguageConnection : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
-            Trace($"!! {method} #{id} cancelled or timed out after {(DateTime.UtcNow - inflight.GetValueOrDefault(id).At).TotalSeconds:0.#}s");
+            Trace($"!! {method} #{id} canceled or timed out after {(DateTime.UtcNow - inflight.GetValueOrDefault(id).At).TotalSeconds:0.#}s");
             if (!lifetime.IsCancellationRequested && !Exited)
             {
                 using var cancel = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
@@ -232,7 +232,7 @@ internal sealed class LanguageConnection : IAsyncDisposable
         catch (Exception error)
         {
             // A cancelled or failed write can leave half a frame in the pipe, so the stream cannot be reused.
-            Terminate($"a write to its stdin failed or was cancelled ({error.GetType().Name}: {error.Message}), which leaves the JSON-RPC stream unusable", failure: true);
+            Terminate($"a write to its stdin failed or was canceled ({error.GetType().Name}: {error.Message}), which leaves the JSON-RPC stream unusable", failure: true);
             try { if (!process.HasExited) process.Kill(); }
             catch (InvalidOperationException) { }
             throw;

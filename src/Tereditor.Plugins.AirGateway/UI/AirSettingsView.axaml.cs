@@ -280,7 +280,7 @@ internal sealed partial class AirSettingsView : UserControl
         launchNote.Text = !Governed ? "" :
             current.Central.State is "absent" or "malformed-version" or "probe-failed" ? "Central was not found or could not be verified: governed launches will fail in the terminal rather than start without governance." :
             current.Central.State == "outdated" ? "This Central is older than the minimum supported; update it before launching." :
-            "An agent whose command is customised in its own settings keeps that command and is not governed.";
+            "An agent whose command is customized in its own settings keeps that command and is not governed.";
         Toggle(working);
     }
 

@@ -24,7 +24,7 @@ The user-facing summary is [docs/headless.md](../headless.md). The module contra
 - No new UI, no desktop changes, no change to the Remote host's wire protocol.
 - No dynamic tool renaming. Renaming would confound the experiment.
 - No statistics package. The comparison is a documented set of `jq` recipes first, a tiny `report` command later.
-- No new language-server behaviour. This design only exposes the existing one.
+- No new language-server behavior. This design only exposes the existing one.
 
 ### Experiment workflow, worked example
 
@@ -122,7 +122,7 @@ All claims verified from `src/*/*.csproj` and the module specs.
 | Language servers | `Tereditor.Plugins.Lsp.<Name>`, 18 projects, one per server, host side only | no |
 | Tests | `tests/Tereditor.Checks` (executable runner), `Tereditor.Language.Integration`, `Tereditor.Browser.Checks`, plugin fixtures | n/a |
 
-Key finding. The reorganisation the user asked for is mostly done. `Tereditor.Host.Core` already references every
+Key finding. The reorganization the user asked for is mostly done. `Tereditor.Host.Core` already references every
 plugin `Host` project and every `Lsp.*` plugin, and none of those pull Avalonia. Direct references are verified.
 Transitive ones are assumed clean and slice 2 proves it with `dotnet list package --include-transitive`.
 What is missing is a small executable that composes Core without Kestrel.
@@ -183,7 +183,7 @@ with `TEREDITOR_TOOLS_ENABLE=spec,blueprint`, which sets it for those two in mem
 | `blueprint` | yes, off by default | `blueprint_check` renders a view without a window. It depends on `spec-dialect`, which is also headless. |
 | `lsp-typescript`, `lsp-python`, `lsp-php`, `lsp-css`, `lsp-shell`, `lsp-csharp`, `lsp-clangd`, `lsp-kotlin`, `lsp-java` (9) | yes, on by default | Language servers are child processes that serve the `lsp_*` tools. Each installs into the cache from a pinned, checksummed download on a pinned runtime (.NET SDK, Bun, Temurin JDK 21) or as a self-contained archive. On linux/arm64 `lsp-clangd` uses LLVM's own build, which the image build extracts from the 1.1 GB toolchain archive (pinned URL and SHA-256) down to `bin/clangd` and its builtin headers. |
 | `lsp-go`, `lsp-rust`, `lsp-scala`, `lsp-ruby`, `lsp-r`, `lsp-powershell`, `lsp-swift`, `lsp-dart` (8) | no | Their servers need a toolchain with no pinned download (Go, Rust, Coursier, Ruby, R, PowerShell, Swift, Dart); each flips to yes when that runtime is pinned with a checksum. |
-| `lsp-intellij` | yes, opt-in | Not in the default roster: it exists only when `TEREDITOR_PREFETCH` or `TEREDITOR_ACCEPT_TERMS` names it. Self-contained archive with its own JRE (checked on both Linux architectures). It needs a JetBrains licence and the user's agreement to the JetBrains User Agreement, given with `accept_terms`, an MCP prompt or `TEREDITOR_ACCEPT_TERMS`. See [headless.md](../headless.md#the-intellij-server-opt-in). |
+| `lsp-intellij` | yes, opt-in | Not in the default roster: it exists only when `TEREDITOR_PREFETCH` or `TEREDITOR_ACCEPT_TERMS` names it. Self-contained archive with its own JRE (checked on both Linux architectures). It needs a JetBrains license and the user's agreement to the JetBrains User Agreement, given with `accept_terms`, an MCP prompt or `TEREDITOR_ACCEPT_TERMS`. See [headless.md](../headless.md#the-intellij-server-opt-in). |
 | `claude-code`, `codex`, `omp`, `pi`, `acp` | no | They launch an agent in a terminal or chat pane. Headless is the tool server an agent calls. |
 | `air-gateway` | no | It starts Claude Code, Codex and Pi through Air Gateway per launch, when their Model source is JetBrains (Air Gateway). |
 | `air-context` | no | Sign-in and consent are user-only and the indexing is cloud processing. |
@@ -295,7 +295,7 @@ Rules that keep stdio clean:
   `HeadlessLanguageMcp` has over HTTP.
 - The terminal-only tools (`workspace_*`, `set_title`) are simply absent because `WorkspaceMcpTools` is not composed.
 
-### What the "deep reorganise" must be
+### What the "deep reorganize" must be
 
 Smaller than it sounds, because the split exists. In order of value to the main use case:
 
@@ -353,7 +353,7 @@ Choices and why:
   `/workspace/.tereditor/runs/`) and `/cache` (named volume).
 - `/cache` holds `language/` (managed server installs, shared caches such as gopls). The state directory (`state.json`,
   per-run) stays out of the shared volume on tmpfs, because two containers on one `state.json` are last-writer-wins
-  (verified, `Host.Remote/SPEC.md` "Decisions"). Installs are safe to share: they are serialised by a filesystem lease
+  (verified, `Host.Remote/SPEC.md` "Decisions"). Installs are safe to share: they are serialized by a filesystem lease
   across host processes (verified, `Language/SPEC.md` "Provisioning").
   Today the language directory is `<stateDir>/language`. Slice 1 adds `TEREDITOR_CACHE_DIR` as an additive override.
   Fallback with zero code: symlink `/tmp/tereditor-state/language` to `/cache/language` in an init step. Assumed workable.
@@ -526,7 +526,7 @@ One TOML file per area, in the project's `.tereditor/`. Existing files keep ever
 | `language.toml` | exists, `version = 1` | server choices and options |
 | `instructions.toml` | exists, `version = 1` | instruction sections off |
 | `workspace.toml` | exists, `version = 1` | cloned ignored paths |
-| `host.toml` | new | host behaviour and language limits |
+| `host.toml` | new | host behavior and language limits |
 | `mcp.toml` | new | tool switches, arms, run log |
 | `plugins/<plugin-id>.toml` | new | each plugin's enabled flag and settings |
 
@@ -542,7 +542,7 @@ Precedence, lowest to highest:
 Why env beats the project file: the harness owner pins experiment variables from outside without editing committed files.
 
 This is one deliberate difference from today's rule for `language.toml` ("a key stored in host state for the workspace wins
-over the file"). With layer 2 empty in the container, that rule holds unchanged and no existing behaviour moves.
+over the file"). With layer 2 empty in the container, that rule holds unchanged and no existing behavior moves.
 There is no user-level layer in the container. A desktop `~/.tereditor/config/*.toml` layer is possible later and is not
 part of this design.
 
@@ -809,12 +809,12 @@ Sizes are rough focused engineer-days. The NativeAOT work is out of scope by the
 | 7 | Node runtime, TypeScript | Pin Node LTS with npm for both architectures, wire npm servers to the managed Node, `warm` for TypeScript | `ManagedRuntimes`, pins | `--runtimes` extended; smoke `lsp_navigate` on a tiny TS fixture | 2 |
 | 8 | Python and JDK runtimes | Pin python-build-standalone (for import resolution and the interpreter setting) and Temurin 21 (Java, Gradle/Maven), `JAVA_HOME` hook for the Java plugin | `ManagedRuntimes`, `JavaPlugin`, `ProjectJava.cs` | same | 3 |
 | 9 | Config schema, host.toml, plugins/*.toml | `ConfigKey` attribute, registry generator, loaders, strict mode, precise errors | Core, plugin contract projects (attributes only), Headless | `--config`: parse errors with file and line, unknown key, bad version, precedence | 5 |
-| 10 | Reorganise and cleanup | `ProjectConfig` reader replaces three readers, shared `HostComposition` for Remote and Headless, optional Core split of unused plugins | Core, Remote | existing transport checks plus `--headless` unchanged | 4 to 6 |
+| 10 | Reorganize and cleanup | `ProjectConfig` reader replaces three readers, shared `HostComposition` for Remote and Headless, optional Core split of unused plugins | Core, Remote | existing transport checks plus `--headless` unchanged | 4 to 6 |
 
 Dependencies: 2 and 3 need 1 and can proceed in parallel after it. 4 needs 1 and 2. 5 needs 4. 6 needs 3 and 5, or 3 and a locally
 built image. 7 and 8 need 2. 9 can start after 3 but waits for the first loop so key names come from real use. 10 needs 9, 11 is last.
 Slices 1 to 5 land independently with CI green. No slice touches UI code. Slices 2, 7 and 8 touch language resolution, which the
-desktop also uses, so the default `source = "path"` keeps desktop behaviour byte-identical, proven by the existing `--lsp-dependencies` check.
+desktop also uses, so the default `source = "path"` keeps desktop behavior byte-identical, proven by the existing `--lsp-dependencies` check.
 
 ### Decided by the user
 

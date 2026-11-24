@@ -40,7 +40,7 @@ internal static class MarkdownTableDiffChecks
         Require(!MarkdownPreview.Parse(MarkdownDiff.Merge("", "ordinary | prose\n")).Descendants<Table>().Any(), "A pipe in prose does not become a table.");
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
-        try { MarkdownDiff.Merge(Table, Table, cancelled.Token); throw new InvalidOperationException("A cancelled table merge must stop."); }
+        try { MarkdownDiff.Merge(Table, Table, cancelled.Token); throw new InvalidOperationException("A canceled table merge must stop."); }
         catch (OperationCanceledException) { }
         Console.WriteLine("PASS Markdown table diffs: added/removed tables, cell/header edits, rows, column changes, syntax and native cell marks");
     }

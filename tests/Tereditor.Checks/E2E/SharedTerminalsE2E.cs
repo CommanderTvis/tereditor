@@ -214,10 +214,10 @@ internal static class SharedTerminalsE2E
             b.Click(b.Find<Button>("PageProjects"));
             Until(() => Strips(b).SequenceEqual(Ids(b)));
             Require(!b.Window.Layout.State.Groups.Any(legacyGroup => legacyGroup.Region == "bottom") && host.Host.Started.Count(request => request.SessionId == TerminalTab.SessionFor(workspace, initial.Id)) == 1,
-                "The terminal chosen in Projects must open in the centre, watched, without revealing the hidden bottom or starting another shell.");
+                "The terminal chosen in Projects must open in the center, watched, without revealing the hidden bottom or starting another shell.");
             a.Click(a.Find<Button>("NewTerminal_" + bottom));
             Until(() => TerminalTabs(a).Length == 3 && Ids(b).SequenceEqual(Ids(a)) && Central(b) && Strips(b).SequenceEqual(Ids(b)));
-            Console.WriteLine("PASS shared terminals: with tabs in Projects every terminal of the workspace sits in the centre and its strip there, whoever holds it");
+            Console.WriteLine("PASS shared terminals: with tabs in Projects every terminal of the workspace sits in the center and its strip there, whoever holds it");
         }
         finally { b?.Dispose(); a.Dispose(); }
     }

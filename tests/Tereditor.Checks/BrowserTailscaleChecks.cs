@@ -94,7 +94,7 @@ internal static class BrowserTailscaleChecks
         module.Cancel();
         await running;
         Require(module.State == TailscaleWasmState.NotDownloaded && module.Downloaded == 0 && !store.Caches.Contains("tereditor-tailscale-1.104.1-abc"),
-            "Cancelling returns to the offer and caches nothing.");
+            "Canceling returns to the offer and caches nothing.");
 
         store.Gate = null;
         store.FailDownload = "connection reset";

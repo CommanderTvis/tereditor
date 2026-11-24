@@ -34,7 +34,7 @@ Box sizes share the same unit but are layout constraints, not spacing steps: rai
 values chosen for the box, and are not held to the scale. Corner radii (4 on rows and buttons, 6 on menus,
 8 on the Settings frame) and border thicknesses are geometry too. Chips, header location pills, their avatars and tooltip bubbles share `Ui.ChipRadius` (4); tooltip text insets by `Ui.TooltipPadding`.
 
-Spacing stays independent of typography, colour and radius: a type-size or theme change never moves layout.
+Spacing stays independent of typography, color and radius: a type-size or theme change never moves layout.
 The interface font size preference scales text only.
 
 ## Where the values live
@@ -51,7 +51,7 @@ project's XAML (attributes and style setters) and C# (assignments and object ini
 control lives, and fails on a component that is not a step. A negative step is the same step pulled the other
 way. A value computed at run time is measured, not rhythm, and is not checked.
 
-An icon button's box is sizing: `Ui.IconButton` and the fixed-size icon buttons centre their icon in the box
+An icon button's box is sizing: `Ui.IconButton` and the fixed-size icon buttons center their icon in the box
 with no padding rather than deriving one from the two sizes.
 
 ## Escape hatches

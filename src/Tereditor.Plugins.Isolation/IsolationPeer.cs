@@ -374,7 +374,7 @@ public sealed class IsolationPeer : IAsyncDisposable
                     }
                     return;
                 case IsoFrameKind.Cancel:
-                    if (!Theirs(frame.Id)) throw Broken($"The plugin cancelled call {frame.Id}, which it never made.");
+                    if (!Theirs(frame.Id)) throw Broken($"The plugin canceled call {frame.Id}, which it never made.");
                     if (incoming.TryGetValue(frame.Id, out var cancelled)) cancelled.Cancel();
                     return;
                 case IsoFrameKind.Release:

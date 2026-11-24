@@ -222,7 +222,7 @@ internal static class ClaudeChatSemanticsChecks
         Require(notices.Where(notice => notice.Category == ChatNoticeKinds.Interrupt).Select(notice => notice.Text).SequenceEqual(["Interrupted", "Tool interrupted"]), "The interrupt markers become Interrupted and Tool interrupted.");
         Require(notices.Single(notice => notice.Category == ChatNoticeKinds.TaskNotification) is { Text: "Background command \"x\" completed" } task && task.Sections.Any(section => section is { Label: "Task ID", Text: "t9" }),
             "A task notification shows its summary and keeps the rest as details.");
-        Require(notices.Any(notice => notice.Category == ChatNoticeKinds.Wrapped && notice.Label == "Command caveat"), "A command caveat is a labelled collapsed notice.");
+        Require(notices.Any(notice => notice.Category == ChatNoticeKinds.Wrapped && notice.Label == "Command caveat"), "A command caveat is a labeled collapsed notice.");
         Require(notices.Single(notice => notice.Category == ChatNoticeKinds.Command) is { Text: "/model opus" }, "A command record reads /cmd args.");
         Require(notices.Where(notice => notice.Category == ChatNoticeKinds.CommandResult).Select(notice => (notice.Text, notice.Level)).SequenceEqual([("Switched to opus", ChatNoticeLevel.Info), ("no such thing", ChatNoticeLevel.Error)]),
             "Local command output is one line, an error for stderr, and a model switch reads Switched to <model>.");

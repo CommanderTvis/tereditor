@@ -64,7 +64,7 @@ internal static class FilesModesE2E
             Require(Row(app, "debug.log").Muted && Row(app, "build").Muted, "Ignored entries must be dimmed.");
             Expand(app, "build");
             Require(Row(app, "build/out.js").Muted, "Entries inside an ignored folder must be dimmed.");
-            Console.WriteLine("PASS upstream #779: All marks changed files with M/A/U/R in status colours and every ancestor folder; deletions mark nothing; ignored entries dim");
+            Console.WriteLine("PASS upstream #779: All marks changed files with M/A/U/R in status colors and every ancestor folder; deletions mark nothing; ignored entries dim");
 
             // Changed is the Changes view: count, list and marks come from one read.
             app.ShowTool("changes");
@@ -259,7 +259,7 @@ internal static class FilesModesE2E
     private static void RequireFile(E2eWorkspace app, string path, string letter, IBrush colour)
     {
         Until(() => Row(app, path).Badge == letter, path + " " + letter);
-        Require(ColorOf(Row(app, path).Tint) == ColorOf(colour) && !Row(app, path).Dot, $"{path} must show {letter} in its status colour.");
+        Require(ColorOf(Row(app, path).Tint) == ColorOf(colour) && !Row(app, path).Dot, $"{path} must show {letter} in its status color.");
     }
 
     private static string? Label(E2eWorkspace app, string name) => ((TextBlock)app.Find<ToggleButton>(name).Content!).Text;

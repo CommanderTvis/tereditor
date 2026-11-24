@@ -400,7 +400,7 @@ internal static class ChangesReviewChecks
         const string first = "@@ -1,3 +1,3 @@\n same\n-before\n+after\n same\n";
         const string shifted = "@@ -9,3 +12,3 @@\n same\n-before\n+after\n same\n";
         var firstKey = DiffView.ContentKeys(first).Values.Single();
-        Require(firstKey == DiffView.ContentKeys(shifted).Values.Single(), "Unique Keep keys must survive neighbouring line shifts.");
+        Require(firstKey == DiffView.ContentKeys(shifted).Values.Single(), "Unique Keep keys must survive neighboring line shifts.");
         Require(firstKey != DiffView.ContentKeys(first.Replace("+after", "+different", StringComparison.Ordinal)).Values.Single(), "Changed content must invalidate Keep.");
         var twins = DiffView.ContentKeys(first + shifted).Values.ToArray();
         Require(twins.Distinct().Count() == 2 && twins.All(key => key != firstKey), "Removing a duplicate must not transfer its Keep decision to the remaining twin.");

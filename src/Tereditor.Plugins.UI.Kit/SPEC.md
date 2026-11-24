@@ -13,7 +13,7 @@ tags: [ui, plugins]
 
 The primitives, Markdown renderer, code editor frame and diagram view every plugin's UI half needs, moved out
 of `Tereditor.UI/Rendering` so a plugin can render UI without reaching into the app's state, host, themes
-catalogue, workbench or panels. The app uses the same controls from here; there is one copy. In this commit
+catalog, workbench or panels. The app uses the same controls from here; there is one copy. In this commit
 the project is created empty with this spec, and the controls move into it as listed below.
 
 ## List and pane
@@ -55,7 +55,7 @@ and its plugins, including compiled layouts and controls created from code. Prim
 Welcome card variants share these rules; panes do not copy Fluent state resources. Button content
 is vertically centered by default (Fluent leaves it stretched, which tops the text of fixed-height buttons);
 a control that wants otherwise sets it locally. Italic text in a `TextBlock` is not clipped to its layout box, so the
-slant of its last letter stays visible; its width, and every indicator after it, is the same as upright text. A number box (`NumericUpDown`) centres its value vertically and keeps
+slant of its last letter stays visible; its width, and every indicator after it, is the same as upright text. A number box (`NumericUpDown`) centers its value vertically and keeps
 a text box's padding, so its digits start where a text box's text does; its inner text box and spinner take no minimum
 height of their own, so a fixed-height box holds them, and an unconstrained one is as high as a text box. An `Expander` header is plain text with a chevron and a hover fill only; the expanded (checked)
 toggle never takes the primary fill. `FlyoutPresenter.flat-list` with `Button.option-row` is the flat
@@ -71,7 +71,7 @@ A native popup keeps the size it measured when it opened, so items added or chan
 A context menu whose items need off-UI-thread work registers through `MenuFill.FillBeforeOpening`: an open
 request (a context request, or `MenuFill.Open` from code, since `ContextMenu.Open` raises no `Opening`) keeps
 the menu closed, gathers on the thread pool, applies the result on the UI thread and then opens the menu once
-on the control that asked. A newer request, a cancelled lifetime or a holder that left the visual tree drops
+on the control that asked. A newer request, a canceled lifetime or a holder that left the visual tree drops
 the result, and a menu with no items stays closed. The editor menu, the Changes scope and comparison-branch
 menus and the Projects workspace menu (its Open in editors) use it; Ghostty's terminal menu, which cannot depend
 on this kit, follows the same rule itself. Checks record each menu's items when it opens and require them unchanged
@@ -81,14 +81,14 @@ once its read has landed (`MenuFillProbe`).
 
 Adapted from ThinkRail's quiet scroll area. The same
 stylesheet replaces Fluent's scrollbar presentation for every `ScrollBar` in the app and its plugins: a 6px
-transparent track with no arrow buttons, a thumb that is transparent at rest, the border colour while its
-`ScrollViewer` carries intent, and the muted text colour under the pointer or while dragged. Intent is
+transparent track with no arrow buttons, a thumb that is transparent at rest, the border color while its
+`ScrollViewer` carries intent, and the muted text color under the pointer or while dragged. Intent is
 pointer hover, keyboard focus within, or scrolling with a 700 ms grace period (`QuietScroll` adds the
 `quiet-scroll-intent` class); an ancestor's intent never reveals a nested viewer's bars, because each
 selector reaches only its own template's bars. The editor frame's bars, which sit outside a viewer, take
-the frame's hover as intent. High contrast themes keep a 2px resting hairline in the hint colour. Clipped
+the frame's hover as intent. High contrast themes keep a 2px resting hairline in the hint color. Clipped
 directions of every viewer fade through pointer-transparent 16px edge curtains, an opacity mask on the
-content presenter so the fade reveals whichever surface lies beneath without a per-surface colour; when
+content presenter so the fade reveals whichever surface lies beneath without a per-surface color; when
 both axes are clipped only the vertical curtains show. Terminals keep Ghostty's own scrollbar.
 
 ## Boundary
@@ -104,7 +104,7 @@ layouts; the convenience constructor supplies the same contract from code. Progr
 publish toggle automation changes without requesting another update.
 
 - Owns, in `Tereditor.Plugins.UI.Kit`:
-  - Shared theme brushes, interface and code fonts, live theme updates, colour composition
+  - Shared theme brushes, interface and code fonts, live theme updates, color composition
     and primitive controls. All consumers use the same palette and control factories.
   - Semantic typography and layout roles are generated from the app’s authored design files.
   - `Switch`, the controlled boolean primitive: a `ToggleSwitch` with a compiled target/track/thumb
@@ -122,7 +122,7 @@ publish toggle automation changes without requesting another update.
     `SettingValueDialog` composes typed setting values, with either a closed set of choices or open
     suggestions shown as chips over a text field that accepts any value. Agent account and terminal components
     live in `Tereditor.Plugins.Agent.UI`, which depends on this kit.
-  - `SvgAsset.Agent` names the agent a mark belongs to (`claude`); while `Ui.ColoredAgentIcons` is on and `Ui.AgentColor` has a brand colour for it (only Claude's), that colour replaces the tint, and the mark reloads on `Ui.AgentIconsChanged`. The app applies the host's `agent-icons-colored` setting through `Ui.ApplyAgentIcons`.
+  - `SvgAsset.Agent` names the agent a mark belongs to (`claude`); while `Ui.ColoredAgentIcons` is on and `Ui.AgentColor` has a brand color for it (only Claude's), that color replaces the tint, and the mark reloads on `Ui.AgentIconsChanged`. The app applies the host's `agent-icons-colored` setting through `Ui.ApplyAgentIcons`.
   - `SvgAsset` can tint `currentColor` from a shared solid brush and reloads on theme changes while
     attached. Mounted icons with identical byte-array assets and tint share a parsed SVG; the last
     detach releases it. This avoids repeated parsing during tree scrolling without retaining a cache
@@ -142,7 +142,7 @@ publish toggle automation changes without requesting another update.
   `PreviewChanged` lets the owner reconnect selection observers after replacement.
   The app can enable preview frontmatter editing against its source buffer. Compiled property rows expose
   text/sequence/mapping conversion, key and value edits, list chips, mapping entries and add/remove.
-  List chips and the Add field share a vertical centre within each wrapped row.
+  List chips and the Add field share a vertical center within each wrapped row.
   Supported edits canonicalize only the frontmatter; the body and its line endings remain intact.
   Enter/blur commit and Escape cancels. Status/type suggestions are optional vocabulary, and unsupported
   YAML or a rendered diff stays read-only. Preview refresh keeps folding and active property inputs.
@@ -155,7 +155,7 @@ publish toggle automation changes without requesting another update.
   and edited-preview replacement request following after layout; preview scrolling never moves the source
   caret. Disabling following preserves independent scrolling through edits and mode changes.
   Cursor tracking does not change the source ranges reported for selections in the preview.
-- Owns, in `Tereditor.Plugins.UI.Kit.Editor`: `EditorFrame` (the Scintilla host with theme colours, fonts and
+- Owns, in `Tereditor.Plugins.UI.Kit.Editor`: `EditorFrame` (the Scintilla host with theme colors, fonts and
   line styles) and `EditorFonts`, the process-wide editor font family: empty or a family this device lacks (Skia's
   substitute face does not count) is the bundled JetBrains Mono; every live frame switches typeface when it changes, and
   `LineWidths.File`/`Code` scale symbol counts by the chosen font's column width.
@@ -166,11 +166,11 @@ publish toggle automation changes without requesting another update.
   draws above the source's first node, shifting the drawing up a row and left a level. Merman 0.7 has no
   tree view annotations (`:::class`, `## description`, `icon(...)`, from Mermaid 12); they stay parse errors.
   It themes diagrams through Merman's `host_theme`: the appearance plus design-token roles (canvas, surface,
-  text, line, border, note, actor, status colours), which Merman expands into every diagram's theme variables.
+  text, line, border, note, actor, status colors), which Merman expands into every diagram's theme variables.
   Plain base-theme variables are not enough: Merman 0.7 does not derive sequence, gantt and similar variables
   from them, and its tree view reads only its own `treeView` variables, so it drew black text and lines on dark
   themes. On a dark theme the renderer also maps the near-black ink Merman 0.7 still writes as literals (gantt
-  ticks, mindmap labels, markers) to the theme text colour, a Merman limitation handled centrally for every
+  ticks, mindmap labels, markers) to the theme text color, a Merman limitation handled centrally for every
   surface. `--visualize-selection` holds text at 4.5:1 and connecting lines at 3:1 in dark and light themes
   in the Visualize card, Markdown preview and their full-screen viewers.
 - Public API analyzers validate declarations against committed API baselines during compilation.
@@ -305,32 +305,32 @@ Themes that replace the selected foreground keep Avalonia's existing styled-sele
 | `ToolFileLink` | absent: a chat tool card's file link |
 | `ScopedSetting`, `SettingValueDialog`, `SettingsToolbar` | shared configuration rows (the footer keeps Remove and the scope chip at the right and trims the path; an overridden key gets a small info mark after its value), typed value composer, `ScopedSetting.SettingsToolbar` |
 
-Stays in the app: the theme catalogue and resolution (`Rendering/Themes.cs`, `Themes.SPEC.md`, `Assets/Themes`),
+Stays in the app: the theme catalog and resolution (`Rendering/Themes.cs`, `Themes.SPEC.md`, `Assets/Themes`),
 `DiffView`, `MarkdownDiff`, `RenderedDiffs.cs`, `CodeDocumentView`, `Panels/Dialogs.cs` (built on
-`DialogWindow`), and the colour and spacing documents `Rendering/COLOR.md` and `Rendering/SPACING.md`, which
+`DialogWindow`), and the color and spacing documents `Rendering/COLOR.md` and `Rendering/SPACING.md`, which
 document the token contract below.
 
 ## The token contract
 
-Nothing in this assembly declares a colour. Every visual property is one of `Ui`'s brushes, a font from `Ui`,
+Nothing in this assembly declares a color. Every visual property is one of `Ui`'s brushes, a font from `Ui`,
 or a spacing value from `Rendering/SPACING.md`. The brushes are mutable `SolidColorBrush` instances shared by
 every control, and `Ui.Apply(ThemeManifest)` rewrites all of them and then raises `ThemeChanged`, so no consumer
-observes half a palette. That makes the brush names, and the manifest colour keys `Apply` reads (`accent`,
+observes half a palette. That makes the brush names, and the manifest color keys `Apply` reads (`accent`,
 `accentHover`, `accentSolid`, `onAccent`, `content`, `sidebar`, `header`, `elevated`, `hover`, `borderStrong`,
 `text`, `muted`, `hint`, `selection`, `selectionForeground`, `editorSelection`, `editorSelectionForeground`,
 `info`, `success`, `danger`, `warning`), a contract this kit depends on, wherever it is mounted.
 
-- Surfaces that bake colour (Mermaid SVG, the Scintilla editor) read `Ui.Theme` when they render and render again
+- Surfaces that bake color (Mermaid SVG, the Scintilla editor) read `Ui.Theme` when they render and render again
   on `ThemeChanged`, subscribing on attach and unsubscribing on detach.
-- The app applies a theme before anything reads the kit: the catalogue's default from `App.Initialize`, then the
-  host's settings. The kit has no default of its own, because it cannot see the catalogue.
-- A plugin that paints a literal colour stops following theme changes, and nothing reports it.
+- The app applies a theme before anything reads the kit: the catalog's default from `App.Initialize`, then the
+  host's settings. The kit has no default of its own, because it cannot see the catalog.
+- A plugin that paints a literal color stops following theme changes, and nothing reports it.
 
 ## Get right
 
 - `Ui.Icon` caches original SVG geometry per standard icon name and draws it as an opacity mask over a brush, so a glyph sizes with its
-  box and colours with a brush exactly like text; the icon set includes `puzzle`, the plugin fallback glyph.
-- Moving a type keeps its behaviour: the Markdown, editor and diagram rules in `Rendering/SPEC.md` apply
+  box and colors with a brush exactly like text; the icon set includes `puzzle`, the plugin fallback glyph.
+- Moving a type keeps its behavior: the Markdown, editor and diagram rules in `Rendering/SPEC.md` apply
   unchanged, and that spec points here for where the code lives.
 - The kit's checks are the app's existing Markdown, editor, diagram and theme checks, which keep passing
   against the moved controls.
@@ -353,10 +353,10 @@ The pan/zoom surface reads the drawn text runs (with per-character boxes) from t
 once per render, off the UI thread, so diagram labels select like document text: a press on a label selects
 (drag, Shift-click, double-click for the label), a press elsewhere pans and a plain click clears; Cmd/Ctrl+A and
 Cmd/Ctrl+C select and copy in reading order (a tree view as an indented outline), and the context menu adds
-Copy All Text and Copy Mermaid Source. The highlight is drawn over the picture in the theme selection colour and
+Copy All Text and Copy Mermaid Source. The highlight is drawn over the picture in the theme selection color and
 follows zoom. Comparison card text is selectable text.
 
-The account presentation exposes labelled rows, provider-supplied severity and percentage usage,
+The account presentation exposes labeled rows, provider-supplied severity and percentage usage,
 relative reset times and reading timestamps. Row and usage-window layouts are compiled XAML.
 The Codex builtin uses these controls without referencing app or host implementations.
 
@@ -374,12 +374,12 @@ dotfiles, Gradle/Kotlin scripts, properties, shell scripts and shell startup dot
 `.slnx` solution files select the XML grammar.
 `.kotlin_builtins` files, the Kotlin standard library stubs a Kotlin-aware server opens, select the Kotlin grammar and icon.
 Git attributes have a dedicated grammar for paths, macros, attribute flags and assigned values.
-Standalone patches use the bundled diff grammar with distinct inserted/deleted colours. Unknown files
+Standalone patches use the bundled diff grammar with distinct inserted/deleted colors. Unknown files
 stay plain. The tokenizer consumes source and returns UTF-8 style indices independently
 of the editor; Scintilla applies the ranges without changing text, selections or undo.
 Scope categories map to the applied manifest's syntax palette. Property and key scopes
-(`support.type.property-name*`, `variable.other.property*`) take the property colour, ahead of the
-generic `support.type` type colour, so TOML, JSON and CSS keys and TOML table names are not coloured
+(`support.type.property-name*`, `variable.other.property*`) take the property color, ahead of the
+generic `support.type` type color, so TOML, JSON and CSS keys and TOML table names are not colored
 as types. `--syntax` tokenizes a mise.toml-like sample (quoted table segment, inline table, string
 arrays, literal and multi-line strings, escapes, numbers, booleans, dates, comments, array tables)
 and asserts the role of each token and that keys, strings and comments differ in the dark and light themes.
@@ -395,14 +395,14 @@ depend on machine load. `--syntax` checks the repository's `mise.toml` opened li
 after edits against fresh passes, with digits inside basic strings staying strings.
 Edits coalesce for 60 ms, superseded requests cancel, and
 results apply only to the still-attached document version, in one styling pass without clearing.
-Colours never blink off while typing: typed bytes take the neighbouring token's style
+Colors never blink off while typing: typed bytes take the neighboring token's style
 (the previous byte's, or the next byte's at a line start) until the pass lands, stale results are
 dropped without restyling or hiding the editor, and `--syntax` types into a string and a comment
 with a frame between keystrokes, faster than the debounce, requiring every byte outside the typed
 range to keep its style in every frame and the settled styles to equal a fresh tokenization. Detaching cancels work
 and discards cached style bytes; reattaching highlights the current buffer, including
-edits made while detached, before any cached syntax styles can be recoloured.
-Theme changes recolour existing tokens.
+edits made while detached, before any cached syntax styles can be recolored.
+Theme changes recolor existing tokens.
 Highlighting is bounded to 1 Mi characters per document and 16 Ki UTF-16 units per
 line, with a 50 ms tokenizer budget per line. Larger inputs remain readable with
 plain text and existing diff line styles. TextMateSharp does not support cross-grammar
@@ -411,7 +411,7 @@ injections; embedded-language coverage follows the grammar's ordinary includes.
 Inline and split diffs project displayed source rows into independent old/new streams.
 Diff prefixes, metadata and filler rows are not source. Hunk headers and omitted
 context reset tokenizer state, so highlighting at a hunk boundary can be approximate
-when the omitted source opened a multiline construct. Syntax colours compose with
+when the omitted source opened a multiline construct. Syntax colors compose with
 added/deleted whole-line background bands; metadata keeps its existing foreground.
 Acceptance covers all RedMonk January 2025 top-20 languages, development-file
 selection, multiline edits, Unicode/line endings, stale replies, attachment, theme
@@ -422,7 +422,7 @@ filename globs match case-insensitively without directory components; up to 32 p
 of 200 characters and 512 Ki characters of grammar are accepted per entry. Replacing
 the same scope invalidates cached grammar/state; removal restores bundled detection.
 The app applies validated host snapshots off the dispatcher and refreshes attached
-editors after applying a new catalogue. Settings owns import/removal and agent launch UI.
+editors after applying a new catalog. Settings owns import/removal and agent launch UI.
 
 TextMateSharp's extension helper returns a package's first grammar; detection instead
 resolves the matched language ID to its grammar, keeping C++ distinct from C and
@@ -471,7 +471,7 @@ arrive, and semantic results wait for the current syntax pass rather than painti
 
 Token types map to palette roles: namespace, class, struct, interface, enum, typeParameter, delegate and
 record to `type`; parameter and variable to `variable`; property, field and event to `property`;
-function and method to `function`. Every bundled theme gives `type` a colour different from `variable`,
+function and method to `function`. Every bundled theme gives `type` a color different from `variable`,
 `property` and `function` (guarded in the language checks), so a type name never reads like a parameter,
 local or member; the TextMate fallback uses the same roles.
 

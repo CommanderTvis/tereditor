@@ -31,7 +31,7 @@ internal static class WorkspaceLifecycleE2E
         Require(cancel.IsFocused && !Named<Button>(confirm, "WorkspaceForceRemove").IsDefault, "Cancel owns focus; Delete anyway is never an implicit default.");
         app.Click(cancel);
         Until(() => !Tereditor.Plugins.UI.Kit.DialogWindow.On(app.Window).Any());
-        Require(File.ReadAllText(dirty) == "keep until approved\n" && WorktreePaths(app).Contains(path), "Cancelling preserves dirty files and the workspace row.");
+        Require(File.ReadAllText(dirty) == "keep until approved\n" && WorktreePaths(app).Contains(path), "Canceling preserves dirty files and the workspace row.");
         RemoveWorkspace(app, path);
         confirm = Dialog(app);
         Require(confirm.Title == "Delete uncommitted changes?", "A second removal must ask again.");

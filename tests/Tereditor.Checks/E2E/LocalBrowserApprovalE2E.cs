@@ -48,7 +48,7 @@ internal static class LocalBrowserApprovalE2E
         Until(() => Prompt(app.Window) is not null);
         cancellation.Cancel();
         Until(() => Prompt(app.Window) is null && cancelled.IsCompleted);
-        Require(listener.BrowserConnections!.Origins.Count == 0, "Cancelling the browser request must dismiss its prompt without granting access.");
+        Require(listener.BrowserConnections!.Origins.Count == 0, "Canceling the browser request must dismiss its prompt without granting access.");
         var approved = Task.Run(() => LocalBrowserConnectionChecks.Request(client));
         Until(() => Prompt(app.Window) is not null);
         app.Click(Field<Button>(Prompt(app.Window)!, "LocalBrowserAllow"));

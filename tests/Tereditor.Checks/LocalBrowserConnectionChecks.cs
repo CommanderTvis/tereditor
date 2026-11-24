@@ -128,7 +128,7 @@ internal static class LocalBrowserConnectionChecks
         var pending = Request(restarted, cancellationToken: cancel.Token);
         await requested.Task.WaitAsync(TimeSpan.FromSeconds(10));
         cancel.Cancel();
-        try { using var ignored = await pending; throw new InvalidOperationException("A cancelled request completed."); }
+        try { using var ignored = await pending; throw new InvalidOperationException("A canceled request completed."); }
         catch (OperationCanceledException) { }
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Require(listener.BrowserConnections.Origins.Count == 0, "Cancellation must issue no approval.");

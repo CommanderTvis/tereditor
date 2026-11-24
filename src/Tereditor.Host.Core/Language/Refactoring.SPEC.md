@@ -246,7 +246,7 @@ values in the other pages are from memory.)
 
 - Context actions popup (Alt+Enter, macOS Option+Enter): a list at the caret with quick fixes for diagnostics under
   the caret first, then refactorings, then `source.*`; a lightbulb gutter marker appears when `codeAction` returns
-  items (requested on caret idle, debounced 250 ms, cancelled on move). Arrow keys, Enter, number hints, type to
+  items (requested on caret idle, debounced 250 ms, canceled on move). Arrow keys, Enter, number hints, type to
   filter. The preferred action is first and bold. `disabled` actions are hidden unless a filter matches them,
   then shown dimmed with the reason.
 - Refactor This (macOS Ctrl+T, Windows/Linux Ctrl+Alt+Shift+T): the same list restricted to `refactor.*` kinds,

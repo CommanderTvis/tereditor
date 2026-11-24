@@ -94,7 +94,7 @@ internal static class TerminalChromeChecks
             app.Window.Layout.Tabs(createdGroup).Count == 0 &&
             app.Window.Layout.Group(sourceGroup.Id).Tools.Select(tab => tab.Id).SequenceEqual(originalTools) &&
             app.Window.Layout.State.Groups.SelectMany(group => app.Window.Layout.Tabs(group.Id)).Count(tab => tab.Id == id) == 1 &&
-            ReferenceEquals(body, app.Find<Control>("TerminalSurface_" + name)), "The hidden-side drop must create one left pane, retain the empty source pane and its neighbouring tools, and retain one terminal body.");
+            ReferenceEquals(body, app.Find<Control>("TerminalSurface_" + name)), "The hidden-side drop must create one left pane, retain the empty source pane and its neighboring tools, and retain one terminal body.");
         terminal = app.Find<Button>("Tab_" + name);
         app.Click(terminal, mouseButton: MouseButton.Right); Until(() => terminal.ContextMenu!.IsOpen);
         Require(app.SplitItem(terminal, "Left").IsEnabled, "Terminal side creation must be enabled.");

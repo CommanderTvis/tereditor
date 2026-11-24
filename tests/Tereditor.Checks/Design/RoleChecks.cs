@@ -28,7 +28,7 @@ internal static class RoleChecks
             Require(Ui.ControlDisabledText.Color == Ui.Alpha(theme["text"], 60) && Ui.ControlDisabledFill.Color == Ui.Alpha(theme["input"], 60) &&
                 Ui.ControlDisabledBorder.Color == Ui.Alpha(theme["border"], 60) && Ui.PrimaryDisabledFill.Color == Ui.Alpha(theme["accent"], 60) &&
                 Ui.PrimaryDisabledText.Color == Ui.Alpha(theme["onAccent"], 60) && Ui.PrimarySoft.Color == Ui.Alpha(theme["accent"], 20),
-                $"{theme.Id}: a disabled role is its enabled colour at the 60% step.");
+                $"{theme.Id}: a disabled role is its enabled color at the 60% step.");
             // A checked radio button is an accent disc with the on-accent dot, so the dot stays readable in every theme.
             var resources = Application.Current!.Resources;
             Require(ReferenceEquals(resources["RadioButtonCheckGlyphFill"], Ui.OnPrimary) && ReferenceEquals(resources["RadioButtonOuterEllipseCheckedFill"], Ui.PrimaryFill) &&
@@ -54,7 +54,7 @@ internal static class RoleChecks
                 Require(Tereditor.UI.Rendering.Accents.Contrast(Ui.OnPrimary.Color, Ui.PrimaryFill.Color) >= 4.5 && Tereditor.UI.Rendering.Accents.Contrast(Ui.OnPrimary.Color, Ui.PrimaryFillHover.Color) >= 4.5,
                     $"{where}: the on-accent label must be legible on both fills.");
                 Require(Ui.Success.Color == theme["success"] && Ui.Danger.Color == theme["danger"] && Ui.Info.Color == theme["info"] && Ui.Warning.Color == theme["warning"],
-                    $"{where}: feedback colours must not follow the accent.");
+                    $"{where}: feedback colors must not follow the accent.");
             }
         Ui.Apply(original);
 
@@ -67,7 +67,7 @@ internal static class RoleChecks
         var icon = (Border)row.Children[0];
         var label = (TextBlock)row.Children[1];
         static ContentPresenter Presenter(Button button) => button.GetVisualDescendants().OfType<ContentPresenter>().First(part => part.Name == "PART_ContentPresenter");
-        Require(ReferenceEquals(label.Foreground, labelled.Foreground) && ReferenceEquals(icon.Background, labelled.Foreground), "An enabled button's label and icon rest on their own colour.");
+        Require(ReferenceEquals(label.Foreground, labelled.Foreground) && ReferenceEquals(icon.Background, labelled.Foreground), "An enabled button's label and icon rest on their own color.");
         Require(ReferenceEquals(input.GetVisualDescendants().OfType<Border>().First(part => part.Name == "PART_BorderElement").Background, Ui.ControlFill),
             "A resting input must sit on the control fill.");
 
@@ -83,7 +83,7 @@ internal static class RoleChecks
             "A disabled input must take the disabled fill and border roles.");
 
         labelled.IsEnabled = true; input.IsEnabled = true; Settle();
-        Require(ReferenceEquals(label.Foreground, labelled.Foreground) && ReferenceEquals(icon.Background, labelled.Foreground), "Re-enabling a button must restore its label and icon colours.");
+        Require(ReferenceEquals(label.Foreground, labelled.Foreground) && ReferenceEquals(icon.Background, labelled.Foreground), "Re-enabling a button must restore its label and icon colors.");
         input.Focus(); Settle();
         Require(ReferenceEquals(border.BorderBrush, Ui.ControlBorderActive) && ReferenceEquals(border.Background, Ui.ControlFill),
             "A focused input strengthens its border neutrally and keeps the control fill.");

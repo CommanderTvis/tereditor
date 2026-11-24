@@ -453,7 +453,7 @@ internal static class PiChecks
         await Until(() => managed.Running && managed.Status(PiSources.Managed) is { Installing: true, Progress.Length: > 0 }, "A running download reports that it runs, with a progress line.");
         managed.Cancel();
         await Throws<OperationCanceledException>(() => hanging);
-        Require(empty() && managed.LastError.Contains("cancelled", StringComparison.Ordinal) && !managed.Running, "Cancel stops Bun, leaves no partial folder and says so.");
+        Require(empty() && managed.LastError.Contains("canceled", StringComparison.Ordinal) && !managed.Running, "Cancel stops Bun, leaves no partial folder and says so.");
 
         // An older pin's copy is shown as such and replaced by the update.
         Directory.CreateDirectory(Path.Combine(install, "0.1.0"));

@@ -257,7 +257,7 @@ internal sealed class GitHubViewTab : Border
     {
         "success" => "Success",
         "failure" => "Failed",
-        "cancelled" => "Cancelled",
+        "cancelled" => "Canceled",
         "skipped" => "Skipped",
         "running" => "In progress",
         "queued" => "Queued",

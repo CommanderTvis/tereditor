@@ -74,7 +74,7 @@ internal static class StateStoreChecks
         var cleared = await store.ChangeAsync([HostStateChange.RenameProject(renamed, "renamed-project")]);
         Require(!cleared.ProjectLabels.ContainsKey(renamed) && cleared.ProjectName(renamed) == "renamed-project", "The folder name clears the label.");
         await store.ChangeAsync([HostStateChange.CloseProject(renamed)]);
-        Console.WriteLine("PASS upstream projects.test.ts (#764): renameProject normalises, rejects empty, long and control names, and survives close/reopen");
+        Console.WriteLine("PASS upstream projects.test.ts (#764): renameProject normalizes, rejects empty, long and control names, and survives close/reopen");
 
         // Upstream #770 on the A18 unread model: stronger reasons win, Mark as read keeps a waiting agent, seeing clears all.
         var unreadPath = Path.Combine(directory, "unread-workspace");

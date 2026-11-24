@@ -68,7 +68,7 @@ managed language servers at runtime, not the build.
 - Nothing to install: the Android SDK, JDK, NDK and Merman's prebuilt `.so` come from mise, and the .NET `android`
   workload installs into the .NET SDK on first use.
 - The Android SDK is pinned in `mise.android.toml` (`scripts/tool android-sdk`). On first use the task installs
-  `platforms;android-36`, `build-tools;36.0.0` and `platform-tools` into it. It records the accepted SDK licence from a
+  `platforms;android-36`, `build-tools;36.0.0` and `platform-tools` into it. It records the accepted SDK license from a
   pinned hash in `scripts/tasks/android.cs`, so it never asks you to accept it.
 - Set `ANDROID_HOME` only to build with another SDK. The task then uses it as it is and installs nothing. Set
   `JAVA_HOME` only to build with another JDK 17 or 21.

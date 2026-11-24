@@ -69,7 +69,7 @@ internal sealed partial class RuntimesSettingsView : StackPanel
         }
         catch (OperationCanceledException)
         {
-            if (part is not null) results[kind] = ("The download was cancelled.", false); else Show("The download was cancelled.");
+            if (part is not null) results[kind] = ("The download was canceled.", false); else Show("The download was canceled.");
             try { Render(await context.RequestAsync(RuntimesContract.Status, new RuntimesStatusParams()).AsTask(), false); rendered = true; } catch (Exception) { }
         }
         catch (Exception)

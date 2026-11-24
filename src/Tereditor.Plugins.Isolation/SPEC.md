@@ -44,7 +44,7 @@ lent across it, and the process at its other end. [the Plugin API spec](../Tered
   in range, only on an open popup, dropped with it; and an accessibility action only on a node of that tree that
   offers it),
   `SurfacePixels` (moves, applied the same way on both ends), `IPluginSurface` (a client's end of one surface, with
-  the number the host gave it) and `IPluginSurfaceService` (a client context's surfaces). `TileCodec`: one colour as 4 bytes, else
+  the number the host gave it) and `IPluginSurfaceService` (a client context's surfaces). `TileCodec`: one color as 4 bytes, else
   QOI without its header; decoding refuses short, long or malformed data. `IsolationPeer.OneWay` carries bytes beside
   its payload for frames.
 - `IsolatedRuntime.cs`: what generated code targets. `IIsolatedRuntime` is the plugin process's way out (calls,

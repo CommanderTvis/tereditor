@@ -117,7 +117,7 @@ internal static class AgentLaunchChecks
             Until(() => !Notice());
             app.State.SetTerminalAgent(terminal, new(kind, kind));
             Until(() => app.Workbench.State.Current.TerminalAgents.Any(agent => agent.Record.LaunchedByUi is null));
-            Require(!Notice(), "An unknown origin must not be labelled manual.");
+            Require(!Notice(), "An unknown origin must not be labeled manual.");
             app.State.SetTerminalAgent(terminal, null);
             Until(() => app.Workbench.State.Current.TerminalAgents.All(agent => agent.Terminal != terminal));
             Require(!Notice(), "An exited agent leaves no launch notice.");

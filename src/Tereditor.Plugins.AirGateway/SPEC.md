@@ -13,7 +13,7 @@ tags: [plugins, central, governance]
 
 Adapted from the former ThinkRail fork's JetBrains Central integration. The fork routed Central into `pi`
 through one extension file; this plugin keeps the fork's detection, sign-in, proxy,
-update and access-source behaviour and replaces the pi extension with Central's `central run <agent>`, one launch at a time, for Claude Code, Codex and Pi.
+update and access-source behavior and replaces the pi extension with Central's `central run <agent>`, one launch at a time, for Claude Code, Codex and Pi.
 omp and the ACP agents are not routed through Central: Central declares wiring for Claude Code, Codex and Pi only.
 
 Air Gateway was called Air Governance until JetBrains renamed the product; the plugin id `air-governance` is migrated to `air-gateway` when host state loads (HostState.SPEC.md), and older history keeps the old name.
@@ -68,7 +68,7 @@ error states. There is no manual check button. Everything else is an explicit bu
 then `proxy restart`; a failed restart is a warning). A missing CLI shows the platform install command from
 central-cli.labs.jb.gg as text; the plugin never runs it.
 
-While an agent's Model source is Central and Central is signed in, the pane also shows the chosen source's remaining credits, for example `16.27 of 20.00 credits remaining, refills 2027-01-15` (plus the top-up when nonzero). They are read from `central limit --json` with every automatic check and after a successful Switch: `tariffQuota.available` and `maximum` (numbers or numeric strings; else `maxDollars` less `usedDollars`), `topUpQuota.available` and `refillNext` (epoch ms). Status and the pane carry only those numbers, never the email or licence name. Missing, malformed, negative, non-finite or inconsistent values, a failed or timed-out command, signed out and the direct source all show nothing.
+While an agent's Model source is Central and Central is signed in, the pane also shows the chosen source's remaining credits, for example `16.27 of 20.00 credits remaining, refills 2027-01-15` (plus the top-up when nonzero). They are read from `central limit --json` with every automatic check and after a successful Switch: `tariffQuota.available` and `maximum` (numbers or numeric strings; else `maxDollars` less `usedDollars`), `topUpQuota.available` and `refillNext` (epoch ms). Status and the pane carry only those numbers, never the email or license name. Missing, malformed, negative, non-finite or inconsistent values, a failed or timed-out command, signed out and the direct source all show nothing.
 
 ## Credits in the header
 
@@ -77,8 +77,8 @@ before the connection status and Settings, through the Plugin API's header item 
 The numbers are the status channel's credits (above), so the host that runs `central` supplies them, including a
 remote one; the host stamps each successful read with its time (`ReadAt`). The tooltip names the governed agents,
 the plan's remaining and total credits, the top-up when nonzero, the next refill and when the credits were read
-(the licence name and email stay off the status channel, so the plan is not named). Below a tenth of the plan left,
-top-up included, the item uses the warning colour. Clicking it opens Settings › Plugins › Model providers, where the JetBrains (Air Gateway) pane is.
+(the license name and email stay off the status channel, so the plan is not named). Below a tenth of the plan left,
+top-up included, the item uses the warning color. Clicking it opens Settings › Plugins › Model providers, where the JetBrains (Air Gateway) pane is.
 
 Reads are the status method with the probe (so the same `--version`, `status` and `limit --json` as the pane), one
 shared reader per activation however many windows show the item: when an item attaches or its window activates,
@@ -87,7 +87,7 @@ per 15 s (the pane's throttle); and at once when an agent's Model source changes
 read during one runs after it. Nothing is read while no item is attached, Central governs no agent or the plugin is
 disabled. Status pushes (the pane's checks, actions and the agents' Account reads) update the item without a read.
 Before the first read nothing is shown; after a read without credits the item shows `credits ?` in the warning
-colour with the reason in the tooltip (not installed, outdated, cannot be used, not signed in, sign-in unknown, no
+color with the reason in the tooltip (not installed, outdated, cannot be used, not signed in, sign-in unknown, no
 credits reported, or the call's error). A compact (phone) workbench shows no header items; the credits stay in the
 JetBrains (Air Gateway) pane of Settings › Plugins › Model providers.
 
@@ -109,7 +109,7 @@ contribution carries no account.
 `refresh_token` and the current `ai_access` selection. The refresh token is exchanged (`client_id=central-cli`) at
 the fixed OAuth endpoint of that environment and the access token is sent to JetBrains Cloud's
 `user-management/api/ai-access-options`. Only `prod` and `staging` are known; both endpoint pairs are a fixed HTTPS
-table in the host half, so nothing in the envelope or a response can name a host. Enabled workspaces and licences give
+table in the host half, so nothing in the envelope or a response can name a host. Enabled workspaces and licenses give
 the selection ids (`workspace:<org>:<ws>`, `license:<id>`) and display names; the exported selection gives the
 current marker.
 
@@ -126,9 +126,9 @@ rotates the refresh token and revokes the original, rejecting the replacement do
 Central would keep an invalid credential and every app sharing its session could be signed out. This is conditional,
 not a reproduced failure: a live check saw two exchanges return the identical refresh token (RFC 6749 section 6 permits
 rotation). A Central-owned authenticated listing operation or a supported
-credential synchronisation contract would remove the assumption.
+credential synchronization contract would remove the assumption.
 
-Switches serialise behind the action gate; a request for the source queued last shares that switch, any other source
+Switches serialize behind the action gate; a request for the source queued last shares that switch, any other source
 queues its own, so A, B, A runs in order and ends on A.
 
 ## Untrusted output
@@ -142,18 +142,18 @@ Central output, and never passes `--accept-tos`.
 ## Threading
 
 All process and filesystem work is in the host half behind plugin RPC; the pane only builds controls and applies
-replies. Mutating calls are serialised and publish a busy status on the `status` channel before and after.
+replies. Mutating calls are serialized and publish a busy status on the `status` channel before and after.
 
 ## Verification and limits
 
-`--air-gateway` runs the host and pane checks against a fake `central` modelled on the fork's fixture (version,
+`--air-gateway` runs the host and pane checks against a fake `central` modeled on the fork's fixture (version,
 status rows, `login export`, access switching, proxy, login, update) plus a `run` that records its argv, under a throwaway home: detection,
 the contributions per agent Model source (Claude Code, Codex and Pi), the Claude and Codex launch lines executed by a real shell so prompts with
 quotes and `$(...)` arrive as single arguments, a fake HOME whose `.claude`, `.codex`, `CLAUDE_CONFIG_DIR` and
 `CODEX_HOME` stay byte- and time-identical across every action and Model source change, failures, access switching, the
 host seam over plugin RPC (including the provider contributed and withdrawn, and Model sources followed), the pane (no source choice, no agent list) and real launchers through headless input, and the header
 item against a stand-in host: hidden with no agent on Central, credits after a Model source change, the warning
-colour, the reason when credits cannot be read, a pushed status, the click into Settings, and removal on disable.
+color, the reason when credits cannot be read, a pushed status, the click into Settings, and removal on disable.
 The listing runs against a loopback fake of the OAuth server and Cloud (a checks-only endpoint override that production
 code never sets): success with the current marker, signed out, unknown environment, redirect, malformed and oversized
 responses, rotation, secrets absent from every surfaced string, switching with proxy-restart failure and A, B, A.

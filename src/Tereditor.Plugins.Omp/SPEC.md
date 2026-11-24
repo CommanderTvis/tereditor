@@ -79,7 +79,7 @@ No real omp run backs them; the checks use a fixture `omp`.
   itself unavailable with the same hint.
 - Agent detection: a 2.5 s process poll (a copy of the Codex plugin's) records an `omp` descendant of a tab's shell
   as an `omp` agent record and clears it when the process leaves; zombie (`Z`) rows are skipped. A record of another
-  agent kind is left alone. The search does not descend through another tereditor app (process name `Tereditor.UI`/`tereditor`), so an agent in a nested tereditor's terminals never marks the outer tab; a tereditor run as `dotnet Tereditor.UI.dll` is not recognised by name. If an omp build runs under another process name (for example its runtime's), it is not
+  agent kind is left alone. The search does not descend through another tereditor app (process name `Tereditor.UI`/`tereditor`), so an agent in a nested tereditor's terminals never marks the outer tab; a tereditor run as `dotnet Tereditor.UI.dll` is not recognized by name. If an omp build runs under another process name (for example its runtime's), it is not
   detected; this is not verified against a real install.
 - Air Gateway does not govern omp: Central serves Claude Code, Codex and Pi only.
 - Mark: the manifest icon is `asset:omp.svg`, omp's π mark from the omp.sh site header redrawn as one `currentColor`

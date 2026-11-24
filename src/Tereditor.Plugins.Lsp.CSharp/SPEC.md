@@ -16,7 +16,7 @@ The plugin id is `lsp-csharp`; it ships enabled. Its host half is a `LanguageSer
 the catalog, its sessions stop and its saved settings are kept. Implementation: Roslyn Language Server · Microsoft.
 
 The spec declares the pinned version, owned files, pinning and its pins, configuration controls, project manifests
-and scope, and any install and launch steps; the shared behaviour is the host's ([language services](../Tereditor.Host.Core/Language/SPEC.md)).
+and scope, and any install and launch steps; the shared behavior is the host's ([language services](../Tereditor.Host.Core/Language/SPEC.md)).
 
 It waits for Roslyn's `workspace/projectInitializationComplete` before serving requests while automatic project loading is on, and restores each distinct set of workspace projects Roslyn reports as needing a restore once.
 

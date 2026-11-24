@@ -76,7 +76,7 @@ internal static class LanguageProjectChecks
         var intellij = await service.ExecuteAsync(new(workspace, Operation: "projects"));
         Require(intellij.Projects.Any(project => project.Server == "intellij") && intellij.Projects.All(project => project.Server is not ("java" or "kotlin")), "IntelliJ roots compete with existing JVM providers.");
         using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
-        try { await service.ExecuteAsync(new(workspace, Operation: "projects", Query: "refresh"), cancelled.Token); throw new InvalidOperationException("Cancelled discovery continued."); }
+        try { await service.ExecuteAsync(new(workspace, Operation: "projects", Query: "refresh"), cancelled.Token); throw new InvalidOperationException("Canceled discovery continued."); }
         catch (OperationCanceledException) { }
     }
 

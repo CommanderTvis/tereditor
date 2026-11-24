@@ -187,7 +187,7 @@ internal sealed partial class LanguageSession
         }
     }
 
-    private string NotInModule(string said) => "This file belongs to no module of the imported project, so it cannot be renamed or analysed across files. " +
+    private string NotInModule(string said) => "This file belongs to no module of the imported project, so it cannot be renamed or analyzed across files. " +
         (importFailure.Length > 0 ? "The project import failed: " + importFailure : "Check that the project import finished (lsp_status).") + " The server said: " + said;
 
     private async Task<LanguageResult> AgentRenameCoreAsync(LanguageResult result, LanguageRequest request, string uri, Document document, string name, CancellationToken token)

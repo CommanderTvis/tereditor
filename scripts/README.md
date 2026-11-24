@@ -24,13 +24,13 @@ separate profile instead of `~/.tereditor`. Additional arguments go to the app.
 The script clears inherited Claude Code session identity before launch.
 The Release build uses the memory settings in `DesktopGc.props` and the idle memory trim (`performance/README.md`).
 
-### Optimised local build
+### Optimized local build
 
 ```sh
 scripts/mise run native
 ```
 
-Publishes the desktop app as NativeAOT for this machine (OS, architecture and CPU: `IlcInstructionSet=native`, optimisation preference Speed) into `artifacts/native` and runs it (on macOS from `artifacts/native/tereditor.app`, so the Dock shows the bundle's icon in the system's icon style); additional arguments go to the app, and the environment is the same as `run dev`. `--no-run` only publishes and prints the executable's path, `--print` prints the commands without running them. The compile takes minutes and several GB of memory and deliberately bypasses the agent queue: agents never run it.
+Publishes the desktop app as NativeAOT for this machine (OS, architecture and CPU: `IlcInstructionSet=native`, optimization preference Speed) into `artifacts/native` and runs it (on macOS from `artifacts/native/tereditor.app`, so the Dock shows the bundle's icon in the system's icon style); additional arguments go to the app, and the environment is the same as `run dev`. `--no-run` only publishes and prints the executable's path, `--print` prints the commands without running them. The compile takes minutes and several GB of memory and deliberately bypasses the agent queue: agents never run it.
 
 ### Instrumented local build
 
@@ -138,7 +138,7 @@ safe. There is no bootstrap step and no link in the checkout: a task installs th
 directory (installing it first when missing): `dotnet`, `zig-0.17.1`, `merman`, `jdk`, `appimagetool`,
 `appimage-runtime`, and from the android and browser mise files `android-ndk`, `merman-android`, `node`,
 `binaryen`, `pdfium-wasm`. The SDK directory stays writable because `dotnet workload install` adds packs to it; those
-installs are serialised with a lock (`scripts/tasks/workload.cs`).
+installs are serialized with a lock (`scripts/tasks/workload.cs`).
 
 Caches written during builds live in one machine-wide directory every checkout and worktree shares, never in the
 checkout (there is no `.tools`): `TEREDITOR_CACHE_DIR` from `mise.toml`, `${XDG_CACHE_HOME:-~/.cache}/tereditor`
@@ -151,7 +151,7 @@ checkout (there is no `.tools`): `TEREDITOR_CACHE_DIR` from `mise.toml`, `${XDG_
 | `ghostty-avalonia` | pinned Ghostty sources, Zig caches, the patched macOS SDK copy; `results/<platform>-<library>-<key>` | key: hash of the build's fingerprint (pinned commits, Zig, sources, recipe); one `build.lock` |
 | `wasm-native` | patched libghostty-vt source, Zig cache; `results/<key>` | key: commit, patch, Zig, Emscripten SDK, sources; `build.lock` |
 | `tailscale-go` | `go<version>-<platform>`, Go's build and module caches | per pinned version, installed by rename under `install.lock`; Go locks its caches |
-| `tailscale-wasm` | the browser's Tailscale node, its sidecar, `wasm_exec.js`, licences and manifest; `<key>` | key: hash of go.mod, go.sum, the bridge, the recipe and `lib/Tailscale.cs`; `<key>.lock` |
+| `tailscale-wasm` | the browser's Tailscale node, its sidecar, `wasm_exec.js`, licenses and manifest; `<key>` | key: hash of go.mod, go.sum, the bridge, the recipe and `lib/Tailscale.cs`; `<key>.lock` |
 | `headscale-test` | what `--headscale` runs | version-stamped download, files renamed into place under `headscale-test.lock` |
 | `browser-compression` | Brotli/gzip of browser assets | content hash; files written beside and renamed |
 | `playwright` (`PLAYWRIGHT_BROWSERS_PATH`) | Chromium for the browser checks | Playwright's own install lock |
@@ -168,7 +168,7 @@ Native libraries are MSBuild targets in the project that owns them, with their s
 lockfile as inputs: `scripts/mise run build` (or any `dotnet build`) rebuilds a library only when one
 changed. The recipes (`build-merman.cs`, `build-notifications.cs`, `wasm-native.cs` and the
 `build-ghostty-macos`, `build-ghostty-android`, `build-ghostty-linux` and `build-ghostty-windows` scripts) are run by those targets under
-`scripts/mise x --`, which supplies the pins in `[env]`; they are not entry points. They serialise on a directory lock taken through `Tasks.AcquireLock` (`scripts/lib/Tasks.cs`), which records the owner's PID: a lock whose owner is gone (a killed build, a machine that slept) is removed instead of waited for, and a wait names the holder. macOS native builds
+`scripts/mise x --`, which supplies the pins in `[env]`; they are not entry points. They serialize on a directory lock taken through `Tasks.AcquireLock` (`scripts/lib/Tasks.cs`), which records the owner's PID: a lock whose owner is gone (a killed build, a machine that slept) is removed instead of waited for, and a wait names the holder. macOS native builds
 need clang, the Xcode command-line tools and, for libghostty, the Metal toolchain. The Linux libraries need only the pinned Zig, which
 cross-compiles them for `x86_64-linux-gnu` or `aarch64-linux-gnu` against glibc 2.31 from macOS or Linux alike.
 
@@ -206,13 +206,13 @@ and fails with the package and URL named if one is unreachable. After changing a
 on macOS (measures the packages from a real build into `.bench/zig-deps`), then publish the asset it prints a command for
 and commit the lock. the `--zig-deps` check mode fails when the lock is stale.
 
-`browser-assets.cs` (the browser project's `StageBrowserAssets` target, rerun when `pnpm-lock.yaml`, the PDFium pin or a licence changes) stages the browser renderer assets, fonts and licenses into
+`browser-assets.cs` (the browser project's `StageBrowserAssets` target, rerun when `pnpm-lock.yaml`, the PDFium pin or a license changes) stages the browser renderer assets, fonts and licenses into
 `src/Tereditor.Browser/wwwroot/vendor`.
 
 ## Android
 
 mise installs the pinned Android SDK from `mise.android.toml`, and `scripts/tool android-sdk` prints it. The task installs
-the SDK packages it needs into it on first use. It writes the pinned licence hash from `scripts/tasks/android.cs`
+the SDK packages it needs into it on first use. It writes the pinned license hash from `scripts/tasks/android.cs`
 first, so sdkmanager never asks. A set `ANDROID_HOME` names another SDK, used as it is. The JDK is provisioned like the .NET SDK: mise installs the pinned Temurin 21
 from `mise.toml` on first use and `scripts/tool jdk` prints it (on macOS, at the bundle's `Contents/Home`; Windows has no pin, see `mise.toml`); `scripts/tool merman-android`
 prints Merman's Android archive, whose per-ABI `.so` the APK packages as `libTereditorMermaid.so`. A

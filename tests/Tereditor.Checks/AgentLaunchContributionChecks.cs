@@ -30,7 +30,7 @@ internal static class AgentLaunchContributionChecks
         Equal(AgentLaunchComposition.Apply("claude --model opus", "claude", [], false), "claude --model opus", "no contributions leaves the line alone");
         Equal(AgentLaunchComposition.Apply("claude --model opus", "claude", [Replace("central", "run", "claude-code", "--")]), "central run claude-code -- --model opus", "a replacer stands in for the executable");
         Equal(AgentLaunchComposition.Apply("/usr/bin/claude -x", "claude", [Wrap("time")]), "time /usr/bin/claude -x", "a wrapper prefixes the executable and keeps its path");
-        Equal(AgentLaunchComposition.Apply("'/My Apps/claude' -x", "claude", [Replace("r", "--")]), "r -- -x", "a quoted executable path is recognised");
+        Equal(AgentLaunchComposition.Apply("'/My Apps/claude' -x", "claude", [Replace("r", "--")]), "r -- -x", "a quoted executable path is recognized");
         Equal(AgentLaunchComposition.Apply("npx claude", "claude", [Replace("r", "--")]), "npx claude", "a custom command line is never rewritten");
         Equal(AgentLaunchComposition.Apply("claude.exe a", "claude", [Wrap("w")], true), "w claude.exe a", "a .exe suffix still names the agent");
 

@@ -572,7 +572,7 @@ internal static class ClaudeChatChecks
         await fixture.Until(chat, _ => Lines("cancel.log").Length == 1, "the cancel to reach the CLI");
         Require(Lines("cancel.log")[0].Contains(second.GetProperty("request_id").GetString()!, StringComparison.Ordinal), "Dismissing a side question still being answered cancels its request.");
         await Task.Delay(200);
-        Require((await fixture.View(chat)).Items.All(item => item.Id != lingering.Id) && dismissed.Header.Status == ChatStatus.Running, "A cancelled side question does not come back, and the turn still runs.");
+        Require((await fixture.View(chat)).Items.All(item => item.Id != lingering.Id) && dismissed.Header.Status == ChatStatus.Running, "A canceled side question does not come back, and the turn still runs.");
         await fixture.Call(ChatContract.DismissSide, new ChatSideParams(project, chat, bubble.Id));
         await fixture.Until(chat, view => !view.Items.OfType<ChatNoticeItem>().Any(item => item.Category == ChatNoticeKinds.SideAnswer), "the answered bubble to go");
 

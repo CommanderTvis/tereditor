@@ -39,7 +39,7 @@ internal static class SelectionChecks
             var foreground = theme.Colors["selectionForeground"];
             E2E.E2eWorkspace.Require(input.SelectionBrush is SolidColorBrush textBrush && textBrush.Color == expectedText &&
                 paragraph.SelectionBrush is SolidColorBrush previewBrush && previewBrush.Color == expectedText,
-                $"Text selection in {theme.Id} must use the theme selection colour in inputs and the Markdown preview.");
+                $"Text selection in {theme.Id} must use the theme selection color in inputs and the Markdown preview.");
             E2E.E2eWorkspace.Require(foreground is null
                 ? input.SelectionForegroundBrush is null && paragraph.SelectionForegroundBrush is null
                 : input.SelectionForegroundBrush is ISolidColorBrush inputText && inputText.Color == foreground &&

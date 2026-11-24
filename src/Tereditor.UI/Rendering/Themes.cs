@@ -115,7 +115,7 @@ public static class Themes
         if (themes.Select(theme => theme.Id).Distinct().Count() != themes.Count) throw new InvalidDataException("Bundled theme ids must be unique.");
         if (themes.All(theme => theme.Id != DefaultId)) throw new InvalidDataException($"The bundled default theme is missing: {DefaultId}");
         if (!themes.Any(theme => theme.IsLight) || themes.All(theme => theme.IsLight))
-            throw new InvalidDataException("The bundled theme catalogue needs at least one light and one dark theme.");
+            throw new InvalidDataException("The bundled theme catalog needs at least one light and one dark theme.");
         return [.. themes.OrderBy(theme => theme.Order).ThenBy(theme => theme.Label, StringComparer.Ordinal).ThenBy(theme => theme.Id, StringComparer.Ordinal)];
     }
 
@@ -185,7 +185,7 @@ public static class Themes
     private static Color Hex(string? value, string field)
     {
         if (value is null || !Regex.IsMatch(value, HexPattern))
-            throw new InvalidDataException($"{field} must be a lowercase six- or eight-digit hex colour.");
+            throw new InvalidDataException($"{field} must be a lowercase six- or eight-digit hex color.");
         var number = uint.Parse(value.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
         if (value.Length == 7) number = number << 8 | 0xff;
         return Color.FromArgb((byte)number, (byte)(number >> 24), (byte)(number >> 16), (byte)(number >> 8));

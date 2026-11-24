@@ -24,10 +24,10 @@ internal static class ButtonCenteringChecks
                 var bounds = text.TranslatePoint(default, button) is { } origin ? new Rect(origin, text.Bounds.Size) : throw new InvalidOperationException("Button text is not in the button.");
                 // A stretched TextBlock draws its line at its top, so the line is its desired height from the block's top.
                 var offset = Math.Abs(bounds.Y + text.DesiredSize.Height / 2 - button.Bounds.Height / 2);
-                if (offset > 1) throw new InvalidOperationException($"'{button.Content}' text centre is {offset:0.0}px from the button's vertical centre (text {bounds}, button height {button.Bounds.Height}).");
+                if (offset > 1) throw new InvalidOperationException($"'{button.Content}' text center is {offset:0.0}px from the button's vertical center (text {bounds}, button height {button.Bounds.Height}).");
             }
         }
         finally { window.Close(); }
-        Console.WriteLine("PASS Button centering: fixed-height buttons centre their text vertically under the application styles");
+        Console.WriteLine("PASS Button centering: fixed-height buttons center their text vertically under the application styles");
     }
 }

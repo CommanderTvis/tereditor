@@ -32,7 +32,7 @@ internal static class IntelliJMavenChecks
 
         File.WriteAllText(Path.Combine(workspace, "pom.xml"), "<project/>");
         var result = new JsonObject { ["projects"] = new JsonArray(new JsonObject { ["type"] = "maven" }, new JsonObject { ["type"] = "gradle" }), ["buildTools"] = new JsonObject { ["file:///a"] = "maven", ["file:///b"] = "gradle" } };
-        Require(IntelliJMaven.Wanted(result, "", workspace), "A Maven project was not recognised.");
+        Require(IntelliJMaven.Wanted(result, "", workspace), "A Maven project was not recognized.");
         Require(IntelliJMaven.NotFound.Contains("Install Maven", StringComparison.Ordinal) && IntelliJMaven.NotFound.Contains("MAVEN_HOME", StringComparison.Ordinal), "The missing-Maven error does not say what to install.");
 
         var own = Path.Combine(workspace, "mavenPluginInstall-pom-mine.xml");

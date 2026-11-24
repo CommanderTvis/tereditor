@@ -73,7 +73,7 @@ internal static class MarkdownImageChecks
         for (var y = 0; y < bitmap.Height && !drawn; y++)
             for (var x = 0; x < bitmap.Width && !drawn; x++)
                 drawn = Near(bitmap.GetPixel(x, y), expected);
-        Require(drawn, name + " must paint its content colour " + expected);
+        Require(drawn, name + " must paint its content color " + expected);
     }
 
 

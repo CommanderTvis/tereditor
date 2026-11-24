@@ -91,13 +91,13 @@ internal static class IntelliJLicenseMountChecks
             var before = Snapshot(zipMount);
             var session = Fresh(scratch, "zip-session");
             var environment = IntelliJLicenseMount.Prepare(session, noEnvironment, zipMount, Today);
-            var file = environment[IntelliJLicenseMount.FileVariable] ?? throw new InvalidOperationException("The zip produced no licence file.");
+            var file = environment[IntelliJLicenseMount.FileVariable] ?? throw new InvalidOperationException("The zip produced no license file.");
             Require(File.ReadAllText(file) == wanted && IntelliJDistribution.Contains(session, file), "The zip entry for 2018.2 or later was not written under the session directory: " + IntelliJLicenseMount.Current);
             Require(IntelliJLicenseMount.Current is { Kind: "provided", LicenseId: "0TESTLIC00", Injected: true }, "A good zip was not reported as provided: " + IntelliJLicenseMount.Current);
-            Require(Snapshot(zipMount).SequenceEqual(before) && !IntelliJDistribution.Contains(zipMount, file), "The mount was written to or the licence file landed inside it.");
+            Require(Snapshot(zipMount).SequenceEqual(before) && !IntelliJDistribution.Contains(zipMount, file), "The mount was written to or the license file landed inside it.");
             if (!OperatingSystem.IsWindows())
-                Require((File.GetUnixFileMode(file) & (UnixFileMode.GroupRead | UnixFileMode.OtherRead | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite)) == 0, "The licence file is readable or writable by others.");
-            Require(IntelliJLicensing.EnvironmentLicense() == IntelliJLicenseMount.FileVariable, "The injected licence was not reported as an environment license, so activation actions would not refuse.");
+                Require((File.GetUnixFileMode(file) & (UnixFileMode.GroupRead | UnixFileMode.OtherRead | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite)) == 0, "The license file is readable or writable by others.");
+            Require(IntelliJLicensing.EnvironmentLicense() == IntelliJLicenseMount.FileVariable, "The injected license was not reported as an environment license, so activation actions would not refuse.");
             Require(environment.Values.All(value => value is null || !secrets.Any(secret => value.Contains(secret, StringComparison.Ordinal))), "The code went into the launch environment.");
             LockDown(zipMount, false);
 
@@ -105,7 +105,7 @@ internal static class IntelliJLicenseMountChecks
             var view = new Session();
             IntelliJLicensing.OnMessage(view, IntelliJLicensing.StateNotification, new JsonObject { ["featuresDeclined"] = true, ["parkedReason"] = "StartedUnlicensed" });
             Require(view.Published!.Contains("mountedLicense", StringComparison.Ordinal) && view.Published.Contains("0TESTLIC00", StringComparison.Ordinal) && view.Unavailable!.Contains("0TESTLIC00", StringComparison.Ordinal),
-                "The status did not show the mounted licence: " + view.Published);
+                "The status did not show the mounted license: " + view.Published);
             logs.AddRange([view.Published!, view.Unavailable!, IntelliJLicenseMount.Current!.Message]);
 
             // The extracted text files: the one for 2018.2 or later wins even beside the older one.
@@ -130,11 +130,11 @@ internal static class IntelliJLicenseMountChecks
             var several = Fresh(scratch, "several");
             File.WriteAllText(Path.Combine(several, LaterName("0TESTLIC00")), wanted);
             File.WriteAllText(Path.Combine(several, LaterName("0TESTWEB00")), other);
-            Require(File.ReadAllText(IntelliJLicenseMount.Prepare(Fresh(scratch, "several-session"), noEnvironment, several, Today)[IntelliJLicenseMount.FileVariable]!) == wanted, "The licence for IntelliJ IDEA was not preferred.");
+            Require(File.ReadAllText(IntelliJLicenseMount.Prepare(Fresh(scratch, "several-session"), noEnvironment, several, Today)[IntelliJLicenseMount.FileVariable]!) == wanted, "The license for IntelliJ IDEA was not preferred.");
             File.WriteAllText(Path.Combine(several, LaterName("0TESTTWO00")), MakeCode("0TESTTWO00"));
             var ambiguous = IntelliJLicenseMount.Prepare(Fresh(scratch, "ambiguous-session"), noEnvironment, several, Today);
             Require(ambiguous.Count == 0 && IntelliJLicenseMount.Current is { Kind: "ambiguous", Injected: false } picked && picked.Message.Contains("0TESTLIC00", StringComparison.Ordinal) && picked.Message.Contains("0TESTTWO00", StringComparison.Ordinal)
-                && !picked.Message.Contains(Email, StringComparison.Ordinal), "Two licences for IntelliJ IDEA were not reported as ambiguous by id: " + IntelliJLicenseMount.Current);
+                && !picked.Message.Contains(Email, StringComparison.Ordinal), "Two licenses for IntelliJ IDEA were not reported as ambiguous by id: " + IntelliJLicenseMount.Current);
 
             // Malformed: wrong shape, bad JSON head, an empty directory, a zip without the entry. None echoes its content or file names.
             var junk = "NOTALICENCE-secret-material-xyz";
@@ -164,7 +164,7 @@ internal static class IntelliJLicenseMountChecks
             var expired = MakeCode("0TESTEXP00", "[{\"code\":\"II\",\"fallbackDate\":\"2019-01-01\",\"paidUpTo\":\"2020-01-01\"}]");
             var expiredMount = Fresh(scratch, "expired");
             File.WriteAllText(Path.Combine(expiredMount, LaterName("0TESTEXP00")), expired);
-            Require(IntelliJLicenseMount.Prepare(Fresh(scratch, "expired-session"), noEnvironment, expiredMount, Today).Count == 1 && IntelliJLicenseMount.Current is { Kind: "expired", LicenseId: "0TESTEXP00" }, "An expired licence was not reported: " + IntelliJLicenseMount.Current);
+            Require(IntelliJLicenseMount.Prepare(Fresh(scratch, "expired-session"), noEnvironment, expiredMount, Today).Count == 1 && IntelliJLicenseMount.Current is { Kind: "expired", LicenseId: "0TESTEXP00" }, "An expired license was not reported: " + IntelliJLicenseMount.Current);
 
             // The server's own variables win and the mount is ignored with a word about it.
             Require(IntelliJLicenseMount.Prepare(Fresh(scratch, "env-session"), name => name == "INTELLIJ_SERVER_LICENSE" ? "x" : null, zipMount, Today).Count == 0 && IntelliJLicenseMount.Current?.Kind == "overridden", "INTELLIJ_SERVER_LICENSE did not win over the mount.");

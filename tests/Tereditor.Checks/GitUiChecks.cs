@@ -200,7 +200,7 @@ internal static class GitUiChecks
         Invoke(Action(Linked(), "Remove worktree…"));
         var confirmation = Tereditor.Plugins.UI.Kit.DialogWindow.On(window).Single(item => item.Title == "Remove worktree?");
         confirmation.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
-        Dispatcher.UIThread.RunJobs(); Require(Directory.Exists(worktree), "Cancelling removal deleted the worktree.");
+        Dispatcher.UIThread.RunJobs(); Require(Directory.Exists(worktree), "Canceling removal deleted the worktree.");
         Invoke(Action(Linked(), "Remove worktree…"));
         confirmation = Tereditor.Plugins.UI.Kit.DialogWindow.On(window).Single(item => item.Title == "Remove worktree?");
         Click(confirmation, Buttons(confirmation).Single(button => button.Content is TextBlock { Text: "Remove worktree" }));

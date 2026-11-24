@@ -214,7 +214,7 @@ internal static class RenderedDiffE2E
         Settle(500);
         Require(!RenderedText(app).Contains("first edit by e2e", StringComparison.Ordinal) && !RenderedText(app).Contains("held edit", StringComparison.Ordinal),
             "The rendered diff must drop stale merges once the fresh one lands.");
-        Console.WriteLine("PASS upstream changes.spec.ts: Rendered markdown diff follows live edits on disk (stale merge cancelled, fresh one lands)");
+        Console.WriteLine("PASS upstream changes.spec.ts: Rendered markdown diff follows live edits on disk (stale merge canceled, fresh one lands)");
     }
 
     private static void OutlineAndProperties(string root, string source)

@@ -270,11 +270,11 @@ internal static class PluginChannelChecks
             try
             {
                 await peer.CallAsync(RunnerProbe.Delay, "30000", cancellationToken: cancel.Token);
-                Require(false, "A cancelled call must not complete.");
+                Require(false, "A canceled call must not complete.");
             }
             catch (OperationCanceledException) { }
         }
-        Require(clock.Elapsed < TimeSpan.FromSeconds(10), "A cancelled call must end promptly.");
+        Require(clock.Elapsed < TimeSpan.FromSeconds(10), "A canceled call must end promptly.");
         await Until(async () => (await peer.CallAsync(RunnerProbe.Cancelled, "")).Payload == "1", "The runner must see the cancellation.");
         clock.Restart();
         try
