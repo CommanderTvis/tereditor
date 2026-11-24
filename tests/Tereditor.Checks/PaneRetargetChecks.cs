@@ -111,7 +111,7 @@ internal static class PaneRetargetChecks
         foreach (var id in new[] { "omp", "claude-code", "codex" })
         {
             _ = app.Workbench.State.ChangeAsync(HostStateChange.PluginEnabled(id, true));
-            _ = app.Workbench.State.ChangeAsync(HostStateChange.PluginSettings(id, "{\"enabled\":true,\"command\":\"sh\"}"));
+            _ = app.Workbench.State.ChangeAsync(HostStateChange.PluginSettings(id, $"{{\"enabled\":true,\"command\":\"{AgentPaneChecks.StandIn(id)}\"}}"));
         }
         // The three agents share one Agent pane; a chip picks which one it shows. Code Intelligence is its own tool.
         var tools = new (string Tool, string Name)[]

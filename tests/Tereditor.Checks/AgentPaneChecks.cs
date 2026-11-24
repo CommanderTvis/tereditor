@@ -18,16 +18,24 @@ namespace Tereditor.Checks;
 /// </summary>
 internal static class AgentPaneChecks
 {
+    /// <summary>
+    /// A program every machine the checks run on has: <c>sh</c> for the agents that only need their file found, <c>git</c> for omp, whose status
+    /// runs <c>--version</c> and needs exit code 0 (dash, the Linux <c>sh</c>, rejects the flag).
+    /// </summary>
+    internal static string StandIn(string plugin) => plugin == "omp" ? "git" : "sh";
+
     /// <summary>Opens the Agent pane in the window and picks an agent's chip, as a user does.</summary>
     internal static Control Show(E2eWorkspace app, string chip)
     {
-        // An agent whose program is missing has no chip; a check that sets no command of its own runs a program every machine has.
+        // An agent whose program is missing has no chip; a check that sets no command of its own gets a program every machine has.
         var plugin = chip == "claude" ? "claude-code" : chip;
         var stored = app.Workbench.State.Current.PluginSettings.GetValueOrDefault(plugin);
-        if (stored.ValueKind is not System.Text.Json.JsonValueKind.Object || !stored.TryGetProperty("command", out _))
+        // The stored command can be the plugin's own default ("codex"), which only a machine with that tool installed finds: replace anything that is not a path.
+        var command = stored.ValueKind is System.Text.Json.JsonValueKind.Object && stored.TryGetProperty("command", out var current) && current.ValueKind is System.Text.Json.JsonValueKind.String ? current.GetString() : null;
+        if (string.IsNullOrWhiteSpace(command) || (command.IndexOfAny(['/', '\\']) < 0 && command != StandIn(plugin)))
         {
             var json = stored.ValueKind is System.Text.Json.JsonValueKind.Object ? System.Text.Json.Nodes.JsonNode.Parse(stored.GetRawText())!.AsObject() : [];
-            json["command"] = "sh";
+            json["command"] = StandIn(plugin);
             _ = app.Workbench.State.ChangeAsync(Tereditor.Host.Abstractions.HostStateChange.PluginSettings(plugin, json.ToJsonString()));
         }
         app.Window.RevealToolFor(app.Window.WorkspaceRoot, "agent");
