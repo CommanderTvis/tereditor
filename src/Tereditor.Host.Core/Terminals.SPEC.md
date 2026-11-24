@@ -254,11 +254,11 @@ Sampling uses system calls and the process filesystem; no process is launched pe
 
 Limits, the Processes plugin's settings (Settings › Processes), on by default and shared by every client of the host:
 
-- A per-terminal limit for the whole tree: automatic is a quarter of physical memory, never under 2 GiB and never over 32 GiB, or a fixed size.
+- A per-terminal limit for the whole tree: automatic is a third of physical memory, never under 4 GiB and never over 32 GiB, or a fixed size. A quarter (6 GB on a 24 GB machine) stopped ordinary compiles: ILC and csc legitimately use 4 to 8 GB, and 8 GB on 24 GB still leaves the system room.
 - A total limit across all terminals of the host: automatic is 60% of physical memory, or a fixed size.
-- System memory pressure (the macOS pressure level, less than a tenth of memory available on Linux, the runtime's high-load threshold
-  elsewhere) makes the guard act on the single biggest terminal, but only when that terminal uses at least half its own limit, so an
-  unrelated memory hog does not cost the user a small editor session.
+- System memory pressure makes the guard act on the single biggest terminal, only when the platform reports it as critical (macOS pressure level 4, not the level-2 warning that ordinary load reaches; under 5% of memory available on Linux; the runtime's high-load threshold elsewhere) for 5 samples in a row (about 15 s). The event names the measurement ("the system is nearly out of memory (macOS memory pressure level 4 (critical), 5 samples in a row, this terminal uses 5 GB)"). The old rule acted on level 2 at one sample, which fired at ordinary load. It acts on but only when that terminal uses at least half its own limit, so an
+  unrelated memory hog does not cost the user a small editor session. Its victim is chosen as under "Which process": the largest process that is neither protected, an agent nor a spared build tool.
+- Build tools are protected by default: dotnet, csc, VBCSCompiler, MSBuild, cl, link, ld, clang, clang++, rustc, cargo, go, javac, kotlinc, gradle, and java with a gradle ancestor (by executable name, `.exe` ignored; node and bun are not listed, since a process name does not tell a build from a server). The per-terminal limit and system pressure only warn about them (the "Protected" event, once per episode) unless the tool runs away: its terminal is over twice the limit, or has been over the limit for 15 minutes. Settings › Processes lists them. The user's `protect` names add to them and are never ended.
 - A grace period (10 s, `graceSeconds`, no control in Settings) between asking a process to stop and killing it, and a list of protected program names.
 - Stored as `memoryGuard`, `perTerminalMb`, `totalMb`, `graceSeconds` and `protect` in the plugin's settings. A value out of range reads as its default. The host setting `terminal-memory` (wire member 34) of protocol 22 and below moved there at protocol 24: its values are copied once when the state file loads, a value the plugin already holds wins, and the old key leaves the file.
 
@@ -284,7 +284,7 @@ cross to dismiss it. Several steps before a dismissal collapse into one banner, 
 banner for every client of the host, and the guard's next step shows it again, counting from one. A dismissal names the newest step
 its client showed, so a step that arrived meanwhile stays. The banner is host state, not terminal output (`HostState.GuardNotices`,
 never persisted): desktop, remote, browser and Android clients all show it, a client that attaches later sees it, and it ends with its
-terminal. Each step is also sent to the host's clients as a notification ("tereditor memory guard: stopped node … because …") and kept in
+terminal. Each step is also sent to the host's clients as a notification ("tereditor memory guard: stopped node … because …. To keep it running, add node to Protected processes in Settings > Processes.") and kept in
 a short list of recent events that the Processes pane shows with each terminal's memory against its limit. Every line names the
 process, its pid, its memory and the reason, so the user can tell the guard ended it and not a crash. Program notifications switched off
 in Settings silence the desktop notification but not the banner or the Processes pane.

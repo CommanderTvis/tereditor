@@ -55,7 +55,8 @@ show by default; turn on All projects to see every project's.
 The memory guard protects your machine from runaway programs in terminals. macOS has no out-of-memory killer, and a
 compiler or test run can take the whole machine down. The guard checks each terminal's processes every few seconds.
 From 80% of the terminal's memory limit it warns. Over the limit it asks the biggest program to stop, and ends it if it
-does not. It never ends the shell, and it ends an agent only when the agent alone is over the limit. Every step shows
+does not. Compilers and other build tools (dotnet, csc, cargo, gradle and more) are only warned about unless they run
+away, and you can add programs to Protected processes. It acts on system memory pressure only when the system is nearly out of memory. It never ends the shell, and it ends an agent only when the agent alone is over the limit. Every step shows
 in a banner above the terminal and in the Processes pane, so you can tell the guard stopped a program and not a crash.
 Turn the guard off, or change its limits, in Settings › Processes. Turning off the Processes plugin in Settings › Plugins turns the guard off too.
 

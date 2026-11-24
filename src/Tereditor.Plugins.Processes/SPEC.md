@@ -35,7 +35,7 @@ The plugin owns everything an agent or the user can reach:
 ## Memory guard
 
 The plugin owns the terminals' memory guard (the Terminals spec, "Memory guard", describes what it does). Settings › Processes has a "Stop programs that use too much memory" switch (`MemoryGuard`,
-on by default), the per-terminal and total limit (`PerTerminalMb`, `TotalMb`: automatic or a fixed size; the limits hide while the switch is off), the programs never stopped (`Protect`) and
+on by default), the per-terminal and total limit (`PerTerminalMb`, `TotalMb`: automatic or a fixed size; the limits hide while the switch is off), the protected processes (`Protect`, additive to the default build tools the guard spares unless they run away; the settings page lists those, read-only) and
 `GraceSeconds` (10, set in the file only). Activation hands the host the limits as a function (`IProcessHost.ManageMemoryGuard`), which the host reads at every sample, so a change applies at once;
 disposal withdraws it. Core still runs the sampler, the escalation and the notices, because they need the process table, signals and terminal sessions that only Core reaches, and
 `HostState.GuardNotices` must stay a protocol type; moving them is open until the plugin API offers a process tree with memory, signals and terminal names. Off, or with the plugin

@@ -44,7 +44,7 @@ internal sealed partial class ProcessesSettingsView : StackPanel
             };
             return settings => box.SelectedIndex = Math.Max(0, Array.IndexOf(sizes, read(settings)));
         }
-        var showPerTerminal = Limit("ProcessesMemoryPerTerminal", "Automatic: a quarter of physical memory, 2 to 32 GB", [2, 4, 8, 16, 32, 64], settings => settings.PerTerminalMb, (settings, size) => settings with { PerTerminalMb = size });
+        var showPerTerminal = Limit("ProcessesMemoryPerTerminal", "Automatic: a third of physical memory, 4 to 32 GB", [2, 4, 8, 16, 32, 64], settings => settings.PerTerminalMb, (settings, size) => settings with { PerTerminalMb = size });
         var showTotal = Limit("ProcessesMemoryTotal", "Automatic: 60% of physical memory", [8, 16, 32, 64, 128], settings => settings.TotalMb, (settings, size) => settings with { TotalMb = size });
         var protect = this.FindControl<TextBox>("ProcessesMemoryProtect")!;
         string Names(ProcessesSettings settings) => string.Join(", ", settings.Protect);

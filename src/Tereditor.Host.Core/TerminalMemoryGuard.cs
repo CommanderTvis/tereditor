@@ -20,7 +20,12 @@ internal interface IGuardSampler
     IReadOnlyList<GuardedProcess> Tree(int shellPid);
 
     long PhysicalBytes { get; }
+
+    /// <summary>Whether the system is nearly out of memory right now (the platform's critical pressure signal, not merely little free memory).</summary>
     bool UnderPressure();
+
+    /// <summary>The measurement behind <see cref="UnderPressure"/>, for the event text ("macOS memory pressure level 4 (critical)").</summary>
+    string PressureDetail => "";
 }
 
 /// <summary>How the guard ends processes: a stop request (SIGTERM, on Windows a close request) and a forced end.</summary>
@@ -59,6 +64,13 @@ internal readonly record struct GuardUsage(long Bytes, long Limit, GuardState St
 internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller killer, Func<TerminalMemoryLimits> limits, Action<GuardEvent> report)
 {
     internal const double WarnAt = 0.8, ClearBelow = 0.7;
+
+    /// <summary>Consecutive samples (3 s apart) the system must report critical pressure before the guard acts on it.</summary>
+    internal const int PressureSamples = 5;
+
+    /// <summary>A compile over the per-terminal limit is only stopped once it exceeds this multiple of the limit, or stays over it this long.</summary>
+    internal const double RunawayFactor = 2;
+    internal static readonly TimeSpan RunawayAfter = TimeSpan.FromMinutes(15);
     private static readonly IReadOnlyList<string> AgentNames = AgentExecutables.Names;
 
     private sealed class Watch
@@ -67,11 +79,13 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
         internal GuardedProcess Victim;
         internal TimeSpan Deadline;
         internal bool ProtectedReported;
+        internal TimeSpan? OverSince;
         internal GuardUsage Usage;
     }
 
     private readonly Lock gate = new();
     private readonly Dictionary<string, Watch> watches = [];
+    private int pressureSamples;
     private readonly Queue<GuardEvent> events = [];
     private readonly List<GuardEvent> raised = [];
 
@@ -122,7 +136,7 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
         lock (gate)
         {
             foreach (var gone in watches.Keys.Where(session => targets.All(target => target.Session != session)).ToArray()) watches.Remove(gone);
-            if (!setting.Enabled) { watches.Clear(); return; }
+            if (!setting.Enabled) { watches.Clear(); pressureSamples = 0; return; }
         }
         try { Run(targets, setting); }
         finally { Flush(); }
@@ -146,7 +160,10 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
         // The host-wide limit and system memory pressure both single out the biggest terminal rather than everyone.
         var biggest = sums.Length == 0 ? -1 : Array.IndexOf(sums, sums.Max());
         var overTotal = sums.Sum() > setting.TotalBytes(physical);
-        var pressure = biggest >= 0 && sums[biggest] > 0 && sums[biggest] >= perTerminal / 2 && sampler.UnderPressure();
+        // Pressure counts only when it is critical and has lasted several samples in a row, so a brief spike during a build ends nothing.
+        pressureSamples = sampler.UnderPressure() ? pressureSamples + 1 : 0;
+        var pressure = biggest >= 0 && sums[biggest] > 0 && sums[biggest] >= perTerminal / 2 && pressureSamples >= PressureSamples;
+        var detail = pressure ? $"{sampler.PressureDetail}, {pressureSamples} samples in a row, this terminal uses {Size(sums[biggest])}" : "";
         lock (gate)
             for (var i = 0; i < trees.Length; i++)
             {
@@ -157,7 +174,7 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
                 else if (i == biggest && overTotal)
                     reason = new($"all terminals use {Size(sums.Sum())}, over their total limit of {Size(setting.TotalBytes(physical))}",
                         $"all terminals used {Size(sums.Sum())}, over their total limit of {Size(setting.TotalBytes(physical))}");
-                else if (i == biggest && pressure) reason = new("the system is under memory pressure", "the system was under memory pressure");
+                else if (i == biggest && pressure) reason = new($"the system is nearly out of memory ({detail})", $"the system was nearly out of memory ({detail})");
                 Step(target, tree, sums[i], perTerminal, reason, setting);
             }
     }
@@ -170,6 +187,9 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
         var (reason, then) = why ?? default;
         var largest = tree.Length == 0 ? "" : Shown(tree.MaxBy(process => process.Bytes));
         watch.Usage = new(bytes, limit, watch.State, largest);
+        // A compile is spared by the per-terminal limit until it runs away: far over the limit, or over it for a long time.
+        if (bytes > limit) watch.OverSince ??= now; else watch.OverSince = null;
+        var runaway = bytes > limit && (bytes > limit * RunawayFactor || now - watch.OverSince >= RunawayAfter);
         switch (watch.State)
         {
             case GuardState.Terminating:
@@ -180,7 +200,7 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
                     if (!alive) { Settle(watch); goto default; }
                     var victim = tree.First(process => Same(process, watch.Victim));
                     killer.Kill(victim);
-                    Raise(target, GuardEventKind.Killed, $"tereditor memory guard: killed {Shown(victim)} (pid {victim.Pid}, {Size(victim.Bytes)}) because it did not stop within {setting.GraceSeconds} s and {reason}",
+                    Raise(target, GuardEventKind.Killed, $"tereditor memory guard: killed {Shown(victim)} (pid {victim.Pid}, {Size(victim.Bytes)}) because it did not stop within {setting.GraceSeconds} s and {reason}. {Advice(victim)}",
                         $"Memory guard killed {Shown(victim)} (pid {victim.Pid}, {Size(victim.Bytes)}): it did not stop within {setting.GraceSeconds} s, and {then}");
                     watch.State = GuardState.Killing;
                     break;
@@ -189,7 +209,7 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
                 {
                     if (!over) { Settle(watch); break; }
                     // An agent is spared unless it alone is over the limit: ending its subprocesses brings the terminal back under.
-                    var rest = tree.Where(process => !setting.Protects(process.Name) && (AgentOf(process) is null || process.Bytes > limit)).ToArray();
+                    var rest = tree.Where(process => !setting.Protects(process.Name) && (runaway || !Compiling(process, tree)) && (AgentOf(process) is null || process.Bytes > limit)).ToArray();
                     // Children first, so a parent cannot restart what was just ended.
                     foreach (var process in rest.OrderByDescending(process => process.Pid)) killer.Kill(process);
                     var spared = tree.Length > rest.Length ? $", sparing {string.Join(", ", tree.Except(rest).Select(Shown).Distinct())}" : "";
@@ -201,10 +221,10 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
                 }
             default:
                 {
-                    if (over && Victim(tree, setting, limit) is { } victim)
+                    if (over && Victim(tree, setting, limit, runaway) is { } victim)
                     {
                         killer.Terminate(victim);
-                        Raise(target, GuardEventKind.Stopped, $"tereditor memory guard: stopped {Shown(victim)} (pid {victim.Pid}, {Size(victim.Bytes)}) because {reason}",
+                        Raise(target, GuardEventKind.Stopped, $"tereditor memory guard: stopped {Shown(victim)} (pid {victim.Pid}, {Size(victim.Bytes)}) because {reason}. {Advice(victim)}",
                             $"Memory guard stopped {Shown(victim)} (pid {victim.Pid}, {Size(victim.Bytes)}): {then}");
                         watch.State = GuardState.Terminating;
                         watch.Victim = victim;
@@ -218,7 +238,9 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
                         if (!watch.ProtectedReported)
                         {
                             watch.ProtectedReported = true;
-                            var spared = AgentOf(tree.MaxBy(process => process.Bytes)) is null ? "is protected" : "is an agent with no subprocess to stop and is under the limit by itself";
+                            var top = tree.MaxBy(process => process.Bytes);
+                            var spared = AgentOf(top) is not null ? "is an agent with no subprocess to stop and is under the limit by itself"
+                                : !setting.Protects(top.Name) && Compiling(top, tree) ? "is a build tool, spared until it runs away (over twice the limit, or over it for 15 minutes)" : "is protected";
                             Raise(target, GuardEventKind.Protected, $"tereditor memory guard: {target.Name} is over its limit ({reason}), but {largest} {spared}, so tereditor will not stop it",
                                 $"Memory guard left {largest} running: {then}, but it {spared}");
                         }
@@ -250,19 +272,35 @@ internal sealed class TerminalMemoryGuard(IGuardSampler sampler, IGuardKiller ki
     /// passed over for its heaviest subprocess (a build, a test run, a language server), then for the heaviest other program; it is
     /// ended only as a last resort, when it alone is over the per-terminal <paramref name="limit"/>.
     /// </summary>
-    internal static GuardedProcess? Victim(IReadOnlyList<GuardedProcess> tree, TerminalMemoryLimits setting, long limit)
+    internal static GuardedProcess? Victim(IReadOnlyList<GuardedProcess> tree, TerminalMemoryLimits setting, long limit, bool runaway = false)
     {
         if (tree.Count == 0) return null;
         var ordered = tree.OrderByDescending(process => process.Bytes).ThenBy(process => process.Pid).ToArray();
         var largest = ordered[0];
-        if (setting.Protects(largest.Name)) return null;
+        if (setting.Protects(largest.Name) || (!runaway && Compiling(largest, tree))) return null;
         // An agent alone over the limit: no subprocess can bring the terminal back under, so it is asked to stop like any other.
         if (AgentOf(largest) is null || largest.Bytes > limit) return largest;
         var below = Descendants(tree, largest.Pid);
-        var endable = ordered.Where(process => AgentOf(process) is null && !setting.Protects(process.Name)).ToArray();
+        var endable = ordered.Where(process => AgentOf(process) is null && !setting.Protects(process.Name) && (runaway || !Compiling(process, tree))).ToArray();
         return endable.Where(process => below.Contains(process.Pid)).Concat(endable).Cast<GuardedProcess?>().FirstOrDefault()
             ?? (largest.Bytes > limit ? largest : null);
     }
+
+    /// <summary>
+    /// Whether a process is a build tool (<see cref="TerminalMemoryLimits.BuildTools"/>), or a java started below gradle: a compile that the
+    /// per-terminal limit and system pressure spare unless it runs away.
+    /// </summary>
+    internal static bool Compiling(GuardedProcess process, IReadOnlyList<GuardedProcess> tree)
+    {
+        if (TerminalMemoryLimits.IsBuildTool(process.Name)) return true;
+        if (!process.Name.Equals("java", StringComparison.OrdinalIgnoreCase)) return false;
+        var byPid = tree.GroupBy(item => item.Pid).ToDictionary(group => group.Key, group => group.First());
+        for (var parent = process.Parent; byPid.TryGetValue(parent, out var up) && parent != up.Parent; parent = up.Parent)
+            if (up.Name.StartsWith("gradle", StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private static string Advice(GuardedProcess process) => $"To keep it running, add {process.Name} to Protected processes in Settings > Processes.";
 
     private static HashSet<int> Descendants(IReadOnlyList<GuardedProcess> tree, int pid)
     {

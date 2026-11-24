@@ -127,6 +127,42 @@ internal static class LanguageMemory
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or DllNotFoundException or EntryPointNotFoundException) { return false; }
     }
 
+    /// <summary>
+    /// Whether the system is nearly out of memory, for the terminal memory guard: macOS reports its critical pressure level (4), Linux has under 5%
+    /// available, Windows is past the runtime's high memory load threshold. <see cref="UnderPressure"/> is the milder warning level.
+    /// </summary>
+    internal static bool Critical(out string detail)
+    {
+        detail = "";
+        try
+        {
+            if (OperatingSystem.IsMacOS())
+            {
+                var level = 0; var size = (nint)sizeof(int);
+                if (sysctlbyname("kern.memorystatus_vm_pressure_level", ref level, ref size, 0, 0) != 0) return false;
+                detail = $"macOS memory pressure level {level}" + (level >= 4 ? " (critical)" : level >= 2 ? " (warning)" : " (normal)");
+                return level >= 4;
+            }
+            if (OperatingSystem.IsLinux())
+            {
+                long total = 0, available = -1;
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    if (line.StartsWith("MemTotal:", StringComparison.Ordinal)) total = Kilobytes(line);
+                    else if (line.StartsWith("MemAvailable:", StringComparison.Ordinal)) available = Kilobytes(line);
+                }
+                if (total <= 0 || available < 0) return false;
+                detail = $"{available / 1048576.0:0.#} of {total / 1048576.0:0.#} GB available";
+                return available * 20 < total;
+            }
+            var info = GC.GetGCMemoryInfo();
+            if (info.HighMemoryLoadThresholdBytes <= 0) return false;
+            detail = $"memory load {info.MemoryLoadBytes / 1073741824.0:0.#} GB, high-load threshold {info.HighMemoryLoadThresholdBytes / 1073741824.0:0.#} GB";
+            return info.MemoryLoadBytes >= info.HighMemoryLoadThresholdBytes;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or DllNotFoundException or EntryPointNotFoundException) { return false; }
+    }
+
     private static long Kilobytes(string line) => long.Parse(line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1], CultureInfo.InvariantCulture);
 
     [DllImport("libc")] private static extern int proc_pid_rusage(int pid, int flavor, byte[] buffer);

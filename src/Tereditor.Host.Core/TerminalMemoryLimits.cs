@@ -10,13 +10,26 @@ internal sealed record TerminalMemoryLimits(bool Enabled, int PerTerminalMb, int
     internal const int DefaultGraceSeconds = 10, MaxMb = 1_048_576, MinMb = 64;
     internal static readonly TerminalMemoryLimits Default = new(true, 0, 0, DefaultGraceSeconds, []);
 
-    /// <summary>A terminal's limit in bytes: the setting, or a quarter of physical memory clamped to 2–32 GiB.</summary>
+    /// <summary>A terminal's limit in bytes: the setting, or a third of physical memory clamped to 4–32 GiB.</summary>
     internal long PerTerminalBytes(long physical) => PerTerminalMb > 0 ? PerTerminalMb * 1024L * 1024 : AutomaticPerTerminal(physical);
 
     /// <summary>All terminals' limit in bytes: the setting, or 60% of physical memory.</summary>
     internal long TotalBytes(long physical) => TotalMb > 0 ? TotalMb * 1024L * 1024 : AutomaticTotal(physical);
 
-    internal static long AutomaticPerTerminal(long physical) => Math.Clamp(physical / 4, 2L << 30, 32L << 30);
+    internal static long AutomaticPerTerminal(long physical) => Math.Clamp(physical / 3, 4L << 30, 32L << 30);
+
+    /// <summary>
+    /// Build tools by executable name. The per-terminal limit and system pressure only warn about them (see Terminals SPEC "Memory guard") until
+    /// one runs away; the user's <see cref="Protect"/> list adds to these and is never ended at all. A java below gradle counts too.
+    /// </summary>
+    internal static readonly IReadOnlyList<string> BuildTools =
+        ["dotnet", "csc", "VBCSCompiler", "MSBuild", "cl", "link", "ld", "clang", "clang++", "rustc", "cargo", "go", "javac", "kotlinc", "gradle"];
+
+    internal static bool IsBuildTool(string name)
+    {
+        var bare = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+        return BuildTools.Any(tool => string.Equals(tool, bare, StringComparison.OrdinalIgnoreCase));
+    }
 
     internal static long AutomaticTotal(long physical) => physical * 6 / 10;
 

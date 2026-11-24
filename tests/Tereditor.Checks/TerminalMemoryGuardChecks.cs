@@ -24,6 +24,7 @@ internal static class TerminalMemoryGuardChecks
         internal bool ObeysTerminate, Pressure;
         public long PhysicalBytes { get; set; } = 32 * Gb;
         public bool UnderPressure() => Pressure;
+        public string PressureDetail => "macOS memory pressure level 4 (critical)";
         public void Refresh() { }
         public IReadOnlyList<GuardedProcess> Tree(int shellPid) => Trees.TryGetValue(shellPid, out var tree) ? [.. tree] : [];
         public void Terminate(GuardedProcess process) { Signals.Add("TERM " + process.Pid); if (ObeysTerminate) Remove(process.Pid); }
@@ -61,12 +62,12 @@ internal static class TerminalMemoryGuardChecks
 
     private static void LimitCalculation()
     {
-        Require(TerminalMemoryLimits.AutomaticPerTerminal(4 * Gb) == 2 * Gb, "A small machine is bounded to 2 GiB per terminal.");
-        Require(TerminalMemoryLimits.AutomaticPerTerminal(16 * Gb) == 4 * Gb, "A quarter of 16 GiB is 4 GiB.");
-        Require(TerminalMemoryLimits.AutomaticPerTerminal(64 * Gb) == 16 * Gb, "A quarter of 64 GiB is 16 GiB.");
+        Require(TerminalMemoryLimits.AutomaticPerTerminal(4 * Gb) == 4 * Gb, "A small machine is bounded to 4 GiB per terminal.");
+        Require(TerminalMemoryLimits.AutomaticPerTerminal(24 * Gb) == 8 * Gb, "A third of 24 GiB is 8 GiB.");
+        Require(TerminalMemoryLimits.AutomaticPerTerminal(48 * Gb) == 16 * Gb, "A third of 48 GiB is 16 GiB.");
         Require(TerminalMemoryLimits.AutomaticPerTerminal(512 * Gb) == 32 * Gb, "A big machine is bounded to 32 GiB per terminal.");
         Require(TerminalMemoryLimits.AutomaticTotal(10 * Gb) == 6 * Gb, "The total limit is 60% of physical memory.");
-        Require(TerminalMemoryLimits.Default.PerTerminalBytes(16 * Gb) == 4 * Gb && TerminalMemoryLimits.Default.TotalBytes(10 * Gb) == 6 * Gb, "Zero means automatic.");
+        Require(TerminalMemoryLimits.Default.PerTerminalBytes(24 * Gb) == 8 * Gb && TerminalMemoryLimits.Default.TotalBytes(10 * Gb) == 6 * Gb, "Zero means automatic.");
         var fixedLimits = TerminalMemoryLimits.From(100, 2048, 10, []);
         Require(fixedLimits.PerTerminalBytes(64 * Gb) == 100L << 20 && fixedLimits.TotalBytes(64 * Gb) == 2 * Gb, "A fixed value wins over the automatic one.");
         Require(TerminalMemoryGuard.Size((long)(7.9 * Gb)) == "7.9 GB" && TerminalMemoryGuard.Size(8 * Gb) == "8 GB" && TerminalMemoryGuard.Size((long)(12.3 * Gb)) == "12 GB", "Sizes read like '7.9 GB', '8 GB'.");
@@ -146,7 +147,7 @@ internal static class TerminalMemoryGuardChecks
             fake.Set(10, P(10, "zsh", 9.5), P(11, "node", 9.2), P(12, "git", 0.5));
             guard.Tick(targets);
             Require(fake.Signals.SequenceEqual(["TERM 11"]), "The largest descendant, not the shell, is asked to stop: " + string.Join(",", fake.Signals));
-            Require(events[0].Text == "tereditor memory guard: stopped node (pid 11, 9.2 GB) because this terminal uses 9.7 GB, over its limit of 8 GB", "The notice text: " + events[0].Text);
+            Require(events[0].Text == "tereditor memory guard: stopped node (pid 11, 9.2 GB) because this terminal uses 9.7 GB, over its limit of 8 GB. To keep it running, add node to Protected processes in Settings > Processes.", "The notice text: " + events[0].Text);
             Require(events[0].Banner == "Memory guard stopped node (pid 11, 9.2 GB): this terminal used 9.7 GB, over its limit of 8 GB", "The banner line: " + events[0].Banner);
             Require(guard.UsageOf("s")!.Value.State == GuardState.Terminating, "The terminal is Terminating.");
             advance(TimeSpan.FromSeconds(9)); guard.Tick(targets);
@@ -171,7 +172,7 @@ internal static class TerminalMemoryGuardChecks
         {
             var (guard, fake, events, _, advance) = Make(Limits(protect: ["postgres"]));
             GuardTarget[] targets = [new("s", "t", 10)];
-            fake.Set(10, P(11, "node", 5), P(12, "rustc", 4.5), P(13, "cc", 4), P(14, "postgres", 1));
+            fake.Set(10, P(11, "node", 5), P(12, "ruby", 4.5), P(13, "cc", 4), P(14, "postgres", 1));
             guard.Tick(targets);
             advance(TimeSpan.FromSeconds(11)); guard.Tick(targets);
             Require(fake.Signals.SequenceEqual(["TERM 11", "KILL 11"]), "First the largest: " + string.Join(",", fake.Signals));
@@ -190,10 +191,10 @@ internal static class TerminalMemoryGuardChecks
         {
             var (guard, fake, events, _, _) = Make(Limits(perTerminalMb: 4096));
             GuardTarget[] targets = [new("s", "t", 10)];
-            fake.Set(10, P(11, "claude", 3), P(12, "python", 2), P(13, "cargo", 0.5, parent: 11), P(14, "rustc", 1, parent: 13));
+            fake.Set(10, P(11, "claude", 3), P(12, "python", 2), P(13, "make", 0.5, parent: 11), P(14, "tsc", 1, parent: 13));
             guard.Tick(targets);
             Require(fake.Signals.SequenceEqual(["TERM 14"]), "The agent's heaviest descendant is stopped, not the agent or an unrelated program: " + string.Join(",", fake.Signals));
-            Require(events[0].Text.StartsWith("tereditor memory guard: stopped rustc (pid 14, 1 GB) because", StringComparison.Ordinal), "The notice names the subprocess: " + events[0].Text);
+            Require(events[0].Text.StartsWith("tereditor memory guard: stopped tsc (pid 14, 1 GB) because", StringComparison.Ordinal), "The notice names the subprocess: " + events[0].Text);
         }
         {
             var (guard, fake, _, _, _) = Make(Limits());
@@ -243,7 +244,7 @@ internal static class TerminalMemoryGuardChecks
         // Pi in a terminal is spared like Claude Code: its build is stopped, not Pi.
         {
             var (guard, fake, _, _, _) = Make(Limits(perTerminalMb: 4096));
-            fake.Set(10, P(11, "pi", 3), P(12, "cargo", 2, parent: 11));
+            fake.Set(10, P(11, "pi", 3), P(12, "make", 2, parent: 11));
             guard.Tick([new("s", "t", 10)]);
             Require(fake.Signals.SequenceEqual(["TERM 12"]), "Pi's subprocess is stopped, not Pi: " + string.Join(",", fake.Signals));
         }
@@ -261,21 +262,62 @@ internal static class TerminalMemoryGuardChecks
             fake.Set(10, P(11, "node", 4));
             fake.Set(20, P(21, "java", 5));
             guard.Tick(targets);
-            Require(fake.Signals.SequenceEqual(["TERM 21"]) && events[0].Text.EndsWith("all terminals use 9 GB, over their total limit of 8 GB", StringComparison.Ordinal), "The biggest terminal's biggest process is stopped: " + string.Join(",", fake.Signals));
+            Require(fake.Signals.SequenceEqual(["TERM 21"]) && events[0].Text.Contains("all terminals use 9 GB, over their total limit of 8 GB", StringComparison.Ordinal), "The biggest terminal's biggest process is stopped: " + string.Join(",", fake.Signals));
         }
-        // System memory pressure: only a terminal using at least half its limit is touched.
+        // System memory pressure: only a terminal using at least half its limit is touched, and only after a sustained critical signal.
         {
             var (guard, fake, events, _, _) = Make(Limits());
             fake.Pressure = true;
             GuardTarget[] targets = [new("a", "A", 10)];
             fake.Set(10, P(11, "vim", 0.6));
-            guard.Tick(targets);
+            for (var i = 0; i < 2 * TerminalMemoryGuard.PressureSamples; i++) guard.Tick(targets);
             Require(fake.Signals.Count == 0, "Pressure alone does not end a small program.");
             fake.Set(10, P(11, "node", 5));
+            fake.Pressure = false; guard.Tick(targets); fake.Pressure = true;
+            for (var i = 0; i < TerminalMemoryGuard.PressureSamples - 1; i++) guard.Tick(targets);
+            Require(fake.Signals.Count == 0, "A pressure signal that has not lasted several samples ends nothing: " + string.Join(",", fake.Signals));
             guard.Tick(targets);
-            Require(fake.Signals.SequenceEqual(["TERM 11"]) && events.Last().Text.EndsWith("the system is under memory pressure", StringComparison.Ordinal), "Pressure ends the biggest offender: " + string.Join(",", events.Select(e => e.Text)));
-            Require(events.Last().Banner == "Memory guard stopped node (pid 11, 5 GB): the system was under memory pressure", "The pressure banner line: " + events.Last().Banner);
+            Require(fake.Signals.SequenceEqual(["TERM 11"]) && events.Last().Text.Contains("because the system is nearly out of memory (macOS memory pressure level 4 (critical), 5 samples in a row, this terminal uses 5 GB)", StringComparison.Ordinal), "Sustained pressure ends the biggest offender: " + string.Join(",", events.Select(e => e.Text)));
+            Require(events.Last().Banner == "Memory guard stopped node (pid 11, 5 GB): the system was nearly out of memory (macOS memory pressure level 4 (critical), 5 samples in a row, this terminal uses 5 GB)", "The pressure banner line: " + events.Last().Banner);
         }
+        // Build tools are spared by the per-terminal limit and by pressure until they run away; the user's own list adds to them.
+        {
+            var (guard, fake, events, _, advance) = Make(Limits());
+            GuardTarget[] targets = [new("a", "A", 10)];
+            fake.Set(10, P(11, "csc", 9), P(12, "git", 0.2));
+            guard.Tick(targets);
+            Require(fake.Signals.Count == 0 && events.Single().Kind == GuardEventKind.Protected && events[0].Text.Contains("csc is a build tool", StringComparison.Ordinal), "A compiler over the limit is only warned about: " + string.Join(",", events.Select(e => e.Text)));
+            advance(TimeSpan.FromMinutes(14)); guard.Tick(targets);
+            Require(fake.Signals.Count == 0, "A compiler over the limit for under 15 minutes is spared.");
+            advance(TimeSpan.FromMinutes(2)); guard.Tick(targets);
+            Require(fake.Signals.SequenceEqual(["TERM 11"]), "A compiler over the limit for 15 minutes is a runaway: " + string.Join(",", fake.Signals));
+        }
+        {
+            var (guard, fake, _, _, _) = Make(Limits());
+            GuardTarget[] targets = [new("a", "A", 10)];
+            fake.Set(10, P(11, "dotnet", 17), P(12, "git", 0.2));
+            guard.Tick(targets);
+            Require(fake.Signals.SequenceEqual(["TERM 11"]), "A compiler over twice the limit is a runaway: " + string.Join(",", fake.Signals));
+        }
+        {
+            var (guard, fake, events, _, _) = Make(Limits());
+            fake.Pressure = true;
+            GuardTarget[] targets = [new("a", "A", 10)];
+            fake.Set(10, P(11, "VBCSCompiler", 5));
+            for (var i = 0; i < 2 * TerminalMemoryGuard.PressureSamples; i++) guard.Tick(targets);
+            Require(fake.Signals.Count == 0 && events.All(e => e.Kind != GuardEventKind.Stopped), "Pressure does not end a compiler: " + string.Join(",", fake.Signals));
+        }
+        {
+            var (guard, fake, _, _, _) = Make(Limits());
+            GuardTarget[] targets = [new("a", "A", 10)];
+            fake.Set(10, P(11, "java", 9, parent: 12), P(12, "gradle", 0.1), P(13, "git", 0.2));
+            guard.Tick(targets);
+            Require(fake.Signals.Count == 0, "A java below gradle is a build.");
+            fake.Set(10, P(11, "java", 9), P(13, "git", 0.2));
+            guard.Tick(targets);
+            Require(fake.Signals.SequenceEqual(["TERM 11"]), "Any other java is stopped: " + string.Join(",", fake.Signals));
+        }
+        Require(TerminalMemoryLimits.IsBuildTool("MSBuild.exe") && TerminalMemoryLimits.IsBuildTool("cargo") && !TerminalMemoryLimits.IsBuildTool("node"), "Build tool names ignore case and .exe.");
         // Off: nothing is sampled or ended.
         {
             var fake = new Fake();
@@ -376,10 +418,10 @@ internal static class TerminalMemoryGuardChecks
         {
             var (guard, fake, events, _, _) = Make(Limits(perTerminalMb: 4096));
             GuardTarget[] targets = [new("a", "Terminal in app", 10), new("b", "Terminal in other", 20)];
-            fake.Set(10, P(11, "dotnet", 5, parent: 10));
+            fake.Set(10, P(11, "mongod", 5, parent: 10));
             fake.Set(20, P(21, "node", 1, parent: 20));
             guard.Tick(targets);
-            Require(events.Single().Kind == GuardEventKind.Stopped, "The runaway dotnet was stopped: " + string.Join(",", events.Select(e => e.Text)));
+            Require(events.Single().Kind == GuardEventKind.Stopped, "The runaway mongod was stopped: " + string.Join(",", events.Select(e => e.Text)));
             var app = new Tereditor.Plugins.Api.TerminalRef("/work/app", "t1");
             var other = new Tereditor.Plugins.Api.TerminalRef("/work/other", "t2");
             GuardEventLog.Append(events.Single(), "Terminal in app", app.WorkspaceId);
@@ -397,12 +439,12 @@ internal static class TerminalMemoryGuardChecks
                 && settings.GetProperty("totalLimit").GetString() == "977 GB" && settings.GetProperty("graceSeconds").GetInt32() == 10 && settings.GetProperty("protect").GetArrayLength() == 0, "The guard's switch and limits: " + settings);
             var listed = root.GetProperty("terminals").EnumerateArray().ToArray();
             Require(listed.Length == 2 && listed[0].GetProperty("name").GetString() == "Terminal in app" && listed[0].GetProperty("here").GetBoolean() && !listed[1].GetProperty("here").GetBoolean()
-                && listed[0].GetProperty("used").GetString() == "5 GB" && listed[0].GetProperty("limit").GetString() == "4 GB" && listed[0].GetProperty("state").GetString() == "Terminating" && listed[0].GetProperty("largest").GetString() == "dotnet"
+                && listed[0].GetProperty("used").GetString() == "5 GB" && listed[0].GetProperty("limit").GetString() == "4 GB" && listed[0].GetProperty("state").GetString() == "Terminating" && listed[0].GetProperty("largest").GetString() == "mongod"
                 && listed[1].GetProperty("state").GetString() == "Ok", "Each terminal against its limit with the guard state and its largest program: " + text);
             var allowed = new[] { "name", "workspace", "here", "used", "limit", "state", "largest" };
             Require(listed.All(item => item.EnumerateObject().All(property => allowed.Contains(property.Name))), "A terminal carries no process list, command line or environment.");
             var event0 = root.GetProperty("events")[0];
-            Require(event0.GetProperty("kind").GetString() == "Stopped" && event0.GetProperty("text").GetString()!.Contains("stopped dotnet (pid 11, 5 GB)", StringComparison.Ordinal)
+            Require(event0.GetProperty("kind").GetString() == "Stopped" && event0.GetProperty("text").GetString()!.Contains("stopped mongod (pid 11, 5 GB)", StringComparison.Ordinal)
                 && event0.GetProperty("terminal").GetString() == "Terminal in app", "The event names the program, its pid and size: " + event0);
 
             // Off, the guard shows no terminal, but what it did earlier is still there to read.
@@ -448,7 +490,7 @@ internal static class TerminalMemoryGuardChecks
             }
             // The child may be sampled between 80% and 100% of the limit first, which raises a warning before the stop.
             var stopped = events.First(e => e.Kind is GuardEventKind.Stopped);
-            Require(stopped.Text.StartsWith("tereditor memory guard: stopped perl (pid ", StringComparison.Ordinal) && stopped.Text.EndsWith("over its limit of 0.1 GB", StringComparison.Ordinal), "The notice names the child: " + stopped.Text);
+            Require(stopped.Text.StartsWith("tereditor memory guard: stopped perl (pid ", StringComparison.Ordinal) && stopped.Text.Contains("over its limit of 0.1 GB", StringComparison.Ordinal), "The notice names the child: " + stopped.Text);
             while (sampler.Tree(shell.Id).Any(process => process.Name == "perl") && DateTime.UtcNow < deadline) { guard.Tick([new("real", "Real", shell.Id)]); sampler.Refresh(); await Task.Delay(100); }
             sampler.Refresh();
             Require(sampler.Tree(shell.Id).All(process => process.Name != "perl"), "The runaway child is still running.");
@@ -499,7 +541,7 @@ internal static class TerminalMemoryGuardChecks
                 if (DateTime.UtcNow > until) throw new TimeoutException("The tab's banner never named the stop: " + string.Join("|", state.Current.GuardNotices.Select(item => item.Text)));
                 await Task.Delay(50);
             }
-            Require(state.Current.GuardNotices.Single(notice => notice.Terminal == tab).Text.EndsWith("over its limit of 0.1 GB", StringComparison.Ordinal), "The banner says why.");
+            Require(state.Current.GuardNotices.Single(notice => notice.Terminal == tab).Text.Contains("over its limit of 0.1 GB", StringComparison.Ordinal), "The banner says why.");
             await Await("\u001b]133;D;0\u0007", "the command to end");
             Require(pty.GuardOf(tab).Events.Count > 0 && pty.GuardOn, "Switched on, the guard records its events for the Processes pane.");
             await attached.WriteAsync(Encoding.UTF8.GetBytes("echo SHELL_ALIVE_$((6*7))\r"));

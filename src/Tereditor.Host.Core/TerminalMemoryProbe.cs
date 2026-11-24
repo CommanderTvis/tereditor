@@ -21,7 +21,11 @@ internal sealed class NativeGuardSampler : IGuardSampler, IGuardKiller
 
     public long PhysicalBytes => LanguageMemory.PhysicalBytes;
 
-    public bool UnderPressure() => LanguageMemory.UnderPressure();
+    private string pressureDetail = "";
+
+    public bool UnderPressure() { var critical = LanguageMemory.Critical(out var detail); pressureDetail = detail; return critical; }
+
+    public string PressureDetail => pressureDetail;
 
     public void Refresh() => table = ProcessEntries.Read();
 

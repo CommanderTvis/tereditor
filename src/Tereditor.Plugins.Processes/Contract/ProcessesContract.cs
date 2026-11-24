@@ -57,7 +57,7 @@ public sealed record ProcessesSettings
     /// <summary>Seconds a process gets to end after the guard asked it to stop, before it is killed.</summary>
     public int GraceSeconds { get; set; } = 10;
 
-    /// <summary>Names of programs the guard warns about but never stops.</summary>
+    /// <summary>Names of programs the guard warns about but never stops, added to the build tools it spares by default.</summary>
     public string[] Protect { get; set; } = [];
 }
 
