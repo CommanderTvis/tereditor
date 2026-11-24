@@ -40,7 +40,7 @@ internal sealed partial class ChatView
     // The content grid goes inside the transform; the level label floats over it, outside, so showing it moves nothing.
     private void InitZoom()
     {
-        content = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto,Auto") };
+        content = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto,Auto,Auto,Auto") };
         zoom = StoredZoom();
         zoomHost = new ChatZoomHost { Name = "ChatZoomHost", Child = content, Zoom = zoom };
         zoomLabel = new TextBlock { Name = "ChatZoomLabel", FontSize = 12, Foreground = Ui.TextBrush, Margin = new Thickness(Space.Inset, Space.Gap) };

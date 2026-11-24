@@ -30,9 +30,16 @@ Facts below come from Pi's RPC documentation (`docs/rpc.md`, `docs/providers.md`
   Usage and cost accumulate in the header; compaction shows as the header's activity; retries and extension errors become notices.
 - Sending while a turn runs sends `prompt` with `streamingBehavior: steer` and shows the message queued until Pi echoes it. Stop is `abort`. The
   model (`provider/id`) and thinking level changes are confirmed by Pi before the header shows them.
-- Not offered: permissions and questions (Pi has none; the one permission mode says its tools run freely), rewind, fork, queue editing and
-  background tasks (their methods answer an error). An extension dialog (`select`, `confirm`, `input`, `editor`) is answered as cancelled with a
-  notice so Pi never waits; `notify` becomes a notice.
+- Extension UI (docs/rpc-extension-ui.md): a dialog request (`select`, `confirm`, `input`, `editor`) is a card in the chat. `select` and `confirm`
+  are permission-style cards with Pi's options (Yes/No for a confirm), answered with `value` or `confirmed`; `input` and `editor` are text cards
+  (hint, prefill, several lines for `editor`), answered with `value` (an empty text is still a value). Esc, or closing the chat, answers
+  `cancelled`; Pi's own timeout settles the card without a reply. `notify` is a notice of its level; `setStatus` a chip in the footer, and
+  `setWidget` a text block above or below the composer, both by key and cleared when the text or lines are omitted; `setTitle` sets the chat's
+  title; `set_editor_text` sets the composer draft (the host keeps one draft per chat). A method the docs do not list is logged and gets no reply.
+- Permissions: Pi has no permission modes of its own. The one mode ("Runs tools freely") is information, not a choice, so the chat shows no
+  permission picker for it. An approval extension (Pi's examples `permission-gate.ts`, `protected-paths.ts`) gates tool calls through the dialogs
+  above; tereditor bundles none.
+- Not offered: questions beyond extension dialogs, rewind, fork, queue editing and background tasks (their methods answer an error).
 - Sessions: Pi stores sessions under `~/.pi/agent/sessions/--<path with / as ->--/` (or `PI_CODING_AGENT_DIR`). The sessions list shows that
   directory's files newest first, titled by the session's name or first prompt; opening one resumes it with `--session`. The host remembers each
   chat's session file so reopening its tab continues it.
@@ -78,7 +85,7 @@ Pi, the managed copy on Bun, or a Model source's wrapper), in the workspace dire
 
 ## Not yet
 
-The browser-tab launch (`PiLinks.InTab`) does not pass the codemode flag yet. A terminal launch of Pi, permission-style gating, rewind and fork through Pi's `fork` and session tree, extension dialogs, MCP and tereditor's
+The browser-tab launch (`PiLinks.InTab`) does not pass the codemode flag yet. A terminal launch of Pi, permission-style gating, rewind and fork through Pi's `fork` and session tree, MCP and tereditor's
 tools for Pi, and running Pi inside a browser tab.
 
 ## Checks

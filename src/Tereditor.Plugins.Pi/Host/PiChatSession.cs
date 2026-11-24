@@ -38,7 +38,7 @@ internal sealed record PiSpawn(string Command, string Cwd)
 /// One <c>pi --mode rpc</c> child and the conversation it folds into. Commands go to stdin as LF-delimited JSON, events and
 /// responses come back on stdout (https://github.com/badlogic/pi-mono, docs/rpc.md); everything is asynchronous.
 /// </summary>
-internal sealed class PiChatSession : IAsyncDisposable
+internal sealed partial class PiChatSession : IAsyncDisposable
 {
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(16);
     private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(30);
@@ -94,6 +94,7 @@ internal sealed class PiChatSession : IAsyncDisposable
             var pushes = new List<ChatPush>(folder.Items.Count + 1);
             pushes.AddRange(folder.Items.Select(item => new ChatItemPush(workspaceId, chatId, item)));
             pushes.Add(new ChatHeaderPush(workspaceId, chatId, folder.Header));
+            pushes.Insert(0, new ChatDraftPush(workspaceId, chatId, DraftNow()));
             return pushes;
         }
     }
@@ -110,7 +111,7 @@ internal sealed class PiChatSession : IAsyncDisposable
                 Effort = spawn.Thinking,
                 Error = null,
                 PermissionMode = "default",
-                PermissionModes = [new ChatMode("default", "Runs tools freely", "Pi has no permission prompts: its tools run without asking.")]
+                PermissionModes = [new ChatMode("default", "Runs tools freely", "Pi runs tools without asking, unless an extension asks first.")]
             });
             FlushNow();
             return folder.Header;
@@ -271,6 +272,7 @@ internal sealed class PiChatSession : IAsyncDisposable
                 FlushNow();
             }
         }
+        SettleDialogs(null, "session-ended");
         foreach (var waiting in pending.Values.ToArray()) waiting.TrySetException(new InvalidOperationException("Pi exited."));
     }
 
@@ -299,20 +301,6 @@ internal sealed class PiChatSession : IAsyncDisposable
             if (!folder.Apply(line)) log("Pi sent an event this host does not fold: " + type);
             ScheduleFlush();
         }
-    }
-
-    // A dialog an extension opens cannot be shown in a chat yet: it is answered as cancelled so Pi does not wait, and said so.
-    private void ExtensionRequest(JsonElement request)
-    {
-        var method = PiFolder.Str(request, "method");
-        if (method == "notify")
-        {
-            lock (gate) { folder.Notice(ChatNoticeLevel.Info, PiFolder.Str(request, "message")); ScheduleFlush(); }
-            return;
-        }
-        if (method is not ("select" or "confirm" or "input" or "editor")) return;
-        lock (gate) { folder.Notice(ChatNoticeLevel.Warning, $"An extension asked for input ({PiFolder.Str(request, "title")}) which a chat cannot show yet; it was cancelled."); ScheduleFlush(); }
-        _ = TrySendAsync(new JsonObject { ["type"] = "extension_ui_response", ["id"] = PiFolder.Str(request, "id"), ["cancelled"] = true });
     }
 
     private async Task<JsonElement> RequestAsync(JsonObject command)
@@ -347,8 +335,9 @@ internal sealed class PiChatSession : IAsyncDisposable
         finally { writer.Release(); }
     }
 
-    public async Task SendAsync(string text, IReadOnlyList<ChatAttachment>? attachments)
+    public async Task SendAsync(string text, IReadOnlyList<ChatAttachment>? attachments, string? clientId = null)
     {
+        ClearDraft(clientId);
         var message = new StringBuilder(text);
         var images = new JsonArray();
         foreach (var attachment in attachments ?? [])
@@ -429,6 +418,7 @@ internal sealed class PiChatSession : IAsyncDisposable
     {
         if (Interlocked.Exchange(ref closing, 1) == 1) return;
         if (child is not { } link) return;
+        await CancelDialogsAsync();
         await link.CloseAsync();
         lock (gate) { folder.SetStatus(ChatStatus.Exited); FlushNow(); }
     }

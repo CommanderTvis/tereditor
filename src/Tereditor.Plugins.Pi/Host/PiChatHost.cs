@@ -79,7 +79,7 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         context.Method(ChatContract.Snapshot, (p, _, _) => ValueTask.FromResult(sessions.TryGetValue((p.WorkspaceId, p.ChatId), out var session) ? session.Snapshot() : []));
         context.Method(ChatContract.Send, async (p, _, _) =>
         {
-            await Session(p.WorkspaceId, p.ChatId).SendAsync(p.Text, p.Attachments);
+            await Session(p.WorkspaceId, p.ChatId).SendAsync(p.Text, p.Attachments, p.ClientId);
             return new Ack();
         });
         context.Method(ChatContract.Interrupt, async (p, _, _) =>
@@ -95,8 +95,9 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         context.Method(ChatContract.SetModel, async (p, _, _) => await Session(p.WorkspaceId, p.ChatId).SetModelAsync(p.Value));
         context.Method(ChatContract.SetEffort, async (p, _, _) => await Session(p.WorkspaceId, p.ChatId).SetEffortAsync(p.Value));
         context.Method(ChatContract.SetPermissionMode, (p, _, _) => ValueTask.FromResult(Session(p.WorkspaceId, p.ChatId).Header));
-        context.Method(ChatContract.Answer, (_, _, _) => throw Unsupported("Pi asks no permissions."));
-        context.Method(ChatContract.AnswerQuestion, (_, _, _) => throw Unsupported("Pi asks no questions."));
+        context.Method(ChatContract.Answer, async (p, _, _) => { await Session(p.WorkspaceId, p.ChatId).AnswerAsync(p.RequestId, p.OptionId); return new Ack(); });
+        context.Method(ChatContract.AnswerQuestion, async (p, _, _) => { await Session(p.WorkspaceId, p.ChatId).AnswerQuestionAsync(p.RequestId, p.Answers, p.Cancelled == true); return new Ack(); });
+        context.Method(ChatContract.SetDraft, (p, _, _) => ValueTask.FromResult(Session(p.WorkspaceId, p.ChatId).SetDraft(p.Text, p.ClientId)));
         context.Method(ChatContract.Dequeue, (_, _, _) => throw Unsupported("Pi does not take back a queued message."));
         context.Method(ChatContract.EditQueued, (_, _, _) => throw Unsupported("Pi does not change a queued message."));
         context.Method(ChatContract.Rewind, (_, _, _) => throw Unsupported("Pi cannot rewind here yet."));

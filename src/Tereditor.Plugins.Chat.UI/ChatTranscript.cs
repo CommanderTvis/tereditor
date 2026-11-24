@@ -14,7 +14,7 @@ internal sealed record ChatActivityItem(string Id, long Seq, IReadOnlyList<ChatI
 /// </summary>
 internal sealed record QuestionDraft(IReadOnlyList<IReadOnlyList<string>> Chosen, IReadOnlyList<string> Other)
 {
-    public static QuestionDraft For(ChatQuestionItem item) => new([.. item.Questions.Select(_ => (IReadOnlyList<string>)[])], [.. item.Questions.Select(_ => "")]);
+    public static QuestionDraft For(ChatQuestionItem item) => new([.. item.Questions.Select(_ => (IReadOnlyList<string>)[])], [.. item.Questions.Select(question => question.Prefill ?? "")]);
 
     /// <summary>Picking an option: it replaces the choice of a single-select question and flips in a multi-select one; a typed "Other" yields to a single pick.</summary>
     public QuestionDraft Pick(int question, string label, bool multi)

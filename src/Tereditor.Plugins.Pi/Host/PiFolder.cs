@@ -83,6 +83,15 @@ internal sealed class PiFolder
         return item;
     }
 
+    /// <summary>Adds an item the caller builds from its sequence number (an extension's dialog).</summary>
+    public void Show(Func<long, ChatItem> make) => Put(make(Next()));
+
+    /// <summary>Replaces an item of the given type in place; nothing when it is gone.</summary>
+    public void Edit<T>(string id, Func<T, T> change) where T : ChatItem
+    {
+        if (Get<T>(id) is { } item) Put(change(item));
+    }
+
     public void Notice(ChatNoticeLevel level, string text) => Put(new ChatNoticeItem("n" + Next(), seq, level, text));
 
     /// <summary>Applies one stdout line that is an event (not a response). Returns false for a line it does not know.</summary>

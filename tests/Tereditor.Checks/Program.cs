@@ -1553,6 +1553,7 @@ internal static class Program
             PiChecks.Account();
             PiChecks.ContextInsets();
             PiChecks.ContextRows();
+            PiChecks.ExtensionUiView();
             AccountProviderChecks.Run();
             Console.WriteLine("PASS Pi checks");
             return;

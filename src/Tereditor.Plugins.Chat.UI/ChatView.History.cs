@@ -108,7 +108,7 @@ internal sealed partial class ChatView
         };
         var scrim = new Border { Name = "ChatHistoryOverlay", Background = Ui.Overlay, IsVisible = false, Child = shell, ZIndex = 20 };
         scrim.PointerPressed += (_, e) => { if (ReferenceEquals(e.Source, scrim)) CloseHistory(); };
-        SetRowSpan(scrim, 6);
+        SetRowSpan(scrim, 8);
         return scrim;
     }
 

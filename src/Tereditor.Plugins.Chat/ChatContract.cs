@@ -212,6 +212,10 @@ public sealed record ChatQuestion(string Question, IReadOnlyList<ChatQuestionOpt
 {
     public string? Header { get; init; }
     public bool MultiSelect { get; init; }
+    /// <summary>For a question without options (an extension's input or editor dialog): the text box's hint, its starting text, and whether it takes several lines.</summary>
+    public string? Placeholder { get; init; }
+    public string? Prefill { get; init; }
+    public bool Multiline { get; init; }
 }
 
 /// <summary>
@@ -333,6 +337,12 @@ public sealed record ChatMcpServer(string Name, string Status);
 
 public sealed record ChatBanner(string Key, string Text, ChatNoticeLevel Level);
 
+/// <summary>A status an extension keeps in the footer (Pi's setStatus), shown as a chip; one per key.</summary>
+public sealed record ChatExtensionStatus(string Key, string Text);
+
+/// <summary>A block of text lines an extension keeps above or below the composer (Pi's setWidget); one per key.</summary>
+public sealed record ChatWidget(string Key, IReadOnlyList<string> Lines, bool Below);
+
 /// <summary>A session option the agent offers: a list of values to pick from (<see cref="Kind"/> select) or an on/off switch (boolean, <see cref="Current"/> "true" or "false").</summary>
 public sealed record ChatOption(string Id, string Label, string Kind, string Current)
 {
@@ -415,6 +425,9 @@ public sealed record ChatHeader(ChatStatus Status)
     public IReadOnlyList<ChatOption> Options { get; set; } = [];
     public IReadOnlyList<string> Agents { get; set; } = [];
     public IReadOnlyList<ChatMcpServer> McpServers { get; set; } = [];
+    /// <summary>Status chips and widget blocks an extension set; empty for agents with none.</summary>
+    public IReadOnlyList<ChatExtensionStatus> Statuses { get; set; } = [];
+    public IReadOnlyList<ChatWidget> Widgets { get; set; } = [];
     public IReadOnlyList<ChatTask> Tasks { get; set; } = [];
     public ChatUsage Usage { get; set; } = new();
     /// <summary>The <c>--advisor</c> model the child was launched with; null when none.</summary>

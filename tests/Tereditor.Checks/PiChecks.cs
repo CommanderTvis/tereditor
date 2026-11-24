@@ -143,11 +143,28 @@ internal static class PiChecks
             while IFS= read -r line; do
               id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
               case "$line" in
+                *'"type":"extension_ui_response"'*) printf '%s\n' "$line" >> "$(dirname "$0")/ui-responses.txt" ;;
                 *'"type":"get_state"'*) printf '{"id":"%s","type":"response","command":"get_state","success":true,"data":{"model":{"provider":"fake","id":"m1","contextWindow":1000},"thinkingLevel":"medium","sessionFile":"/nonexistent/s.jsonl","sessionId":"s1"}}\n' "$id" ;;
                 *'"type":"get_available_models"'*) printf '{"id":"%s","type":"response","command":"get_available_models","success":true,"data":{"models":[{"provider":"fake","id":"m1","name":"Model One","reasoning":true},{"provider":"fake","id":"m2","name":"Model Two","reasoning":false}]}}\n' "$id" ;;
                 *'"type":"get_commands"'*) printf '{"id":"%s","type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"skill:x","description":"A skill","source":"skill"}]}}\n' "$id" ;;
                 *'"type":"set_model"'*) printf '{"id":"%s","type":"response","command":"set_model","success":true,"data":{}}\n' "$id" ;;
                 *'"type":"set_thinking_level"'*) printf '{"id":"%s","type":"response","command":"set_thinking_level","success":true}\n' "$id" ;;
+                *'"type":"prompt"'*'ui-dialogs'*)
+                  printf '{"id":"%s","type":"response","command":"prompt","success":true}\n' "$id"
+                  printf '{"type":"extension_ui_request","id":"s1","method":"select","title":"Allow rm?","options":["Allow","Block"]}\n'
+                  printf '{"type":"extension_ui_request","id":"c1","method":"confirm","title":"Clear?","message":"All is lost."}\n'
+                  printf '{"type":"extension_ui_request","id":"c2","method":"confirm","title":"Again?","message":"Sure."}\n'
+                  printf '{"type":"extension_ui_request","id":"i1","method":"input","title":"Name?","placeholder":"type here"}\n'
+                  printf '{"type":"extension_ui_request","id":"e1","method":"editor","title":"Edit","prefill":"Line 1\\nLine 2"}\n'
+                  printf '{"type":"extension_ui_request","id":"n1","method":"notify","message":"Careful","notifyType":"warning"}\n'
+                  printf '{"type":"extension_ui_request","id":"n2","method":"setStatus","statusKey":"ext","statusText":"Turn 3"}\n'
+                  printf '{"type":"extension_ui_request","id":"n3","method":"setWidget","widgetKey":"w1","widgetLines":["A","B"],"widgetPlacement":"belowEditor"}\n'
+                  printf '{"type":"extension_ui_request","id":"n4","method":"setWidget","widgetKey":"w2","widgetLines":["Top"]}\n'
+                  printf '{"type":"extension_ui_request","id":"n5","method":"setTitle","title":"pi - proj"}\n'
+                  printf '{"type":"extension_ui_request","id":"n6","method":"set_editor_text","text":"prefilled"}\n'
+                  printf '{"type":"extension_ui_request","id":"u1","method":"somethingNew"}\n'
+                  printf '{"type":"extension_ui_request","id":"t1","method":"select","title":"Quick","options":["A"],"timeout":300}\n'
+                  printf '{"type":"extension_ui_request","id":"l1","method":"confirm","title":"Left open","message":"x"}\n' ;;
                 *'"type":"prompt"'*)
                   printf '{"id":"%s","type":"response","command":"prompt","success":true}\n' "$id"
                   printf '{"type":"agent_start"}\n'
@@ -258,6 +275,124 @@ internal static class PiChecks
         var status = await PiHost.ReadStatusAsync(fake);
         Require(status is { Installed: true, Version: "0.99.1" }, "The version probe reads pi --version.");
         Require(!(await PiHost.ReadStatusAsync(Path.Combine(directory, "none"))).Installed, "A missing pi is reported as not installed.");
+    }
+
+    // Every kind of extension UI request against the fixture: dialogs are answered by id, fire-and-forget ones show, unknown ones get no reply.
+    internal static async Task ExtensionUi(string root)
+    {
+        var directory = Path.Combine(root, "ext");
+        var fake = FakePi(directory);
+        var responses = Path.Combine(directory, "ui-responses.txt");
+        if (File.Exists(responses)) File.Delete(responses);
+        var pushes = new List<ChatPush>();
+        await using var session = new PiChatSession("ws", "chat1", push => { lock (pushes) pushes.Add(push); }, _ => { }, (_, _) => { });
+        var spawn = new PiSpawn(fake, directory);
+        session.Begin(spawn);
+        await session.StartAsync(spawn);
+        await Until(() => session.Header.Status == ChatStatus.Idle, "The extension session starts.");
+        await session.SendAsync("ui-dialogs", null);
+        ChatItem? Item(string id) => session.Snapshot().OfType<ChatItemPush>().Select(push => push.Item).FirstOrDefault(item => item.Id == id);
+        await Until(() => Item("xl1") is not null && session.Header.Widgets.Count == 2, "Every request reaches the chat.");
+
+        Require(Item("xs1") is ChatPermissionItem { Prompt: "Allow rm?", Decision: ChatPermissionDecision.Pending } select && select.Options.Select(option => option.Label).SequenceEqual(["Allow", "Block"]) && select.Options[1].Kind == "reject_once", "A select shows as a card with Pi's options.");
+        Require(Item("xc1") is ChatPermissionItem { Prompt: "Clear?", Description: "All is lost." }, "A confirm shows its title and message.");
+        Require(Item("xi1") is ChatQuestionItem { Questions: [{ Question: "Name?", Placeholder: "type here", Multiline: false }] }, "An input shows as a text question with Pi's hint.");
+        Require(Item("xe1") is ChatQuestionItem { Questions: [{ Prefill: "Line 1\nLine 2", Multiline: true }] }, "An editor shows its prefill in a multi-line box.");
+        Require(session.Snapshot().OfType<ChatItemPush>().Any(push => push.Item is ChatNoticeItem { Level: ChatNoticeLevel.Warning, Text: "Careful" }), "A notify shows as a notice of its level.");
+        Require(session.Header is { Title: "pi - proj" } header && header.Statuses.SequenceEqual([new ChatExtensionStatus("ext", "Turn 3")]) && header.Widgets.Any(widget => widget is { Key: "w1", Below: true } && widget.Lines.SequenceEqual(["A", "B"])) && header.Widgets.Any(widget => widget is { Key: "w2", Below: false }), "Status, widgets (with their placement) and the title reach the header.");
+        Require(session.Snapshot().OfType<ChatDraftPush>().Single().Draft is { Text: "prefilled" }, "set_editor_text becomes the composer's draft.");
+        Require(session.Snapshot().OfType<ChatItemPush>().All(push => push.Item is not ChatNoticeItem { Level: ChatNoticeLevel.Error }), "An unknown method shows nothing.");
+
+        await Until(() => Item("xt1") is ChatPermissionItem { Decision: ChatPermissionDecision.Denied }, "A dialog with a timeout is settled by the host when it runs out.");
+        await session.AnswerAsync("s1", "1");
+        await session.AnswerAsync("c1", "yes");
+        await session.AnswerAsync("c2", null);
+        await session.AnswerQuestionAsync("i1", new Dictionary<string, string> { ["Name?"] = "Ada" }, false);
+        await session.AnswerQuestionAsync("e1", new Dictionary<string, string> { ["Edit"] = "" }, false);
+        await Throws<InvalidOperationException>(() => session.AnswerAsync("s1", "0"));
+        Require(Item("xs1") is ChatPermissionItem { Decision: ChatPermissionDecision.Denied } && Item("xc1") is ChatPermissionItem { Decision: ChatPermissionDecision.Allowed } && Item("xi1") is ChatQuestionItem { Outcome: "answered", Decision: ChatPermissionDecision.Allowed }, "Answered cards settle.");
+        await session.CloseAsync();
+        Require(Item("xl1") is ChatPermissionItem { Decision: ChatPermissionDecision.Denied }, "A dialog still open when the chat closes is settled.");
+        await Until(() => File.Exists(responses) && File.ReadAllLines(responses).Length >= 6, "Pi receives the replies.");
+        Require(File.ReadAllLines(responses).SequenceEqual([
+            """{"type":"extension_ui_response","id":"s1","value":"Block"}""",
+            """{"type":"extension_ui_response","id":"c1","confirmed":true}""",
+            """{"type":"extension_ui_response","id":"c2","cancelled":true}""",
+            """{"type":"extension_ui_response","id":"i1","value":"Ada"}""",
+            """{"type":"extension_ui_response","id":"e1","value":""}""",
+            """{"type":"extension_ui_response","id":"l1","cancelled":true}"""
+        ]), "Each dialog is answered by its id; an empty text is a value; a timed-out or unknown request gets no reply; closing cancels what is open.");
+    }
+
+    // The chat view draws the extension's requests, chips and widgets, answers a card, and offers a permission picker only when there is a choice.
+    internal static void ExtensionUiView()
+    {
+        var chat = new UiClient();
+        var json = JsonDocument.Parse("{}").RootElement.Clone();
+        var modes = new ChatHeader(ChatStatus.Idle) { Model = "fake/m1", PermissionMode = "default", PermissionModes = [new ChatMode("default", "Runs tools freely", "x")], Statuses = [new ChatExtensionStatus("ext", "Turn 3")], Widgets = [new ChatWidget("w2", ["Top"], false), new ChatWidget("w1", ["A", "B"], true)] };
+        chat.Snapshot.Add(new ChatItemPush("ws", "c", new ChatPermissionItem("xs1", 1, "s1", "extension", json) { Prompt = "Allow rm?", Options = [new("0", "Allow", "allow_once"), new("1", "Block", "reject_once")] }));
+        chat.Snapshot.Add(new ChatHeaderPush("ws", "c", modes));
+        chat.Header = modes;
+        var view = new Tereditor.Plugins.Chat.UI.ChatView(new Tereditor.Plugins.Chat.UI.ChatEnvironment(chat, PiChat.Agent), "ws", "c");
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Frame(window); Frame(window);
+            Control? Find(string name) => view.GetVisualDescendants().OfType<Control>().FirstOrDefault(control => control.Name == name);
+            Require(Find("TerminalAgentFact_permission") is null, "One permission mode means no permission picker.");
+            Require(Find("TerminalAgentFact_status_ext") is not null, "An extension's status shows as a chip.");
+            Require(Find("ChatWidget_w2") is { IsEffectivelyVisible: true } && Find("ChatWidget_w1") is { IsEffectivelyVisible: true }, "Widgets show above and below the composer.");
+            Require(Find("ChatWidget_w2")!.TranslatePoint(default, view)!.Value.Y < Find("ChatWidget_w1")!.TranslatePoint(default, view)!.Value.Y, "The above widget sits over the composer and the below one under it.");
+            Require(Find("ChatPermOption_1") is Button, "A select card shows Pi's options.");
+            Find("ChatPermOption_1")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Frame(window);
+            Require(chat.Answers.Count == 1 && chat.Answers[0] is { RequestId: "s1", OptionId: "1" }, "Choosing an option answers the request by its id.");
+            chat.Handler!(new ChatItemPush("ws", "c", new ChatPermissionItem("xs1", 1, "s1", "extension", json) { Prompt = "Allow rm?", Decision = ChatPermissionDecision.Denied, Options = [new("0", "Allow", "allow_once"), new("1", "Block", "reject_once")] }));
+
+            chat.Handler!(new ChatItemPush("ws", "c", new ChatQuestionItem("xe1", 2, "e1", [new ChatQuestion("Edit", []) { Prefill = "Line 1\nLine 2", Multiline = true }])));
+            Frame(window); Frame(window);
+            var other = Find("ChatQuestionOther") as TextBox;
+            Require(other is { AcceptsReturn: true, Text: "Line 1\nLine 2" }, "An editor card starts with Pi's prefill in a multi-line box.");
+            chat.Header = modes with { PermissionModes = [new ChatMode("default", "Asks first", "x"), new ChatMode("auto", "Runs tools freely", "y")] };
+            chat.Handler!(new ChatHeaderPush("ws", "c", chat.Header));
+            Frame(window); Frame(window);
+            Require(Find("TerminalAgentFact_permission") is not null, "Two permission modes show the picker.");
+        }
+        finally { window.Close(); }
+    }
+
+    private sealed class UiClient : Tereditor.Plugins.Chat.UI.IChatClient
+    {
+        public List<ChatPush> Snapshot { get; } = [];
+        public Action<ChatPush>? Handler { get; private set; }
+        public List<ChatAnswerParams> Answers { get; } = [];
+        public ChatHeader Header { get; set; } = new(ChatStatus.Idle);
+
+        public IDisposable Subscribe(ChatKey key, Action<ChatPush> handler)
+        {
+            Handler = handler;
+            foreach (var push in Snapshot) handler(push);
+            return new Release(() => Handler = null);
+        }
+
+        private sealed class Release(Action action) : IDisposable { public void Dispose() => action(); }
+
+        public async ValueTask<TResult> RequestAsync<TParams, TResult>(PluginMethod<TParams, TResult> method, TParams parameters, CancellationToken cancellationToken = default)
+        {
+            if (parameters is ChatAnswerParams answer) Answers.Add(answer);
+            await Task.Yield();
+            object result = parameters is ChatOpenParams ? Header : new Ack();
+            return (TResult)result;
+        }
+    }
+
+    private static void Frame(Window window)
+    {
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        using var frame = window.CaptureRenderedFrame();
+        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
     }
 
     // A fixture bun: `install` writes a package whose lock file names the pinned integrity (mode good), another one (bad) or waits (slow, hang);
@@ -597,6 +732,7 @@ internal static class PiChecks
         Fold();
         Sessions(root);
         await Session(root);
+        await ExtensionUi(root);
         await Managed(root);
         Config(root);
         await Packages(root);

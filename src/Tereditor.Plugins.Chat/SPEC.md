@@ -49,6 +49,13 @@ The finished cards are not a turn: the host carries them in front of the user's 
 
 A `ChatNoticeItem` of category `failure` may carry an `Action` (`ChatNoticeAction`: a `Label` and a `Command`). The view draws it as a button on the card. Pressing it opens a terminal that runs the command, for example a sign-in the user starts. Android and the browser draw no button, because they have no terminal to open. A card with no `Action` is unchanged.
 
+## Extension UI and one-mode hosts
+
+A host can show what an agent's extensions ask or set. A text question without options (`ChatQuestion.Placeholder`, `Prefill`, `Multiline`) is
+a text card; an empty text is a valid answer. `ChatHeader.Statuses` become footer chips and `ChatHeader.Widgets` text blocks above or below the
+composer, one per key. When a host lists exactly one permission mode there is nothing to choose, so the view draws no permission picker; two or
+more show it.
+
 ## Side questions
 
 A host may answer `/btw <question>` itself: it shows a `ChatNoticeItem` of category `side-answer` whose `Label` is the question, `Text`

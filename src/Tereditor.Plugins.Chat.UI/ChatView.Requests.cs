@@ -414,7 +414,7 @@ internal sealed partial class ChatView
             split.Children.Add(pane);
             root.Children.Add(split);
         }
-        var other = new TextBox { Name = "ChatQuestionOther", PlaceholderText = "Type your answer…", Text = draft.Other[questionTab], FontSize = 12 };
+        var other = new TextBox { Name = "ChatQuestionOther", PlaceholderText = question.Placeholder ?? "Type your answer…", Text = draft.Other[questionTab], FontSize = 12, AcceptsReturn = question.Multiline, TextWrapping = question.Multiline ? TextWrapping.Wrap : TextWrapping.NoWrap, MaxHeight = question.Multiline ? 200 : double.PositiveInfinity };
         var tabNow = questionTab;
         other.TextChanged += (_, _) => { if ((other.Text ?? "") != transcript.DraftOf(item).Other[tabNow]) QuestionOther(item, tabNow, other.Text ?? ""); };
         root.Children.Add(other);

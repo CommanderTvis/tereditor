@@ -895,9 +895,9 @@ internal static class ClaudeChatUiChecks
             void Pinned(string when)
             {
                 Frame(window); Frame(window);
-                var content = view.GetVisualDescendants().OfType<Grid>().First(grid => grid.RowDefinitions.Count == 6);
+                var content = view.GetVisualDescendants().OfType<Grid>().First(grid => grid.RowDefinitions.Count == 8);
                 var top = content.TranslatePoint(default, view)!.Value.Y;
-                var composer = content.Children.OfType<Control>().First(child => Grid.GetRow(child) == 5);
+                var composer = content.Children.OfType<Control>().First(child => Grid.GetRow(child) == 6);
                 var bottom = composer.TranslatePoint(new Point(0, composer.Bounds.Height + composer.Margin.Bottom), view)!.Value.Y;
                 var scaled = content.Bounds.Height * view.Zoom;
                 Require(Math.Abs(top) < 1 && Math.Abs(scaled - view.Bounds.Height) < 2, $"{when}: the chat content must fill the view (top {top:0.#}, height {scaled:0.#} of {view.Bounds.Height:0.#}).");

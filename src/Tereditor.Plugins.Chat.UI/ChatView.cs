@@ -209,8 +209,10 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         body.Children.Add(list);
         body.Children.Add(jump);
         Place(body, 3);
-        Place(requestPanel, 4);
-        Place(BuildComposer(), 5);
+        Place(widgetsAbove, 4);
+        Place(requestPanel, 5);
+        Place(BuildComposer(), 6);
+        Place(widgetsBelow, 7);
 
         // Size changes arrive in steps while the page or the chat zooms: the footer is fitted once per frame, not once per step. The content,
         // not the view, changes size when only the chat zooms.
@@ -283,6 +285,10 @@ internal sealed partial class ChatView : Grid, IChatRowActions
     }
 
     private readonly StackPanel banners = new();
+    // An extension's widget blocks (Pi's setWidget): above the request and composer, or under them.
+    private readonly StackPanel widgetsAbove = new() { Name = "ChatWidgetsAbove", IsVisible = false };
+    private readonly StackPanel widgetsBelow = new() { Name = "ChatWidgetsBelow", IsVisible = false };
+    private string widgetSignature = "";
     private readonly Button turnOnRuntime;
     private CancellationTokenSource? runtimeJob;
 
@@ -450,6 +456,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
             noticeText.Text = extra.Text;
         }
         RebuildChips(header);
+        RebuildWidgets(header);
         RebuildTasks(header);
         ShowState(header);
     }
@@ -526,10 +533,28 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         }
     }
 
+    private void RebuildWidgets(ChatHeader header)
+    {
+        var signature = string.Join("|", header.Widgets.Select(widget => widget.Key + (widget.Below ? ":below:" : ":above:") + string.Join("\n", widget.Lines)));
+        if (signature == widgetSignature) return;
+        widgetSignature = signature;
+        foreach (var (panel, below) in new[] { (widgetsAbove, false), (widgetsBelow, true) })
+        {
+            panel.Children.Clear();
+            foreach (var widget in header.Widgets.Where(widget => widget.Below == below))
+                panel.Children.Add(new Border
+                {
+                    Name = "ChatWidget_" + widget.Key, Background = Ui.Elevated, Padding = new Thickness(12, 6),
+                    Child = new SelectableTextBlock { Text = string.Join("\n", widget.Lines), TextWrapping = TextWrapping.Wrap, FontFamily = Ui.CodeFont, FontSize = 12, Foreground = Ui.Muted }
+                });
+            panel.IsVisible = panel.Children.Count > 0;
+        }
+    }
+
     private void RebuildChips(ChatHeader header)
     {
         var signature = string.Join("|", densityLevel, string.Join(",", Composer.HiddenChips ?? DefaultHiddenChips), header.Pending, header.Status, header.Model, header.Effort, header.PermissionMode, string.Join(",", header.PermissionModes.Select(mode => mode.Key)), header.Cwd, pendingModel, pendingEffort, pendingMode, ide, header.Advisor, header.Chrome,
-            string.Join(",", header.Models.Select(model => model.Id)), string.Join(",", header.Options.Select(option => option.Id + "=" + option.Current + pendingOptions.GetValueOrDefault(option.Id))), string.Join(",", header.McpServers.Select(server => server.Name + server.Status)));
+            string.Join(",", header.Models.Select(model => model.Id)), string.Join(",", header.Options.Select(option => option.Id + "=" + option.Current + pendingOptions.GetValueOrDefault(option.Id))), string.Join(",", header.McpServers.Select(server => server.Name + server.Status)), string.Join(",", header.Statuses.Select(status => status.Key + "=" + status.Text)));
         if (signature == chipSignature) return;
         chipSignature = signature;
         // The gear stays in the row across rebuilds: taking it out would close the popup it opened.
@@ -551,7 +576,8 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         var offeredModes = ModeList(header);
         // An agent that lists no models and no modes gets neither chip; one that lists them gets the chip as soon as the list arrives.
         var showModel = !env.Agent.PickersWhenOffered || header.Models.Count > 0 || header.Model is { Length: > 0 };
-        var showMode = ChipShown("mode") && (!env.Agent.PickersWhenOffered || offeredModes.Count > 0);
+        // A host that offers one mode has nothing to choose: no picker.
+        var showMode = ChipShown("mode") && (!env.Agent.PickersWhenOffered || offeredModes.Count > 0) && header is not { PermissionModes.Count: 1 };
         if (showModel)
             AddPicker(PickerButton("model", modelShown, pendingModel is null ? (header.Model ?? "Model") + (env.Agent.EffortLevels.Count > 0 ? " — click to switch the model or the effort (" + (header.Effort ?? "default") + ")" : " — click to switch the model") : $"Waiting for {env.Agent.Name} to confirm the model", button => ModelMenu(header, button),
                 shortened || env.Agent.PickersWhenOffered || (header.Effort is null && pendingEffort is null && !waiting) ? null : effortShown));
@@ -575,6 +601,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         // They give way with the width (see the density levels): the read-only facts at level 2, attach and the IDE switch at level 3 (the switch stays in the "+" popup).
         if (ChipShown("advisor") && header.Advisor is { Length: > 0 } advisor) Add(TerminalFacts.FactChip("advisor", "advisor " + advisor, "Started with --advisor"));
         if (ChipShown("cwd") && TerminalFacts.CwdLabel(header.Cwd) is { } directory) Add(TerminalFacts.FactChip("cwd", directory, $"{env.Agent.Short} runs in {ScopedSetting.AbbreviateHomePath(header.Cwd!)}"));
+        foreach (var extension in header.Statuses) Add(TerminalFacts.FactChip("status_" + extension.Key, extension.Text, extension.Key));
         if (ChipShown("ide")) AddFactButton(TerminalFacts.IdeContextChip(ide, () => _ = ToggleIde()));
         // Looks and sits as in the terminal: lowercase "chrome" with the Chrome mark, right after the IDE switch.
         if (ChipShown("chrome") && header.Chrome) Add(TerminalFacts.FactChip("chrome", "chrome", "Started with Claude in Chrome (--chrome)", Ui.Icon("chrome", Ui.Muted, 12)));
