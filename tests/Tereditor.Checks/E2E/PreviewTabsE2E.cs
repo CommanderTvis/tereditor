@@ -22,7 +22,7 @@ internal static class PreviewTabsE2E
         }
         Case("a single click previews into one reusable slot, a double click keeps the tab", app =>
         {
-            app.Open("README.md"); Require(app.Tabs.Count == 1 && app.Tabs[0].Preview, "Single click must preview.");
+            app.Open("README.md"); Require(app.Tabs.Count == 1 && app.Tabs[0].Preview, "Single click must preview: " + string.Join(", ", app.Tabs.Select(tab => $"{tab.Kind} {tab.Path} preview={tab.Preview}")) + ".");
             Require(app.Tab("README.md").GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Text == "README.md").FontStyle == FontStyle.Italic, "Preview label must be italic.");
             app.Open("notes.txt"); Require(app.Tabs.Count == 1 && app.Tabs[0].Path == "notes.txt" && app.Tabs[0].Preview, "The preview slot must be reused.");
             app.Open("notes.txt", true); Require(app.Tabs.Count == 1 && !app.Tabs[0].Preview, "Double click must keep the tab.");
