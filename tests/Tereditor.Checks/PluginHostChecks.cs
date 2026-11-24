@@ -161,7 +161,7 @@ internal static partial class PluginHostChecks
     internal static async Task Run(string root)
     {
         var directory = Path.Combine(root, "plugins-host");
-        Require(PluginApi.Generation == 2, "PluginApi.Generation changed; a breaking change must bump it deliberately and update this pin.");
+        Require(PluginApi.Generation == 3, "PluginApi.Generation changed; a breaking change must bump it deliberately and update this pin.");
         ManifestIntake();
         Discovery(Path.Combine(directory, "discovery"));
         await Registry(Path.Combine(directory, "registry"));

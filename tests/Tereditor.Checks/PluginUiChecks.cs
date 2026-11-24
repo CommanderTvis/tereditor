@@ -38,7 +38,7 @@ internal static partial class PluginUiChecks
 
     internal static void Run(string root)
     {
-        Require(PluginApi.Generation == 2, "PluginApi.Generation changed; bump it deliberately and update this pin.");
+        Require(PluginApi.Generation == 3, "PluginApi.Generation changed; bump it deliberately and update this pin.");
         RegistryRules();
         DependencyWalks();
         Icons();
