@@ -20,8 +20,20 @@ namespace Tereditor.UI;
 
 public sealed partial class App : Application
 {
+    private static bool tooltipDefaultsSet;
+
     public override void Initialize()
     {
+        // A tooltip opens below its target, left edges aligned, a fixed gap away (it flips above at the window edge), never at the pointer where it would cover the target and what lies under it.
+        if (!tooltipDefaultsSet)
+        {
+            tooltipDefaultsSet = true;
+            ToolTip.TipProperty.Changed.AddClassHandler<Control>((control, _) =>
+            {
+                if (!control.IsSet(ToolTip.PlacementProperty)) control.SetValue(ToolTip.PlacementProperty, PlacementMode.BottomEdgeAlignedLeft);
+                if (!control.IsSet(ToolTip.VerticalOffsetProperty)) control.SetValue(ToolTip.VerticalOffsetProperty, Ui.TooltipGap);
+            });
+        }
         StartupPhases.Mark("app-initialize-start");
         AvaloniaXamlLoader.Load(this);
 #if !ANDROID && !BROWSER

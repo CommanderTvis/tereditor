@@ -27,7 +27,7 @@ and is otherwise unverified (see STATUS.md V13).
 
 ## Scrolling and tooltips
 
-While content scrolls under a still pointer (wheel, trackpad or scrollbar drag) in any scrollable area, no tooltip opens and an open one closes. After about 200 ms without scrolling, the tooltip of the element under the pointer opens after its normal show delay. Hover and keyboard-focus tooltips are otherwise unchanged. Every tooltip bubble takes the app's one `ToolTip` style (`App.axaml`): inner padding `Ui.TooltipPadding` and corner radius `Ui.ChipRadius`, the same radius the header's location pills and avatars use.
+While content scrolls under a still pointer (wheel, trackpad or scrollbar drag) in any scrollable area, no tooltip opens and an open one closes. After about 200 ms without scrolling, the tooltip of the element under the pointer opens after its normal show delay. Hover and keyboard-focus tooltips are otherwise unchanged. Every tooltip bubble takes the app's one `ToolTip` style (`App.axaml`): inner padding `Ui.TooltipPadding` (8 on every side) and corner radius `Ui.ChipRadius`, the same radius the header's location pills and avatars use, with the popup surface, border and text colors. A tooltip opens below its target, left edges aligned, `Ui.TooltipGap` (6) away, so it never covers the target or what lies below it; Avalonia flips it above at the window edge. `App` sets this placement on every control that gets a tip (unless the control sets its own); `--unified-chrome` checks gap, alignment, radius and padding.
 
 ## Responsibilities and boundaries
 

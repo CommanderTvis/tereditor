@@ -695,6 +695,7 @@ static Tereditor.Plugins.UI.Kit.Units.Size(long bytes) -> string!
 static readonly Tereditor.Plugins.UI.Kit.Ui.ChipFill -> Avalonia.Media.SolidColorBrush!
 static readonly Tereditor.Plugins.UI.Kit.Ui.ChipRadius -> Avalonia.CornerRadius
 static readonly Tereditor.Plugins.UI.Kit.Ui.TooltipPadding -> Avalonia.Thickness
+const Tereditor.Plugins.UI.Kit.Ui.TooltipGap = 6 -> double
 static Tereditor.Plugins.UI.Kit.Ui.Blend(Avalonia.Media.Color from, Avalonia.Media.Color toward, int percent) -> Avalonia.Media.Color
 override Tereditor.Plugins.UI.Kit.LinkedTextBlock.OnPropertyChanged(Avalonia.AvaloniaPropertyChangedEventArgs! change) -> void
 override Tereditor.Plugins.UI.Kit.LinkedTextBlock.StyleKeyOverride.get -> System.Type!

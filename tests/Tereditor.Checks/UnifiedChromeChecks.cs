@@ -51,9 +51,39 @@ internal static class UnifiedChromeChecks
             var tip = Application.Current!.Styles.OfType<Style>().FirstOrDefault(style => style.Selector?.ToString() == "ToolTip");
             Require(tip is not null && tip.Setters.OfType<Setter>().Any(setter => setter.Property?.Name == "Padding" && Equals(setter.Value, Tereditor.Plugins.UI.Kit.Ui.TooltipPadding)),
                 "Every tooltip takes the shared tooltip padding from one application style.");
+            TooltipPlacement(app);
             Console.WriteLine("PASS shared chrome: tooltips and header pills take the chip radius and padding tokens");
         }
         finally { UnifiedChrome.Override = null; }
+    }
+
+    /// <summary>A tooltip opens below its target, left edges aligned, the shared gap away, and never over the target; its bubble takes the chip radius and tooltip padding.</summary>
+    private static void TooltipPlacement(E2eWorkspace app)
+    {
+        foreach (var name in new[] { "ScopeProject", "ScopeBranch", "SettingsButton" })
+        {
+            var target = app.Find<Button>(name);
+            if (!target.IsVisible) continue;
+            Avalonia.Controls.ToolTip.SetTip(target, "Tooltip placement probe");
+            Avalonia.Controls.ToolTip.SetIsOpen(target, true);
+            Settle();
+            var bubble = target.GetValue(Avalonia.Controls.Diagnostics.ToolTipDiagnostics.ToolTipProperty) as Avalonia.Controls.ToolTip;
+            var visual = (object?)bubble as Visual;
+            Require(visual is not null && TopLevel.GetTopLevel(visual) is not null, $"{name}: the tooltip bubble opens (found {bubble?.GetType().Name ?? "none"}).");
+            var scale = TopLevel.GetTopLevel(visual!)!.RenderScaling;
+            var origin = target.PointToScreen(default);
+            var targetLeft = origin.X; var targetBottom = origin.Y + target.Bounds.Height * scale;
+            var at = visual!.PointToScreen(default);
+            var left = at.X; var top = at.Y;
+            var gap = (top - targetBottom) / scale;
+            Console.WriteLine($"{name}: placement {Avalonia.Controls.ToolTip.GetPlacement(target)} offset {Avalonia.Controls.ToolTip.GetVerticalOffset(target)} scale {scale} popup {TopLevel.GetTopLevel(visual)?.GetType().Name}");
+            Console.WriteLine($"{name}: tooltip at {left},{top}, target left {targetLeft} bottom {targetBottom}, gap {gap}, radius {bubble!.CornerRadius}, padding {bubble.Padding}");
+            Require(Math.Abs(left - targetLeft) <= 1, $"{name}: the tooltip's left edge matches the target's ({left} vs {targetLeft}).");
+            Require(gap >= Tereditor.Plugins.UI.Kit.Ui.TooltipGap - 1 && gap <= Tereditor.Plugins.UI.Kit.Ui.TooltipGap + 1, $"{name}: the tooltip sits the shared gap below its target, not {gap}.");
+            Require(bubble.CornerRadius == Tereditor.Plugins.UI.Kit.Ui.ChipRadius && bubble.Padding == Tereditor.Plugins.UI.Kit.Ui.TooltipPadding, $"{name}: the tooltip takes the chip radius and tooltip padding.");
+            Avalonia.Controls.ToolTip.SetIsOpen(target, false);
+            Settle();
+        }
     }
 
     private static IEnumerable<MenuItem> Entries(IEnumerable<object?> items) => items.OfType<MenuItem>().SelectMany(item => new[] { item }.Concat(Entries(item.Items)));

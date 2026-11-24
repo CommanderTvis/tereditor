@@ -59,7 +59,10 @@ public static partial class Ui
     public static readonly CornerRadius ChipRadius = new(4);
 
     /// <summary>The inner padding of a tooltip bubble, so its text clears the rounded edge.</summary>
-    public static readonly Thickness TooltipPadding = new(8, 4);
+    public static readonly Thickness TooltipPadding = new(8);
+
+    /// <summary>The gap between a tooltip bubble and the element it describes.</summary>
+    public const double TooltipGap = 6;
 
     /// <summary>A colour moved <paramref name="percent"/> of the way from <paramref name="from"/> towards <paramref name="toward"/>.</summary>
     public static Color Blend(Color from, Color toward, int percent)

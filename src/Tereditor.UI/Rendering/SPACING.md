@@ -32,7 +32,7 @@ their owners adopt them.
 
 Box sizes share the same unit but are layout constraints, not spacing steps: rail rows, panel header rows, 14px row icons, 16px chevrons, 20–32px icon buttons. They are free-form pixel
 values chosen for the box, and are not held to the scale. Corner radii (4 on rows and buttons, 6 on menus,
-8 on the Settings frame) and border thicknesses are geometry too. Chips, header location pills, their avatars and tooltip bubbles share `Ui.ChipRadius` (4); tooltip text insets by `Ui.TooltipPadding`.
+8 on the Settings frame) and border thicknesses are geometry too. Chips, header location pills, their avatars and tooltip bubbles share `Ui.ChipRadius` (4); tooltip text insets by `Ui.TooltipPadding` (8 on every side) and the bubble sits `Ui.TooltipGap` (6) below its target.
 
 Spacing stays independent of typography, color and radius: a type-size or theme change never moves layout.
 The interface font size preference scales text only.
