@@ -198,9 +198,36 @@ internal static class ChatPopup
         var item = Ui.Menu(label, run);
         item.Name = name;
         if (detail is { Length: > 0 }) item.Header = Labelled(label, detail);
-        if (icon is not null) item.Icon = icon;
-        if ((tip ?? detail) is { Length: > 0 } text) ToolTip.SetTip(item, text);
+        item.MinHeight = RowHeight;
+        if (icon is not null) item.Icon = Slot(icon);
+        // A row's tip opens beside the menu, not below the row where it would cover the composer under the menu.
+        if ((tip ?? detail) is { Length: > 0 } text)
+        {
+            ToolTip.SetPlacement(item, PlacementMode.RightEdgeAlignedTop);
+            ToolTip.SetHorizontalOffset(item, Ui.TooltipGap);
+            ToolTip.SetTip(item, text);
+        }
         Avalonia.Automation.AutomationProperties.SetName(item, label);
+        return item;
+    }
+
+    /// <summary>The icon slot every icon row shares: the width of the check column, the icon centered in it.</summary>
+    internal static Border Slot(Control? icon) => new()
+    {
+        Name = "ChatMenuIconSlot",
+        Width = CheckWidth,
+        Child = icon,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+        IsHitTestVisible = false
+    };
+
+    /// <summary>A switch row: the mark sits in the same icon slot and at the same size as the icons of the other rows, so labels and details line up.</summary>
+    internal static MenuItem CheckItem(string name, string label, bool on, Action run, string? detail = null, string? tip = null)
+    {
+        var item = Item(name, label, run, detail, tip, on ? Ui.Icon("check", Ui.Accent, 12) : null);
+        if (!on) item.Icon = Slot(null);
+        item.IsChecked = on;
         return item;
     }
 

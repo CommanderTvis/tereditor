@@ -56,10 +56,7 @@ internal sealed partial class ChatView
     private void AddDebugRow(ContextMenu menu)
     {
         if (debugPanel is not { } panel || transcript.Header is not { DebugLog: true }) return;
-        var row = ChatPopup.Item("ChatDebugToggle", "Debug log", () => Dispatcher.UIThread.Post(() => panel.IsVisible = !panel.IsVisible, DispatcherPriority.Background),
-            tip: "Show the raw messages exchanged with " + env.Agent.Name);
-        row.ToggleType = MenuItemToggleType.CheckBox;
-        row.IsChecked = panel.IsVisible;
-        menu.Items.Add(row);
+        menu.Items.Add(ChatPopup.CheckItem("ChatDebugToggle", "Debug log", panel.IsVisible, () => Dispatcher.UIThread.Post(() => panel.IsVisible = !panel.IsVisible, DispatcherPriority.Background),
+            tip: "Show the raw messages exchanged with " + env.Agent.Name));
     }
 }

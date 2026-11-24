@@ -1394,11 +1394,8 @@ internal sealed partial class ChatView
             input.Focus();
             input.CaretIndex = 1;
         }, tip: "Show command menu (/)"));
-        // A check row: the menu draws the check where the icon would be.
-        var ideRow = ChatPopup.Item("TerminalIdeContextToggle", "IDE context", () => _ = ToggleIde(), tip: ide ? "Stop sending IDE context to this session" : "Send IDE context to this session");
-        ideRow.ToggleType = MenuItemToggleType.CheckBox;
-        ideRow.IsChecked = ide;
-        menu.Items.Add(ideRow);
+        // A check row: the check sits in the icon slot, so it lines up with the other rows.
+        menu.Items.Add(ChatPopup.CheckItem("TerminalIdeContextToggle", "IDE context", ide, () => _ = ToggleIde(), tip: ide ? "Stop sending IDE context to this session" : "Send IDE context to this session"));
         if (header is { McpServers.Count: > 0 })
         {
             var down = header.McpServers.Count(server => server.Status is not ("connected" or "ok"));

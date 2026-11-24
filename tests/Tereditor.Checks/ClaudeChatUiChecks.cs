@@ -2906,6 +2906,39 @@ internal static class ClaudeChatUiChecks
         finally { window.Close(); }
     }
 
+    // The "+" menu: icon rows, check rows (on and off) and rows with a hint share one grid, so heights, label x, icon slots and hints line up.
+    internal static void PlusMenuAlignment()
+    {
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) { DebugLog = true } };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Frame(window); Frame(window);
+            var button = view.GetVisualDescendants().OfType<Button>().First(candidate => candidate.Name == "ChatPlus");
+            button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            E2eWorkspace.Until(() => button.ContextMenu is { IsOpen: true });
+            var menu = button.ContextMenu!;
+            MenuPopupChecks.Settle(menu);
+            var rows = menu.Items.OfType<MenuItem>().ToList();
+            Require(rows.Any(row => row.Name == "TerminalIdeContextToggle") && rows.Any(row => row.Name == "ChatDebugToggle") && rows.Any(row => row.Name == "ChatSessions"), "The + menu has check rows and rows with a hint.");
+            double LabelX(MenuItem row) => row.GetVisualDescendants().OfType<TextBlock>().First(text => text.Name != "ChatMenuDetail" && !text.GetVisualAncestors().OfType<Border>().Any(border => border.Name == "ChatMenuIconSlot")).TranslatePoint(default, menu)!.Value.X;
+            Require(rows.Select(row => Math.Round(row.Bounds.Height, 1)).Distinct().Count() == 1, "Every row of the + menu is equally tall, check rows included.");
+            Require(rows.Select(row => Math.Round(LabelX(row), 1)).Distinct().Count() == 1, "Every label of the + menu starts at the same x.");
+            var slots = rows.Select(row => row.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "ChatMenuIconSlot")).ToList();
+            Require(slots.Select(slot => Math.Round(slot.Bounds.Width, 1)).Distinct().Count() == 1 && slots.Select(slot => Math.Round(slot.TranslatePoint(default, menu)!.Value.X, 1)).Distinct().Count() == 1, "Every row has one icon slot of the same width at the same x.");
+            var glyphs = slots.Select(slot => slot.GetVisualDescendants().OfType<Control>().FirstOrDefault(child => child.Bounds.Width > 0 && child != slot)).Where(glyph => glyph is not null).Select(glyph => Math.Round(glyph!.Bounds.Width, 1)).Distinct().ToList();
+            Require(glyphs.Count == 1, "The check mark is as large as the icons.");
+            var hints = rows.SelectMany(row => row.GetVisualDescendants().OfType<TextBlock>()).Where(text => text.Name == "ChatMenuDetail").Select(text => Math.Round(text.TranslatePoint(new Point(text.Bounds.Width, 0), menu)!.Value.X, 1)).Distinct().ToList();
+            Require(hints.Count == 1, "The hints of the + menu end at one x.");
+            Require(rows.All(row => ToolTip.GetPlacement(row) == PlacementMode.RightEdgeAlignedTop), "A row's tip opens beside the menu, off the composer.");
+            menu.Close();
+        }
+        finally { window.Close(); }
+    }
+
     // The model, effort, permission and attach pickers are menus: opened from their footer chip, the value in force a checked radio row, one click chooses and closes.
     // More models opens the hand-built searchable list, which keeps the popup family: a container, a muted header, equal rows with a check column.
     private static void PopupFamily()
