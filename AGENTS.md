@@ -13,7 +13,6 @@
   - If still red, report exactly what and why (flaky/infra versus regression).
   - Report final run URLs and job conclusions.
   - Dependabot runs are excluded unless the push changed dependency locks.
-  - CI was switched off from 2026-11-06 to 2026-11-07 by a GitHub billing lock and is on again. Changes landed in that window ran no Windows, arm64, Android or packaging checks, so the first runs after it may show failures from that gap.
 - Inspect Git status before editing; leave other tasks' changes alone.
 - Commit messages are short: one subject line of at most 72 characters in the form `Area: what changed for the user` (imperative or plain statement, for example `Rail: pinned projects sit on top`). No body by default; add one only for a non-obvious why, at most three short lines, and never a list of files, checks, symbols or verification steps (the diff and CI carry those). Write it so someone who did not see the work understands the change from the subject alone; no jargon of the session (workspace numbers, agent names, "per the brief"). The attribution trailers the task gives stay.
 - Reference related GitHub issues in commit messages (`#46`, `Refs #46`), but never with a closing keyword (`Fixes`, `Closes`, `Resolves` and their variants): the user closes issues.
@@ -25,7 +24,7 @@
 - Keep settings, presets, workspace labels, project list/recents and workspace lifecycle in host state (`IHostStateService`): change them through the host and update the UI on broadcast (`HostSync.cs`), never by writing a local copy.
 - Static UI layouts, styles and templates go in compiled `.axaml`; dynamic docking and host/interaction wiring go in C#. Edit authored design sources (`src/Tereditor.UI/Rendering/Design`), not generated C#.
 - Shared UI sources must compile for Android and Browser: desktop-only code goes under `#if !ANDROID && !BROWSER` or in files those projects exclude (see `docs/develop/agent-reference.md`).
-- Codex and Claude Code terminal integrations are in scope, so are chat modes over Claude Code's stream-json, Pi's RPC mode and the Agent Client Protocol (ACP, early support), sharing one chat view (no other embedded AI chat UI); Pi has early support and omp basic (early) support, and Model providers keeps their API keys.
+- Codex and Claude Code terminal integrations are in scope, so are chat modes over Claude Code's stream-json, Pi's RPC mode and the Agent Client Protocol (ACP, early support), sharing one chat view (no other embedded AI chat UI); Pi has early support (its side pane reads Pi's files and runs `pi install|remove`; a pinned Pi can be downloaded through the Runtimes plugin) and omp basic (early) support, and Model providers keeps their API keys. Every agent's Account tab names the model provider it runs under.
 
 ## User-facing text
 
@@ -43,6 +42,8 @@
 - A build target of a project that has a `.csproj` in its directory runs file-based scripts with `dotnet run --file <script>`, never `dotnet run <script>`: the latter runs the project itself, which re-enters the target without end (`docs/develop/building.md`, Memory).
 - Agents never run `scripts/mise run native` and never launch the app: that task is the user's own NativeAOT build, it bypasses the `queue-heavy` compile queue and needs several GB.
 - Documentation-only edits need whitespace and path verification, not a build or the gate.
+- A UI (headless Avalonia) check never runs inside an async check that `Program.cs` blocks on with `GetResult()`: Avalonia installs its own synchronization context, so later awaits wait on a dispatcher nobody pumps and the run hangs. Call UI checks from the mode's branch in `Program.cs`, after the headless setup.
+- A build or tool that dies with exit 143 was sent SIGTERM; the terminal memory guard is one possible sender (`processes_status` MCP tool, `~/.tereditor/logs/memory-guard.log`). Check there before retrying.
 - Report only checks actually run; name anything blocked.
 
 ## Verification budget
