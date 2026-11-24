@@ -13,6 +13,9 @@ public static class LocalBrowserApprovalClient
         (address.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
         IPAddress.TryParse(address.Host.Trim('[', ']'), out var ip) && IPAddress.IsLoopback(ip));
 
+    /// <summary>True for the origin the published client is served from, which may ask a local host for approval.</summary>
+    public static bool IsPublishedOrigin(string origin) => LocalBrowserOrigins.IsPublished(origin);
+
     /// <summary>
     /// Requests a temporary credential using the browser's Origin header; HTTP rejection preserves its status code. With a pairing
     /// code from the host's terminal the host answers without a prompt; the code goes in the body, never the URL.

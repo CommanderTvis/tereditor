@@ -7,7 +7,6 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 
 using Tereditor.Host.Client;
-using Tereditor.Host.Protocol;
 using Tereditor.UI.Panels;
 using Tereditor.UI.State;
 
@@ -29,7 +28,7 @@ public sealed partial class ConnectWindow : Window
     private bool completed;
     private string? approvedToken;
     // A loopback page, or the published client: both may ask a host on this computer for a credential.
-    private readonly bool localPage = HostEndpoint.IsLocal(HostEndpoint.Parse(BrowserInterop.Origin())) || LocalBrowserOrigins.IsPublished(BrowserInterop.Origin());
+    private readonly bool localPage = HostEndpoint.IsLocal(HostEndpoint.Parse(BrowserInterop.Origin())) || LocalBrowserApprovalClient.IsPublishedOrigin(BrowserInterop.Origin());
 
     /// <summary>Raised once the host answered with the entered token.</summary>
     public event Action<HostEndpoint>? Connected;
