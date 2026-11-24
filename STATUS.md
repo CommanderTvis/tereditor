@@ -26,7 +26,7 @@ Passing functional checks does not prove the full visual and docking contract. M
 
 Also in scope and covered by their own specs: the protobuf WebSocket transport, the browser client ([browser spec](src/Tereditor.Browser/SPEC.md)), the Plugin API with its builtins, language servers ([language spec](src/Tereditor.Host.Core/Language/SPEC.md)), Tailscale pairing ([plugin spec](src/Tereditor.Plugins.Tailscale/SPEC.md)) and the macOS Scintilla editor (`src/Tereditor.Scintilla/README.md`). The [checks contract](tests/Tereditor.Checks/SPEC.md#recorded-verification-scope) separates source evidence from packaged evidence.
 
-Still open from those scopes: the Keymap editor binds only the window commands (not editor, terminal or plugin keys; no import/export, per-workspace keymaps or key sequences); the optional JetBrains Context shares the vendor's login and cache, and real authenticated cloud search is unverified.
+Still open from those scopes: the Keymap editor binds only the window commands (not editor, terminal or plugin keys; no import/export, per-workspace keymaps or key sequences).
 
 ## Backlog
 
@@ -39,8 +39,6 @@ Authorities: [UI](src/Tereditor.UI/SPEC.md), [terminal contract](src/Tereditor.U
 
 | ID | Status | Gap |
 | --- | --- | --- |
-| V01 | Missing | Equivalent away notifications outside macOS and explicit system-permission state presentation; current denial can be silent. |
-| V02 | Partial | Multiple attention notifications lead to a chooser. Current batch opens the latest terminal rather than letting the user choose among all waiting terminals. |
 | V04 | Missing | Busy-close confirmation does not dismiss when another client closes the terminal. [TerminalTabs.cs](src/Tereditor.UI/TerminalTabs.cs) awaits a normal confirmation without catalog-driven invalidation; this remains an explicit [terminal contract](src/Tereditor.UI/Terminal/SPEC.md) implementation gap. |
 
 ### Outstanding acceptance work
