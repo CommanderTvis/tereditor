@@ -24,6 +24,7 @@ internal static partial class CiCoverageChecks
         ["--acp"] = Cases("acp"),
         ["--agent-launches"] = Cases("agent-launch-origins", "agent-launch-contributions", "AgentLaunchNotices"),
         ["--agent-marks"] = Cases("AgentTabMarksE2E", "RemoteAgentMarksE2E", "TerminalSessionIdE2E"),
+        ["--agent-pane"] = Cases("agent-pane"),
         ["--agent-session-ownership"] = Cases("agent-session-ownership"),
         ["--air-gateway"] = Cases("air-gateway", "air-gateway-ui"),
         ["--android"] = Cases("android-client"),
