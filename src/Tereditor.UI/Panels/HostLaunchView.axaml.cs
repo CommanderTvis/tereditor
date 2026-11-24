@@ -30,13 +30,19 @@ public sealed partial class HostLaunchView : UserControl
         foreach (var option in first) firstPanel.Children.Add(Card(option));
         var otherPanel = this.FindControl<StackPanel>("LaunchOther")!;
         foreach (var option in other) otherPanel.Children.Add(Card(option, withSystem: true));
-        this.FindControl<Expander>("LaunchOtherExpander")!.IsVisible = other.Count > 0;
+        // The uninstall commands sit under the start commands: the visitor's own first, the rest under Other options.
+        var own = HostLaunch.Uninstall.Where(option => option.Os == os).ToArray();
+        var uninstallPanel = this.FindControl<StackPanel>("LaunchUninstall")!;
+        foreach (var option in own) uninstallPanel.Children.Add(Card(option));
+        this.FindControl<TextBlock>("LaunchUninstallHeading")!.IsVisible = own.Length > 0;
+        foreach (var option in HostLaunch.Uninstall.Where(option => option.Os != os)) otherPanel.Children.Add(Card(option, withSystem: true));
+        this.FindControl<Expander>("LaunchOtherExpander")!.IsVisible = otherPanel.Children.Count > 0;
     }
 
     private Control Card(LaunchOption option, bool withSystem = false)
     {
         var card = new StackPanel { Name = "Launch_" + option.Id, Spacing = 6 };
-        card.Children.Add(new TextBlock { Text = withSystem ? option.Os + ": " + option.Title : option.Title, FontSize = 16 });
+        card.Children.Add(new TextBlock { Text = withSystem ? option.Os + ": " + option.Title : option.Id.EndsWith("-uninstall") ? "Command" : option.Title, FontSize = 16 });
         card.Children.Add(new TextBlock { Text = option.Steps, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Foreground = Ui.Muted });
         var box = new TextBox { Text = option.Command, IsReadOnly = true, AcceptsReturn = true, FontFamily = Ui.CodeFont, FontSize = 12, MaxHeight = 160, Name = "LaunchCommand_" + option.Id };
         var copied = new TextBlock { Name = "LaunchCopied_" + option.Id, Text = "Copied", IsVisible = false, Foreground = Ui.Muted, VerticalAlignment = VerticalAlignment.Center };

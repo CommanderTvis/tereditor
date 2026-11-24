@@ -4,6 +4,8 @@
     <TextBlock Text="Start a host on this computer" FontSize="20" />
     <TextBlock x:Name="LaunchPairing" TextWrapping="Wrap" Foreground="{x:Static kit:Ui.Muted}" />
     <StackPanel x:Name="LaunchFirst" Spacing="12" />
+    <TextBlock x:Name="LaunchUninstallHeading" Text="Uninstall the host started from this page" FontSize="16" />
+    <StackPanel x:Name="LaunchUninstall" Spacing="12" />
     <Expander x:Name="LaunchOtherExpander" Header="Other options">
       <StackPanel x:Name="LaunchOther" Spacing="12" Margin="0,8,0,0" />
     </Expander>

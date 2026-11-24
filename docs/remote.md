@@ -41,6 +41,8 @@ The browser client has a "Start a host on this computer" button. On Windows it s
 
 The browser must let the page reach your computer. Chrome, Edge and Brave ask for "Local network access". Click Allow. If you blocked it, use the icon left of the address bar, open Site settings, and allow it. On macOS and Linux the script downloads the desktop app from the nightly release, checks it, and runs it with `--host-only`, which starts the host without a window. There is no container command yet.
 
+Every start command installs into one per-user folder and writes a `manifest.txt` there: `%LOCALAPPDATA%\tereditor-host\` on Windows, `~/.tereditor/host-install/` on macOS and Linux. It needs no administrator or root rights and changes nothing system-wide. Just under the start commands the page shows an "Uninstall the host started from this page" command for your system. It stops the host that the install started (only the recorded process), removes the folder and the paths the manifest lists, and prints what it removed. It refuses a folder without the manifest marker, and running it twice is fine. It keeps your own settings and projects in `~/.tereditor/host`. Paired browser grants and pairing codes live only in the host's memory, so stopping the host ends them. To delete `~/.tereditor/host` too, change `purge=0` to `purge=1` (Windows: `$purge = $true`) on the second line before you run it.
+
 ### Use another machine
 
 1. Set the host's `TEREDITOR_BIND` to its Tailscale IP.
