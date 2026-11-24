@@ -29,6 +29,7 @@
 ## User-facing text
 
 - Anything a user reads in the app (toasts, labels, errors, settings text, README and docs prose) uses simple grammar: short sentences, plain words, active voice.
+- Use American English (AmE) spelling everywhere: color, behavior, favorite, center, gray, canceled, customize, organization. Code identifiers, settings keys and wire fields keep whatever they already are.
 - Use em dashes and semicolons sparingly. Prefer a full stop or a colon. Do not join a notification title and its message with a dash.
 
 ## Build, format, check
