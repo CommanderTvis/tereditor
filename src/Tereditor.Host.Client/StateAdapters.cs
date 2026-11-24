@@ -124,6 +124,8 @@ public sealed class RemoteStateAdapter : IHostStateService, IDisposable
             EditorIndentWithTabs = reply.Settings.EditorIndentWithTabs,
             EditorDetectIndent = !reply.Settings.EditorDetectIndentOff,
             EditorZoomGestures = !reply.Settings.EditorZoomGesturesOff,
+            EditorSoftWrap = reply.Settings.EditorSoftWrap,
+            DiffSoftWrap = reply.Settings.DiffSoftWrap,
             EditorFontFamily = reply.Settings.EditorFontFamily ?? "",
             EditorLineHeight = reply.Settings.EditorLineHeight,
             LanguageServers = reply.Settings.LanguageServers,

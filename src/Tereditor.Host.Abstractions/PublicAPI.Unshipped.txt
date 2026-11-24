@@ -2215,7 +2215,8 @@ Tereditor.Host.Abstractions.HostSettings.ActiveKeymap.get -> string!
 Tereditor.Host.Abstractions.HostSettings.ActiveKeymap.set -> void
 Tereditor.Host.Abstractions.HostState.KeymapPresets.get -> System.Collections.Generic.IReadOnlyList<Tereditor.Host.Abstractions.KeymapPreset!>!
 Tereditor.Host.Abstractions.HostState.KeymapPresets.init -> void
-const Tereditor.Host.Abstractions.HostProtocol.Current = 26 -> int
+const Tereditor.Host.Abstractions.HostProtocol.Current = 27 -> int
+const Tereditor.Host.Abstractions.HostProtocol.SoftWrapSettings = 27 -> int
 const Tereditor.Host.Abstractions.HostProtocol.AgentIconColors = 26 -> int
 Tereditor.Host.Abstractions.HostSettings.AgentIconsColored.get -> bool
 Tereditor.Host.Abstractions.HostSettings.AgentIconsColored.init -> void
@@ -2383,6 +2384,10 @@ Tereditor.Host.Abstractions.HostSettings.EditorIndentWithTabs.get -> bool
 Tereditor.Host.Abstractions.HostSettings.EditorIndentWithTabs.init -> void
 Tereditor.Host.Abstractions.HostSettings.EditorDetectIndent.get -> bool
 Tereditor.Host.Abstractions.HostSettings.EditorDetectIndent.set -> void
+Tereditor.Host.Abstractions.HostSettings.DiffSoftWrap.get -> bool
+Tereditor.Host.Abstractions.HostSettings.DiffSoftWrap.set -> void
+Tereditor.Host.Abstractions.HostSettings.EditorSoftWrap.get -> bool
+Tereditor.Host.Abstractions.HostSettings.EditorSoftWrap.set -> void
 Tereditor.Host.Abstractions.HostSettings.EditorZoomGestures.get -> bool
 Tereditor.Host.Abstractions.HostSettings.EditorZoomGestures.set -> void
 Tereditor.Host.Abstractions.HostSettings.EditorFontFamily.get -> string!

@@ -33,7 +33,7 @@ public sealed partial class WorkbenchWindow
     private Avalonia.Controls.Control ProposedDiffContent(Docking.DockTab tab, string key)
     {
         if (!proposedDiffs.TryGetValue(key, out var diff)) return Ui.Text("This proposed change is no longer available.");
-        var view = new DiffView(diff, tab.Path, LineWidths.File(Preferences.FileLineWidth, Preferences.FileLineWidthBounded));
+        var view = new DiffView(diff, tab.Path, LineWidths.File(Preferences.FileLineWidth, Preferences.FileLineWidthBounded), softWrap: state.Current.Settings.DiffSoftWrap);
         documentContent[key] = view;
         return view;
     }

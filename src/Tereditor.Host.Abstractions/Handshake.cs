@@ -9,7 +9,10 @@ namespace Tereditor.Host.Abstractions;
 /// </summary>
 public static class HostProtocol
 {
-    public const int Current = 26;
+    public const int Current = 27;
+
+    /// <summary>The <c>editor-soft-wrap</c> and <c>diff-soft-wrap</c> settings: long lines wrap at the pane edge in editors and diffs. A host below it rejects the keys, so a client leaves the choices disabled.</summary>
+    public const int SoftWrapSettings = 27;
 
     /// <summary>The <c>agent-icons-colored</c> setting: agent icons in their brand colour. A host below it rejects the key, so a client offers no choice there.</summary>
     public const int AgentIconColors = 26;

@@ -117,7 +117,7 @@ public sealed partial class ScintillaEditor
         return Math.Max(0, Bounds.Width - margins);
     }
 
-    private double HorizontalMaximum() => (double.IsFinite(wrapWidth) || WrapAlways) ? 0
+    private double HorizontalMaximum() => (double.IsFinite(wrapWidth) || WrapAlways || wrapToPane) ? 0
         : Math.Max(0, Math.Floor(document.Send(ScintillaMessage.GetScrollWidth) - TextViewport()));
 
     private void UpdateScroll()

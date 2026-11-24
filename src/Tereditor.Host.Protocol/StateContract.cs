@@ -83,6 +83,10 @@ public sealed class SettingsMessage
     [ProtoMember(42)] public bool ServeOnStart { get; set; }
     /// <summary>Off, the default, from a host that predates the setting (protocol 26).</summary>
     [ProtoMember(43)] public bool AgentIconsColored { get; set; }
+    /// <summary>Off, the default, from a host that predates the setting.</summary>
+    [ProtoMember(44)] public bool EditorSoftWrap { get; set; }
+    /// <summary>Off, the default, from a host that predates the setting.</summary>
+    [ProtoMember(45)] public bool DiffSoftWrap { get; set; }
 }
 
 [ProtoContract]

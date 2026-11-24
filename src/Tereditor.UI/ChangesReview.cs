@@ -120,7 +120,9 @@ public sealed partial class WorkbenchWindow
                 SaveProfile();
                 foreach (var window in workbench.Windows)
                     foreach (var other in window.documentContent.Values.OfType<ChangesReviewPane>().Where(other => !ReferenceEquals(other, pane))) other.UpdateMode();
-            });
+            },
+            () => state.Current.Settings.DiffSoftWrap,
+            value => { if (state.Supports(HostProtocol.SoftWrapSettings)) _ = ShareAsync(HostStateChange.Setting("diff-soft-wrap", value ? "true" : "false")); });
         return pane;
     }
 

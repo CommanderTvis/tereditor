@@ -792,6 +792,23 @@ public sealed partial class SettingsView : UserControl
             Share(HostStateChange.Setting("editor-zoom-gestures", Setting(requested)));
             zoom.IsChecked = state.Current.Settings.EditorZoomGestures;
         };
+        var editorWrap = PageControl<CheckBox>(panel, "EditorSoftWrap");
+        var diffWrap = PageControl<CheckBox>(panel, "DiffSoftWrap");
+        void WrapChoice(CheckBox box, string key, Func<HostSettings, bool> current)
+        {
+            box.IsEnabled = state.Supports(HostProtocol.SoftWrapSettings);
+            box.IsChecked = current(state.Current.Settings);
+            box.IsCheckedChanged += (_, _) =>
+            {
+                var requested = box.IsChecked == true;
+                if (requested == current(state.Current.Settings)) return;
+                Share(HostStateChange.Setting(key, Setting(requested)));
+                box.IsChecked = current(state.Current.Settings);
+            };
+            refreshers.Add(() => { box.IsEnabled = state.Supports(HostProtocol.SoftWrapSettings); box.IsChecked = current(state.Current.Settings); });
+        }
+        WrapChoice(editorWrap, "editor-soft-wrap", settings => settings.EditorSoftWrap);
+        WrapChoice(diffWrap, "diff-soft-wrap", settings => settings.DiffSoftWrap);
         refreshers.Add(() => { height.Value = CurrentHeight(); IndentChoice(); detect.IsChecked = state.Current.Settings.EditorDetectIndent; zoom.IsChecked = state.Current.Settings.EditorZoomGestures; });
         PageControl<ContentControl>(panel, "FileLineWidthHost").Content = LineWidthControl("File",
             "Wraps source files and diffs in the editor font.",

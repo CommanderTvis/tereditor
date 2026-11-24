@@ -166,6 +166,7 @@ internal static class StateChecks
             HostStateChange.Setting("terminal-hidden-chips", "model, env/env-mise,model"), HostStateChange.Setting("group-workspaces-under-creator", "true"), HostStateChange.Setting("agent-icons-colored", "true"),
             HostStateChange.Setting("vertical-tabs", "true"), HostStateChange.Setting("tabs-in-projects", "false"),
             HostStateChange.Setting("editor-indent-tabs", "true"), HostStateChange.Setting("editor-detect-indent", "false"), HostStateChange.Setting("editor-zoom-gestures", "false"),
+            HostStateChange.Setting("editor-soft-wrap", "true"), HostStateChange.Setting("diff-soft-wrap", "true"),
             HostStateChange.Setting("editor-font-family", " Fira Code "), HostStateChange.Setting("editor-line-height", "15"),
             HostStateChange.Setting("custom-highlighting", """[{"Name":"Example","Scope":"source.example","Patterns":["*.example"],"Grammar":"{\"scopeName\":\"source.example\",\"patterns\":[]}"}]"""),
             HostStateChange.SavePreset("Mine", "{}"), HostStateChange.RenamePreset("Mine", "Renamed"),
@@ -253,7 +254,7 @@ internal static class StateChecks
         Require(state.Settings is
         {
             Theme: "light", ThemeMode: "system", SystemDark: "high-contrast-dark", Accent: "#3b82f6", MarkdownLineWidth: 80, FileLineWidthBounded: false, NotificationsEnabled: false, FileTypeIconsEnabled: false, FileTypeIconStyle: "material", WindowDecorations: "client", TerminalNotificationsEnabled: false, BellFeatures: "system,title",
-            EditorIndentWithTabs: true, EditorDetectIndent: false, EditorZoomGestures: false, EditorFontFamily: "Fira Code", EditorLineHeight: 15, TerminalHiddenChips: "env/env-mise,model", GroupWorkspacesUnderCreator: true, AgentIconsColored: true
+            EditorIndentWithTabs: true, EditorDetectIndent: false, EditorZoomGestures: false, EditorSoftWrap: true, DiffSoftWrap: true, EditorFontFamily: "Fira Code", EditorLineHeight: 15, TerminalHiddenChips: "env/env-mise,model", GroupWorkspacesUnderCreator: true, AgentIconsColored: true
         } &&
             state.Presets.Single().Name == "Renamed" && state.Projects.SequenceEqual([project]) && state.RecentProjects.SequenceEqual([other]),
             "Changes apply in order: presets rename, closing moves a project to the recents.");

@@ -56,6 +56,7 @@
       <ToggleButton x:Name="ReviewSplit" Classes="review-choice" Content="Split" IsVisible="False" />
       <ToggleButton x:Name="ReviewInline" Classes="review-choice" Content="Inline" IsVisible="False" />
       <ToggleButton x:Name="ReviewWhitespace" Classes="review-choice" Content="Hide whitespace" IsVisible="False" />
+      <ToggleButton x:Name="ReviewWrap" Classes="review-choice" Content="Wrap" IsVisible="False" ToolTip.Tip="Wrap long diff lines at the pane edge" />
       <Button x:Name="ReviewCollapse" Classes="review-action" Content="Collapse all" />
       <Button x:Name="ReviewExpand" Classes="review-action" Content="Expand all" />
       <Button x:Name="ReviewPrevious" Classes="review-action" Content="Previous" />

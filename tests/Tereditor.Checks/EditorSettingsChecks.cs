@@ -9,6 +9,7 @@ using Tereditor.Host.Client;
 using Tereditor.Host.Core;
 using Tereditor.Plugins.UI.Kit.Editor;
 using Tereditor.Scintilla;
+using Tereditor.UI;
 using Tereditor.UI.Editor;
 using Tereditor.UI.Rendering;
 
@@ -163,6 +164,65 @@ internal static class EditorSettingsChecks
                 Require(ScintillaEditor.TextSize == size, $"With zoom gestures off a pinch or Ctrl/Cmd + wheel leaves the text size alone ({size} then {ScintillaEditor.TextSize}).");
             }
             finally { ScintillaEditor.ZoomGestures = true; ScintillaEditor.TextSize = size; }
+
+            // A zoom gesture over a diff tab or the Changes pane sizes that view's own text only: no file editor, other diff, shared
+            // size or window page zoom follows.
+            var reached = 0;
+            var siblingDiff = new DiffView("@@ -1,2 +1,2 @@\n before\n-old\n+new\n", "b.txt", 800);
+            var reviewFiles = new[] { new GitChange("code.cs", "M", " ", null, 1, 1) };
+            var reviewState = new ChangesReviewState { ActivePath = "code.cs" };
+            using var review = new ChangesReviewPane("Changes", reviewState, false,
+                _ => Task.FromResult(new GitSnapshot(true, "main", reviewFiles, [], [])),
+                (file, natural, _, _) => Task.FromResult(new DiffView("@@ -1,2 +1,2 @@\n context\n-before\n+after\n", file.Path, 800, naturalHeight: natural, embedded: true)),
+                _ => { }, () => { }, () => { }, () => true, () => true, _ => { });
+            var zoomPanel = new StackPanel();
+            zoomPanel.Children.Add(new Border { Height = 150, Child = siblingDiff });
+            zoomPanel.Children.Add(new Border { Height = 300, Child = review });
+            var zoomWindow = new Window { Width = 900, Height = 500, Content = zoomPanel };
+            zoomWindow.Show();
+            zoomWindow.AddHandler(InputElement.PointerTouchPadGestureMagnifyEvent, (_, _) => reached++);
+            zoomWindow.AddHandler(InputElement.PointerWheelChangedEvent, (_, e) => { if (e.KeyModifiers != KeyModifiers.None) reached++; });
+            try
+            {
+                Pump(() => review.DiffFor("code.cs")?.GetLogicalDescendants().OfType<ScintillaEditor>().Any() == true && siblingDiff.GetLogicalDescendants().OfType<ScintillaEditor>().Any());
+                var reviewDiff = review.DiffFor("code.cs")!;
+                var reviewEditor = reviewDiff.GetLogicalDescendants().OfType<ScintillaEditor>().First();
+                var siblingEditor = siblingDiff.GetLogicalDescendants().OfType<ScintillaEditor>().First();
+                var fileRow = Row(cs.Editor); var siblingRow = Row(siblingEditor); var reviewRow = Row(reviewEditor);
+                TerminalFontZoomChecks.Magnify(zoomWindow, review, 0.25); Pump();
+                Require(reviewEditor.OwnTextSize > size && reviewDiff.TextSize == reviewEditor.OwnTextSize && Row(reviewEditor) > reviewRow,
+                    $"A pinch over Changes sizes the Changes diff text ({reviewEditor.OwnTextSize}).");
+                Require(ScintillaEditor.TextSize == size && siblingEditor.OwnTextSize is null && cs.Editor.OwnTextSize is null &&
+                    Row(cs.Editor) == fileRow && Row(siblingEditor) == siblingRow && reached == 0,
+                    $"Zooming Changes leaves the shared size ({size} then {ScintillaEditor.TextSize}), file editors, other diffs and the window's page zoom alone ({reached}).");
+                TerminalFontZoomChecks.Wheel(zoomWindow, siblingDiff, 2, KeyModifiers.Meta); Pump();
+                Require(siblingEditor.OwnTextSize > size && ScintillaEditor.TextSize == size && Row(cs.Editor) == fileRow && reached == 0 &&
+                    reviewDiff.TextSize == reviewEditor.OwnTextSize,
+                    "Cmd + wheel over a diff tab sizes that diff alone.");
+                var reviewSize = reviewEditor.OwnTextSize;
+                TerminalFontZoomChecks.Magnify(zoomWindow, siblingDiff, 0.25); Pump();
+                Require(reviewEditor.OwnTextSize == reviewSize, "A second diff's zoom does not change the Changes diff text.");
+            }
+            finally { ScintillaEditor.TextSize = size; zoomWindow.Close(); }
+            // Soft wrap: a long diff line wraps at the pane edge once Diffs wrap is on, live, and stays one line when off.
+            Require(!new HostSettings().EditorSoftWrap && !new HostSettings().DiffSoftWrap, "Soft wrap is off by default.");
+            var longDiff = "@@ -1,2 +1,2 @@\n before\n-" + new string('o', 600) + "\n+" + new string('n', 600) + "\n";
+            var wrapped = new DiffView(longDiff, "a.txt", double.PositiveInfinity);
+            var wrapWindow = new Window { Width = 700, Height = 300, Content = wrapped };
+            wrapWindow.Show();
+            try
+            {
+                Pump(() => wrapped.GetLogicalDescendants().OfType<ScintillaEditor>().Any());
+                var wrapEditor = wrapped.GetLogicalDescendants().OfType<ScintillaEditor>().First();
+                int Rows() { Pump(); return Enumerable.Range(0, 6).Max(line => wrapEditor.WrapCount(line)); }
+                Require(Rows() == 1, "Without soft wrap a long diff line stays on one row.");
+                wrapped.SoftWrap = true;
+                var rows = Rows();
+                Require(rows > 1 && wrapEditor.HorizontalScroll.Maximum == 0, $"With soft wrap a 600-column diff line takes {rows} rows and needs no sideways scroll.");
+                wrapped.SoftWrap = false;
+                Require(Rows() == 1, "Turning soft wrap off restores the single row, live.");
+            }
+            finally { wrapWindow.Close(); }
 
             // Font family: a live switch for editors and diffs; an unknown family falls back to the bundled font.
             if (installed is not null)

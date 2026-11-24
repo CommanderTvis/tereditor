@@ -74,6 +74,9 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
     private readonly Action allChanges;
     private readonly Func<bool> ownsKeyboard;
     private readonly Func<bool> single;
+    private readonly Rendering.TextZoomClaim textZoom;
+    private readonly Func<bool>? softWrap;
+    private readonly Action<bool>? setSoftWrap;
     private readonly Action<bool> setSingle;
     private readonly bool mutable;
     private readonly Grid body;
@@ -102,8 +105,9 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
         Func<CancellationToken, Task<GitSnapshot>> read,
         Func<GitChange, bool, DiffTriage?, CancellationToken, Task<DiffView>> load,
         Action<GitChange> openFile, Action changed, Action allChanges, Func<bool> ownsKeyboard,
-        Func<bool> single, Action<bool> setSingle)
+        Func<bool> single, Action<bool> setSingle, Func<bool>? softWrap = null, Action<bool>? setSoftWrap = null)
     {
+        this.softWrap = softWrap; this.setSoftWrap = setSoftWrap;
         this.state = state; this.mutable = mutable; this.read = read; this.load = load;
         this.openFile = openFile; this.changed = changed; this.allChanges = allChanges;
         this.ownsKeyboard = ownsKeyboard; this.single = single; this.setSingle = setSingle;
@@ -116,7 +120,7 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
         this.FindControl<TextBlock>("ReviewScope")!.Foreground = Ui.TextBrush;
         summary.Foreground = progress.Foreground = Ui.Muted;
         Background = Ui.Surface;
-        foreach (var name in new[] { "ReviewStacked", "ReviewSingle", "ReviewSplit", "ReviewInline", "ReviewWhitespace" })
+        foreach (var name in new[] { "ReviewStacked", "ReviewSingle", "ReviewSplit", "ReviewInline", "ReviewWhitespace", "ReviewWrap" })
         {
             var toggle = this.FindControl<ToggleButton>(name)!;
             foreach (var status in new[] { "Checked", "CheckedPointerOver", "CheckedPressed", "PointerOver", "Pressed" })
@@ -126,6 +130,7 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
         Wire("ReviewSplit", () => Presentation(true, state.IgnoreWhitespace));
         Wire("ReviewInline", () => Presentation(false, state.IgnoreWhitespace));
         Wire("ReviewWhitespace", () => Presentation(state.Split, !state.IgnoreWhitespace));
+        Wire("ReviewWrap", () => setSoftWrap?.Invoke(!(softWrap?.Invoke() ?? false)));
         Compact("ReviewWhitespace", "Hide whitespace changes", "collapseVertical");
         Compact("ReviewCollapse", "Collapse all files", "collapseVertical");
         Compact("ReviewExpand", "Expand all files", "expandVertical");
@@ -145,6 +150,12 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
         };
         AddHandler(PointerWheelChangedEvent, (_, _) => { reveal = null; anchored = null; }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         AddHandler(PointerPressedEvent, (_, _) => { reveal = null; anchored = null; }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        textZoom = new Rendering.TextZoomClaim(size =>
+        {
+            foreach (var section in sections.Values)
+                if (section.View is { } view) view.TextSize = size;
+        });
+        textZoom.Attach(this);
         ShowNotice("Loading changes…");
     }
 
@@ -375,6 +386,7 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
             }
             section.Stale = false;
             section.View = view;
+            view.TextSize = textZoom.Size;
             if (!ReferenceEquals(view, retained)) view.ViewChanged += () =>
             {
                 section.SourcePresentation = view.HasSourcePresentation;
@@ -409,6 +421,13 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
 
     internal bool Contains(DiffView view) => sections.Values.Any(section => ReferenceEquals(section.View, view));
     internal DiffView? DiffFor(string path) => sections.GetValueOrDefault(path)?.View;
+    /// <summary>Follows the shared Diffs soft wrap setting: every open file view re-wraps in place and the toolbar toggle mirrors it.</summary>
+    internal void SetSoftWrap(bool value)
+    {
+        foreach (var section in sections.Values)
+            if (section.View is { } view) view.SoftWrap = value;
+        this.FindControl<ToggleButton>("ReviewWrap")!.IsChecked = value;
+    }
     internal void SetCanRevert(bool value)
     {
         foreach (var section in sections.Values)
@@ -626,6 +645,9 @@ internal sealed partial class ChangesReviewPane : UserControl, IDisposable
         var source = sections.Values.Any(section => section.SourcePresentation && !IsCollapsed(section.Change));
         foreach (var name in new[] { "ReviewSplit", "ReviewInline", "ReviewWhitespace" })
             this.FindControl<ToggleButton>(name)!.IsVisible = source;
+        var wrap = this.FindControl<ToggleButton>("ReviewWrap")!;
+        wrap.IsVisible = source && setSoftWrap is not null;
+        wrap.IsChecked = softWrap?.Invoke() ?? false;
     }
     private void Mode(bool value) { setSingle(value); Build(); Reveal(state.ActivePath ?? ""); }
     private void Presentation(bool split, bool whitespace)

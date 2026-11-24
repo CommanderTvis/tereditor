@@ -77,6 +77,10 @@ public sealed record HostSettings
     public bool EditorDetectIndent { get; set; } = true;
     /// <summary>Whether a trackpad pinch, a touch pinch or Ctrl/Cmd with the wheel changes the editors' text size; off, those gestures do nothing there.</summary>
     public bool EditorZoomGestures { get; set; } = true;
+    /// <summary>Whether file editors wrap long lines at the pane edge instead of scrolling sideways; a bounded file line width still wraps at its column.</summary>
+    public bool EditorSoftWrap { get; set; }
+    /// <summary>Whether diffs (Changes, diff tabs) wrap long lines at the pane edge instead of scrolling sideways or cutting them off.</summary>
+    public bool DiffSoftWrap { get; set; }
     /// <summary>The code editors' font family; empty is the bundled JetBrains Mono, and so is a family a client does not have.</summary>
     public string EditorFontFamily { get; set; } = "";
     /// <summary>The code editors' row height in tenths of the font's natural line height (10–20); zero is the default of 10.</summary>

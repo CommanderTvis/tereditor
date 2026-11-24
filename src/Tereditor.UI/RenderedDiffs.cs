@@ -23,7 +23,7 @@ public sealed partial class WorkbenchWindow
             described ? null : DiffChoices(tab, key, new(workspaceRoot, tab.Path, ResourceRegistry.InferredMime(tab.Path), true, null), null),
             tabViews.GetValueOrDefault(key)?.RendererId, id => WriteTabView(key, new(id)), pending: described,
             revert: DiffRevert(tab, key), canRevert: state.Supports(HostProtocol.ChangeWritePath), triage: triage, naturalHeight: naturalHeight, embedded: embedded,
-            guard: DiffGuard(tab, key));
+            guard: DiffGuard(tab, key), softWrap: state.Current.Settings.DiffSoftWrap);
         var workspace = workspaceRoot;
         view.SelectionChanged += (path, selection) => ReportDiffSelection(workspace, tab, path, selection);
         if (described) _ = DescribeDiffAsync(view, tab, key);

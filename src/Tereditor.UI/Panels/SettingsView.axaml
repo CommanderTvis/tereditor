@@ -269,6 +269,14 @@
             <TextBlock Text="Off, a pinch or Ctrl/Cmd with the wheel does nothing in an editor. Scrolling still works. Keyboard zoom is not changed." Classes="settings-description" TextWrapping="Wrap" />
           </StackPanel>
         </Border>
+        <TextBlock Text="Soft wrap" Classes="settings-label" />
+        <Border Classes="settings-row">
+          <StackPanel Spacing="4">
+            <CheckBox x:Name="EditorSoftWrap" Content="Wrap editor lines at the pane edge" />
+            <CheckBox x:Name="DiffSoftWrap" Content="Wrap diff lines at the pane edge" />
+            <TextBlock Text="Applies to the editor, the Changes view and diff tabs. A line width limit below still wraps at its column. Wrapped lines keep one line number and their colors." Classes="settings-description" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
         <TextBlock Text="Wrapping" Classes="settings-label" />
         <ContentControl x:Name="FileLineWidthHost" />
         <ContentControl x:Name="MarkdownLineWidthHost" />

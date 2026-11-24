@@ -54,6 +54,8 @@ internal sealed partial class DiffView : Grid, IDisposable
     private readonly DiffTriage? triage;
     private readonly bool naturalHeight;
     private readonly bool embedded;
+    private bool softWrap;
+    private double? textSize;
     private IReadOnlyDictionary<RevertTarget, string> contentKeys = new Dictionary<RevertTarget, string>();
     private readonly string syntaxPath;
     internal event Action<string, EditorSelection?>? SelectionChanged;
@@ -109,8 +111,11 @@ internal sealed partial class DiffView : Grid, IDisposable
     /// </summary>
     internal DiffView(string text, string path, double wrapWidth,
         IReadOnlyList<DiffChoice>? choices = null, string? selected = null, Action<string>? selectedChanged = null, bool pending = false,
-        Func<RevertTarget, Task>? revert = null, bool canRevert = true, DiffTriage? triage = null, bool naturalHeight = false, bool embedded = false, Control? pathIcon = null, DiffGuardMemory? guard = null)
+        Func<RevertTarget, Task>? revert = null, bool canRevert = true, DiffTriage? triage = null, bool naturalHeight = false, bool embedded = false, Control? pathIcon = null, DiffGuardMemory? guard = null, bool softWrap = false)
     {
+        this.softWrap = softWrap;
+        // In Changes review the pane zooms every diff it holds together; a diff tab zooms alone.
+        if (!embedded) new TextZoomClaim(size => TextSize = size).Attach(this);
         this.guard = guard ?? new DiffGuardMemory();
         this.triage = triage;
         this.naturalHeight = naturalHeight;
@@ -203,6 +208,30 @@ internal sealed partial class DiffView : Grid, IDisposable
         if (split.IsChecked == sideBySide && whitespace.IsChecked == ignoreWhitespace) return;
         split.IsChecked = sideBySide; whitespace.IsChecked = ignoreWhitespace;
         if (!IsRendered) Render();
+    }
+
+    /// <summary>The code text size of this diff alone, null for the shared editor size; it never changes another editor.</summary>
+    internal double? TextSize
+    {
+        get => textSize;
+        set
+        {
+            if (textSize == value) return;
+            textSize = value;
+            foreach (var frame in frames) frame.Editor.OwnTextSize = value;
+        }
+    }
+
+    /// <summary>Whether long lines wrap at the pane edge; changing it re-wraps the editors in place, without rebuilding the diff.</summary>
+    internal bool SoftWrap
+    {
+        get => softWrap;
+        set
+        {
+            if (softWrap == value) return;
+            softWrap = value;
+            foreach (var frame in frames) frame.Editor.WrapToPane = value;
+        }
     }
 
     /// <summary>Whether the host can take a revert now; the controls go while it cannot and return in place.</summary>
@@ -667,6 +696,9 @@ internal sealed partial class DiffView : Grid, IDisposable
             SelectionChanged?.Invoke(value.Original ? OriginalPath : syntaxPath, value.Selection);
         };
         editor.WrapWidth = embedded ? double.PositiveInfinity : wrapWidth;
+        editor.WrapToPane = softWrap;
+        editor.ZoomsItself = false;
+        editor.OwnTextSize = textSize;
         editor.LineStyles = LineStyles();
         editor.StyleLines(side.Styles);
         frame.Highlight(syntaxPath, side.Syntax, side.Styles);

@@ -180,7 +180,15 @@ runs as top-level blocks, whole-document selection/search and offscreen anchor r
   Markdown Source uses the same toggle and width rule outside continuous Changes review. Source
   lines wrap at the file line width. Upstream's diffs stopped honoring that width when they moved off the
   editor component to a diff library that scrolls horizontally; tereditor's source diffs are still editors,
-  so they keep wrapping.
+  so they keep wrapping. The shared Diffs soft wrap setting (`diff-soft-wrap`, default off) also wraps at the pane edge when
+  no column limit applies, in Changes review as well as diff tabs: a wrapped line shows its number on its first row only, keeps its
+  added/removed band across every row, and the setting re-wraps open diffs in place (`DiffView.SoftWrap`). The Changes toolbar
+  has a Wrap toggle beside Hide whitespace for the same setting.
+- A zoom gesture (pinch, Ctrl/Cmd + wheel) anywhere over the Changes pane or a diff tab, editors or not, sizes that view's own diff text
+  (`ScintillaEditor.OwnTextSize`, set through `DiffView.TextSize`; the pane sizes all its diffs together, a diff tab sizes itself) and is
+  handled there. The shared editor text size, file editors, other diffs, other panes and the window's page zoom never follow it. The size
+  lasts as long as the view and is not saved; the zoom gestures setting still turns it off. Diff editors leave these gestures to their view
+  (`ScintillaEditor.ZoomsItself`).
 - On macOS source diffs are read-only Scintilla editors (`Editor/EditorFrame`), so only visible lines are laid
   out and large diffs stay responsive. Each line carries a whole-line style: added/removed lines get a tinted
   foreground over a composited wash band, hunk headers the accent, collapsed context a `⋯ N hidden lines` row.

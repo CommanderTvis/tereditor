@@ -853,6 +853,8 @@ public sealed partial class HostStateStore : IHostStateService
                     "editor-indent-tabs" when bool.TryParse(value, out var tabs) => settings with { EditorIndentWithTabs = tabs },
                     "editor-detect-indent" when bool.TryParse(value, out var detect) => settings with { EditorDetectIndent = detect },
                     "editor-zoom-gestures" when bool.TryParse(value, out var zoom) => settings with { EditorZoomGestures = zoom },
+                    "editor-soft-wrap" when bool.TryParse(value, out var editorWrap) => settings with { EditorSoftWrap = editorWrap },
+                    "diff-soft-wrap" when bool.TryParse(value, out var diffWrap) => settings with { DiffSoftWrap = diffWrap },
                     "editor-font-family" when ValidFontFamily(value) => settings with { EditorFontFamily = value.Trim() },
                     "editor-line-height" when int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var height) && height is >= HostSettings.MinEditorLineHeight and <= HostSettings.MaxEditorLineHeight
                         => settings with { EditorLineHeight = height },

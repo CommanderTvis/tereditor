@@ -3603,6 +3603,8 @@ internal static class RpcCodec
         if (value.EditorZoomGesturesOff) writer.Bool(41, value.EditorZoomGesturesOff);
         if (value.ServeOnStart) writer.Bool(42, value.ServeOnStart);
         if (value.AgentIconsColored) writer.Bool(43, value.AgentIconsColored);
+        if (value.EditorSoftWrap) writer.Bool(44, value.EditorSoftWrap);
+        if (value.DiffSoftWrap) writer.Bool(45, value.DiffSoftWrap);
     }
 
     private static SettingsMessage ReadSettingsMessage(ref ProtoReader reader, SettingsMessage? value)
@@ -3652,6 +3654,8 @@ internal static class RpcCodec
                 case 41: value.EditorZoomGesturesOff = reader.Bool(); break;
                 case 42: value.ServeOnStart = reader.Bool(); break;
                 case 43: value.AgentIconsColored = reader.Bool(); break;
+                case 44: value.EditorSoftWrap = reader.Bool(); break;
+                case 45: value.DiffSoftWrap = reader.Bool(); break;
                 default: reader.Skip(); break;
             }
         }

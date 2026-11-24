@@ -43,6 +43,7 @@ public sealed partial class WorkbenchWindow
     private void ApplyEditorPreferences(CodeDocumentView view)
     {
         view.Editor.WrapWidth = FileWrapWidth;
+        view.Editor.WrapToPane = state.Current.Settings.EditorSoftWrap;
         view.Editor.ShowLineNumbers = Preferences.EditorLineNumbers;
         var settings = state.Current.Settings;
         view.IndentSettings = new(settings.EditorIndentWithTabs, Preferences.EditorTabWidth, settings.EditorDetectIndent);

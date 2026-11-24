@@ -35,6 +35,8 @@
     "EditorIndentWithTabs": false,
     "EditorDetectIndent": true,
     "EditorZoomGestures": true,
+    "EditorSoftWrap": false,
+    "DiffSoftWrap": false,
     "EditorFontFamily": "",
     "EditorLineHeight": 0,
     "Accent": "",

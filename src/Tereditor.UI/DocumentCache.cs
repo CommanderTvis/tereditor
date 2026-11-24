@@ -80,6 +80,23 @@ public sealed partial class WorkbenchWindow
         foreach (var terminal in documentContent.Values.OfType<Terminal.TerminalView>()) terminal.UpdateSecureInput();
     }
 
+    /// <summary>Applies the shared soft wrap settings to the open editors and diffs in place; no pane is rebuilt.</summary>
+    private void ApplySoftWrap()
+    {
+        var settings = state.Current.Settings;
+        foreach (var content in documentContent.Values)
+            switch (content)
+            {
+                case Rendering.DiffView diff: diff.SoftWrap = settings.DiffSoftWrap; break;
+                case ChangesReviewPane review: review.SetSoftWrap(settings.DiffSoftWrap); break;
+                case Editor.CodeDocumentView view: view.Editor.WrapToPane = settings.EditorSoftWrap; break;
+                case Tereditor.UI.Resources.ResourcePane pane:
+                    if (pane.Find<Editor.CodeDocumentView>() is { } code) code.Editor.WrapToPane = settings.EditorSoftWrap;
+                    if (pane.Find<Rendering.DiffView>() is { } nested) nested.SoftWrap = settings.DiffSoftWrap;
+                    break;
+            }
+    }
+
     private void ClearDocumentContent(bool preserveDocuments = false)
     {
         foreach (var key in documentContent.Keys.ToArray())

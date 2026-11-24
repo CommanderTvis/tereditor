@@ -53,6 +53,8 @@ public sealed partial class ScintillaEditor : Control, IDisposable
     private Size pictureSize;
     internal int Recordings { get; private set; }
     private double wrapWidth = double.PositiveInfinity;
+    private double? ownTextSize;
+    private bool wrapToPane;
     public event EventHandler? TextChanged;
     /// <summary>Raised when the selection or caret moves, by input or by an edit; read <see cref="Selection"/> for the range.</summary>
     public event EventHandler? SelectionChanged;
@@ -86,12 +88,12 @@ public sealed partial class ScintillaEditor : Control, IDisposable
         // Two fingers size the text of every editor, as they size a page elsewhere on a touch screen.
         GestureRecognizers.Add(new PinchGestureRecognizer());
         var pinched = 0d;
-        AddHandler(PinchEvent, (_, e) => { if (!ZoomGestures) { e.Handled = true; return; } if (pinched == 0) pinched = TextSize; tapping = false; TextSize = pinched * e.Scale; e.Handled = true; });
+        AddHandler(PinchEvent, (_, e) => { if (!ZoomsItself) return; if (!ZoomGestures) { e.Handled = true; return; } if (pinched == 0) pinched = TextSize; tapping = false; TextSize = pinched * e.Scale; e.Handled = true; });
         AddHandler(PinchEndedEvent, (_, _) => { if (pinched == 0) return; pinched = 0; TextSizeChosen?.Invoke(); });
         // A trackpad pinch (macOS magnify) sizes them too, and claims the gesture so the window's page zoom stays put.
         magnifyEnd = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         magnifyEnd.Tick += (_, _) => EndMagnify();
-        AddHandler(PointerTouchPadGestureMagnifyEvent, (_, e) => { if (ZoomGestures) Magnify(e.Delta.X); e.Handled = true; });
+        AddHandler(PointerTouchPadGestureMagnifyEvent, (_, e) => { if (!ZoomsItself) return; if (ZoomGestures) Magnify(e.Delta.X); e.Handled = true; });
         timer = new DispatcherTimer(TimeSpan.FromMilliseconds(500), DispatcherPriority.Background, (_, _) =>
         { if (IsFocused && !disposed) { document.Tick(); InvalidateVisual(); } });
         timer.Stop();
@@ -128,6 +130,27 @@ public sealed partial class ScintillaEditor : Control, IDisposable
             TextSizeChanged?.Invoke();
         }
     } = DefaultTextSize;
+
+    /// <summary>The size this editor draws at: its own when set, else the shared <see cref="TextSize"/>.</summary>
+    private double Size => ownTextSize ?? TextSize;
+
+    /// <summary>
+    /// A text size of this editor alone, which leaves the shared <see cref="TextSize"/> and every other editor untouched; null follows the
+    /// shared size. A view that scales its own text (a diff) sets it and takes the zoom gestures itself.
+    /// </summary>
+    public double? OwnTextSize
+    {
+        get => ownTextSize;
+        set
+        {
+            var next = value is { } size && double.IsFinite(size) ? Math.Clamp(Math.Round(size * 4) / 4, MinimumTextSize, MaximumTextSize) : (double?)null;
+            if (ownTextSize == next) return;
+            ownTextSize = next; ApplyWrap(Bounds.Width); InvalidateVisual();
+        }
+    }
+
+    /// <summary>Whether a pinch or Ctrl/Cmd + wheel over this editor sizes the shared text. False leaves them to the view that holds the editor.</summary>
+    public bool ZoomsItself { get; set; } = true;
 
     public const double DefaultLineSpacing = 1, MinimumLineSpacing = 1, MaximumLineSpacing = 2;
 
@@ -194,6 +217,13 @@ public sealed partial class ScintillaEditor : Control, IDisposable
     {
         get => wrapWidth;
         set { wrapWidth = value; ApplyWrap(Bounds.Width); InvalidateVisual(); }
+    }
+
+    /// <summary>Wraps this editor's lines at its pane edge when <see cref="WrapWidth"/> sets no column, so nothing scrolls sideways.</summary>
+    public bool WrapToPane
+    {
+        get => wrapToPane;
+        set { if (wrapToPane == value) return; wrapToPane = value; ApplyWrap(Bounds.Width); InvalidateVisual(); }
     }
 
     public ScintillaColors Colors
@@ -304,13 +334,13 @@ public sealed partial class ScintillaEditor : Control, IDisposable
     {
         if (disposed) return;
         var bounded = double.IsFinite(wrapWidth);
-        var wrap = bounded || WrapAlways;
+        var wrap = bounded || WrapAlways || wrapToPane;
         document.Send(ScintillaMessage.SetWrapMode, wrap ? 1 : 0);
         if (wrap) document.Send(ScintillaMessage.SetXOffset, 0);
         double gutter = document.Send(ScintillaMessage.GetMarginLeft);
         for (var margin = 0; margin < document.Send(ScintillaMessage.GetMargins); margin++)
             gutter += document.Send(ScintillaMessage.GetMarginWidthN, margin);
-        document.Send(ScintillaMessage.SetMarginRight, 0, bounded ? (nint)Math.Max(defaultRightMargin, width - gutter - wrapWidth * TextSize / DefaultTextSize) : defaultRightMargin);
+        document.Send(ScintillaMessage.SetMarginRight, 0, bounded ? (nint)Math.Max(defaultRightMargin, width - gutter - wrapWidth * Size / DefaultTextSize) : defaultRightMargin);
     }
 
     public override void Render(DrawingContext context)
@@ -343,20 +373,20 @@ public sealed partial class ScintillaEditor : Control, IDisposable
 
     private void ApplyColors()
     {
-        if (appliedColors == colors && appliedSize == TextSize && appliedSpacing == LineSpacing) return;
+        if (appliedColors == colors && appliedSize == Size && appliedSpacing == LineSpacing) return;
         appliedColors = colors;
         if (appliedSpacing != LineSpacing) { appliedSpacing = LineSpacing; document.SetLineSpacing(LineSpacing); }
-        if (appliedSize != TextSize)
+        if (appliedSize != Size)
         {
             // The number margin was sized for the text it held.
-            if (document.Send(ScintillaMessage.GetMarginWidthN, 0) == NumberMargin(appliedSize)) document.Send(ScintillaMessage.SetMarginWidthN, 0, NumberMargin(TextSize));
-            appliedSize = TextSize;
+            if (document.Send(ScintillaMessage.GetMarginWidthN, 0) == NumberMargin(appliedSize)) document.Send(ScintillaMessage.SetMarginWidthN, 0, NumberMargin(Size));
+            appliedSize = Size;
             ApplyWrap(Bounds.Width);
         }
         var foreground = Rgb(colors.Foreground); var background = Rgb(colors.Background);
         document.Send(ScintillaMessage.StyleSetFore, 32, (nint)foreground);
         document.Send(ScintillaMessage.StyleSetBack, 32, (nint)background);
-        document.Send(ScintillaMessage.StyleSetSizeFractional, 32, (nint)Math.Round(TextSize * 100));
+        document.Send(ScintillaMessage.StyleSetSizeFractional, 32, (nint)Math.Round(Size * 100));
         document.Send(ScintillaMessage.StyleClearAll);
         ApplyLineStyles(Rgb);
         ApplyTextStyles(Rgb);
