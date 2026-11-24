@@ -284,7 +284,7 @@ The browser client at the published Pages origin (`LocalBrowserOrigins.Published
 The origin must match exactly: scheme, host and port, no path, no userinfo, no look-alike suffix. Both TCP endpoints and the Host header must still be loopback, which also stops DNS rebinding.
 `TEREDITOR_BROWSER_ORIGINS` (comma separated, standalone host) adds exact origins; nothing else widens the list. The embedded listener's consent dialog names the page's origin as before.
 
-The standalone host (`Program.cs`) pairs on a loopback bind only. It prints `Host address` and a `Pairing code` to its terminal (stdout; never a log, URL or file), `XXXXX-XXXXX` from a 32-letter alphabet,
+The standalone host (`HostMain`, run by `tereditor-host` and by the desktop app's `--host-only` before any window or Avalonia exists) pairs on a loopback bind only. It prints `Host address` and a `Pairing code` to its terminal (stdout; never a log, URL or file), `XXXXX-XXXXX` from a 32-letter alphabet,
 50 bits. `PairingCodes` keeps only its SHA-256 and one code is live at a time: valid for 5 minutes, redeemable once, burned after 5 wrong tries, and replaced (and printed again) after a use or a burn.
 Enter in the terminal prints a new code. Without `TEREDITOR_TOKEN` the host makes a random master token nobody sees; with one, that token works as before. The page sends `{"code": ...}` in the POST body.
 A wrong, used, expired or burned code is the same 403 and a failed request starts the 2 s cooldown (429) that denied approvals already have. A refused origin or Host header never looks at the code, so it cannot burn it.

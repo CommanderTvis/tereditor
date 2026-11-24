@@ -11,7 +11,6 @@ public sealed record LaunchOption(string Id, HostOs Os, string Title, string Ste
 /// </summary>
 public static class HostLaunch
 {
-    private const string Releases = "https://github.com/CommanderTvis/tereditor/releases/tag/nightly";
 
     /// <summary>
     /// Reads the system from the browser's own words: <c>navigator.userAgentData.platform</c> or <c>navigator.platform</c>, then the
@@ -54,12 +53,36 @@ public static class HostLaunch
             $env:TEREDITOR_ROOT = (Get-Location).Path
             & "$dir\files\host\tereditor-host.exe"
             """),
-        new("macos-app", HostOs.MacOs, "The desktop app",
-            "No standalone host download exists for macOS yet. Download tereditor-nightly.dmg from the nightly release, open the app, and turn on the listener in Settings > Host. This page then asks the app to approve it.",
-            Releases),
-        new("linux-app", HostOs.Linux, "The desktop app",
-            "No standalone host download exists for Linux yet. Download tereditor-nightly-linux-x64.AppImage (or the arm64 file) from the nightly release, start it, and turn on the listener in Settings > Host. This page then asks the app to approve it.",
-            Releases),
+        new("macos-script", HostOs.MacOs, "Shell script",
+            "Run this in Terminal, as a normal user, in the folder of your project. It downloads the nightly disk image, checks it against SHA256SUMS, and runs the app's host without a window. It needs an Apple silicon Mac.",
+            """
+            set -eu
+            [ "$(id -u)" -ne 0 ] || { echo 'Run this as a normal user, not as root.' >&2; exit 1; }
+            base=https://github.com/CommanderTvis/tereditor/releases/download/nightly
+            dir=$(mktemp -d)
+            trap 'hdiutil detach -quiet "$dir/mnt" 2>/dev/null || true; rm -rf "$dir"' EXIT
+            curl -fsSL -o "$dir/tereditor-nightly.dmg" "$base/tereditor-nightly.dmg"
+            curl -fsSL -o "$dir/SHA256SUMS" "$base/SHA256SUMS"
+            (cd "$dir" && grep ' tereditor-nightly.dmg$' SHA256SUMS | shasum -a 256 -c -)
+            hdiutil attach -nobrowse -readonly -quiet -mountpoint "$dir/mnt" "$dir/tereditor-nightly.dmg"
+            TEREDITOR_ROOT="$PWD" "$dir/mnt/tereditor.app/Contents/MacOS/tereditor" --host-only
+            """),
+        new("linux-script", HostOs.Linux, "Shell script",
+            "Run this in a terminal, as a normal user, in the folder of your project. It downloads the nightly AppImage for your processor, checks it against SHA256SUMS, and runs its host without a window.",
+            """
+            set -eu
+            [ "$(id -u)" -ne 0 ] || { echo 'Run this as a normal user, not as root.' >&2; exit 1; }
+            case "$(uname -m)" in x86_64) arch=x64 ;; aarch64 | arm64) arch=arm64 ;; *) echo 'No build for this processor.' >&2; exit 1 ;; esac
+            name="tereditor-nightly-linux-$arch.AppImage"
+            base=https://github.com/CommanderTvis/tereditor/releases/download/nightly
+            dir="$HOME/.local/share/tereditor-host"
+            mkdir -p "$dir"
+            curl -fsSL -o "$dir/$name" "$base/$name"
+            curl -fsSL -o "$dir/SHA256SUMS" "$base/SHA256SUMS"
+            (cd "$dir" && grep " $name\$" SHA256SUMS | sha256sum -c -)
+            chmod +x "$dir/$name"
+            TEREDITOR_ROOT="$PWD" "$dir/$name" --appimage-extract-and-run --host-only
+            """),
     ];
 
     /// <summary>What the visitor must allow, and what to do after a refusal, in plain words.</summary>

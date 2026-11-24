@@ -11,6 +11,8 @@ internal static class Program
         UiErrorGuard.Shared.InstallProcessHooks();
         if (args is [Terminal.TerminalRelay.Argument]) Environment.Exit(Terminal.TerminalRelay.Run());
         if (args is [Tereditor.Plugins.Acp.AcpMcpBridge.Argument]) Environment.Exit(Tereditor.Plugins.Acp.AcpMcpBridge.Run());
+        // The host without a window, as tereditor-host runs it: pairing code on the terminal, loopback bind, no Avalonia.
+        if (args is ["--host-only"]) Environment.Exit(Tereditor.Host.Remote.HostMain.Run());
         Console.WriteLine($"TEREDITOR_MAIN {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
         var builder = AppBuilder.Configure<App>().UsePlatformDetect()
             .With(new AvaloniaNativePlatformOptions { RenderingMode = [AvaloniaNativeRenderingMode.Metal, AvaloniaNativeRenderingMode.OpenGl, AvaloniaNativeRenderingMode.Software] })

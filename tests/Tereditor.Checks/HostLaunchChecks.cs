@@ -30,8 +30,13 @@ internal static class HostLaunchChecks
         var script = HostLaunch.All.Single(option => option.Id == "windows-script").Command;
         Require(script.Contains("tereditor-nightly-win-$arch.zip") && script.Contains("SHA256SUMS") && script.Contains("Get-FileHash") && script.Contains("IsInRole") && script.Contains("host\\tereditor-host.exe"), "The script must verify the checksum, refuse administrators and run the packaged host.");
         Require(!script.Contains("TEREDITOR_TOKEN") && !script.Contains("Invoke-Expression") && !script.Contains("iex"), "The script must neither handle a token nor run downloaded text.");
+        foreach (var id in new[] { "macos-script", "linux-script" })
+        {
+            var unix = HostLaunch.All.Single(option => option.Id == id).Command;
+            Require(unix.Contains("--host-only") && unix.Contains("SHA256SUMS") && unix.Contains("id -u") && !unix.Contains("sudo") && !unix.Contains("| sh ") && !unix.Contains("| sh\n") && !unix.Contains("| bash") && !unix.Contains("TEREDITOR_TOKEN"), id + " must check the sum, refuse root and start the host without a window.");
+        }
         var workflow = File.ReadAllText(Path.Combine(FindRepo(), ".github", "workflows", "nightly.yml"));
-        foreach (var asset in new[] { "tereditor-nightly-win-x64.zip", "tereditor-nightly-win-arm64.zip", "SHA256SUMS", "tereditor-nightly.dmg", "tereditor-nightly-linux-x64.AppImage" })
+        foreach (var asset in new[] { "tereditor-nightly-linux-x64.AppImage", "tereditor-nightly-linux-arm64.AppImage", "tereditor-nightly-win-x64.zip", "tereditor-nightly-win-arm64.zip", "SHA256SUMS", "tereditor-nightly.dmg", "tereditor-nightly-linux-x64.AppImage" })
             Require(workflow.Contains(asset), "The nightly workflow must publish " + asset);
         Require(HostLaunch.LocalNetworkNotice.Contains("Local network access") && HostLaunch.LocalNetworkNotice.Contains("Access other apps and services on this device") && HostLaunch.LocalNetworkNotice.Contains("Safari") && HostLaunch.LocalNetworkNotice.Contains("Firefox"), "The notice must name the browser prompts.");
 
@@ -46,7 +51,7 @@ internal static class HostLaunchChecks
             Control Named(string name) => all.FirstOrDefault(control => control.Name == name) ?? throw new InvalidOperationException("The view lacks " + name);
             var firstPanel = (Panel)Named("LaunchFirst");
             var otherPanel = (Panel)Named("LaunchOther");
-            Require(firstPanel.Children.Single().Name == "Launch_macos-app" && otherPanel.Children.Select(card => card.Name).SequenceEqual(["Launch_windows-script", "Launch_linux-app"]), "macOS: its option first, the others under Other options.");
+            Require(firstPanel.Children.Single().Name == "Launch_macos-script" && otherPanel.Children.Select(card => card.Name).SequenceEqual(["Launch_windows-script", "Launch_linux-script"]), "macOS: its option first, the others under Other options.");
             Require(((TextBlock)Named("LaunchNotice")).Text == HostLaunch.LocalNetworkNotice && ((TextBlock)Named("LaunchPairing")).Text == HostLaunch.PairingNotice, "The local-access and pairing notices are on screen.");
             var copy = (Button)Named("LaunchCopy_windows-script");
             var confirmation = (TextBlock)Named("LaunchCopied_windows-script");
