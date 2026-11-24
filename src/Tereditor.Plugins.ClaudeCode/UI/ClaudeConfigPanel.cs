@@ -41,7 +41,6 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private readonly StackPanel scopeBlock = new() { Name = "ClaudeConfigScope", Margin = new Thickness(8, 0, 8, 4) };
     private readonly StackPanel notices = new();
     private readonly ContentControl body = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-    private readonly StackPanel switcher = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
     private Surface surface = Surface.Context;
     private ClaudeConfigSnapshot? snapshot;
     private IReadOnlyList<ClaudeCapability> reached = [];
@@ -72,7 +71,6 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         refresh.Padding = new Thickness(4);
         DockPanel.SetDock(refresh, Dock.Right);
         header.Children.Add(refresh);
-        header.Children.Add(new ScrollViewer { Content = switcher, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled });
         SetDock(header, Dock.Top);
         Children.Add(header);
         SetDock(scopeBlock, Dock.Top);
@@ -80,7 +78,6 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         SetDock(notices, Dock.Top);
         Children.Add(notices);
         Children.Add(new ScrollViewer { Name = "ClaudeConfigBody", Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
-        RenderSwitcher();
         AttachedToVisualTree += (_, _) => Start();
         DetachedFromVisualTree += (_, _) =>
         {
@@ -108,7 +105,6 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         expandedRows.Clear();
         collapsedGroups.Clear();
         rendered = null; renderedScope = null;
-        RenderSwitcher();
         ShowUsage();
         RenderScope();
         Render();
@@ -263,28 +259,14 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         });
     }
 
-    private void RenderSwitcher()
+    /// <summary>Shows one of the four tabs the Agent pane offers; the pane draws no switcher of its own.</summary>
+    internal void ShowTab(AgentPaneTab tab)
     {
-        if (switcher.Children.Count > 0)
-        {
-            foreach (var segment in switcher.Children.OfType<ToggleButton>()) segment.IsChecked = Equals(segment.Tag, surface);
-            return;
-        }
-        switcher.Children.Clear();
-        foreach (var (value, label) in new[] { (Surface.Context, "Context"), (Surface.Settings, "Settings"), (Surface.Capabilities, "Capabilities"), (Surface.Account, "Account") })
-        {
-            var segment = Ui.Segment("ClaudeSurface_" + value.ToString().ToLowerInvariant(), label);
-            segment.Tag = value;
-            segment.IsChecked = surface == value;
-            segment.Click += (_, _) =>
-            {
-                surface = value;
-                RenderSwitcher();
-                RenderScope();
-                Render();
-            };
-            switcher.Children.Add(segment);
-        }
+        var next = (Surface)(int)tab;
+        if (next == surface) return;
+        surface = next;
+        RenderScope();
+        Render();
     }
 
     private void RenderScope()

@@ -56,13 +56,17 @@ public static class CodexPanel
     /// </summary>
     public static bool Retarget(Control pane, string workspaceId) => Retargets.TryGetValue(pane, out var retarget) && retarget(workspaceId);
 
+    private static readonly ConditionalWeakTable<Control, Action<AgentPaneTab>> ShowTabs = new();
+
+    /// <summary>Shows one of the four tabs the Agent pane offers; the pane draws no switcher of its own.</summary>
+    public static void ShowTab(Control pane, AgentPaneTab tab) { if (ShowTabs.TryGetValue(pane, out var show)) show(tab); }
+
     public static Control Create(IPluginUIContext context, string workspaceId)
     {
         CodexConfigSnapshot? snapshot = null;
         string? error = null;
         var surface = Surface.Context;
         var root = new CodexPanelFrame();
-        var segmentButtons = new Dictionary<Surface, ToggleButton>();
         var refresh = root.FindControl<Button>("CodexConfigRefresh")!;
         refresh.Content = Ui.Icon("refresh");
         var notices = root.FindControl<StackPanel>("Notices")!;
@@ -78,12 +82,7 @@ public static class CodexPanel
         var snapshotKey = "";
         (Surface, string, string?)? rendered = null;
         Control? account = null;
-        foreach (var option in Enum.GetValues<Surface>())
-        {
-            var segment = root.FindControl<ToggleButton>("CodexSurface_" + option.ToString().ToLowerInvariant())!;
-            segment.Click += (_, _) => { surface = option; Render(); };
-            segmentButtons[option] = segment;
-        }
+        ShowTabs.Add(root, tab => { var next = (Surface)(int)tab; if (next == surface) return; surface = next; Render(); });
         refresh.Click += (_, _) =>
         {
             if (surface == Surface.Account) { account = null; rendered = null; Render(); }
@@ -142,7 +141,6 @@ public static class CodexPanel
 
         void Render()
         {
-            foreach (var (option, segment) in segmentButtons) segment.IsChecked = option == surface;
             var tip = surface == Surface.Account ? "Refresh account and usage" : "Re-read configuration";
             ToolTip.SetTip(refresh, tip);
             Avalonia.Automation.AutomationProperties.SetName(refresh, tip);

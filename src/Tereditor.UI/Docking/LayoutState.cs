@@ -117,9 +117,9 @@ public sealed class DockState
         HomeProjectsWidth = HomeProjectsWidth
     };
 
-    public static readonly string[] ToolNames = ["projects", "files", "lsp"];
+    public static readonly string[] ToolNames = ["projects", "files", "lsp", "agent"];
     /// <summary>Core tools retired from layouts: Changes became Files' Changed mode (ThinkRail #779).</summary>
-    public static readonly IReadOnlySet<string> RetiredToolIds = new HashSet<string> { "changes" };
+    public static readonly IReadOnlySet<string> RetiredToolIds = new HashSet<string> { "changes", "plugin:claude-code:config", "plugin:codex:config", "plugin:pi:pane", "plugin:omp:context" };
     /// <summary>The spec dialect plugin's Specs tool, which the presets seat first in the right rail.</summary>
     public const string SpecsTool = "plugin:spec-dialect:specs";
     /// <summary>The Review plugin's tool, which the presets seat in the lower right rail.</summary>

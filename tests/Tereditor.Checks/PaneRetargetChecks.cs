@@ -105,20 +105,26 @@ internal static class PaneRetargetChecks
         var window = app.Window;
         Until(() => window.WorkspaceMounted);
 
+        // An agent whose program is missing has no chip, so each one runs a program every machine has.
         foreach (var id in new[] { "omp", "claude-code", "codex" })
+        {
             _ = app.Workbench.State.ChangeAsync(HostStateChange.PluginEnabled(id, true));
+            _ = app.Workbench.State.ChangeAsync(HostStateChange.PluginSettings(id, "{\"enabled\":true,\"command\":\"sh\"}"));
+        }
+        // The three agents share one Agent pane; a chip picks which one it shows. Code Intelligence is its own tool.
         var tools = new (string Tool, string Name)[]
         {
-            (Tereditor.Plugins.Omp.OmpManifest.ContextTool, "OmpPanel"),
-            (Tereditor.Plugins.ClaudeCode.ClaudeCodeManifest.ConfigTool, "ClaudeConfigPanel"),
-            (Tereditor.Plugins.Codex.CodexManifest.ConfigTool, "CodexConfig"),
+            ("omp", "OmpPanel"),
+            ("claude", "ClaudeConfigPanel"),
+            ("codex", "CodexConfig"),
             ("lsp", "LspPanel")
         };
-        foreach (var (tool, _) in tools) Until(() => window.Layout.IsToolAvailable(tool));
+        Until(() => window.Layout.IsToolAvailable("lsp") && window.Layout.IsToolAvailable("agent"));
 
         Control Show(string tool, string name)
         {
-            window.RevealToolFor(window.WorkspaceRoot, tool);
+            if (tool == "lsp") window.RevealToolFor(window.WorkspaceRoot, tool);
+            else AgentPaneChecks.Show(app, tool);
             Until(() => Panes(name).Count == 1);
             return Panes(name).Single();
         }

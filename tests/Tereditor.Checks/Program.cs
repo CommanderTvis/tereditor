@@ -1205,6 +1205,13 @@ internal static class Program
             DialogOverlayChecks.Run(root);
             return;
         }
+        if (args.SequenceEqual(["--agent-pane"]))
+        {
+            AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
+            AgentPaneChecks.Run(root);
+            return;
+        }
         if (args.SequenceEqual(["--pane-retarget"]))
         {
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
@@ -1798,6 +1805,7 @@ internal static class Program
         Gate.Case("claude-code-launcher", () => ClaudeCodeChecks.Launcher(root));
         Gate.Case("github-browser", () => { RunPumped(GitHubBrowserChecks.Run); GitHubBrowserChecks.RunUi(); GitHubBrowserChecks.RunTabIcon(root); GitHubBrowserChecks.RunTabMenu(root); });
         Gate.Case("workspace-switch", () => E2E.WorkspaceSwitchProfile.Run(Path.Combine(root, "upstream-e2e")));
+        Gate.Case("agent-pane", () => AgentPaneChecks.Run(root));
         Gate.Case("pane-retarget", () => { PaneRetargetChecks.Run(root); PaneRetargetChecks.InstructionSections(); });
         Gate.Case("content-ui", () => ContentChecks.RunUi(root));
         Gate.Case("claude-chat-e2e", () => { ClaudeChatE2E.TabClicks(root); ClaudeChatE2E.Run(root); ClaudeChatE2E.StartWork(root); ClaudeChatDraftE2E.Run(root); });

@@ -25,6 +25,18 @@ public sealed class AcpUI : PluginUIModule
         context.TabDecoration(tabIcons.Decorate);
         _ = LoadTabIconsAsync(context, tabIcons, null);
         context.SettingsSection(new("ACP", AcpManifest.Manifest.Icon, () => new AcpSettingsView(context)));
+        var agents = new AcpAgents();
+        agents.Refresh(context);
+        context.AgentPane(new("acp", "ACP", AcpManifest.Manifest.Icon, workspace => new AcpAgentPane(context, agents, workspace))
+        {
+            Usable = () => !agents.Loaded || agents.Enabled.Count > 0,
+            Owns = tab => tab is PluginDocumentTabRef { Scheme: AcpContract.DocumentScheme },
+            SubAgentOf = tab => tab is PluginDocumentTabRef { Scheme: AcpContract.DocumentScheme } chat ? tabIcons.AgentOf(chat.WorkspaceId, chat.Id) : null,
+            SubAgents = _ => [.. agents.Enabled.Select(agent => new AgentSubAgent(agent.Id, agent.Name))],
+            SelectSubAgent = (pane, id) => (pane as AcpAgentPane)?.Select(id),
+            Retarget = (pane, workspace) => pane is AcpAgentPane acp && acp.Retarget(workspace),
+            ShowTab = (pane, tab) => (pane as AcpAgentPane)?.ShowTab(tab)
+        });
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("acp-chat", (workspace, group) =>
         {
             var button = new Button

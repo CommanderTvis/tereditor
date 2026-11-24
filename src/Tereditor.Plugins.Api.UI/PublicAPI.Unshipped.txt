@@ -1171,3 +1171,55 @@ Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry.Visible.init -> void
 Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry
 Tereditor.Plugins.Api.UI.PluginDocumentRegistration.MenuEntries.get -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.PluginDocumentMenuEntry!>!
 Tereditor.Plugins.Api.UI.PluginDocumentRegistration.MenuEntries.init -> void
+override Tereditor.Plugins.Api.UI.AgentPaneRegistration.Equals(object? obj) -> bool
+override Tereditor.Plugins.Api.UI.AgentPaneRegistration.GetHashCode() -> int
+override Tereditor.Plugins.Api.UI.AgentPaneRegistration.ToString() -> string!
+override Tereditor.Plugins.Api.UI.AgentSubAgent.Equals(object? obj) -> bool
+override Tereditor.Plugins.Api.UI.AgentSubAgent.GetHashCode() -> int
+override Tereditor.Plugins.Api.UI.AgentSubAgent.ToString() -> string!
+static Tereditor.Plugins.Api.UI.AgentPaneRegistration.operator !=(Tereditor.Plugins.Api.UI.AgentPaneRegistration? left, Tereditor.Plugins.Api.UI.AgentPaneRegistration? right) -> bool
+static Tereditor.Plugins.Api.UI.AgentPaneRegistration.operator ==(Tereditor.Plugins.Api.UI.AgentPaneRegistration? left, Tereditor.Plugins.Api.UI.AgentPaneRegistration? right) -> bool
+static Tereditor.Plugins.Api.UI.AgentSubAgent.operator !=(Tereditor.Plugins.Api.UI.AgentSubAgent? left, Tereditor.Plugins.Api.UI.AgentSubAgent? right) -> bool
+static Tereditor.Plugins.Api.UI.AgentSubAgent.operator ==(Tereditor.Plugins.Api.UI.AgentSubAgent? left, Tereditor.Plugins.Api.UI.AgentSubAgent? right) -> bool
+Tereditor.Plugins.Api.UI.AgentPaneRegistration
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.<Clone>$() -> Tereditor.Plugins.Api.UI.AgentPaneRegistration!
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.AgentPaneRegistration(string! Id, string! Label, string! Icon, System.Func<string!, Avalonia.Controls.Control!>! Create) -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Create.get -> System.Func<string!, Avalonia.Controls.Control!>!
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Create.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Deconstruct(out string! Id, out string! Label, out string! Icon, out System.Func<string!, Avalonia.Controls.Control!>! Create) -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Equals(Tereditor.Plugins.Api.UI.AgentPaneRegistration? other) -> bool
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Icon.get -> string!
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Icon.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Id.get -> string!
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Id.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Label.get -> string!
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Label.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Owns.get -> System.Func<Tereditor.Plugins.Api.UI.TabRef!, bool>?
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Owns.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Retarget.get -> System.Func<Avalonia.Controls.Control!, string!, bool>?
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Retarget.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.SelectSubAgent.get -> System.Action<Avalonia.Controls.Control!, string?>?
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.SelectSubAgent.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.ShowTab.get -> System.Action<Avalonia.Controls.Control!, Tereditor.Plugins.Api.UI.AgentPaneTab>?
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.ShowTab.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.SubAgentOf.get -> System.Func<Tereditor.Plugins.Api.UI.TabRef!, string?>?
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.SubAgentOf.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.SubAgents.get -> System.Func<string!, System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.Api.UI.AgentSubAgent!>!>?
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.SubAgents.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Usable.get -> System.Func<bool>?
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Usable.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneTab
+Tereditor.Plugins.Api.UI.AgentPaneTab.Account = 3 -> Tereditor.Plugins.Api.UI.AgentPaneTab
+Tereditor.Plugins.Api.UI.AgentPaneTab.Capabilities = 2 -> Tereditor.Plugins.Api.UI.AgentPaneTab
+Tereditor.Plugins.Api.UI.AgentPaneTab.Context = 0 -> Tereditor.Plugins.Api.UI.AgentPaneTab
+Tereditor.Plugins.Api.UI.AgentPaneTab.Settings = 1 -> Tereditor.Plugins.Api.UI.AgentPaneTab
+Tereditor.Plugins.Api.UI.AgentSubAgent
+Tereditor.Plugins.Api.UI.AgentSubAgent.<Clone>$() -> Tereditor.Plugins.Api.UI.AgentSubAgent!
+Tereditor.Plugins.Api.UI.AgentSubAgent.AgentSubAgent(string! Id, string! Label) -> void
+Tereditor.Plugins.Api.UI.AgentSubAgent.Deconstruct(out string! Id, out string! Label) -> void
+Tereditor.Plugins.Api.UI.AgentSubAgent.Equals(Tereditor.Plugins.Api.UI.AgentSubAgent? other) -> bool
+Tereditor.Plugins.Api.UI.AgentSubAgent.Id.get -> string!
+Tereditor.Plugins.Api.UI.AgentSubAgent.Id.init -> void
+Tereditor.Plugins.Api.UI.AgentSubAgent.Label.get -> string!
+Tereditor.Plugins.Api.UI.AgentSubAgent.Label.init -> void
+Tereditor.Plugins.Api.UI.IPluginUIContext.AgentPane(Tereditor.Plugins.Api.UI.AgentPaneRegistration! registration) -> void

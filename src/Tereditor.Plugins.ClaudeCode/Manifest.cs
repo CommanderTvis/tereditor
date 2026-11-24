@@ -4,8 +4,6 @@ namespace Tereditor.Plugins.ClaudeCode;
 
 public static class ClaudeCodeManifest
 {
-    public static readonly string ConfigTool = PluginIdentity.ToolId(ClaudeCodeContract.Id, "config");
-
     public static readonly PluginManifest Manifest = new(ClaudeCodeContract.Id, "Claude Code", "asset:claude.svg", "0.2.0", PluginApi.Generation, 3)
     {
         Category = PluginCategories.Agents,
@@ -20,10 +18,6 @@ public static class ClaudeCodeManifest
             new(ModelApiKinds.Vertex, AgentInjection.Environment, [ModelAuthKind.Platform])]),
         EnabledByDefault = false,
         Headless = HeadlessSupport.No,
-        Assets = "assets",
-        Contributes = new()
-        {
-            SideTools = [new("config", "Claude Code", "asset:claude.svg", PluginToolSide.Right)]
-        }
+        Assets = "assets"
     };
 }

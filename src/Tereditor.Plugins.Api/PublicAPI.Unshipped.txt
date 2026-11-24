@@ -1,7 +1,7 @@
 #nullable enable
 abstract Tereditor.Plugins.Api.PluginToolDefinition.RunAsync(object! parameters, Tereditor.Plugins.Api.PluginToolContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Tereditor.Plugins.Api.PluginToolResult!>
 const Tereditor.Plugins.Api.PluginIdentity.IdPattern = "^[a-z0-9]+(?:-[a-z0-9]+)*$" -> string!
-const Tereditor.Plugins.Api.PluginApi.Generation = 2 -> int
+const Tereditor.Plugins.Api.PluginApi.Generation = 3 -> int
 const Tereditor.Plugins.Api.PluginManifest.FileName = "tereditor-plugin.json" -> string!
 override Tereditor.Plugins.Api.HostProject.Equals(object? obj) -> bool
 override Tereditor.Plugins.Api.HostProject.GetHashCode() -> int

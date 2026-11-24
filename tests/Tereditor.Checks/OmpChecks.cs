@@ -250,7 +250,7 @@ internal static class OmpChecks
             Require(app.Workbench.PluginLoader.Registry.Roster.Single(entry => entry.Id == OmpManifest.Id).Support == Tereditor.Plugins.Api.PluginSupportLevels.Early,
                 "the roster carries the Early support level over the wire");
 
-            app.Window.Layout.RestoreTool(OmpManifest.ContextTool);
+            AgentPaneChecks.Show(app, "omp");
             E2eWorkspace.Until(() => Find<Control>(app.Window, "OmpPanel").Any());
             var panel = Find<Control>(app.Window, "OmpPanel").Single();
             E2eWorkspace.Until(() => Find<TextBlock>(panel, "OmpVersion").Single().Text == "v9.8.7");

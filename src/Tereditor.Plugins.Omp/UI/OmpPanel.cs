@@ -34,6 +34,11 @@ public static class OmpPanel
     /// </summary>
     public static bool Retarget(Control pane, string workspaceId) => Retargets.TryGetValue(pane, out var retarget) && retarget(workspaceId);
 
+    private static readonly ConditionalWeakTable<Control, Action<AgentPaneTab>> ShowTabs = new();
+
+    /// <summary>Shows one of the four tabs the Agent pane offers; the pane draws no switcher of its own.</summary>
+    public static void ShowTab(Control pane, AgentPaneTab tab) { if (ShowTabs.TryGetValue(pane, out var show)) show(tab); }
+
     public static Control Create(IPluginUIContext context, string workspaceId)
     {
         var root = new OmpPanelFrame();
@@ -64,6 +69,7 @@ public static class OmpPanel
             profileNote.Text = ProfileNote(settings);
             profileNote.IsVisible = profileNote.Text is not null;
             signIn.IsVisible = installed && settings.Mcp;
+            root.FindControl<TextBlock>("OmpAccountNothing")!.IsVisible = !signIn.IsVisible;
         }
 
         // Runs only on this click: the host pipes omp auth export into the tereditor profile's import.
@@ -205,6 +211,12 @@ public static class OmpPanel
         }
 
         refresh.Click += (_, _) => Refresh();
+        var tabs = new (AgentPaneTab Tab, Control Page)[]
+        {
+            (AgentPaneTab.Context, root.FindControl<Control>("OmpContextTab")!), (AgentPaneTab.Settings, root.FindControl<Control>("OmpSettingsTab")!),
+            (AgentPaneTab.Capabilities, root.FindControl<Control>("OmpCapabilitiesTab")!), (AgentPaneTab.Account, root.FindControl<Control>("OmpAccountTab")!)
+        };
+        ShowTabs.Add(root, tab => { foreach (var (page, control) in tabs) control.IsVisible = page == tab; });
         importSignIn.Click += (_, _) => _ = ImportSignInAsync();
         IDisposable? subscription = null;
         Retargets.Add(root, next =>

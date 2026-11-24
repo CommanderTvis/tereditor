@@ -13,4 +13,5 @@ namespace Tereditor.Plugins.Isolation.UI;
 [JsonSerializable(typeof(PluginNotificationKind))]
 [JsonSerializable(typeof(FileViewerProps))]
 [JsonSerializable(typeof(PluginHostProjection))]
+[JsonSerializable(typeof(IReadOnlyList<AgentSubAgent>))]
 public sealed partial class IsolationUiJsonContext : JsonSerializerContext;

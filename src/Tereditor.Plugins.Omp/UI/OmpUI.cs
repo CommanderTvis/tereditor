@@ -43,7 +43,14 @@ public sealed class OmpUI : PluginUIModule
         OmpStatus? status = null;
         OmpGlyph.Reset();
         context.SettingsSection(new("omp", OmpManifest.Icon, () => new OmpSettingsView(context)));
-        context.SideTool(new("context", workspace => OmpPanel.Create(context, workspace)) { Retarget = OmpPanel.Retarget });
+        context.AgentPane(new(OmpManifest.Id, "omp", OmpManifest.Icon, workspace => OmpPanel.Create(context, workspace))
+        {
+            Usable = () => status is not { Installed: false },
+            Owns = tab => tab is TerminalTabRef terminal && context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
+                .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == OmpManifest.Id,
+            Retarget = OmpPanel.Retarget,
+            ShowTab = OmpPanel.ShowTab
+        });
         context.Launcher(new AgentLauncher(OmpManifest.Id, "omp", OmpManifest.Icon, options => LaunchLine(context, options),
             () => LauncherAvailability.Of(context.AgentLaunchContributions(OmpManifest.Id), status is { Installed: false } ? "omp is not installed; see " + OmpLaunch.InstallUrl : null, status?.Installed))
         {
@@ -73,7 +80,6 @@ public sealed class OmpUI : PluginUIModule
         {
             TerminalTabRef terminal when context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
                 .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == OmpManifest.Id => new TabDecoration { Icon = OmpManifest.Icon },
-            ToolTabRef { Tool: var tool } when tool == OmpManifest.ContextTool => new TabDecoration { Icon = OmpManifest.Icon },
             _ => null
         });
         _ = Probe();

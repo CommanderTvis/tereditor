@@ -66,6 +66,12 @@ internal sealed class AcpTabIcons
         }
     }
 
+    /// <summary>The agent a chat talks to, or null while the host has not said.</summary>
+    public string? AgentOf(string workspace, string chat)
+    {
+        lock (gate) return agents.TryGetValue((workspace, chat), out var agent) ? agent : null;
+    }
+
     /// <summary>The SVG for a chat's tab, or null for the generic icon.</summary>
     public string? SvgFor(string workspace, string chat)
     {

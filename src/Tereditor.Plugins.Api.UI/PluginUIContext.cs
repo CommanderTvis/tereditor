@@ -146,6 +146,11 @@ public interface IPluginUIContext
     [PluginAmbient]
     void SideTool(SideToolRegistration registration);
 
+    /// <summary>Contributes an agent to the Agent pane: its chip and the content of the four tabs.</summary>
+    /// <param name="registration">The agent.</param>
+    [PluginAmbient]
+    void AgentPane(AgentPaneRegistration registration);
+
     /// <summary>Contributes an embedded companion pane for terminals (W6).</summary>
     /// <param name="registration">The companion.</param>
     [PluginAmbient]

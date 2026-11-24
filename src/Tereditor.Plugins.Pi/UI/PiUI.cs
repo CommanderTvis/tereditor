@@ -24,9 +24,18 @@ public sealed class PiUI : PluginUIModule
             try { status = await context.RequestAsync(PiContract.Status, new PiNoParams()); }
             catch (Exception error) when (error is not OperationCanceledException) { }
         });
-        context.SideTool(new("pane", workspace => new PiConfigPanel(context, workspace))
+        context.AgentPane(new(PiManifest.Id, "Pi", PiManifest.Icon, workspace => new PiConfigPanel(context, workspace))
         {
-            Retarget = (pane, workspace) => pane is PiConfigPanel panel && panel.Retarget(workspace)
+            Usable = () => status is not { Installed: false, Source: PiSources.System },
+            Owns = tab => tab switch
+            {
+                PluginDocumentTabRef document => document.Scheme == PiContract.DocumentScheme,
+                TerminalTabRef terminal => context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
+                    .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == PiManifest.Id,
+                _ => false
+            },
+            Retarget = (pane, workspace) => pane is PiConfigPanel panel && panel.Retarget(workspace),
+            ShowTab = (pane, tab) => (pane as PiConfigPanel)?.ShowTab(tab)
         });
         context.SettingsSection(new("Pi", PiManifest.Icon, () => new PiSettingsView(context, () => status, current => status = current)));
         context.Launcher(new AgentLauncher(PiManifest.Id, "Pi", PiManifest.Icon, _ => context.Settings<PiSettings>().Command,

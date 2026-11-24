@@ -25,7 +25,6 @@ internal sealed class PiConfigPanel : DockPanel
     private readonly StackPanel scopeBlock = new() { Name = "PiConfigScope", Margin = new Thickness(8, 0, 8, 4) };
     private readonly StackPanel notices = new();
     private readonly ContentControl body = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-    private readonly StackPanel switcher = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
     private string workspaceId;
     private Surface surface = Surface.Context;
     private PiConfigSnapshot? snapshot;
@@ -46,9 +45,6 @@ internal sealed class PiConfigPanel : DockPanel
         heading.Children.Add(new Border { Name = "PiEarlyBadge", Background = Ui.WarningWash, CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 0), Child = Ui.Text("Early support", Ui.Warning, 11) });
         SetDock(heading, Dock.Top);
         Children.Add(heading);
-        var header = new ScrollViewer { Content = switcher, Margin = new Thickness(8, 4), HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
-        SetDock(header, Dock.Top);
-        Children.Add(header);
         var hint = Ui.Text("Click a row to open its file", Ui.Hint, 12);
         scopeBlock.Children.Add(Ui.Text("Showing what a new Pi session here would load", Ui.Muted, 13));
         scopeBlock.Children.Add(hint);
@@ -57,7 +53,6 @@ internal sealed class PiConfigPanel : DockPanel
         SetDock(notices, Dock.Top);
         Children.Add(notices);
         Children.Add(new ScrollViewer { Name = "PiConfigBody", Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
-        RenderSwitcher();
         AttachedToVisualTree += (_, _) => Load();
     }
 
@@ -118,21 +113,13 @@ internal sealed class PiConfigPanel : DockPanel
         });
     }
 
-    private void RenderSwitcher()
+    /// <summary>Shows one of the four tabs the Agent pane offers; the pane draws no switcher of its own.</summary>
+    internal void ShowTab(AgentPaneTab tab)
     {
-        switcher.Children.Clear();
-        foreach (var (value, label) in new[] { (Surface.Context, "Context"), (Surface.Settings, "Settings"), (Surface.Capabilities, "Capabilities"), (Surface.Account, "Account") })
-        {
-            var segment = Ui.Segment("PiSurface_" + value.ToString().ToLowerInvariant(), label);
-            segment.IsChecked = surface == value;
-            segment.Click += (_, _) =>
-            {
-                surface = value;
-                RenderSwitcher();
-                Render();
-            };
-            switcher.Children.Add(segment);
-        }
+        var next = (Surface)(int)tab;
+        if (next == surface) return;
+        surface = next;
+        Render();
     }
 
     private void Render()

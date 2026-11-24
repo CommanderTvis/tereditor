@@ -19,12 +19,6 @@
     <Button x:Name="CodexConfigRefresh" DockPanel.Dock="Right" Width="24" Height="24" Padding="5"
             Background="Transparent" BorderThickness="0" CornerRadius="0"
             ToolTip.Tip="Re-read configuration" AutomationProperties.Name="Re-read configuration" />
-    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-      <ToggleButton x:Name="CodexSurface_context" Content="Context" AutomationProperties.Name="Context" />
-      <ToggleButton x:Name="CodexSurface_settings" Content="Settings" AutomationProperties.Name="Settings" />
-      <ToggleButton x:Name="CodexSurface_capabilities" Content="Capabilities" AutomationProperties.Name="Capabilities" />
-      <ToggleButton x:Name="CodexSurface_account" Content="Account" AutomationProperties.Name="Account" />
-    </WrapPanel>
   </DockPanel>
   <StackPanel x:Name="CodexConfigScope" DockPanel.Dock="Top" Margin="8,0,8,4" IsVisible="False">
     <TextBlock x:Name="CodexConfigScopeHeading" FontSize="13" Foreground="{x:Static kit:Ui.Muted}" TextTrimming="CharacterEllipsis" />

@@ -21,7 +21,6 @@ public static class PiManifest
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.Pi.Host.dll",
         Ui = "Tereditor.Plugins.Pi.UI.dll",
-        Assets = "assets",
-        Contributes = new() { SideTools = [new("pane", "Pi", Icon, PluginToolSide.Right)] }
+        Assets = "assets"
     };
 }

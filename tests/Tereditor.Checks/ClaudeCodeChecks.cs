@@ -160,17 +160,17 @@ internal static class ClaudeCodeChecks
         File.WriteAllText(Path.Combine(app.Root, "CLAUDE.md"), "# Project\n\n@AGENTS.md\n");
         File.WriteAllText(Path.Combine(app.Root, "AGENTS.md"), "# Imported\n\nrules\n");
         File.WriteAllText(Path.Combine(app.Root, "CLAUDE.local.md"), "# Local instructions with a long enough row\n");
-        app.Window.Layout.RestoreTool(ClaudeCodeManifest.ConfigTool);
+        AgentPaneChecks.Show(app, "claude");
         E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "ClaudeConfigPanel"));
         E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "ClaudeContextTotal"));
-        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_capabilities"));
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_capabilities"));
         E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "ClaudeLspCapability"));
         var lsp = app.Window.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "ClaudeLspCapability");
         var lspText = string.Join(" ", lsp.GetLogicalDescendants().OfType<TextBlock>().Select(text => text.Text));
         Require(new[] { "lsp_navigate", "lsp_diagnostics", "lsp_status" }.All(name => lspText.Contains(name, StringComparison.Ordinal)),
             "Claude capabilities must name all three LSP MCP tools.");
-        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_context"));
-        var contextButton = app.Window.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "ClaudeSurface_context");
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_context"));
+        var contextButton = app.Window.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "AgentTab_context");
         var tabStrip = contextButton.GetVisualAncestors().OfType<ScrollViewer>().First();
         tabStrip.Width = 180;
         E2eWorkspace.Settle();
@@ -180,7 +180,7 @@ internal static class ClaudeCodeChecks
             "The narrow Claude surface strip keeps its button height without a visible scrollbar.");
         tabStrip.Offset = new(tabStrip.Extent.Width - tabStrip.Viewport.Width, 0);
         E2eWorkspace.Settle();
-        var accountButton = app.Window.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "ClaudeSurface_account");
+        var accountButton = app.Window.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "AgentTab_account");
         Require(tabStrip.Offset.X > 0 && accountButton.TranslatePoint(new(accountButton.Bounds.Width, 0), tabStrip)!.Value.X <= tabStrip.Bounds.Width,
             "The narrow Claude surface strip can scroll to its last button.");
         tabStrip.ClearValue(Control.WidthProperty);
@@ -306,7 +306,7 @@ internal static class ClaudeCodeChecks
         }
         pane.ClearValue(Control.WidthProperty);
         E2eWorkspace.Settle();
-        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_account"));
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_account"));
         E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "ClaudeAccount"));
         var refresh = app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeConfigRefresh");
         app.Click(refresh);
@@ -347,7 +347,7 @@ internal static class ClaudeCodeChecks
         if (!OperatingSystem.IsWindows()) ResumeOffers(app, directory);
         app.State.ChangeAsync([HostStateChange.PluginEnabled("claude-code", false)]).AsTask().GetAwaiter().GetResult();
         E2eWorkspace.Until(() => !registry.Active.Contains("claude-code") && registry.LauncherList.All(candidate => candidate.Id != "claude"));
-        Require(registry.SideTool(ClaudeCodeManifest.ConfigTool) is null, "Disabling removes Claude controls and launcher together.");
+        Require(registry.AgentPanes.All(row => row.PluginId != "claude-code"), "Disabling removes Claude controls and launcher together.");
         Console.WriteLine("PASS Claude Code UI: enable, configuration pane, model launcher, compiled settings and disable");
     }
 
@@ -413,7 +413,7 @@ internal static class ClaudeCodeChecks
     /// <summary>A setting value that opens the editor is underlined in the link colour with a hand cursor; a read-only one is plain text.</summary>
     private static void SettingValueLinks(E2eWorkspace app)
     {
-        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_settings"));
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_settings"));
         E2eWorkspace.Settle(500);
         var links = app.Window.GetLogicalDescendants().OfType<Button>().Where(button => button.Name == "ClaudeSettingChange").ToArray();
         // The fixture's settings decide whether a value is shown here at all; with none listed there is nothing to colour.
@@ -423,7 +423,7 @@ internal static class ClaudeCodeChecks
             Require(Equals(text.TextDecorations, Avalonia.Media.TextDecorations.Underline) && Equals(text.Foreground, Ui.Accent) && link.Cursor?.ToString() == new Cursor(StandardCursorType.Hand).ToString(),
                 "A clickable setting value is underlined in the link color with a hand cursor.");
         }
-        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_context"));
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_context"));
         Console.WriteLine($"PASS Claude setting values: {links.Length} clickable value(s) underlined in the link color, read-only ones are not buttons or underlined");
     }
 
@@ -502,7 +502,7 @@ internal static class ClaudeCodeChecks
         var local = Path.Combine(app.Root, ".claude", "settings.local.json");
         File.WriteAllText(local, "{\"permissions\":{\"allow\":[\"Read\"]}}\n");
         Control[] Rows() => [.. app.Window.GetLogicalDescendants().OfType<Control>().Where(control => control.Name is "ClaudeSetting" or "ClaudeUnsetSetting")];
-        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_settings"));
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_settings"));
         app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeConfigRefresh"));
         E2eWorkspace.Until(() => Rows().Any(row => row.Name == "ClaudeSetting" && Equals(row.Tag, "permissions.allow")));
         Require(!Rows().Any(row => row.Name == "ClaudeUnsetSetting") &&
@@ -569,7 +569,7 @@ internal static class ClaudeCodeChecks
         Require(!File.ReadAllText(local).Contains("deny", StringComparison.Ordinal), "Dismissing the review writes nothing.");
         app.Window.GetLogicalDescendants().OfType<TextBox>().Single(control => control.Name == "ClaudeSettingFilter").Text = "";
         File.Delete(local);
-        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_context"));
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_context"));
         Console.WriteLine($"PASS Claude unset settings: {unsetKeys.Length} documented permissions keys listed after the set ones, Set composes and reviews");
     }
 
@@ -583,7 +583,7 @@ internal static class ClaudeCodeChecks
         Directory.CreateDirectory(Path.GetDirectoryName(local)!);
         File.WriteAllText(local, "{}\n");
         Control[] Rows() => [.. app.Window.GetLogicalDescendants().OfType<Control>().Where(control => control.Name is "ClaudeSetting")];
-        void Surface(string name) => app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeSurface_" + name));
+        void Surface(string name) => app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_" + name));
         Surface("settings");
         app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeConfigRefresh"));
         E2eWorkspace.Settle(500);

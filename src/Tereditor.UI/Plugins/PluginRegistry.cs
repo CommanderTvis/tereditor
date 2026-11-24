@@ -38,10 +38,11 @@ public enum PluginTables
     Documents = 1 << 18,
     RepoHostUis = 1 << 19,
     KeymapActions = 1 << 20,
+    AgentPanes = 1 << 21,
     Contributions = SideTools | SettingsSections | Companions | FileViewers | TabDecorators | Launchers | WorkspaceActions |
-        ProjectActions | TerminalAccessories | FileIconSlots | DocumentLinkSlots | FileActions | SlotSections | HeaderItems | TerminalTabActions | Documents | RepoHostUis | KeymapActions,
+        ProjectActions | TerminalAccessories | FileIconSlots | DocumentLinkSlots | FileActions | SlotSections | HeaderItems | TerminalTabActions | Documents | RepoHostUis | KeymapActions | AgentPanes,
     // Registrations whose result a predicate decides; Invalidate re-evaluates them.
-    Predicates = Companions | TabDecorators | Launchers | FileIconSlots | DocumentLinkSlots
+    Predicates = Companions | TabDecorators | Launchers | FileIconSlots | DocumentLinkSlots | AgentPanes
 }
 
 /// <summary>
@@ -59,6 +60,7 @@ public sealed class PluginRegistry
     public IReadOnlyList<PluginRosterEntry> Roster { get; private set; } = [];
     public IReadOnlySet<string> Active => active;
     public IReadOnlyList<PluginRow<SideToolRegistration>> SideTools { get; private set; } = [];
+    public IReadOnlyList<PluginRow<AgentPaneRegistration>> AgentPanes { get; private set; } = [];
     public IReadOnlyList<PluginRow<SettingsSectionRegistration>> SettingsSections { get; private set; } = [];
     public IReadOnlyList<PluginRow<CompanionRegistration>> Companions { get; private set; } = [];
     public IReadOnlyList<PluginFileViewer> FileViewers { get; private set; } = [];
@@ -109,6 +111,7 @@ public sealed class PluginRegistry
     }
 
     public void AddSideTool(string pluginId, SideToolRegistration value) { SideTools = [.. SideTools, new(pluginId, value)]; Raise(PluginTables.SideTools); }
+    public void AddAgentPane(string pluginId, AgentPaneRegistration value) { AgentPanes = [.. AgentPanes, new(pluginId, value)]; Raise(PluginTables.AgentPanes); }
     public void AddSettingsSection(string pluginId, SettingsSectionRegistration value) { SettingsSections = [.. SettingsSections, new(pluginId, value)]; Raise(PluginTables.SettingsSections); }
     public void AddCompanion(string pluginId, CompanionRegistration value) { Companions = [.. Companions, new(pluginId, value)]; Raise(PluginTables.Companions); }
     public void AddFileViewer(string pluginId, FileViewerRegistration value, PluginFileRead read) { FileViewers = [.. FileViewers, new(pluginId, value, read)]; Raise(PluginTables.FileViewers); }
@@ -160,6 +163,7 @@ public sealed class PluginRegistry
         }
         if (active.Contains(pluginId)) { active = [.. active.Where(id => id != pluginId)]; touched |= PluginTables.Active; }
         SideTools = Drop(SideTools, row => row.PluginId, PluginTables.SideTools);
+        AgentPanes = Drop(AgentPanes, row => row.PluginId, PluginTables.AgentPanes);
         SettingsSections = Drop(SettingsSections, row => row.PluginId, PluginTables.SettingsSections);
         Companions = Drop(Companions, row => row.PluginId, PluginTables.Companions);
         FileViewers = Drop(FileViewers, row => row.PluginId, PluginTables.FileViewers);

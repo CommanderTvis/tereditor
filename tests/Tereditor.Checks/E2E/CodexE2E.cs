@@ -158,12 +158,12 @@ internal static class CodexE2E
 
         public Control Panel()
         {
-            App.Window.Layout.RestoreTool(CodexManifest.ConfigTool);
+            AgentPaneChecks.Show(App, "codex");
             E2eWorkspace.Until(() => Has(App.Window, "CodexConfig"));
             return One<Control>(App.Window, "CodexConfig");
         }
 
-        public void Surface(string name) => App.Click(One<ToggleButton>(App.Window, "CodexSurface_" + name));
+        public void Surface(string name) => App.Click(One<ToggleButton>(App.Window, "AgentTab_" + name));
 
         public HostTerminal Terminal()
         {

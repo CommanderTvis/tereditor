@@ -231,6 +231,7 @@ internal sealed class PluginUIContext : IPluginUIContext
         Workbench.ActiveWindow is { } window ? await window.DeleteBranchWithConfirmationAsync(branch) : PluginBranchDeleteOutcome.Refused;
     public Avalonia.Controls.Control RepoHostReviewSection() => Workbench.ActiveWindow?.RepoHostReviewSection() ?? new Avalonia.Controls.ContentControl();
     public void SideTool(SideToolRegistration registration) { Guard(); Registry.AddSideTool(Id, registration); }
+    public void AgentPane(AgentPaneRegistration registration) { Guard(); Registry.AddAgentPane(Id, registration); }
     public void Companion(CompanionRegistration registration) { Guard(); Registry.AddCompanion(Id, registration); }
     public void TabDecoration(Func<TabRef, TabDecoration?> decorate) { Guard(); Registry.AddTabDecorator(Id, decorate); }
     public void Launcher(AgentLauncher launcher) { Guard(); Registry.AddLauncher(Id, launcher); }

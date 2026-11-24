@@ -6,7 +6,6 @@ public static class OmpManifest
 {
     public const string Id = "omp";
     public const string Icon = "asset:omp.svg";
-    public static readonly string ContextTool = PluginIdentity.ToolId(Id, "context");
 
     public static readonly PluginManifest Manifest = new(Id, "omp", Icon, "0.1.0", PluginApi.Generation, OmpContract.WireVersion)
     {
@@ -24,7 +23,6 @@ public static class OmpManifest
         Headless = HeadlessSupport.No,
         Host = "Tereditor.Plugins.Omp.Host.dll",
         Ui = "Tereditor.Plugins.Omp.UI.dll",
-        Assets = "assets",
-        Contributes = new() { SideTools = [new("context", "omp", Icon, PluginToolSide.Right)] }
+        Assets = "assets"
     };
 }

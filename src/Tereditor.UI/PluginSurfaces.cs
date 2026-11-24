@@ -47,8 +47,8 @@ public sealed partial class WorkbenchWindow
         Layout.Changed += workbench.RaiseProjectionChanged;
         Layout.Changed += SyncEditors;
         Layout.Changed += () => decorationSignature = DecorationSignature();
-        Layout.SelectionChanged += _ => { workbench.RaiseProjectionChanged(); EmitActivated(); };
-        Layout.Focused += workbench.RaiseProjectionChanged;
+        Layout.SelectionChanged += _ => { workbench.RaiseProjectionChanged(); EmitActivated(); SyncAgentPane(); };
+        Layout.Focused += () => { workbench.RaiseProjectionChanged(); SyncAgentPane(); };
         Layout.SetLanguageAvailable(LanguageSupport.Available);
         SyncPluginTools();
     }
@@ -57,6 +57,7 @@ public sealed partial class WorkbenchWindow
     {
         if ((tables & PluginTables.Roster) != 0) Layout.SetLanguageAvailable(LanguageSupport.Available);
         if ((tables & (PluginTables.Roster | PluginTables.Active | PluginTables.Manifests | PluginTables.SideTools)) != 0) { SyncPluginTools(); ResolveRailDefaults(); }
+        if ((tables & (PluginTables.Roster | PluginTables.Active | PluginTables.AgentPanes | PluginTables.Predicates | PluginTables.Documents)) != 0) SyncAgentPane();
         if ((tables & (PluginTables.Roster | PluginTables.Active | PluginTables.TabDecorators | PluginTables.FileIconSlots | PluginTables.Documents)) != 0) RefreshDecorations();
         if (tables.HasFlag(PluginTables.WorkspaceActions)) surface.RefreshCenterActions();
         if (tables.HasFlag(PluginTables.ProjectActions)) surface.RefreshEmptyContents();

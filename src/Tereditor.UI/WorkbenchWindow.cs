@@ -518,9 +518,11 @@ public sealed partial class WorkbenchWindow : Window, IDialogOwner
             if (!sameProject && toolContent.GetValueOrDefault("changes") is { } leaving) (leaving.Parent as Panel)?.Children.Remove(leaving);
             // The Language panel is workspace-keyed only inside itself, so one instance serves every workspace and project.
             var languagePanel = toolContent.GetValueOrDefault("lsp") as Panels.LanguagePanel;
+            var agentPane = toolContent.GetValueOrDefault("agent") as Panels.AgentPane;
             toolContent.Clear();
             // The switch made every retained pane inert (see OpenWorkspaceAsync); Files, Changes and plugin panes restore themselves, this one only here.
             if (languagePanel is not null) { languagePanel.Retarget(workspaceRoot); languagePanel.IsHitTestVisible = true; toolContent["lsp"] = languagePanel; }
+            if (agentPane is not null) { agentPane.IsHitTestVisible = true; toolContent["agent"] = agentPane; agentPane.Sync(); }
             if (filesPanel is not null) toolContent["files"] = filesPanel;
             if (changesPanel is not null) toolContent["changes"] = changesPanel;
             if (rail is not null) { toolContent["projects"] = rail; UpdateRailSelection(); }
@@ -712,6 +714,7 @@ public sealed partial class WorkbenchWindow : Window, IDialogOwner
                     "projects" => ProjectsPanel(),
                     "files" => FilesPanel(),
                     "lsp" => LanguagePanel(),
+                    "agent" => AgentPanel(),
                     _ => PluginTool(tab.Id)
                 };
                 toolContent[tab.Id] = content;

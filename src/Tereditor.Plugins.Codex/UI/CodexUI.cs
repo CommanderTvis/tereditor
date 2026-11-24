@@ -94,10 +94,9 @@ public sealed class CodexUI : PluginUIModule
         });
 
         context.SettingsSection(new("Codex", CodexManifest.Icon, () => CodexSettingsSection.Create(context)));
-        context.SideTool(new("config", workspace => CodexPanel.Create(context, workspace)) { Retarget = CodexPanel.Retarget });
         context.KeymapAction(new("OpenConfig", "Open Codex configuration", "Codex", () =>
         {
-            if (context.Host().ActiveWorkspaceId is { Length: > 0 } workspace) context.RevealTool(workspace, PluginIdentity.ToolId(context.Id, "config"));
+            if (context.Host().ActiveWorkspaceId is { Length: > 0 } workspace) context.RevealTool(workspace, "agent");
         }));
 
         // The host looks for the configured command on its PATH; until it answers, and when it cannot decide, the launcher stays available.
@@ -129,6 +128,15 @@ public sealed class CodexUI : PluginUIModule
             Models = () => [.. store.Models.Select(model => new LauncherModel(model.Id, model.Label, "openai-line"))]
         });
 
+        context.AgentPane(new(CodexManifest.Id, "Codex", CodexManifest.Icon, workspace => CodexPanel.Create(context, workspace))
+        {
+            Usable = () => LauncherAvailability.Of(context.AgentLaunchContributions(CodexManifest.Id), install?.Reason("Codex"), install?.Installed).Available,
+            Owns = tab => tab is TerminalTabRef terminal && context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
+                .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == CodexManifest.Id,
+            Retarget = CodexPanel.Retarget,
+            ShowTab = CodexPanel.ShowTab
+        });
+
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("codex-launch", (workspace, group) =>
             CodexLauncher.Create(context, store, preset => _ = Start(workspace, group, preset))));
 
@@ -149,8 +157,6 @@ public sealed class CodexUI : PluginUIModule
                         Adornment = () => new CodexStatusBadge(store, terminal.WorkspaceId, terminal.TabKey),
                         IsWorking = () => store.Session(terminal.WorkspaceId, terminal.TabKey)?.Status == CodexStatus.Running
                     };
-                case ToolTabRef { Tool: var tool } when tool == CodexManifest.ConfigTool:
-                    return new TabDecoration { Icon = CodexManifest.Icon };
                 default:
                     return null;
             }

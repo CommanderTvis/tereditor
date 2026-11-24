@@ -237,7 +237,7 @@ internal static partial class PluginHostChecks
 
     private static void ManifestIntake()
     {
-        const string valid = """{"id":"tidy","label":"Tidy","icon":"puzzle-2-line","version":"1.0.0","apiGeneration":2,"wireVersion":1}""";
+        const string valid = """{"id":"tidy","label":"Tidy","icon":"puzzle-2-line","version":"1.0.0","apiGeneration":3,"wireVersion":1}""";
         var (manifest, refused) = PluginDiscovery.ReadManifest(valid, "tidy");
         Require(manifest is { Id: "tidy", WireVersion: 1, EnabledByDefault: false } && refused is null, "A well-formed manifest is accepted: " + refused);
         var withTool = valid.Replace("}", ""","contributes":{"sideTools":[{"tool":"t","label":"T","icon":"i","defaultSide":"left","requiresGit":true}],"fileViewers":[]}}""");
@@ -246,12 +246,12 @@ internal static partial class PluginHostChecks
         Require(unknown is not null && unknown.Contains("bogus", StringComparison.Ordinal), "An unknown manifest member is refused, naming its path: " + unknown);
         var mistyped = PluginDiscovery.ReadManifest(valid.Replace("\"wireVersion\":1", "\"wireVersion\":\"one\""), "tidy").Refused;
         Require(mistyped is not null && mistyped.Contains("$.wireVersion", StringComparison.Ordinal), "A mistyped member is refused naming its path: " + mistyped);
-        var missing = PluginDiscovery.ReadManifest("""{"id":"tidy","icon":"i","version":"1","apiGeneration":2,"wireVersion":1}""", "tidy").Refused;
+        var missing = PluginDiscovery.ReadManifest("""{"id":"tidy","icon":"i","version":"1","apiGeneration":3,"wireVersion":1}""", "tidy").Refused;
         Require(missing is not null && missing.Contains("label", StringComparison.OrdinalIgnoreCase), "A missing required member is refused: " + missing);
         var moved = PluginDiscovery.ReadManifest(valid, "elsewhere").Refused;
         Require(moved == "plugin id \"tidy\" does not match its directory \"elsewhere\"", "An id must equal its directory name: " + moved);
-        var generation = PluginDiscovery.ReadManifest(valid.Replace("\"apiGeneration\":2", "\"apiGeneration\":3"), "tidy").Refused;
-        Require(generation == "plugin tidy declares apiGeneration 3, host expects 2", "A generation mismatch names the plugin and both generations: " + generation);
+        var generation = PluginDiscovery.ReadManifest(valid.Replace("\"apiGeneration\":3", "\"apiGeneration\":4"), "tidy").Refused;
+        Require(generation == "plugin tidy declares apiGeneration 4, host expects 3", "A generation mismatch names the plugin and both generations: " + generation);
         var id = PluginDiscovery.ReadManifest(valid.Replace("\"tidy\"", "\"Not An Id\""), null).Refused;
         Require(id is not null && id.Contains("not a plugin id", StringComparison.Ordinal), "A malformed id is refused: " + id);
         Console.WriteLine("PASS plugin manifests: strict shape naming the path, id against directory, generation naming both numbers");
@@ -877,15 +877,15 @@ internal static partial class PluginHostChecks
         await composed.Runtime.RescanAsync();
         Require((await composed.Row("outsider")) is { Status: PluginStatus.Disabled, Version: "1.0.1" }, "A rescan shows a changed external manifest, still disabled.");
 
-        InstallExternal(plugins, "elder", manifest => manifest with { ApiGeneration = 3 });
+        InstallExternal(plugins, "elder", manifest => manifest with { ApiGeneration = 4 });
         InstallExternal(plugins, "needy", manifest => manifest with { DependsOn = [new("absent", 1)] });
         await composed.Runtime.RescanAsync();
         var elder = await composed.Row("__refused:elder");
-        Require(elder is { Status: PluginStatus.Refused, Reason: "plugin elder declares apiGeneration 3, host expects 2" }, "A plugin built for another generation is refused, naming both.");
+        Require(elder is { Status: PluginStatus.Refused, Reason: "plugin elder declares apiGeneration 4, host expects 3" }, "A plugin built for another generation is refused, naming both.");
         await composed.Enable("needy");
         Require((await composed.Row("needy")) is { Status: PluginStatus.Refused, Reason: "depends on absent, which is not installed" }, "An external plugin's missing dependency is refused.");
         var elderManifest = Path.Combine(plugins, "elder", PluginManifest.FileName);
-        File.WriteAllText(elderManifest, File.ReadAllText(elderManifest).Replace("\"apiGeneration\":3", "\"apiGeneration\":2"));
+        File.WriteAllText(elderManifest, File.ReadAllText(elderManifest).Replace("\"apiGeneration\":4", "\"apiGeneration\":3"));
         var roster = await composed.Runtime.RescanAsync();
         Require(roster.All(entry => entry.Id != "__refused:elder") && roster.Single(entry => entry.Id == "elder").Status == PluginStatus.Disabled,
             "A rescan promotes a fixed manifest out of refused, arriving disabled.");

@@ -34,6 +34,7 @@ public sealed partial class LayoutSession
             "projects" => "folderTab",
             "files" => "file",
             "lsp" => "code",
+            "agent" => "robot",
             _ => "discuss"
         }, DockState.ToolRegion(id)))
     ];

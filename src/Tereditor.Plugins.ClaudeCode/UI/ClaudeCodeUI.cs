@@ -56,22 +56,9 @@ public sealed class ClaudeCodeUI : PluginUIModule
             store.EvictWorkspace(workspace);
         });
         context.SettingsSection(new("Claude Code", "asset:claude.svg", () => new ClaudeCodeSettingsSection(context)));
-        context.SideTool(new("config", workspace =>
-        {
-            Hydrate(workspace);
-            return new ClaudeConfigPanel(context, glyph, workspace);
-        })
-        {
-            Retarget = (pane, workspace) =>
-            {
-                if (pane is not ClaudeConfigPanel panel) return false;
-                Hydrate(workspace);
-                return panel.Retarget(workspace);
-            }
-        });
         context.KeymapAction(new("OpenConfig", "Open Claude Code configuration", "Claude Code", () =>
         {
-            if (context.Host().ActiveWorkspaceId is { Length: > 0 } workspace) context.RevealTool(workspace, PluginIdentity.ToolId(context.Id, "config"));
+            if (context.Host().ActiveWorkspaceId is { Length: > 0 } workspace) context.RevealTool(workspace, "agent");
         }));
         context.Launcher(new("claude", "Claude Code", "asset:claude.svg", options =>
         {
@@ -91,6 +78,28 @@ public sealed class ClaudeCodeUI : PluginUIModule
                 permissionMode: settings.PermissionMode, advisor: settings.Advisor, chrome: settings.Chrome ? true : null);
         }, () => LauncherAvailability.Of(context.AgentLaunchContributions("claude"), install?.Reason("Claude Code"), install?.Installed))
         { CreateIcon = glyph.Create, Open = (workspace, options) => ChatLauncher.OpenFromLauncher(context, workspace, options), Models = () => [.. ClaudeLaunch.Models.Select(model => new LauncherModel(model.Id, model.Label, "asset:claude.svg"))] });
+        context.AgentPane(new("claude", "Claude Code", "asset:claude.svg", workspace =>
+        {
+            Hydrate(workspace);
+            return new ClaudeConfigPanel(context, glyph, workspace);
+        })
+        {
+            Usable = () => LauncherAvailability.Of(context.AgentLaunchContributions("claude"), install?.Reason("Claude Code"), install?.Installed).Available,
+            Owns = tab => tab switch
+            {
+                TerminalTabRef terminal => context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
+                    .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == "claude",
+                PluginDocumentTabRef document => document.Scheme == ClaudeChat.DocumentScheme,
+                _ => false
+            },
+            Retarget = (pane, workspace) =>
+            {
+                if (pane is not ClaudeConfigPanel panel) return false;
+                Hydrate(workspace);
+                return panel.Retarget(workspace);
+            },
+            ShowTab = (pane, tab) => (pane as ClaudeConfigPanel)?.ShowTab(tab)
+        });
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("claude-launch",
             (workspace, group) => ClaudeLauncherAction.Create(context, glyph, workspace, group, chat)));
         context.WatchHost(host => string.Join("\n", host.Terminals.SelectMany(pair =>
@@ -99,8 +108,6 @@ public sealed class ClaudeCodeUI : PluginUIModule
         { Icon = "asset:claude.svg" });
         context.TabDecoration(tab =>
         {
-            if (tab is ToolTabRef tool && tool.Tool == ClaudeCodeManifest.ConfigTool)
-                return new() { Icon = "asset:claude.svg" };
             if (tab is not TerminalTabRef terminal ||
                 context.Host().Terminals.GetValueOrDefault(tab.WorkspaceId)?.FirstOrDefault(candidate => candidate.TabKey == terminal.TabKey)?.Agent?.Kind != "claude")
                 return null;
