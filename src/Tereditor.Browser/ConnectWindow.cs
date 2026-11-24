@@ -7,6 +7,8 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 
 using Tereditor.Host.Client;
+using Tereditor.Host.Protocol;
+using Tereditor.UI.Panels;
 using Tereditor.UI.State;
 
 namespace Tereditor.UI.Browser;
@@ -17,6 +19,7 @@ public sealed partial class ConnectWindow : Window
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
     private readonly TextBox address;
     private readonly TextBox token;
+    private readonly TextBox code;
     private readonly TextBlock error;
     private readonly Button submit;
     private readonly Button scan;
@@ -25,7 +28,8 @@ public sealed partial class ConnectWindow : Window
     private bool closed;
     private bool completed;
     private string? approvedToken;
-    private readonly bool localPage = HostEndpoint.IsLocal(HostEndpoint.Parse(BrowserInterop.Origin()));
+    // A loopback page, or the published client: both may ask a host on this computer for a credential.
+    private readonly bool localPage = HostEndpoint.IsLocal(HostEndpoint.Parse(BrowserInterop.Origin())) || LocalBrowserOrigins.IsPublished(BrowserInterop.Origin());
 
     /// <summary>Raised once the host answered with the entered token.</summary>
     public event Action<HostEndpoint>? Connected;
@@ -42,6 +46,7 @@ public sealed partial class ConnectWindow : Window
         AvaloniaXamlLoader.Load(this);
         address = this.FindControl<TextBox>("ConnectAddress")!;
         token = this.FindControl<TextBox>("ConnectToken")!;
+        code = this.FindControl<TextBox>("ConnectCode")!;
         error = this.FindControl<TextBlock>("ConnectError")!;
         submit = this.FindControl<Button>("ConnectSubmit")!;
         this.FindControl<ContentControl>("ConnectBrand")!.Content = Ui.Icon("brand", Ui.Accent, 40);
@@ -54,6 +59,8 @@ public sealed partial class ConnectWindow : Window
         TextInputOptions.SetReturnKeyType(token, TextInputReturnKeyType.Go);
         address.KeyDown += (_, e) => { if (e.Key == Key.Enter) { token.Focus(); e.Handled = true; } };
         token.KeyDown += (_, e) => { if (e.Key == Key.Enter) { _ = ConnectAsync(); e.Handled = true; } };
+        code.KeyDown += (_, e) => { if (e.Key == Key.Enter) { _ = ConnectAsync(); e.Handled = true; } };
+        code.TextChanged += (_, _) => Refresh();
         address.TextChanged += (_, _) => { approvedToken = null; Refresh(); };
         token.TextChanged += (_, _) => { approvedToken = null; Refresh(); };
         scan = this.FindControl<Button>("ConnectScan")!;
@@ -66,6 +73,15 @@ public sealed partial class ConnectWindow : Window
             if (closed || completed) return;
             completed = true;
             Connected?.Invoke(HostEndpoint.InTab);
+        };
+        var launch = this.FindControl<Button>("ConnectLaunch")!;
+        launch.Click += (_, _) =>
+        {
+            var body = this.FindControl<ContentControl>("ConnectLaunchBody")!;
+            if (body.Content is not null) { body.Content = null; launch.Content = "Start a host on this computer"; return; }
+            var strings = BrowserInterop.PlatformStrings();
+            body.Content = new HostLaunchView(HostLaunch.Detect(strings[0] + " " + strings[1], strings[2]), BrowserInterop.CopyText);
+            launch.Content = "Hide the host commands";
         };
         var tailscale = this.FindControl<Button>("ConnectTailscale")!;
         tailscale.Click += (_, _) => ShowTailscale(autoConnect: false);
@@ -118,10 +134,11 @@ public sealed partial class ConnectWindow : Window
     private void Refresh()
     {
         var connecting = attempt is not null;
-        address.IsEnabled = token.IsEnabled = scan.IsEnabled = !connecting;
+        address.IsEnabled = token.IsEnabled = code.IsEnabled = scan.IsEnabled = !connecting;
         submit.Content = connecting ? "Cancel" : "Connect";
         var local = localPage && HostEndpoint.IsLocal(HostEndpoint.Parse(address.Text ?? ""));
         this.FindControl<TextBlock>("ConnectLocalHint")!.IsVisible = local;
+        this.FindControl<TextBlock>("ConnectCodeLabel")!.IsVisible = code.IsVisible = local;
         submit.IsEnabled = connecting || !string.IsNullOrWhiteSpace(address.Text) && (local || !string.IsNullOrWhiteSpace(token.Text));
     }
 
@@ -134,14 +151,15 @@ public sealed partial class ConnectWindow : Window
         var requestApproval = endpoint.Token.Length == 0 && localPage && HostEndpoint.IsLocal(uri);
         if (endpoint.Token.Length == 0 && !requestApproval) { Fail("Enter the host's session token."); return; }
         var current = attempt = new CancellationTokenSource(requestApproval ? TimeSpan.FromSeconds(125) : Timeout);
-        this.FindControl<TextBlock>("ConnectProgress")!.IsVisible = requestApproval;
+        var pairing = code.Text?.Trim() is { Length: > 0 } typed ? typed : null;
+        this.FindControl<TextBlock>("ConnectProgress")!.IsVisible = requestApproval && pairing is null;
         abandoned = false;
         Refresh();
         string? failure = null;
         try
         {
             if (requestApproval)
-                endpoint = endpoint with { Token = await LocalBrowserApprovalClient.RequestAsync(uri, current.Token), LocalApproval = true };
+                endpoint = endpoint with { Token = await LocalBrowserApprovalClient.RequestAsync(uri, current.Token, pairing), LocalApproval = true };
             // The adapter's channel connects and authenticates on its first call.
             using var probe = new RemoteStateAdapter(uri, endpoint.Token);
             await probe.GetHandshakeAsync(current.Token);
@@ -150,6 +168,7 @@ public sealed partial class ConnectWindow : Window
         {
             failure = fault.StatusCode switch
             {
+                HttpStatusCode.Forbidden when pairing is not null => "The pairing code was wrong, already used or expired. Press Enter in the host's terminal for a new code.",
                 HttpStatusCode.Forbidden => "The connection was not approved in tereditor.",
                 HttpStatusCode.TooManyRequests => "Please wait a moment before requesting approval again.",
                 HttpStatusCode.RequestTimeout => "The approval request expired. Try again.",

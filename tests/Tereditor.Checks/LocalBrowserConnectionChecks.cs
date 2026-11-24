@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Net.WebSockets;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Tereditor.Host.Client;
 using Tereditor.Host.Core;
 using Tereditor.Host.Core.Plugins;
@@ -133,6 +135,111 @@ internal static class LocalBrowserConnectionChecks
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Require(listener.BrowserConnections.Origins.Count == 0, "Cancellation must issue no approval.");
         Console.WriteLine("PASS local browser approval: origin/Host gates, CORS, consent, denial, bounded pending requests, temporary tokens, RPC origin binding, reconnect, revocation, restart and cancellation");
+    }
+
+    internal static async Task RunPairing(string root)
+    {
+        const string Pages = LocalBrowserOrigins.Published;
+        long time = 1_000_000;
+        var pairing = new PairingCodes(clock: () => time);
+        string? reissued = null;
+        pairing.Reissued += code => reissued = code;
+        using var browsers = new LocalBrowserConnections((_, _) => Task.FromResult(false), pairing, clock: () => time);
+        Directory.CreateDirectory(Path.Combine(root, "pairing-host"));
+        await using var app = RemoteServer.Create(Path.Combine(root, "pairing-host"), IPAddress.Loopback, 0, "pairing-master", browsers: browsers);
+        await app.StartAsync();
+        var endpoint = new Uri(app.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features.Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()!.Addresses.Single());
+        using var client = new HttpClient { BaseAddress = endpoint };
+
+        async Task<HttpResponseMessage> Pair(string? code, string? origin = Pages, string? host = null)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/browser/connect");
+            if (origin is not null) request.Headers.Add("Origin", origin);
+            if (host is not null) request.Headers.Host = host;
+            if (code is not null) request.Content = JsonContent.Create(new LocalBrowserPairingRequest(code), LocalBrowserApprovalJson.Default.LocalBrowserPairingRequest);
+            return await client.SendAsync(request);
+        }
+        async Task<HttpStatusCode> Status(string? code, string? origin = Pages, string? host = null) { using var reply = await Pair(code, origin, host); return reply.StatusCode; }
+        void Wait() => time += 2100;
+
+        // The code alphabet and shape: 10 symbols in two groups, never the ambiguous I, L, O or U.
+        var first = pairing.Issue();
+        Require(first.Length == 11 && first[5] == '-' && first.Where(c => c != '-').All(c => "0123456789ABCDEFGHJKMNPQRSTVWXYZ".Contains(c)), "A pairing code must be two groups of five symbols.");
+        Require(first != new PairingCodes().Issue(), "Pairing codes must be random.");
+
+        // Origins and Host headers are checked before any code is looked at, and a refused request leaves the code alive.
+        foreach (var origin in new string?[] { null, "null", "https://evil.example", "https://commandertvis.github.io.evil.example", "http://commandertvis.github.io", "https://commandertvis.github.io:8443", "https://commandertvis.github.io/" })
+            Require(await Status(first, origin) == HttpStatusCode.Forbidden, "An origin outside the allow-list must not pair: " + origin);
+        Require(await Status(first, host: "evil.example") == HttpStatusCode.Forbidden, "A rebound Host header must not pair.");
+        Require(await Status(first, host: "commandertvis.github.io") == HttpStatusCode.Forbidden, "A public Host header must not pair.");
+        using (var preflight = await client.SendAsync(new HttpRequestMessage(HttpMethod.Options, "/browser/connect") { Headers = { { "Origin", Pages }, { "Access-Control-Request-Private-Network", "true" } } }))
+            Require(preflight.StatusCode == HttpStatusCode.NoContent && preflight.Headers.GetValues("Access-Control-Allow-Origin").Single() == Pages && preflight.Headers.GetValues("Access-Control-Allow-Private-Network").Single() == "true", "The preflight must allow the page's origin and private network access.");
+        using (var foreign = await client.SendAsync(new HttpRequestMessage(HttpMethod.Options, "/browser/connect") { Headers = { { "Origin", "https://evil.example" } } }))
+            Require(foreign.StatusCode == HttpStatusCode.Forbidden && !foreign.Headers.Contains("Access-Control-Allow-Origin"), "A foreign preflight must be refused without CORS.");
+
+        // A wrong code is refused, with a cooldown, and the right one still works.
+        Require(await Status("AAAAA-AAAAA") == HttpStatusCode.Forbidden, "A wrong code must be refused.");
+        Require(await Status(first) == HttpStatusCode.TooManyRequests, "A failed try must start a cooldown.");
+        Wait();
+        Require(await Status(null) == HttpStatusCode.Forbidden, "Without a code or an app to ask, pairing must be refused.");
+        Wait();
+        using var good = await Pair(first.ToLowerInvariant().Replace("-", " "));
+        Require(good.StatusCode == HttpStatusCode.OK && good.Headers.CacheControl?.NoStore == true, "The code must pair, ignoring case and separators.");
+        var token = (await good.Content.ReadFromJsonAsync(LocalBrowserApprovalJson.Default.LocalBrowserApprovalReply))!.Token;
+        Require(token.Length == 64 && token != "pairing-master", "Pairing must issue a 256-bit credential, never the master token.");
+        Require(browsers.StoredKeys.Count == 1 && !browsers.StoredKeys.Contains(token) && browsers.StoredKeys.Single() == Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token))), "Credentials must be kept as SHA-256 only.");
+        Require(browsers.Origins.SequenceEqual([Pages]), "The paired origin must be listed.");
+        await Handshake(endpoint, token, Pages, true);
+        await Handshake(endpoint, token, "https://evil.example", false);
+        await Handshake(endpoint, token, "http://localhost:3000", false);
+        await Handshake(endpoint, token, null, false);
+
+        // A code works once; use replaced it.
+        Wait();
+        Require(await Status(first) == HttpStatusCode.Forbidden, "A used code must not pair again.");
+        Require(reissued is { } && reissued != first, "Use must make a new code available to the owner.");
+
+        // Five wrong tries burn the live code, which the refused reuse above already cost one; the replacement is another code.
+        var live = reissued!;
+        for (var i = 0; i < 4; i++) { Wait(); Require(await Status("ZZZZZ-ZZZZZ") == HttpStatusCode.Forbidden, "A wrong code must be refused."); }
+        Wait();
+        Require(await Status(live) == HttpStatusCode.Forbidden, "Five wrong tries must burn the code.");
+        var replacement = reissued!;
+        Require(replacement != live, "A burned code must be replaced.");
+
+        // An expired code is refused like a wrong one.
+        time += (long)TimeSpan.FromMinutes(5).TotalMilliseconds + 1;
+        Require(await Status(replacement) == HttpStatusCode.Forbidden, "An expired code must not pair.");
+        Wait();
+        var fresh = pairing.Issue();
+        using var second = await Pair(fresh);
+        var secondToken = (await second.Content.ReadFromJsonAsync(LocalBrowserApprovalJson.Default.LocalBrowserApprovalReply))!.Token;
+        Require(second.IsSuccessStatusCode && secondToken != token, "A new code must pair with a new credential.");
+
+        // Revocation, idle expiry with renewal, and the absolute limit.
+        browsers.Revoke(Pages);
+        await Handshake(endpoint, token, Pages, false);
+        Require(browsers.StoredKeys.Count == 0, "Revoking an origin must drop its credentials.");
+        Wait();
+        var third = pairing.Issue();
+        using var renewed = await Pair(third);
+        var renewedToken = (await renewed.Content.ReadFromJsonAsync(LocalBrowserApprovalJson.Default.LocalBrowserApprovalReply))!.Token;
+        for (var i = 0; i < 4; i++) { time += (long)TimeSpan.FromMinutes(50).TotalMilliseconds; await Handshake(endpoint, renewedToken, Pages, true); }
+        time += (long)TimeSpan.FromMinutes(50).TotalMilliseconds;
+        await Handshake(endpoint, renewedToken, Pages, true);
+        time += (long)LocalBrowserConnections.IdleLifetime.TotalMilliseconds + 1;
+        await Handshake(endpoint, renewedToken, Pages, false);
+        Wait();
+        var fourth = pairing.Issue();
+        using var capped = await Pair(fourth);
+        var cappedToken = (await capped.Content.ReadFromJsonAsync(LocalBrowserApprovalJson.Default.LocalBrowserApprovalReply))!.Token;
+        for (var step = 0; step < 14; step++) { time += (long)TimeSpan.FromMinutes(50).TotalMilliseconds; await Handshake(endpoint, cappedToken, Pages, true); }
+        time += (long)TimeSpan.FromMinutes(50).TotalMilliseconds;
+        await Handshake(endpoint, cappedToken, Pages, false);
+
+        // The master token still works for clients that hold it.
+        await Handshake(endpoint, "pairing-master", null, true);
+        Console.WriteLine("PASS browser pairing: origin allow-list, Host check, private network preflight, wrong/used/expired/burned codes, cooldown, hashed credentials, origin binding, revocation, idle and absolute expiry");
     }
 
     internal static void Require(bool condition, string message)

@@ -84,6 +84,20 @@ export function origin() { return location.origin; }
 export async function preload(path) { await import(new URL(path, import.meta.url).href); }
 // The three platform strings a page can read, newest source first; .NET picks the first non-empty one (ActiveKeymap.IsMacBrowser).
 export function platformInfo() { return JSON.stringify([navigator.userAgentData?.platform ?? '', navigator.platform ?? '', navigator.userAgent ?? '']); }
+// The clipboard API needs a secure page and a click; the hidden textarea covers a browser that refuses it.
+export async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* use the fallback */ }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+  document.body.append(area);
+  area.select();
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch { /* reported as failed */ }
+  area.remove();
+  return copied;
+}
 export function openLink(url) {
   const target = new URL(url);
   if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error('Only web links can be opened.');

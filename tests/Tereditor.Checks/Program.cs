@@ -1353,6 +1353,11 @@ internal static class Program
             E2E.WorkspaceSwitchProfile.Run(Path.Combine(root, "upstream-e2e"));
             return;
         }
+        if (args.SequenceEqual(["--browser-pairing"]))
+        {
+            LocalBrowserConnectionChecks.RunPairing(root).GetAwaiter().GetResult();
+            return;
+        }
         if (args.SequenceEqual(["--local-browser-fixture"]))
         {
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
@@ -1578,6 +1583,13 @@ internal static class Program
             AirGatewayChecks.RunUi(root);
             return;
         }
+        if (args.SequenceEqual(["--host-launch"]))
+        {
+            AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().SetupWithoutStarting();
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
+            HostLaunchChecks.RunUi();
+            return;
+        }
         if (args.SequenceEqual(["--button-centering"]))
         {
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().SetupWithoutStarting();
@@ -1701,6 +1713,7 @@ internal static class Program
         Gate.Case("air-gateway", () => AirGatewayChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("tailscale", () => TailscaleChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("local-browser-approval", () => LocalBrowserConnectionChecks.RunHost(root).GetAwaiter().GetResult());
+        Gate.Case("browser-pairing", () => LocalBrowserConnectionChecks.RunPairing(root).GetAwaiter().GetResult());
         Gate.Case("host-listener", () => HostListenerChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("plugin-host", () => PluginHostChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("code-intelligence-plugin", () => PluginHostChecks.CodeIntelligencePlugin(root).GetAwaiter().GetResult());
@@ -1733,6 +1746,7 @@ internal static class Program
         Gate.Case("design-roles", Design.RoleChecks.Run);
         Gate.Case("tailscale-ui", () => TailscaleChecks.RunUi(root));
         Gate.Case("button-centering", ButtonCenteringChecks.RunUi);
+        Gate.Case("host-launch", HostLaunchChecks.RunUi);
         Gate.Case("number-box-centering", NumberBoxCenteringChecks.RunUi);
         Gate.Case("section-headers", () => SectionHeaderAlignmentChecks.RunUi(root));
         Gate.Case("air-gateway-ui", () => AirGatewayChecks.RunUi(root));

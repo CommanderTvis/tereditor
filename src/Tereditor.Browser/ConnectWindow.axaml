@@ -19,7 +19,9 @@
           <TextBox x:Name="ConnectAddress" PlaceholderText="localhost:54123" />
           <TextBlock Text="Session token" Foreground="{x:Static rendering:Ui.Muted}" />
           <TextBox x:Name="ConnectToken" PasswordChar="●" />
-          <TextBlock x:Name="ConnectLocalHint" Text="Leave the token blank to request approval in tereditor." TextWrapping="Wrap" Foreground="{x:Static rendering:Ui.Muted}" />
+          <TextBlock x:Name="ConnectCodeLabel" Text="Pairing code" Foreground="{x:Static rendering:Ui.Muted}" />
+          <TextBox x:Name="ConnectCode" PlaceholderText="ABCDE-FGHIJ" />
+          <TextBlock x:Name="ConnectLocalHint" Text="Leave the token blank. Enter the pairing code the host printed, or leave the code blank to request approval in the tereditor app." TextWrapping="Wrap" Foreground="{x:Static rendering:Ui.Muted}" />
         </StackPanel>
         <TextBlock x:Name="ConnectProgress" IsVisible="False" Text="Confirm this connection in the tereditor app. The request expires in two minutes." TextWrapping="Wrap" Foreground="{x:Static rendering:Ui.Muted}" />
         <TextBlock x:Name="ConnectError" IsVisible="False" TextWrapping="Wrap" Foreground="{x:Static rendering:Ui.Danger}" />
@@ -27,6 +29,8 @@
         <Button x:Name="ConnectScan" Height="40" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
       </StackPanel>
       <Button x:Name="ConnectTab" Classes="primary" Content="Open Playground (no host needed!)" Height="40" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <Button x:Name="ConnectLaunch" Content="Start a host on this computer" Height="40" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <ContentControl x:Name="ConnectLaunchBody" />
       <Button x:Name="ConnectTailscale" Content="Connect over Tailscale" Height="40" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
       <ContentControl x:Name="ConnectTailscaleBody" />
       <Button x:Name="ConnectManualBack" Content="Use an address and token" Height="40" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsVisible="False" />

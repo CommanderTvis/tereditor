@@ -70,6 +70,11 @@ internal static partial class BrowserInterop
     [JSImport("platformInfo", "tereditor")]
     private static partial string PlatformInfo();
     internal static bool IsMac() => JsonSerializer.Deserialize(PlatformInfo(), BrowserJson.Default.StringArray) is [var hints, var platform, var agent] && ActiveKeymap.IsMacBrowser(hints, platform, agent);
+    // The page's three platform strings: userAgentData, navigator.platform, user agent.
+    internal static string[] PlatformStrings() => JsonSerializer.Deserialize(PlatformInfo(), BrowserJson.Default.StringArray) ?? ["", "", ""];
+    [JSImport("copyText", "tereditor")]
+    [return: JSMarshalAs<JSType.Promise<JSType.Boolean>>]
+    internal static partial Task<bool> CopyText(string text);
     [JSImport("openLink", "tereditor")]
     internal static partial void OpenLink(string url);
 }

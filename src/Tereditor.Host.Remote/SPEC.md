@@ -252,7 +252,7 @@ An embedded app listener offers POST `/browser/connect` to loopback browser orig
 endpoints and the HTTP Host must be loopback; the Origin must be a canonical HTTP(S) loopback
 origin. Missing/null, nonlocal and malformed origins are rejected before any prompt or CORS
 permission. OPTIONS preflight returns only the validated origin and never asks for consent.
-Standalone servers without an app window retain token authentication and offer no approval endpoint.
+A standalone server has no window to ask, so it answers this endpoint only for a pairing code (next section) and otherwise keeps token authentication.
 The reply is `{"token":...}`, written and read with the web defaults from the Protocol's source-generated
 `LocalBrowserApprovalJson`.
 
@@ -277,6 +277,35 @@ cancellation (including a callback that ignores cancellation), real authenticate
 wrong/missing origins, master-token compatibility, active-call revocation and restart expiry.
 Headless app checks additionally exercise the compiled consent dialog, Deny focus/Escape, browser
 cancellation, Settings revocation and dismissal when the listener stops.
+
+## Browser pairing
+
+The browser client at the published Pages origin (`LocalBrowserOrigins.Published`, `https://commandertvis.github.io`) is allowed, beside loopback origins, to request a credential from `/browser/connect`.
+The origin must match exactly: scheme, host and port, no path, no userinfo, no look-alike suffix. Both TCP endpoints and the Host header must still be loopback, which also stops DNS rebinding.
+`TEREDITOR_BROWSER_ORIGINS` (comma separated, standalone host) adds exact origins; nothing else widens the list. The embedded listener's consent dialog names the page's origin as before.
+
+The standalone host (`Program.cs`) pairs on a loopback bind only. It prints `Host address` and a `Pairing code` to its terminal (stdout; never a log, URL or file), `XXXXX-XXXXX` from a 32-letter alphabet,
+50 bits. `PairingCodes` keeps only its SHA-256 and one code is live at a time: valid for 5 minutes, redeemable once, burned after 5 wrong tries, and replaced (and printed again) after a use or a burn.
+Enter in the terminal prints a new code. Without `TEREDITOR_TOKEN` the host makes a random master token nobody sees; with one, that token works as before. The page sends `{"code": ...}` in the POST body.
+A wrong, used, expired or burned code is the same 403 and a failed request starts the 2 s cooldown (429) that denied approvals already have. A refused origin or Host header never looks at the code, so it cannot burn it.
+
+The credential is the existing grant: 256 random bits, answered once, bound to the page's origin and loopback transport on every RPC call, listed and revocable by origin. `LocalBrowserConnections` now keeps only the
+SHA-256 of each credential (a log, memory dump of the table or a revoked list shows no usable secret), and every grant expires: unused for one hour (each accepted call renews it, so a connected page keeps its session), and
+never later than 12 hours after it was issued. After that the page pairs again; it keeps nothing but the session-storage credential. The preflight answers `Access-Control-Allow-Private-Network` when Chrome asks, only after the
+origin and Host checks.
+
+Threat model:
+
+- A page on another origin, or a page that spoofs one: refused by the exact origin match before any prompt, code check or CORS header; browsers set Origin, scripts cannot forge it.
+- DNS rebinding: the Host header must be a loopback name, so a rebound name is refused.
+- Another origin on the Pages host: every repository site under `commandertvis.github.io` shares this origin. A page there could ask, but still needs the code or the user's consent. Self-hosted clients use `TEREDITOR_BROWSER_ORIGINS`.
+- Other local users: the code is on the terminal of the user who started the host, and the port is reachable by any local process. A process that guesses is limited to 5 tries per code and one request per 2 s; it cannot read the code.
+  A local user who can read the host's terminal or process memory is already that user.
+- Token leak: the credential is never in a URL or the `TEREDITOR_TOKEN` variable, only in the page's session storage; it works only with the same origin from loopback, expires, and is revoked per origin.
+- Replay: a code works once; a credential from another origin, or after expiry, revocation or a restart, is 401.
+- Brute force: 50-bit code, 5 tries, 5 minutes; 256-bit credentials.
+- Container or network exposure: pairing is off unless the bind is loopback; a container publishes the port as `127.0.0.1:port`. The container image does not run this host yet.
+- Not covered: malware running as the same user, a browser extension on the Pages origin, and a stolen unlocked session. The code and the printed address are shown on the terminal, so share no screen recording of them.
 
 ## Language queries
 

@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Tereditor.Plugins.UI.Kit" x:Class="Tereditor.UI.Panels.HostLaunchView">
+  <StackPanel Spacing="12">
+    <TextBlock Text="Start a host on this computer" FontSize="20" />
+    <TextBlock x:Name="LaunchPairing" TextWrapping="Wrap" Foreground="{x:Static kit:Ui.Muted}" />
+    <StackPanel x:Name="LaunchFirst" Spacing="12" />
+    <Expander x:Name="LaunchOtherExpander" Header="Other options">
+      <StackPanel x:Name="LaunchOther" Spacing="12" Margin="0,8,0,0" />
+    </Expander>
+    <TextBlock Text="If the browser blocks the connection" FontSize="16" />
+    <TextBlock x:Name="LaunchNotice" TextWrapping="Wrap" Foreground="{x:Static kit:Ui.Muted}" />
+  </StackPanel>
+</UserControl>

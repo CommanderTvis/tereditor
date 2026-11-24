@@ -13,12 +13,16 @@ public static class LocalBrowserApprovalClient
         (address.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
         IPAddress.TryParse(address.Host.Trim('[', ']'), out var ip) && IPAddress.IsLoopback(ip));
 
-    /// <summary>Requests a temporary credential using the browser's Origin header; HTTP rejection preserves its status code.</summary>
-    public static async Task<string> RequestAsync(Uri address, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Requests a temporary credential using the browser's Origin header; HTTP rejection preserves its status code. With a pairing
+    /// code from the host's terminal the host answers without a prompt; the code goes in the body, never the URL.
+    /// </summary>
+    public static async Task<string> RequestAsync(Uri address, CancellationToken cancellationToken = default, string? pairingCode = null)
     {
         if (!IsLoopback(address)) throw new ArgumentException("App approval requires a loopback host.", nameof(address));
         using var client = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        using var response = await client.PostAsync(new Uri(address, "/browser/connect"), null, cancellationToken);
+        using var body = string.IsNullOrWhiteSpace(pairingCode) ? null : JsonContent.Create(new LocalBrowserPairingRequest(pairingCode.Trim()), LocalBrowserApprovalJson.Default.LocalBrowserPairingRequest);
+        using var response = await client.PostAsync(new Uri(address, "/browser/connect"), body, cancellationToken);
         response.EnsureSuccessStatusCode();
         var reply = await response.Content.ReadFromJsonAsync(LocalBrowserApprovalJson.Default.LocalBrowserApprovalReply, cancellationToken);
         if (string.IsNullOrEmpty(reply?.Token)) throw new IOException("The host did not return a browser credential.");

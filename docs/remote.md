@@ -35,6 +35,12 @@ TEREDITOR_TOKEN=your-token artifacts/host/tereditor-host
 TEREDITOR_REMOTE=http://127.0.0.1:54123 TEREDITOR_TOKEN=your-token artifacts/tereditor.app/Contents/MacOS/tereditor
 ```
 
+### Start a host from the browser page
+
+The browser client has a "Start a host on this computer" button. On Windows it shows a PowerShell script that downloads the nightly Windows build, checks it against `SHA256SUMS`, and runs the host. The host prints its address and a pairing code. Enter both in the page and leave the token blank. The code works once and expires in five minutes. No standing secret is copied.
+
+The browser must let the page reach your computer. Chrome, Edge and Brave ask for "Local network access". Click Allow. If you blocked it, use the icon left of the address bar, open Site settings, and allow it. On macOS and Linux no standalone host download exists yet: use the desktop app and turn on the listener in Settings > Host.
+
 ### Use another machine
 
 1. Set the host's `TEREDITOR_BIND` to its Tailscale IP.

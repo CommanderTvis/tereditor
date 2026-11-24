@@ -38,6 +38,16 @@ settings, plugins and terminals. The browser stores its temporary credential onl
 separate from the visible token field. Reload/reconnect reuses it; listener restart or revocation
 rejects it and immediately returns the user to requesting approval when the state subscription
 reports authentication rejection. Ordinary transport outages retain the existing reconnect behavior. Nonloopback hosts still require a token.
+A page served from the published origin (`LocalBrowserOrigins.Published`) is treated like a loopback page for this: it may ask a loopback host for approval. The connect form then also takes a pairing code,
+which a host without a window prints on its terminal; the code goes to the host in the request body, and the reply is the same origin-bound credential, kept in session storage only (never local storage, never a URL).
+Without a code the request asks the app for approval, as before.
+
+"Start a host on this computer" shows commands for starting a host (`HostLaunch`, `HostLaunchView`, shared UI sources). The visitor's system is read from `navigator.userAgentData.platform`, then `navigator.platform`
+and the user agent; its options come first and the others sit under Other options. Each command has a Copy button that uses the clipboard API and falls back to a hidden textarea and `execCommand`, and says "Copied" or that the copy failed.
+Only what the nightly release publishes is listed: a PowerShell script for Windows (it picks x64 or ARM64 itself, checks the archive against the release's `SHA256SUMS`, refuses to run as administrator, and runs
+`host/tereditor-host.exe`), and for macOS and Linux the desktop app, because no release file or container image contains a host that serves the browser (the headless archives and the image speak MCP on stdio only).
+A new release file is one more entry in `HostLaunch.All`. The view also tells the visitor to allow the tab to reach their own computer (Chrome, Edge and Brave: "Local network access" or "Access other apps and services on
+this device") and what to click if it was blocked; Safari and Firefox may not ask. Checks: `--host-launch`.
 
 The token is never included in a URL. The endpoint and token live in session storage; client-local view
 state lives in local storage. Shared settings and workspace lifecycle belong to the host.
