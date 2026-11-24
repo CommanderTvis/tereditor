@@ -544,7 +544,9 @@ internal sealed partial class ChatView : Grid, IChatRowActions
             foreach (var widget in header.Widgets.Where(widget => widget.Below == below))
                 panel.Children.Add(new Border
                 {
-                    Name = "ChatWidget_" + widget.Key, Background = Ui.Elevated, Padding = new Thickness(12, 6),
+                    Name = "ChatWidget_" + widget.Key,
+                    Background = Ui.Elevated,
+                    Padding = new Thickness(12, 6),
                     Child = new SelectableTextBlock { Text = string.Join("\n", widget.Lines), TextWrapping = TextWrapping.Wrap, FontFamily = Ui.CodeFont, FontSize = 12, Foreground = Ui.Muted }
                 });
             panel.IsVisible = panel.Children.Count > 0;
