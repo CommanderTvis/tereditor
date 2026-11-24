@@ -93,6 +93,15 @@ internal static class AcpChecks
         Require(master.SelectedId == "registry:b" && picked.Count == 1, "Filling the list keeps the selection and says nothing.");
         var texts = rows[3].GetLogicalDescendants().OfType<Avalonia.Controls.TextBlock>().Select(text => text.Text).ToList();
         Require(texts.SequenceEqual(["Beta", "v2", "Another line"]) && rows[3].GetLogicalDescendants().Contains(button), "A row has name, note, description and its action.");
+        // A heading is plain: its container takes no pointer, no focus and no tab stop, so it neither highlights nor is reached by arrow keys; a screen reader still reads it as a heading.
+        var headingHost = new Avalonia.Controls.Window { Width = 700, Height = 400, Content = master };
+        headingHost.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var headingBox = (Avalonia.Controls.ListBoxItem)master.Rail.ContainerFromIndex(0)!;
+        var rowBox = (Avalonia.Controls.ListBoxItem)master.Rail.ContainerFromIndex(1)!;
+        Require(!headingBox.IsHitTestVisible && !headingBox.Focusable && !headingBox.IsTabStop && rowBox.IsHitTestVisible && rowBox.Focusable, "A heading takes no pointer and no focus; a row does.");
+        Require(Avalonia.Automation.AutomationProperties.GetHeadingLevel((Avalonia.Controls.TextBlock)rows[0]) > 0, "A heading is announced as a heading.");
+        headingHost.Close();
         // The list scrolls on its own: with many rows in a window of fixed height, scrolling it moves neither the header nor the pane.
         var tall = new Tereditor.Plugins.UI.Kit.MasterDetail("Tall");
         tall.Header.Children.Add(new Avalonia.Controls.TextBlock { Name = "TallHeader", Text = "Header" });

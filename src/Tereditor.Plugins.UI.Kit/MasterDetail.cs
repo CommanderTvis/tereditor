@@ -18,11 +18,26 @@ public sealed class MasterDetail : Grid
 
     private sealed class GroupHeading : TextBlock;
 
+    /// <summary>A list whose heading containers are inert: no hover, no click, no pointer cursor, not focusable, so arrow keys skip them.</summary>
+    private sealed class RailList : ListBox
+    {
+        protected override Type StyleKeyOverride => typeof(ListBox);
+
+        protected override void ContainerForItemPreparedOverride(Control container, object? item, int index)
+        {
+            base.ContainerForItemPreparedOverride(container, item, index);
+            var heading = item is GroupHeading;
+            container.IsHitTestVisible = !heading;
+            container.Focusable = !heading;
+            container.IsTabStop = !heading;
+        }
+    }
+
     public MasterDetail(string name, double railWidth = 280)
     {
         Name = name;
         ColumnDefinitions = new ColumnDefinitions { new(new GridLength(railWidth)) { MinWidth = 160 }, new(GridLength.Auto), new(new GridLength(1, GridUnitType.Star)) };
-        Rail = new ListBox { Name = name + "Rail", Background = Brushes.Transparent, BorderThickness = new Thickness(0), AutoScrollToSelectedItem = false };
+        Rail = new RailList { Name = name + "Rail", Background = Brushes.Transparent, BorderThickness = new Thickness(0), AutoScrollToSelectedItem = false };
         ScrollViewer.SetVerticalScrollBarVisibility(Rail, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
         ScrollViewer.SetHorizontalScrollBarVisibility(Rail, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         Rail.SelectionChanged += (_, _) =>
@@ -101,7 +116,14 @@ public sealed class MasterDetail : Grid
 
     /// <summary>A heading between groups of rows, such as Installed and Registry. It is not selectable.</summary>
     public static Control Group(string id, string text) =>
-        new GroupHeading { Name = "MasterGroup_" + id, Text = text, FontSize = 12, Foreground = Ui.Muted, Margin = new Thickness(2, 8, 0, 0) };
+        Heading(id, text);
+
+    private static GroupHeading Heading(string id, string text)
+    {
+        var heading = new GroupHeading { Name = "MasterGroup_" + id, Text = text, FontSize = 12, Foreground = Ui.Muted, Margin = new Thickness(2, 8, 0, 0), IsHitTestVisible = false, Focusable = false };
+        Avalonia.Automation.AutomationProperties.SetHeadingLevel(heading, 2);
+        return heading;
+    }
 
     /// <summary>One row of the list: an optional icon (without one the text starts at the left edge), the name with a small line under it, and a red dot (with the problem as its tooltip) when something is wrong.</summary>
     public static Control Row(string id, Control? icon, string name, string? subtitle, string? problem) => Row(id, icon, name, null, subtitle, problem, null);
