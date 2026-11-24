@@ -244,6 +244,12 @@ static Tereditor.Plugins.UI.Kit.Ui.Segment(string! name, string! label) -> Avalo
 static Tereditor.Plugins.UI.Kit.Ui.Text(string! text, Avalonia.Media.IBrush? color = null, double? size = null) -> Avalonia.Controls.TextBlock!
 static Tereditor.Plugins.UI.Kit.Ui.Theme.get -> Tereditor.Plugins.UI.Kit.ThemeManifest!
 static Tereditor.Plugins.UI.Kit.Ui.ThemeChanged -> System.Action?
+static Tereditor.Plugins.UI.Kit.Ui.AgentIconsChanged -> System.Action?
+static Tereditor.Plugins.UI.Kit.Ui.AgentColor(string! agent) -> Avalonia.Media.Color?
+static Tereditor.Plugins.UI.Kit.Ui.ApplyAgentIcons(bool colored) -> void
+static Tereditor.Plugins.UI.Kit.Ui.ColoredAgentIcons.get -> bool
+Tereditor.Plugins.UI.Kit.SvgAsset.Agent.get -> string?
+Tereditor.Plugins.UI.Kit.SvgAsset.Agent.init -> void
 static Tereditor.Plugins.UI.Kit.ViewerLimits.TooLarge(string! what, int length) -> Avalonia.Controls.Control!
 static Tereditor.Plugins.UI.Kit.Visualization.MermaidDialog.Inline(Avalonia.Svg.Skia.SvgSource! diagram, Avalonia.Size natural, Avalonia.Controls.Control! fullscreen) -> Avalonia.Controls.Control!
 static Tereditor.Plugins.UI.Kit.Visualization.MermaidDialog.Show(Avalonia.Controls.Window! owner, Avalonia.Svg.Skia.SvgSource! diagram) -> void

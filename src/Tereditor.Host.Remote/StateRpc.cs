@@ -82,6 +82,7 @@ public sealed class StateRpc(IHostStateService host, IHostApplicationLifetime li
             TerminalNotificationsDisabled = !state.Settings.TerminalNotificationsEnabled,
             TerminalOptionAsAlt = state.Settings.TerminalOptionAsAlt,
             ServeOnStart = state.Settings.ServeOnStart,
+            AgentIconsColored = state.Settings.AgentIconsColored,
             BellFeatures = state.Settings.BellFeatures,
             CustomHighlighting = state.Settings.CustomHighlighting,
             VerticalCenterTabs = state.Settings.VerticalCenterTabs,

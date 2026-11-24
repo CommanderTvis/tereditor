@@ -81,6 +81,8 @@ public sealed class SettingsMessage
     [ProtoMember(41)] public bool EditorZoomGesturesOff { get; set; }
     /// <summary>Off, the default, from a host that predates the setting.</summary>
     [ProtoMember(42)] public bool ServeOnStart { get; set; }
+    /// <summary>Off, the default, from a host that predates the setting (protocol 26).</summary>
+    [ProtoMember(43)] public bool AgentIconsColored { get; set; }
 }
 
 [ProtoContract]

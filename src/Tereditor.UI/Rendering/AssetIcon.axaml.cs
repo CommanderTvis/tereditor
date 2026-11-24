@@ -19,10 +19,10 @@ internal sealed partial class AssetIcon : Grid
         this.FindControl<ContentControl>("Fallback")!.Content = fallback;
     }
 
-    internal void Show(byte[] bytes, IBrush color, double size)
+    internal void Show(byte[] bytes, IBrush color, double size, string? agent = null)
     {
         // A PNG (a language server's mark, say) draws as itself; anything else is an SVG tinted through currentColor.
-        Image image = bytes.AsSpan().StartsWith(Png) ? new Image { Width = size, Height = size, Stretch = Stretch.Uniform, Source = Bitmap(bytes) } : new SvgAsset(bytes, size, color);
+        Image image = bytes.AsSpan().StartsWith(Png) ? new Image { Width = size, Height = size, Stretch = Stretch.Uniform, Source = Bitmap(bytes) } : new SvgAsset(bytes, size, color) { Agent = agent };
         image.PropertyChanged += (_, change) =>
         {
             if (change.Property == Avalonia.Controls.Image.SourceProperty) fallback.IsVisible = image.Source is null;

@@ -532,6 +532,30 @@ public sealed partial class SettingsView : UserControl
             FileIconChoices();
         };
         refreshers.Add(FileIconChoices);
+        // Host state too: the choice follows the broadcast, and open agent icons redraw from it.
+        var agentIcons = PageControl<ComboBox>(panel, "AgentIconChoices");
+        var agentIconStyles = new[] { (false, "Plain: single-colour icons that follow the text colour"), (true, "Colored: Claude Code in its brand colour; the other agents stay plain") };
+        var syncingAgentIcons = false;
+        void AgentIconChoices()
+        {
+            syncingAgentIcons = true;
+            try
+            {
+                if (agentIcons.ItemCount != agentIconStyles.Length) agentIcons.ItemsSource = agentIconStyles.Select(style => style.Item2).ToArray();
+                agentIcons.SelectedIndex = state.Current.Settings.AgentIconsColored ? 1 : 0;
+            }
+            finally { syncingAgentIcons = false; }
+            agentIcons.IsEnabled = state.Supports(HostProtocol.AgentIconColors);
+        }
+        AgentIconChoices();
+        agentIcons.SelectionChanged += (_, _) =>
+        {
+            if (syncingAgentIcons || agentIcons.SelectedIndex < 0) return;
+            var colored = agentIconStyles[agentIcons.SelectedIndex].Item1;
+            if (colored != state.Current.Settings.AgentIconsColored) Share(HostStateChange.Setting("agent-icons-colored", Setting(colored)));
+            AgentIconChoices();
+        };
+        refreshers.Add(AgentIconChoices);
         WindowDecorationSettings(panel);
         var size = PageControl<NumericUpDown>(panel, "InterfaceSize");
         CompactSteppers(size, 24); FitDigits(size, 24);

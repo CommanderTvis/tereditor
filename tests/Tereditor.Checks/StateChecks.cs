@@ -163,7 +163,7 @@ internal static class StateChecks
             HostStateChange.Setting("system-light", "light"), HostStateChange.Setting("system-dark", "high-contrast-dark"),
             HostStateChange.Setting("accent", "#3b82f6"), HostStateChange.Setting("markdown-width", "80"), HostStateChange.Setting("file-bounded", "false"),
             HostStateChange.Setting("notifications", "false"), HostStateChange.Setting("window-decorations", "client"), HostStateChange.Setting("file-type-icons", "false"), HostStateChange.Setting("file-type-icon-style", "material"), HostStateChange.Setting("terminal-notifications", "false"), HostStateChange.Setting("bell-features", "title, system"),
-            HostStateChange.Setting("terminal-hidden-chips", "model, env/env-mise,model"), HostStateChange.Setting("group-workspaces-under-creator", "true"),
+            HostStateChange.Setting("terminal-hidden-chips", "model, env/env-mise,model"), HostStateChange.Setting("group-workspaces-under-creator", "true"), HostStateChange.Setting("agent-icons-colored", "true"),
             HostStateChange.Setting("vertical-tabs", "true"), HostStateChange.Setting("tabs-in-projects", "false"),
             HostStateChange.Setting("editor-indent-tabs", "true"), HostStateChange.Setting("editor-detect-indent", "false"), HostStateChange.Setting("editor-zoom-gestures", "false"),
             HostStateChange.Setting("editor-font-family", " Fira Code "), HostStateChange.Setting("editor-line-height", "15"),
@@ -213,7 +213,7 @@ internal static class StateChecks
                     throw new InvalidOperationException($"The {name} host accepted the accent {bad}.");
                 }
                 catch (Exception error) when (error is ArgumentException or Tereditor.Host.Protocol.RpcException) { }
-            foreach (var (key, bad) in new[] { ("editor-line-height", "9"), ("editor-line-height", "21"), ("editor-line-height", "1.5"), ("editor-font-family", "Mono\nFont"), ("editor-indent-tabs", "yes"), ("editor-zoom-gestures", "yes"), ("group-workspaces-under-creator", "yes") })
+            foreach (var (key, bad) in new[] { ("editor-line-height", "9"), ("editor-line-height", "21"), ("editor-line-height", "1.5"), ("editor-font-family", "Mono\nFont"), ("editor-indent-tabs", "yes"), ("editor-zoom-gestures", "yes"), ("group-workspaces-under-creator", "yes"), ("agent-icons-colored", "yes") })
                 try
                 {
                     await service.ChangeAsync([HostStateChange.Setting(key, bad)]);
@@ -253,12 +253,14 @@ internal static class StateChecks
         Require(state.Settings is
         {
             Theme: "light", ThemeMode: "system", SystemDark: "high-contrast-dark", Accent: "#3b82f6", MarkdownLineWidth: 80, FileLineWidthBounded: false, NotificationsEnabled: false, FileTypeIconsEnabled: false, FileTypeIconStyle: "material", WindowDecorations: "client", TerminalNotificationsEnabled: false, BellFeatures: "system,title",
-            EditorIndentWithTabs: true, EditorDetectIndent: false, EditorZoomGestures: false, EditorFontFamily: "Fira Code", EditorLineHeight: 15, TerminalHiddenChips: "env/env-mise,model", GroupWorkspacesUnderCreator: true
+            EditorIndentWithTabs: true, EditorDetectIndent: false, EditorZoomGestures: false, EditorFontFamily: "Fira Code", EditorLineHeight: 15, TerminalHiddenChips: "env/env-mise,model", GroupWorkspacesUnderCreator: true, AgentIconsColored: true
         } &&
             state.Presets.Single().Name == "Renamed" && state.Projects.SequenceEqual([project]) && state.RecentProjects.SequenceEqual([other]),
             "Changes apply in order: presets rename, closing moves a project to the recents.");
         Require(new HostStateStore(localDirectory).Current.Settings.TerminalHiddenChips == "env/env-mise,model" && new HostSettings().TerminalHiddenChips.Length == 0,
             "The hidden terminal chips persist as distinct ids in order, and a fresh host hides none.");
+        Require(new HostStateStore(localDirectory).Current.Settings.AgentIconsColored && (await remote.GetStateAsync()).Settings.AgentIconsColored && !new HostSettings().AgentIconsColored,
+            "Colored agent icons persist and reach a remote client; a fresh host draws them plain.");
         Require(new HostStateStore(localDirectory).Current.Settings.GroupWorkspacesUnderCreator == true && (await remote.GetStateAsync()).Settings.GroupWorkspacesUnderCreator == true &&
             new HostStateStore(Path.Combine(root, "state-grouping-default")).Current.Settings.GroupWorkspacesUnderCreator == false && new HostSettings().GroupWorkspacesUnderCreator is null,
             "The shared grouping under creators persists and reaches a remote client; a fresh host starts it off.");

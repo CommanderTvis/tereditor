@@ -18,6 +18,7 @@
     "TerminalNotificationsEnabled": true,
     "TerminalOptionAsAlt": false,
     "ServeOnStart": false,
+    "AgentIconsColored": false,
     "BellFeatures": "attention,title",
     "LspEnabled": true,
     "JavaKotlinProvider": "standard",
@@ -56,16 +57,16 @@
   ],
   "ProjectRecords": [
     {
-      "Id": "ef75e91c-5527-45fe-8051-b8aa5e8ee803",
+      "Id": "abab0620-d591-4e57-b8ae-225b1e38676a",
       "Path": "$ROOT/project",
       "Slug": "project",
-      "LastOpened": 1795044518296
+      "LastOpened": 1795520301713
     },
     {
-      "Id": "be3a2d68-f77d-497f-af46-c941c121a643",
+      "Id": "46c6ece9-848d-4dca-807d-5235915cf93d",
       "Path": "$ROOT/older",
       "Slug": "older",
-      "LastOpened": 1795044518296
+      "LastOpened": 1795520301713
     }
   ],
   "TereditorExcludeDeclined": [],

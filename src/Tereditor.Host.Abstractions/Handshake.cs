@@ -9,7 +9,10 @@ namespace Tereditor.Host.Abstractions;
 /// </summary>
 public static class HostProtocol
 {
-    public const int Current = 25;
+    public const int Current = 26;
+
+    /// <summary>The <c>agent-icons-colored</c> setting: agent icons in their brand colour. A host below it rejects the key, so a client offers no choice there.</summary>
+    public const int AgentIconColors = 26;
 
     /// <summary>The terminals' memory guard is the Processes plugin's: its limits are that plugin's settings, no longer the <c>terminal-memory</c> host setting (wire member 34, retired). A host below it still holds them as that setting, so a client edits them there.</summary>
     public const int TerminalMemoryInPlugin = 24;

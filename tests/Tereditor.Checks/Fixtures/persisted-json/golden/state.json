@@ -18,6 +18,7 @@
     "TerminalNotificationsEnabled": true,
     "TerminalOptionAsAlt": true,
     "ServeOnStart": true,
+    "AgentIconsColored": false,
     "BellFeatures": "system,title",
     "LspEnabled": true,
     "JavaKotlinProvider": "standard",

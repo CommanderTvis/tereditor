@@ -2215,7 +2215,10 @@ Tereditor.Host.Abstractions.HostSettings.ActiveKeymap.get -> string!
 Tereditor.Host.Abstractions.HostSettings.ActiveKeymap.set -> void
 Tereditor.Host.Abstractions.HostState.KeymapPresets.get -> System.Collections.Generic.IReadOnlyList<Tereditor.Host.Abstractions.KeymapPreset!>!
 Tereditor.Host.Abstractions.HostState.KeymapPresets.init -> void
-const Tereditor.Host.Abstractions.HostProtocol.Current = 25 -> int
+const Tereditor.Host.Abstractions.HostProtocol.Current = 26 -> int
+const Tereditor.Host.Abstractions.HostProtocol.AgentIconColors = 26 -> int
+Tereditor.Host.Abstractions.HostSettings.AgentIconsColored.get -> bool
+Tereditor.Host.Abstractions.HostSettings.AgentIconsColored.init -> void
 const Tereditor.Host.Abstractions.HostProtocol.TerminalMemoryInPlugin = 24 -> int
 const Tereditor.Host.Abstractions.HostProtocol.IsolatedSurfaces = 19 -> int
 const Tereditor.Host.Abstractions.HostProtocol.Keymaps = 18 -> int

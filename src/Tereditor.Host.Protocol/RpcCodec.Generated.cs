@@ -3602,6 +3602,7 @@ internal static class RpcCodec
         if (value.GroupWorkspacesUnderCreator is { } field40) writer.Bool(40, field40);
         if (value.EditorZoomGesturesOff) writer.Bool(41, value.EditorZoomGesturesOff);
         if (value.ServeOnStart) writer.Bool(42, value.ServeOnStart);
+        if (value.AgentIconsColored) writer.Bool(43, value.AgentIconsColored);
     }
 
     private static SettingsMessage ReadSettingsMessage(ref ProtoReader reader, SettingsMessage? value)
@@ -3650,6 +3651,7 @@ internal static class RpcCodec
                 case 40: value.GroupWorkspacesUnderCreator = reader.Bool(); break;
                 case 41: value.EditorZoomGesturesOff = reader.Bool(); break;
                 case 42: value.ServeOnStart = reader.Bool(); break;
+                case 43: value.AgentIconsColored = reader.Bool(); break;
                 default: reader.Skip(); break;
             }
         }

@@ -157,6 +157,7 @@ internal static partial class FileIconsChecks
     private static void Scenario(E2eWorkspace app, bool git)
     {
         TwoTone(app);
+        AgentIcons(app);
         foreach (var (file, typeIcon) in new[] { ("README.md", "readme"), ("SPEC.md", "markdown"), ("logo.png", "image"), ("sample.pdf", "pdf"), ("unknown.qqqq", "file") })
             Loaded(app.FileRow(file), typeIcon);
         var row = app.FileRow("README.md");
@@ -283,6 +284,43 @@ internal static partial class FileIconsChecks
         Until(TabLeading);
         pick("hidden");
         Until(() => app.FileRow("README.md") is DrawnTreeLabel { Child: null });
+    }
+
+    // The Agent icons choice: Claude's mark turns brand orange in an open window, other agents' marks stay plain, and turning it off restores plain.
+    private static void AgentIcons(E2eWorkspace app)
+    {
+        var claude = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/></svg>"""u8.ToArray();
+        var mark = new SvgAsset(claude, 32, Brushes.White) { Agent = "claude" };
+        var other = new SvgAsset(claude, 32, Brushes.White) { Agent = "codex" };
+        var panel = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { mark, other } };
+        var window = new Window { Width = 96, Height = 48, Background = Brushes.Black, Content = panel };
+        window.Show();
+        try
+        {
+            Require(!Ui.ColoredAgentIcons && !app.Workbench.State.Current.Settings.AgentIconsColored, "Agent icons are plain by default.");
+            Require(Ui.AgentColor("claude") is { } orange && orange == Color.Parse("#D97757") && Ui.AgentColor("codex") is null && Ui.AgentColor("omp") is null && Ui.AgentColor("pi") is null,
+                "Only Claude has a brand colour; Codex, Pi and omp have none to apply.");
+            Settle(100);
+            var plain = Raster(window, mark);
+            var plainOther = Raster(window, other);
+            Require(plain.SequenceEqual(plainOther), "Plain, an agent's mark is the text colour, the same for Claude and the others.");
+            app.Window.ShowSettings("Appearance");
+            Until(() => app.Window.OpenSettingsViews.Any());
+            var settings = app.Window.OpenSettingsViews.Single();
+            ComboBox Choices() => settings.GetLogicalDescendants().OfType<ComboBox>().Single(control => control.Name == "AgentIconChoices");
+            Until(() => Choices().IsEnabled);
+            Require(Choices().ItemCount == 2 && Choices().SelectedIndex == 0, "The dropdown offers Plain and Colored, Plain first and selected.");
+            Choices().SelectedIndex = 1;
+            Until(() => app.Workbench.State.Current.Settings.AgentIconsColored && Ui.ColoredAgentIcons);
+            Until(() => !Raster(window, mark).SequenceEqual(plain));
+            Require(Raster(window, other).SequenceEqual(plainOther), "Colored leaves an agent without a brand colour plain.");
+            Until(() => Choices().SelectedIndex == 1);
+            Choices().SelectedIndex = 0;
+            Until(() => !app.Workbench.State.Current.Settings.AgentIconsColored && !Ui.ColoredAgentIcons);
+            Until(() => Raster(window, mark).SequenceEqual(plain));
+            settings.Close();
+        }
+        finally { window.Close(); }
     }
 
     private static void TwoTone(E2eWorkspace app)

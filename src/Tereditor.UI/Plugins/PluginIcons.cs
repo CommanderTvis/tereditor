@@ -146,8 +146,9 @@ public static class PluginIcons
             try { bytes = await pending; }
             catch (Exception error) when (error is not OperationCanceledException) { Console.Error.WriteLine($"Plugin {entry.Id} icon {name}: {error.Message}"); return; }
             if (bytes is null) return;
-            if (Dispatcher.UIThread.CheckAccess()) host.Show(bytes, color ?? Ui.TextBrush, size);
-            else Dispatcher.UIThread.Post(() => host.Show(bytes, color ?? Ui.TextBrush, size));
+            var agent = entry.Id == "claude-code" && name == "asset:claude.svg" ? "claude" : null;
+            if (Dispatcher.UIThread.CheckAccess()) host.Show(bytes, color ?? Ui.TextBrush, size, agent);
+            else Dispatcher.UIThread.Post(() => host.Show(bytes, color ?? Ui.TextBrush, size, agent));
         }
     }
 }

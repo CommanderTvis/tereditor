@@ -47,6 +47,7 @@ public sealed partial class WorkbenchWindow
         hydratedGeneration = Math.Max(1, state.Generation);
         Ghostty.Avalonia.TerminalKeyboard.OptionAsAlt = state.Current.Settings.TerminalOptionAsAlt;
         ScopedSetting.HostHome = state.Current.HomeDirectory;
+        Ui.ApplyAgentIcons(state.Current.Settings.AgentIconsColored);
         state.Changed += SharedStateChanged;
         state.ConnectionChanged += ConnectionChanged;
         state.ConnectionFailed += ConnectionLost;
@@ -128,7 +129,9 @@ public sealed partial class WorkbenchWindow
         if (next.Settings != previous.Settings)
         {
             // The shared chip set only shows or hides chips in place (HostStateChanged); it must not rebuild the panes.
-            if (next.Settings with { FileTypeIconsEnabled = previous.Settings.FileTypeIconsEnabled, FileTypeIconStyle = previous.Settings.FileTypeIconStyle, WindowDecorations = previous.Settings.WindowDecorations, TerminalHiddenChips = previous.Settings.TerminalHiddenChips } != previous.Settings) RefreshAppearance();
+            if (next.Settings with { FileTypeIconsEnabled = previous.Settings.FileTypeIconsEnabled, FileTypeIconStyle = previous.Settings.FileTypeIconStyle, AgentIconsColored = previous.Settings.AgentIconsColored, WindowDecorations = previous.Settings.WindowDecorations, TerminalHiddenChips = previous.Settings.TerminalHiddenChips } != previous.Settings) RefreshAppearance();
+            // Open agent icons redraw themselves on this event; no view is rebuilt.
+            Ui.ApplyAgentIcons(next.Settings.AgentIconsColored);
             if (next.Settings.WindowDecorations != previous.Settings.WindowDecorations) ApplyLinuxChrome();
             if (next.Settings.FileTypeIconsEnabled != previous.Settings.FileTypeIconsEnabled || next.Settings.FileTypeIconStyle != previous.Settings.FileTypeIconStyle)
             {

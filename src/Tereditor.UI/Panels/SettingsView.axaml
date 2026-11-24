@@ -159,6 +159,11 @@
           <Border Classes="settings-row">
             <ComboBox x:Name="FileTypeIconChoices" HorizontalAlignment="Stretch" AutomationProperties.Name="File type icons" />
           </Border>
+          <TextBlock Text="Agent icons" Classes="settings-label" />
+          <TextBlock Text="How chat tabs, menus and agent pages draw Claude Code, Codex and other agents. Only Claude Code has a brand colour of its own; the other icons stay plain. Shared by every client of this host." Classes="settings-description" />
+          <Border Classes="settings-row">
+            <ComboBox x:Name="AgentIconChoices" HorizontalAlignment="Stretch" AutomationProperties.Name="Agent icons" />
+          </Border>
         </StackPanel>
         <StackPanel x:Name="WindowDecorationsSection" Spacing="8" IsVisible="False">
           <TextBlock Text="Window decorations" Classes="settings-label" />
@@ -170,8 +175,7 @@
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <StackPanel Spacing="2">
               <TextBlock Text="Interface font size" Classes="settings-label" />
-              <TextBlock Text="Geist for the interface · JetBrains Mono for code" Classes="settings-description" />
-            </StackPanel>
+                </StackPanel>
             <NumericUpDown x:Name="InterfaceSize" Grid.Column="1" Minimum="10" Maximum="24" Increment="1" />
           </Grid>
         </Border>
@@ -208,7 +212,7 @@
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <StackPanel Spacing="2">
               <TextBlock Text="Font" Classes="settings-label" />
-              <TextBlock Text="Monospace fonts on this device, or type a family name; JetBrains Mono is bundled and stands in where a font is missing" Classes="settings-description" TextWrapping="Wrap" />
+              <TextBlock Text="Monospace fonts on this device, or type a family name; the bundled font stands in where a font is missing" Classes="settings-description" TextWrapping="Wrap" />
               <TextBlock x:Name="EditorFontFallback" Classes="settings-description" Foreground="{x:Static rendering:Ui.Warning}" TextWrapping="Wrap" IsVisible="False" />
             </StackPanel>
             <ComboBox x:Name="EditorFontFamily" Grid.Column="1" IsEditable="True" Width="220" VerticalAlignment="Center" AutomationProperties.Name="Editor font" />

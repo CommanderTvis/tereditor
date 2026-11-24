@@ -20,6 +20,11 @@ public sealed class SvgAsset : Image
     private static readonly Dictionary<(byte[] Bytes, Color? Tint), SharedSource> Sources = [];
     private (byte[] Bytes, Color? Tint)? sourceKey;
 
+    /// <summary>The agent this mark belongs to (<c>claude</c>); while <see cref="Ui.ColoredAgentIcons"/> is on and the agent has a brand colour, it replaces the tint, and the mark redraws when the choice changes.</summary>
+    public string? Agent { get; init; }
+
+    private Color? Tint => Agent is not null && Ui.ColoredAgentIcons && Ui.AgentColor(Agent) is { } brand ? brand : color?.Color;
+
     private sealed class SharedSource(SvgSource? source)
     {
         internal SvgSource? Source { get; } = source;
@@ -43,12 +48,13 @@ public sealed class SvgAsset : Image
     {
         base.OnAttachedToVisualTree(e);
         if (color is not null) Ui.ThemeChanged += Load;
+        if (Agent is not null) Ui.AgentIconsChanged += Load;
         Load();
     }
 
     private void Load()
     {
-        var key = (svg, color?.Color);
+        var key = (svg, Tint);
         if (sourceKey == key) return;
         Release();
         if (!Sources.TryGetValue(key, out var shared))
@@ -63,7 +69,7 @@ public sealed class SvgAsset : Image
         try
         {
             var bytes = svg;
-            if (color is { Color: var tint })
+            if (Tint is { } tint)
                 bytes = Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(svg).Replace("currentColor", $"#{tint.R:x2}{tint.G:x2}{tint.B:x2}", StringComparison.Ordinal));
             using var stream = new MemoryStream(bytes);
             return SvgSource.LoadFromStream(stream);
@@ -91,6 +97,7 @@ public sealed class SvgAsset : Image
     {
         base.OnDetachedFromVisualTree(e);
         Ui.ThemeChanged -= Load;
+        Ui.AgentIconsChanged -= Load;
         Release();
     }
 }

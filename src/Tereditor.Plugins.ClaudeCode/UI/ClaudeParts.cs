@@ -39,7 +39,7 @@ internal sealed class ClaudeGlyph(IPluginUIContext context)
     }
 
     private static Control Draw(byte[]? bytes, double size, IBrush? color) =>
-        bytes is null ? Ui.Icon("robot", color ?? Ui.Muted, size) : new SvgAsset(bytes, size, color ?? Ui.Muted);
+        bytes is null ? Ui.Icon("robot", color ?? Ui.Muted, size) : new SvgAsset(bytes, size, color ?? Ui.Muted) { Agent = "claude" };
 }
 
 /// <summary>The small shared pieces of the configuration pane and its dialogs.</summary>

@@ -122,6 +122,7 @@ publish toggle automation changes without requesting another update.
     `SettingValueDialog` composes typed setting values, with either a closed set of choices or open
     suggestions shown as chips over a text field that accepts any value. Agent account and terminal components
     live in `Tereditor.Plugins.Agent.UI`, which depends on this kit.
+  - `SvgAsset.Agent` names the agent a mark belongs to (`claude`); while `Ui.ColoredAgentIcons` is on and `Ui.AgentColor` has a brand colour for it (only Claude's), that colour replaces the tint, and the mark reloads on `Ui.AgentIconsChanged`. The app applies the host's `agent-icons-colored` setting through `Ui.ApplyAgentIcons`.
   - `SvgAsset` can tint `currentColor` from a shared solid brush and reloads on theme changes while
     attached. Mounted icons with identical byte-array assets and tint share a parsed SVG; the last
     detach releases it. This avoids repeated parsing during tree scrolling without retaining a cache

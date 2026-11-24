@@ -33,6 +33,25 @@ public static partial class Ui
     /// <summary>Raised after every brush of a new theme has been written, so no consumer observes half a palette.</summary>
     public static event Action? ThemeChanged;
 
+    /// <summary>Whether agent icons with a brand colour of their own (see <see cref="AgentColor"/>) are drawn in it; off, the default, draws every agent icon plain. The host's shared setting, applied by the app.</summary>
+    public static bool ColoredAgentIcons { get; private set; }
+
+    /// <summary>Raised after <see cref="ColoredAgentIcons"/> changes, so every open <see cref="SvgAsset"/> with an agent redraws.</summary>
+    public static event Action? AgentIconsChanged;
+
+    public static void ApplyAgentIcons(bool colored)
+    {
+        if (ColoredAgentIcons == colored) return;
+        ColoredAgentIcons = colored;
+        AgentIconsChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// An agent's brand colour, only where its bundled icon has a real one: Claude's orange. Codex, Pi, omp, OpenAI, Agent Client Protocol and Air Gateway
+    /// ship single-colour marks, so they stay plain; an Agent Client Protocol agent's own registry icon keeps whatever colours it carries.
+    /// </summary>
+    public static Color? AgentColor(string agent) => agent == "claude" ? Color.FromRgb(0xD9, 0x77, 0x57) : null;
+
     /// <summary>The fill of every chip: the terminal background nudged towards the text colour, so a chip floats on it in any theme (contrast with the background 1.2 or more).</summary>
     public static readonly SolidColorBrush ChipFill = new();
 

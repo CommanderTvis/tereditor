@@ -35,6 +35,8 @@ public sealed record HostSettings
     public bool TerminalOptionAsAlt { get; init; }
     /// <summary>Whether an app with an embedded host starts serving it, on the default loopback address, when it launches. Off by default.</summary>
     public bool ServeOnStart { get; init; }
+    /// <summary>Whether agent icons with a brand colour of their own (Claude) are drawn in it instead of the text colour; off is plain. Protocol 26.</summary>
+    public bool AgentIconsColored { get; init; }
     /// <summary>
     /// What a terminal bell does, like Ghostty's bell-features: a comma-separated subset of <c>system</c> (the system alert
     /// sound), <c>attention</c> (request attention while the app is unfocused) and <c>title</c> (a bell on the tab until it is
