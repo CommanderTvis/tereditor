@@ -741,6 +741,7 @@ Tereditor.Plugins.Api.UI.SlotSectionRegistration.SlotSectionRegistration(string!
 Tereditor.Plugins.Api.UI.UiPages
 Tereditor.Plugins.Api.UI.UiSlots
 const Tereditor.Plugins.Api.UI.UiPages.CodeIntelligence = "Code Intelligence" -> string!
+const Tereditor.Plugins.Api.UI.UiPages.Plugins = "Plugins" -> string!
 const Tereditor.Plugins.Api.UI.UiSlots.CodeIntelligenceSettings = "core:code-intelligence-settings" -> string!
 const Tereditor.Plugins.Api.UI.UiSlots.WorkspaceLanguages = "core:workspace-languages" -> string!
 override Tereditor.Plugins.Api.UI.SlotSectionRegistration.Equals(object? obj) -> bool

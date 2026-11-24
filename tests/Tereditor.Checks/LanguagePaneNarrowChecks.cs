@@ -29,6 +29,7 @@ internal static class LanguagePaneNarrowChecks
         Scrolls(fixture);
         Poll(fixture);
         Suggestion(fixture);
+        NoPlugins(fixture);
         Burst(fixture);
         UiThreadCalls(fixture);
         LanguageLifecycleLogChecks.Run(fixture);
@@ -115,6 +116,42 @@ internal static class LanguagePaneNarrowChecks
                     $"At {width}px Hide is not fully inside the row.");
             }
             Console.WriteLine("PASS The suggested-by line wraps instead of trimming and Hide stays visible at narrow and wide widths");
+        }
+        finally { window.Close(); SynchronizationContext.SetSynchronizationContext(previous); Environment.SetEnvironmentVariable("TEREDITOR_LSP_DISABLE", disabled); }
+    }
+
+    /// <summary>With no language server in the host's inventory (no plugin enabled) the pane says so and opens Settings › Plugins instead of showing an empty list and a greyed dropdown; a read still in flight and a non-empty inventory show the usual list.</summary>
+    private static void NoPlugins(string fixture)
+    {
+        var root = Path.Combine(fixture, "language-no-plugins"); Directory.CreateDirectory(root);
+        var statePath = Path.Combine(root, ".tools", "state"); Directory.CreateDirectory(statePath);
+        var disabled = Environment.GetEnvironmentVariable("TEREDITOR_LSP_DISABLE"); Environment.SetEnvironmentVariable("TEREDITOR_LSP_DISABLE", "0");
+        var state = new HostStateStore(statePath);
+        using var shared = new SharedState(new LocalStateAdapter(state), new(), state.Current);
+        shared.Start();
+        var opened = 0;
+        var pane = new Tereditor.UI.Panels.LanguagePanel(new LocalProjectAdapter(new ProjectServices(root, state)), root, _ => Task.CompletedTask, shared, openPlugins: () => opened++);
+        var previous = SynchronizationContext.Current; SynchronizationContext.SetSynchronizationContext(null);
+        var window = new Window { Width = 320, Height = 600, Content = pane };
+        window.Show();
+        try
+        {
+            E2E.E2eWorkspace.Until(() => pane.Idle, "The pane's own inventory request did not finish.");
+            pane.ShowInventory([]);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            var message = pane.FindControl<StackPanel>("NoPlugins")!;
+            Require(message.IsVisible && pane.FindControl<TextBlock>("NoPluginsText")!.Text == "No language server plugins are enabled. Turn one on in Settings › Plugins.", "An empty inventory did not show the no-plugins message.");
+            Require(!pane.FindControl<ListBox>("Servers")!.IsVisible && !pane.FindControl<ComboBox>("AddServer")!.IsVisible, "The empty list and dropdown stay visible beside the no-plugins message.");
+            var open = pane.FindControl<Button>("NoPluginsOpen")!;
+            open.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Require(opened == 1, "The no-plugins message did not open Settings › Plugins.");
+            pane.ShowInventory([new LanguageServerState("fake-0", "file.x", "idle", "detail", "1")]);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Require(!message.IsVisible && pane.FindControl<ListBox>("Servers")!.IsVisible && pane.FindControl<ComboBox>("AddServer")!.IsVisible, "A non-empty inventory still shows the no-plugins message.");
+            pane.Retarget(Path.Combine(root, "other"));
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Require(!message.IsVisible, "The no-plugins message shows while the next workspace is still being read.");
+            Console.WriteLine("PASS the Language pane explains that no language server plugins are enabled and links to Settings › Plugins");
         }
         finally { window.Close(); SynchronizationContext.SetSynchronizationContext(previous); Environment.SetEnvironmentVariable("TEREDITOR_LSP_DISABLE", disabled); }
     }

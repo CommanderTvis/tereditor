@@ -11,6 +11,6 @@ public sealed partial class WorkbenchWindow
         {
             if (workspaceRoot == panel!.WorkspaceRoot && WorkspaceMounted)
                 await OpenLanguageDocumentAsync(location, true);
-        }, Workbench.State, Workbench.PluginRegistry);
+        }, Workbench.State, Workbench.PluginRegistry, () => ShowSettings(Tereditor.Plugins.Api.UI.UiPages.Plugins));
     }
 }

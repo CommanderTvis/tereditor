@@ -27,6 +27,10 @@
     <TextBlock x:Name="Status" Text="Reading language servers…" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" Margin="0,4" />
     <local:LanguageBlockedNotice x:Name="StartNotice" />
     <Button x:Name="RetryRead" Content="Retry" Classes="link" IsVisible="False" HorizontalAlignment="Left" />
+    <StackPanel x:Name="NoPlugins" Spacing="4" IsVisible="False">
+      <TextBlock x:Name="NoPluginsText" Text="No language server plugins are enabled. Turn one on in Settings › Plugins." FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" />
+      <Button x:Name="NoPluginsOpen" Content="Open Plugins settings" Classes="link" HorizontalAlignment="Left" />
+    </StackPanel>
     <ListBox x:Name="Servers" AutoScrollToSelectedItem="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
       <ListBox.Styles>
         <Style Selector="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>

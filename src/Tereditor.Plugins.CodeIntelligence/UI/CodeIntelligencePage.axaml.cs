@@ -45,6 +45,10 @@ internal sealed partial class CodeIntelligencePage : UserControl
     private LanguageServerRow[] catalog = [];
     private Action? load;
     private Func<Task>? loadCatalog;
+    private Action<LanguageCatalogState>? applyCatalog;
+
+    /// <summary>Check hook: shows <paramref name="state"/> as the host's catalog without a host request.</summary>
+    internal void ShowCatalog(LanguageCatalogState state) => applyCatalog?.Invoke(state);
     private LanguageLimitsView? limits;
     private CancellationTokenSource? termsCheck;
 
@@ -346,20 +350,29 @@ internal sealed partial class CodeIntelligencePage : UserControl
             async json => settings = await Call(CodeIntelligenceContract.SetLimits, new CodeIntelligenceValue(json)));
         panel.Children.Add(limits);
         load = Load;
+        Part<Button>("LspOpenPlugins").Click += (_, _) => context.OpenSettings(UiPages.Plugins);
+        void ApplyCatalog(LanguageCatalogState result)
+        {
+            ServerNames.Remember(result.Servers);
+            catalog = [.. result.Servers.OrderBy(server => server.Id, StringComparer.Ordinal)];
+            var previous = (selector.SelectedItem as LspServerItem)?.Id;
+            var items = catalog.Select(server => new LspServerItem(server.Id, LanguageDependencyList.HasMissing(server.Dependencies))).ToArray();
+            selector.ItemsSource = items;
+            selector.SelectedItem = items.FirstOrDefault(item => item.Id == previous) ?? items.FirstOrDefault();
+            // The catalog lists the servers of enabled plugins only; none means no language server plugin is on, so there is nothing to pick or configure.
+            Part<StackPanel>("LspNoPlugins").IsVisible = catalog.Length == 0;
+            Part<Grid>("LspServers").IsVisible = catalog.Length > 0;
+            Part<TextBlock>("LspStorage").Text = result.Detail;
+            save.IsEnabled = catalog.Length > 0;
+        }
+        applyCatalog = ApplyCatalog;
         async Task LoadCatalogAsync()
         {
             try
             {
                 var result = await Call(CodeIntelligenceContract.Catalog, new LanguageServerParams(workspace), lifetime.Token);
                 if (lifetime.IsCancellationRequested) return;
-                ServerNames.Remember(result.Servers);
-                catalog = [.. result.Servers.OrderBy(server => server.Id, StringComparer.Ordinal)];
-                var previous = (selector.SelectedItem as LspServerItem)?.Id;
-                var items = catalog.Select(server => new LspServerItem(server.Id, LanguageDependencyList.HasMissing(server.Dependencies))).ToArray();
-                selector.ItemsSource = items;
-                selector.SelectedItem = items.FirstOrDefault(item => item.Id == previous) ?? items.FirstOrDefault();
-                Part<TextBlock>("LspStorage").Text = result.Detail;
-                save.IsEnabled = catalog.Length > 0;
+                ApplyCatalog(result);
             }
             catch (OperationCanceledException) { }
             catch (Exception failure) { message.Foreground = Ui.Danger; message.Text = failure.Message; }

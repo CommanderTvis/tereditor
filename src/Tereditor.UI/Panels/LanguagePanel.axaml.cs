@@ -123,6 +123,8 @@ internal sealed partial class LanguagePanel : UserControl
     // A Start/Retry or Stop the user asked for while another request ran; it runs next instead of being dropped.
     private (string Operation, LanguageServerState? Target, bool AcceptanceReviewed)? pending;
     private IReadOnlyList<LanguageServerState> inventory = [];
+    // True once the host answered for this workspace, so an empty inventory means "no language server plugins" and not "still reading".
+    private bool inventoryRead;
     // Each configuration view's save count when the inventory was requested, so an inventory read before a save cannot revert it.
     private Dictionary<string, int> inventorySaves = [];
     // Views are kept per workspace and server, so a retarget swaps the views shown and a workspace's unsaved draft stays in its own view.
@@ -142,7 +144,7 @@ internal sealed partial class LanguagePanel : UserControl
     private int quietTicks;
     private bool pollSoon;
 
-    internal LanguagePanel(IProjectServices host, string workspace, Func<LanguageItem, Task> navigate, Tereditor.UI.State.SharedState? state = null, Tereditor.UI.Plugins.PluginRegistry? plugins = null)
+    internal LanguagePanel(IProjectServices host, string workspace, Func<LanguageItem, Task> navigate, Tereditor.UI.State.SharedState? state = null, Tereditor.UI.Plugins.PluginRegistry? plugins = null, Action? openPlugins = null)
     {
         this.host = host; this.workspace = workspace; this.navigate = navigate; this.state = state;
         AvaloniaXamlLoader.Load(this);
@@ -189,6 +191,8 @@ internal sealed partial class LanguagePanel : UserControl
             RefreshRows(id);
             add.SelectedIndex = -1;
         };
+        this.FindControl<Button>("NoPluginsOpen")!.Click += (_, _) => openPlugins?.Invoke();
+        this.FindControl<Button>("NoPluginsOpen")!.IsVisible = openPlugins is not null;
         this.FindControl<Button>("HiddenToggle")!.Click += (_, _) => { showHidden = !showHidden; RefreshRows(); };
         // Poll every 3 s only while a server is changing state or after an action of this pane; otherwise every 30 s (host broadcasts cover settings changes).
         timer.Tick += async (_, _) =>
@@ -300,7 +304,7 @@ internal sealed partial class LanguagePanel : UserControl
                 configurations.Remove(gone);
         if (lifetime is not null) { lifetime.Cancel(); lifetime.Dispose(); lifetime = new(); }
         busyOn = null; pending = null;
-        inventory = []; inventorySaves = [];
+        inventory = []; inventorySaves = []; inventoryRead = false;
         added.Clear(); expanded.Clear(); exitOpen.Clear(); showHidden = false;
         hidden = state is null ? new HashSet<string>() : HiddenIn(state.Current);
         items.Clear();
@@ -434,7 +438,7 @@ internal sealed partial class LanguagePanel : UserControl
     }
 
     /// <summary>Check hook: shows <paramref name="servers"/> as the host's inventory without a host request.</summary>
-    internal void ShowInventory(IReadOnlyList<LanguageServerState> servers) { inventory = servers; RefreshRows(); }
+    internal void ShowInventory(IReadOnlyList<LanguageServerState> servers) { inventory = servers; inventoryRead = true; RefreshRows(); }
 
     private void RefreshRows(string? selectedId = null)
     {
@@ -451,6 +455,11 @@ internal sealed partial class LanguagePanel : UserControl
             }).ToArray();
         var count = inventory.Count(server => hidden.Contains(server.Id));
         var toggle = this.FindControl<Button>("HiddenToggle")!;
+        // The host knows no language server at all: every language server comes from an enabled plugin, so say that instead of showing empty controls.
+        var noPlugins = inventoryRead && inventory.Count == 0;
+        this.FindControl<StackPanel>("NoPlugins")!.IsVisible = noPlugins;
+        list.IsVisible = !noPlugins;
+        this.FindControl<ComboBox>("AddServer")!.IsVisible = !noPlugins;
         toggle.IsVisible = count > 0;
         toggle.Content = $"{count} hidden · {(showHidden ? "Collapse" : "Show")}";
         // Reconcile by server id: unchanged rows keep their container, only changed ones are replaced, new ones inserted and gone ones removed.
@@ -571,6 +580,7 @@ internal sealed partial class LanguagePanel : UserControl
             {
                 LanguageServerNameConverter.Remember(result.Servers);
                 inventory = result.Servers;
+                inventoryRead = true;
                 inventorySaves = saves;
                 RefreshRows(selected?.Id);
                 if (result.State == "ready") SetStatus(startFailure);

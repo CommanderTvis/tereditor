@@ -346,6 +346,9 @@ public static class UiPages
     /// <summary>Settings › Code Intelligence.</summary>
     public const string CodeIntelligence = "Code Intelligence";
 
+    /// <summary>Settings › Plugins.</summary>
+    public const string Plugins = "Plugins";
+
     /// <summary>A plugin's own Settings section (W4), for <see cref="IPluginUIContext.OpenSettings"/>.</summary>
     /// <param name="pluginId">The plugin that registered the section.</param>
     /// <param name="sectionId">The section's <see cref="SettingsSectionRegistration.Id"/>; defaults to the plugin's id.</param>

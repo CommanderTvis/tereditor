@@ -13,7 +13,11 @@
   <CheckBox x:Name="LspFeatureEnabled" Content="Enable LSP" />
   <TextBlock Text="Turning this off stops all language servers and disables editor and agent language features. Saved server configurations are kept." Classes="settings-description" />
   <ContentControl x:Name="ProviderChoiceSettings" Margin="0,8" />
-  <Grid ColumnDefinitions="128,*" Margin="0,8,0,8">
+  <StackPanel x:Name="LspNoPlugins" Spacing="4" Margin="0,8" IsVisible="False">
+    <TextBlock x:Name="LspNoPluginsText" Text="No language server plugins are enabled. Turn one on in Settings › Plugins." TextWrapping="Wrap" Classes="settings-description" />
+    <Button x:Name="LspOpenPlugins" Content="Open Plugins settings" HorizontalAlignment="Left" />
+  </StackPanel>
+  <Grid x:Name="LspServers" ColumnDefinitions="128,*" Margin="0,8,0,8">
     <Border BorderBrush="{x:Static rendering:Ui.BorderBrush}" BorderThickness="0,0,1,0" Padding="0,0,8,0">
       <ListBox x:Name="LspServer" Background="Transparent" BorderThickness="0" VerticalAlignment="Top" AutoScrollToSelectedItem="False"
                ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled"

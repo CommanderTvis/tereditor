@@ -1076,6 +1076,14 @@ internal static class LanguageChecks
             Require(Find<Avalonia.Controls.TextBox>("LspCommand").Text == "", "Another client’s LSP settings did not refresh the page.");
             Require(!Find<Avalonia.Controls.CheckBox>("LspDefaultArguments").IsEnabled && !Find<Avalonia.Controls.TextBox>("LspArguments").IsEnabled,
                 "Automatic launchers must not expose ineffective argument overrides.");
+            var page = settings.GetLogicalDescendants().OfType<Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligencePage>().Single();
+            page.ShowCatalog(new([]));
+            Require(Find<StackPanel>("LspNoPlugins").IsVisible && !Find<Grid>("LspServers").IsVisible && !Find<Button>("LspSave").IsEnabled
+                && Find<TextBlock>("LspNoPluginsText").Text == "No language server plugins are enabled. Turn one on in Settings › Plugins.",
+                "An empty catalog must show the no-plugins message and hide the server detail.");
+            page.ShowCatalog(new([new("python", "Pyright", "1", "Pyright · Microsoft", false)]));
+            Require(!Find<StackPanel>("LspNoPlugins").IsVisible && Find<Grid>("LspServers").IsVisible && Find<Button>("LspSave").IsEnabled,
+                "A catalog with a server must show the server detail and no message.");
             CaptureLsp(settings, "settings");
         }
         finally { settings.Close(); }
