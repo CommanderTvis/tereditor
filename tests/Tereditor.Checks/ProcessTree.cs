@@ -16,6 +16,7 @@ internal static class ProcessTree
     private static int stopping;
 
     [DllImport("libc", EntryPoint = "kill")] private static extern int Signal(int pid, int signal);
+    [DllImport("libc", EntryPoint = "signal")] private static extern nint SetHandler(int signal, nint handler);
     [DllImport("libc", EntryPoint = "setpgid")] private static extern int SetProcessGroup(int pid, int group);
 
     internal readonly record struct Entry(int Pid, int Parent, int Group, bool Zombie);
@@ -35,9 +36,19 @@ internal static class ProcessTree
 
     internal static void Send(int pid, PosixSignal signal) => _ = Signal(pid, signal == PosixSignal.SIGINT ? Interrupt : Terminate);
 
+    /// <summary>Kills a process and everything below it; a check uses it to leave no orphans behind.</summary>
+    internal static void KillTree(int pid, params int[] known)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        Deliver(Descendants(Snapshot(), pid), Kill);
+        foreach (var process in known.Append(pid)) _ = Signal(process, Kill);
+    }
+
     internal static void Own()
     {
         if (OperatingSystem.IsWindows()) return;
+        // A parent that ignores SIGINT (a background job, a harness) passes that on, and the runtime then never handles it.
+        _ = SetHandler(Interrupt, 0);
         foreach (var (signal, number) in new[] { (PosixSignal.SIGINT, Interrupt), (PosixSignal.SIGTERM, Terminate) })
             registrations.Add(PosixSignalRegistration.Create(signal, context =>
             {

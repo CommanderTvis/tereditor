@@ -322,21 +322,29 @@ internal static class RunnerChecks
             var start = Self("--tree-fixture");
             start.RedirectStandardOutput = true;
             using var owner = Process.Start(start)!;
-            var line = owner.StandardOutput.ReadLine();
-            Require(line?.StartsWith("PIDS ", StringComparison.Ordinal) == true, "The interrupt fixture did not start: " + line);
-            var pids = line![5..].Split(' ').Select(int.Parse).ToArray();
-            Require(pids.Length == 4 && ProcessTree.Snapshot().Count(process => pids.Contains(process.Pid)) == 4, "The interrupt fixture's descendants must be running.");
-            var before = ProcessTree.Descendants(ProcessTree.Snapshot(), owner.Id);
-            bool Alive() => before.Alive(ProcessTree.Snapshot());
-            Require(before.Groups.Length == 1 && before.Pids.Length >= 3, "A lane must lead its own group while plain children share the owner's.");
-            var sent = Stopwatch.StartNew();
-            ProcessTree.Send(owner.Id, signal);
-            Require(owner.WaitForExit(ProcessTree.Grace + TimeSpan.FromSeconds(20)), "An interrupted runner must exit.");
-            Require(owner.ExitCode == code, $"An interrupted runner must report the signal: {owner.ExitCode}.");
-            Require(sent.Elapsed >= ProcessTree.Grace - TimeSpan.FromMilliseconds(200), "Descendants that ignore the signal must get the grace period before being killed.");
-            var deadline = DateTime.UtcNow.AddSeconds(5);
-            while (Alive() && DateTime.UtcNow < deadline) Thread.Sleep(50);
-            Require(!Alive(), "Every descendant of an interrupted runner must be gone, including ones that ignore the signal.");
+            var pids = Array.Empty<int>();
+            try
+            {
+                var line = owner.StandardOutput.ReadLine();
+                Require(line?.StartsWith("PIDS ", StringComparison.Ordinal) == true, "The interrupt fixture did not start: " + line);
+                pids = line![5..].Split(' ').Select(int.Parse).ToArray();
+                Require(pids.Length == 4 && ProcessTree.Snapshot().Count(process => pids.Contains(process.Pid)) == 4, "The interrupt fixture's descendants must be running.");
+                var before = ProcessTree.Descendants(ProcessTree.Snapshot(), owner.Id);
+                bool Alive() => before.Alive(ProcessTree.Snapshot());
+                Require(before.Groups.Length == 1 && before.Pids.Length >= 3, "A lane must lead its own group while plain children share the owner's.");
+                var sent = Stopwatch.StartNew();
+                ProcessTree.Send(owner.Id, signal);
+                Require(owner.WaitForExit(ProcessTree.Grace + TimeSpan.FromSeconds(20)), "An interrupted runner must exit.");
+                Require(owner.ExitCode == code, $"An interrupted runner must report the signal: {owner.ExitCode}.");
+                Require(sent.Elapsed >= ProcessTree.Grace - TimeSpan.FromMilliseconds(200), "Descendants that ignore the signal must get the grace period before being killed.");
+                var deadline = DateTime.UtcNow.AddSeconds(5);
+                while (Alive() && DateTime.UtcNow < deadline) Thread.Sleep(50);
+                Require(!Alive(), "Every descendant of an interrupted runner must be gone, including ones that ignore the signal.");
+            }
+            finally
+            {
+                ProcessTree.KillTree(owner.Id, pids);
+            }
         }
     }
 }
