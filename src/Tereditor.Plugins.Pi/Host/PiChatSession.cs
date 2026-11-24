@@ -210,7 +210,7 @@ internal sealed class PiChatSession : IAsyncDisposable
     private static IReadOnlyList<ChatModel> ModelsOf(JsonElement response)
     {
         if (!response.TryGetProperty("models", out var models) || models.ValueKind != JsonValueKind.Array) return [];
-        return [.. models.EnumerateArray().Select(model => new ChatModel($"{PiFolder.Str(model, "provider")}/{PiFolder.Str(model, "id")}", PiFolder.Str(model, "name") is { Length: > 0 } name ? name : PiFolder.Str(model, "id"))
+        var all = models.EnumerateArray().Select(model => new ChatModel($"{PiFolder.Str(model, "provider")}/{PiFolder.Str(model, "id")}", PiFolder.Str(model, "name") is { Length: > 0 } name ? name : PiFolder.Str(model, "id"))
         {
             Provider = PiFolder.Str(model, "provider"),
             // The picker leads with the first model of each family, so a Claude model needs its family named.
@@ -218,7 +218,27 @@ internal sealed class PiChatSession : IAsyncDisposable
             // A model that lists its own levels (the provider's say) wins over the one list every reasoning model gets.
             Efforts = model.TryGetProperty("efforts", out var efforts) && efforts.ValueKind == JsonValueKind.Array ? [.. efforts.EnumerateArray().Select(level => level.GetString() ?? "")]
                 : PiFolder.Bool(model, "reasoning") ? PiThinking.Levels : []
-        })];
+        }).ToList();
+        return LeadingByFamily(all);
+    }
+
+    /// <summary>
+    /// The picker leads with the first model it finds for each family, and Pi lists its catalog oldest first (with "(latest)" aliases of 4.5 ahead of 5.5).
+    /// Only the newest model of each provider and family keeps its family, so that one leads; the others are still in the searchable list.
+    /// </summary>
+    internal static IReadOnlyList<ChatModel> LeadingByFamily(IReadOnlyList<ChatModel> models)
+    {
+        var leaders = models.Where(model => model.Family is not null).GroupBy(model => (model.Provider, model.Family))
+            .Select(group => group.OrderByDescending(model => VersionOf(model.Id, model.Family!)).First()).ToHashSet();
+        return [.. models.Select(model => model.Family is not null && !leaders.Contains(model) ? model with { Family = null } : model)];
+    }
+
+    // The two numbers after the family in an id (claude-opus-5-5, claude-opus-4.5, claude-opus-4-5-20251101): major * 100 + minor; a date or a missing number counts as 0.
+    private static int VersionOf(string id, string family)
+    {
+        var at = id.IndexOf(family, StringComparison.OrdinalIgnoreCase);
+        var match = System.Text.RegularExpressions.Regex.Match(at < 0 ? id : id[(at + family.Length)..], @"(?<![0-9])(\d{1,2})(?:[-.](\d{1,2}))?(?![0-9])");
+        return match.Success ? int.Parse(match.Groups[1].Value) * 100 + (match.Groups[2].Success ? int.Parse(match.Groups[2].Value) : 0) : 0;
     }
 
     private static IReadOnlyList<ChatCommand> CommandsOf(JsonElement response)

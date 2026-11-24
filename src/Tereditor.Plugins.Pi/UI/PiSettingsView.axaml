@@ -48,7 +48,7 @@
   <StackPanel Spacing="4">
     <TextBlock Text="Model (--model)" />
     <TextBox x:Name="PiModel" PlaceholderText="Use Pi's default" FontFamily="{x:Static kit:Ui.CodeFont}" FontSize="12" AutomationProperties.Name="pi model" />
-    <TextBlock Classes="detail" Text="A model pattern or provider/id. A chat's model picker can still change it." />
+    <TextBlock Classes="detail" Text="A provider and model id, such as anthropic/claude-opus-5-5, or a pattern such as sonnet or opus:high. Leave it empty for Pi's own default. A chat's model picker lists the models Pi has and can still change it." />
   </StackPanel>
   <StackPanel Spacing="4">
     <TextBlock Text="Thinking level" />

@@ -72,8 +72,8 @@ public sealed class PiHost : PluginHostModule
         var replacing = contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0)?.Wrapper ?? [];
         var spawn = new PiSpawn(command, cwd)
         {
-            Wrapper = pinned ? [] : replacing,
-            Blocked = AgentLaunchComposition.Blocked(contributions) ?? (pinned && replacing.Count > 0 ? "This Model source starts the system Pi. Set Pi source to System command, or choose another Model source." : null),
+            Wrapper = replacing,
+            Blocked = AgentLaunchComposition.Blocked(contributions) ?? (pinned ? PiChatHost.ManagedBlock(contributions) : null),
             Environment = PiChatHost.ContributedEnvironment(context)
         };
         if (pinned)

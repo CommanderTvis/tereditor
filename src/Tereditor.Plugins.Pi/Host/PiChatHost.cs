@@ -117,6 +117,20 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         await Task.WhenAll(all.Select(session => session.DisposeAsync().AsTask()));
     }
 
+    /// <summary>
+    /// The managed Pi under a Model source that starts Pi through another program: that program runs <c>pi</c> found on PATH (<c>central run pi --</c>),
+    /// so the managed Pi works through a shim that stands first on PATH. A wrapper of any other shape is not known to do that: the start is blocked
+    /// with a sentence naming the source. Null when nothing blocks.
+    /// </summary>
+    internal static string? ManagedBlock(IReadOnlyList<AgentLaunchContribution> contributions) =>
+        contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0) is { } replacer && !RunsPiFromPath(replacer.Wrapper)
+            ? $"{(replacer.Provider is { Length: > 0 } name ? name : "The chosen Model source")} starts Pi in a way the managed Pi cannot follow. Switch Pi source to System command, or choose another Model source."
+            : null;
+
+    /// <summary>Whether the wrapper ends in <c>pi --</c>, the program name Pi is found by on PATH.</summary>
+    internal static bool RunsPiFromPath(IReadOnlyList<string> wrapper) =>
+        wrapper.Count >= 3 && wrapper[^1] == "--" && Path.GetFileNameWithoutExtension(wrapper[^2]) == "pi";
+
     private async ValueTask<string> RootOf(string workspaceId, CancellationToken cancellationToken) =>
         (await context.WorkspaceAsync(workspaceId, cancellationToken))?.Path ?? workspaceId;
 
@@ -135,8 +149,8 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         var replacing = contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0)?.Wrapper ?? [];
         var spawn = new PiSpawn(command, cwd)
         {
-            Wrapper = pinned is null ? replacing : [],
-            Blocked = AgentLaunchComposition.Blocked(contributions) ?? (pinned is not null && replacing.Count > 0 ? "This Model source starts the system Pi. Set Pi source to System command, or choose another Model source." : null),
+            Wrapper = replacing,
+            Blocked = AgentLaunchComposition.Blocked(contributions) ?? (pinned is not null ? ManagedBlock(contributions) : null),
             Model = p.Model ?? (settings.Model.Length > 0 ? settings.Model : null),
             Thinking = p.Effort ?? (settings.Thinking.Length > 0 ? settings.Thinking : null),
             Codemode = settings.Codemode,

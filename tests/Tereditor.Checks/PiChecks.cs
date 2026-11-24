@@ -240,6 +240,21 @@ internal static class PiChecks
         await blockedSession.StartAsync(blocked);
         Require(blockedSession.Header is { Status: ChatStatus.Failed, Error: "Central is not signed in." }, "A blocked launch contribution stops Pi from starting, with its reason.");
 
+        // The managed Pi under a Model source: `central run pi --` finds pi on PATH, so it is allowed (through a shim); another wrapper is blocked with the source named.
+        var air = new AgentLaunchContribution { Wrapper = ["central", "run", "pi", "--"], ReplacesExecutable = true, Provider = "JetBrains (Air Gateway)" };
+        Require(PiChatHost.ManagedBlock([air]) is null && PiChatHost.ManagedBlock([]) is null && PiChatHost.ManagedBlock([new AgentLaunchContribution { Provider = "Mine" }]) is null, "central run pi -- and a source with no wrapper do not block the managed Pi.");
+        var odd = air with { Wrapper = ["other", "start"] };
+        Require(PiChatHost.ManagedBlock([odd]) is { } why && why.StartsWith("JetBrains (Air Gateway) starts Pi in a way the managed Pi cannot follow", StringComparison.Ordinal) && why.Contains("System command", StringComparison.Ordinal),
+            "A wrapper that is not known to run pi from PATH blocks the managed Pi, naming the Model source.");
+        Require(PiChatHost.ManagedBlock([odd with { Provider = null }])!.StartsWith("The chosen Model source starts Pi", StringComparison.Ordinal), "A source with no name is called the chosen Model source.");
+
+        // The picker leads with the first model of each family: Pi lists oldest first, so only the newest of a family keeps it.
+        ChatModel Model(string id, string provider) => new(provider + "/" + id, id) { Provider = provider, Family = new[] { "opus", "sonnet" }.FirstOrDefault(family => id.Contains(family, StringComparison.Ordinal)) };
+        var led = PiChatSession.LeadingByFamily([Model("claude-opus-4-5", "anthropic"), Model("claude-opus-4-5-20251101", "anthropic"), Model("claude-opus-5-5", "anthropic"), Model("claude-opus-5", "anthropic"),
+            Model("claude-sonnet-4.5", "anthropic"), Model("claude-sonnet-4-6", "anthropic"), Model("claude-opus-4-1", "other"), Model("gpt-5", "openai")]);
+        Require(led.Where(model => model.Family is not null).Select(model => model.Id).SequenceEqual(["anthropic/claude-opus-5-5", "anthropic/claude-sonnet-4-6", "other/claude-opus-4-1"]) && led.Count == 8,
+            "Only the newest model of each family and provider leads the picker: " + string.Join(", ", led.Where(model => model.Family is not null).Select(model => model.Id)));
+
         var status = await PiHost.ReadStatusAsync(fake);
         Require(status is { Installed: true, Version: "0.99.1" }, "The version probe reads pi --version.");
         Require(!(await PiHost.ReadStatusAsync(Path.Combine(directory, "none"))).Installed, "A missing pi is reported as not installed.");
@@ -338,6 +353,26 @@ internal static class PiChecks
         var blocked = new PiSpawn("pi", workspace) { Blocked = "Central is not signed in." };
         Require(await managed.PrepareAsync(blocked, (_, _) => throw new InvalidOperationException("tracked")) == blocked, "A blocked launch is passed on unchanged, so it fails with its reason and starts no Bun.");
 
+        // Under a wrapper that runs pi from PATH (central run pi --) the shim stands first on PATH and forwards the arguments to the managed Pi.
+        var central = Path.Combine(directory, "central");
+        File.WriteAllText(central, "#!/bin/sh\nshift 3\nexec pi \"$@\"\n");
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(central, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var wrapped = await managed.PrepareAsync(new PiSpawn("pi", workspace) { Wrapper = [central, "run", "pi", "--"], Model = "fake/m1" }, (_, _) => { });
+        Require(wrapped.Executable == central && wrapped.Prefix.Count == 0 && wrapped.Environment["PATH"].StartsWith(managed.ShimDirectory + Path.PathSeparator, StringComparison.Ordinal) && wrapped.Environment["BUN_INSTALL"] == Path.Combine(directory, "bun-home"),
+            "Under a wrapper the managed launch keeps the wrapper and puts the shim folder first on PATH.");
+        Require(File.ReadAllText(Path.Combine(managed.ShimDirectory, "pi")).Contains(managed.EntryPoint, StringComparison.Ordinal) && (OperatingSystem.IsWindows() || (File.GetUnixFileMode(Path.Combine(managed.ShimDirectory, "pi")) & UnixFileMode.UserExecute) != 0), "The shim runs the managed cli.js and is executable.");
+        await using var viaCentral = new PiChatSession("ws", "central", _ => { }, _ => { }, (_, _) => { });
+        viaCentral.Begin(wrapped);
+        await viaCentral.StartAsync(wrapped);
+        await Until(() => viaCentral.Header.Status == ChatStatus.Idle, "The managed Pi starts through the wrapper and the shim.");
+        Require(calls().Contains($"--bun {managed.EntryPoint} --mode rpc --model fake/m1") && File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(4).SequenceEqual(["--mode", "rpc", "--model", "fake/m1"]),
+            "The wrapper's pi is the shim: Bun runs the managed Pi with the arguments the wrapper passed on.");
+        await viaCentral.CloseAsync();
+        var shimFile = Path.Combine(managed.ShimDirectory, "pi");
+        File.WriteAllText(shimFile, "old");
+        managed.WriteShim(bun);
+        Require(File.ReadAllText(shimFile).Contains(bun, StringComparison.Ordinal), "A shim that no longer matches the managed Pi and Bun is rewritten.");
+
         var noBun = new PiManaged(install, (_, _) => Task.FromResult(RuntimeResolution.Unavailable(RuntimeKind.Bun, "Needs Bun.", offerEnable: true)));
         managed.Remove();
         Require(!Directory.Exists(install) && managed.InstalledVersion().Length == 0, "Remove deletes the downloaded Pi.");
@@ -389,7 +424,7 @@ internal static class PiChecks
     }
 
     // The pane's reads against a fixture home and project: which files a session loads, the trust gate, the nearest trust decision and the scope labels.
-    // The Account tab shows the version, the early-support badge and the trust state. The chat header already shows the model.
+    // The Account tab shows the version and the trust state; the early-support badge is in the pane header. The chat header already shows the model.
     internal static void Account()
     {
         var snapshot = new PiConfigSnapshot("/work", "/agent", "not decided", "/agent/trust.json", [], [], [], false);
@@ -398,7 +433,10 @@ internal static class PiChecks
         Require(!texts.Any(text => (text.Text ?? "").StartsWith("Model", StringComparison.Ordinal) || (text.Text ?? "").StartsWith("Thinking", StringComparison.Ordinal)),
             "The Account tab has no model or thinking row; the chat header shows them.");
         Require(texts.Single(text => text.Name == "PiVersion").Text == "Version 1.9.0", "The Account tab shows the Pi version.");
-        Require(texts.Any(text => text.Text == "Early support"), "The Account tab keeps the early-support badge.");
+        Require(!texts.Any(text => text.Text == "Early support"), "The Account tab no longer carries the early-support badge.");
+        var pane = new PiConfigPanel(null!, "workspace");
+        Require(pane.GetVisualDescendants().OfType<Border>().Count(border => border.Name == "PiEarlyBadge") == 1 && pane.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "Early support"),
+            "The pane header shows the early-support badge beside the title, above every tab.");
         Require(texts.Single(text => text.Name == "PiAccountTrust").Text == "Trust: not decided (set with /trust in Pi)", "The Account tab shows the trust state and where to change it.");
     }
 

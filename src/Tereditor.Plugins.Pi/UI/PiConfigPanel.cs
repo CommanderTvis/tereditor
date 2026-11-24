@@ -40,6 +40,12 @@ internal sealed class PiConfigPanel : DockPanel
         this.workspaceId = workspaceId;
         Name = "PiConfigPanel";
         Background = Ui.Sidebar;
+        // Early support covers all of Pi, so the badge sits beside the title above every tab, as on omp's pane.
+        var heading = new StackPanel { Name = "PiHeading", Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4, 8, 0) };
+        heading.Children.Add(Ui.Text("Pi", Ui.TextBrush, 13));
+        heading.Children.Add(new Border { Name = "PiEarlyBadge", Background = Ui.WarningWash, CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 0), Child = Ui.Text("Early support", Ui.Warning, 11) });
+        SetDock(heading, Dock.Top);
+        Children.Add(heading);
         var header = new ScrollViewer { Content = switcher, Margin = new Thickness(8, 4), HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
         SetDock(header, Dock.Top);
         Children.Add(header);
@@ -226,8 +232,6 @@ internal sealed class PiConfigPanel : DockPanel
     internal static Control AccountSurface(PiConfigSnapshot current, PiStatus? status)
     {
         var list = new StackPanel { Margin = new Thickness(8, 4), Spacing = 4 };
-        var badge = new Border { Background = Ui.WarningWash, CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 0), Child = Ui.Text("Early support", Ui.Warning, 11), HorizontalAlignment = HorizontalAlignment.Left };
-        list.Children.Add(badge);
         if (current.Provider is { } provider) list.Children.Add(Account.Provider(provider, "Pi"));
         var version = status?.Installed == true ? (status.Version is { Length: > 0 } found ? "Version " + found : "Version unknown") : status?.Detail ?? "Reading the version…";
         var versionLine = Ui.Text(version, Ui.Hint, 12);
