@@ -31,7 +31,7 @@ internal sealed class GitHubFreshness : Grid
         retryButton = Ui.Button("Retry", () => { Show("Updating…", false); refresh(); });
         retryButton.IsVisible = false;
         retryButton.Padding = new Thickness(8, 0);
-        var line = new DockPanel { Height = 24, Margin = new Thickness(24, 0), LastChildFill = true };
+        var line = new DockPanel { Height = 24, Margin = new Thickness(24, 8, 24, 0), LastChildFill = true };
         DockPanel.SetDock(retryButton, Dock.Right);
         web.Padding = new Thickness(8, 0); web.Margin = new Thickness(8, 0, 0, 0);
         DockPanel.SetDock(web, Dock.Right);
