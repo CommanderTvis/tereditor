@@ -69,7 +69,7 @@ internal static class DockInputChecks
         var rail = Find<StackPanel>("rightRailEntries");
         var clusters = rail.Children.OfType<StackPanel>().ToArray();
         Require(clusters.Select(cluster => cluster.Name).SequenceEqual(right.Select(group => "RailCluster_" + group.Id)) &&
-            clusters[0].GetLogicalDescendants().OfType<Button>().Select(button => button.Name).SequenceEqual(new[] { "Tab_plugin_spec-dialect_specs", "Tab_files" }) &&
+            clusters[0].GetLogicalDescendants().OfType<Button>().Select(button => button.Name).SequenceEqual(new[] { "Tab_plugin_spec-dialect_specs", "Tab_files", "Tab_agent" }) &&
             rail.GetLogicalDescendants().OfType<Button>().Count(button => button is ToggleButton { IsChecked: true }) == right.Length,
             "The rail must mirror its panes as separated clusters, with exactly one pressed entry per expanded pane.");
         // Every entry's accent bar shares its icon's vertical centre, and every separator the icon column's horizontal centre.
@@ -320,10 +320,10 @@ internal static class DockInputChecks
         var fallbackTab = Bounds(Find<Button>("Tab_plugin_spec-dialect_specs"));
         var fallbackEpoch = window.Layout.Epoch;
         Drag(DockState.SpecsTool, new Point(fallbackTab.Center.X, fallbackTab.Top + 4));
-        Require(window.Layout.Epoch == fallbackEpoch && window.Layout.Group(fallbackGroup.Id).Tools.Select(tab => tab.Id).SequenceEqual(new[] { DockState.SpecsTool, "files" }),
+        Require(window.Layout.Epoch == fallbackEpoch && window.Layout.Group(fallbackGroup.Id).Tools.Select(tab => tab.Id).SequenceEqual(new[] { DockState.SpecsTool, "files", "agent" }),
             "A rail entry's own insertion halves are no-ops that paint and commit nothing.");
         Drag(DockState.SpecsTool, new Point(Bounds(Find<Button>("Tab_files")).Center.X, Bounds(Find<Button>("Tab_files")).Bottom - 4));
-        Require(window.Layout.Group(fallbackGroup.Id).Tools.Select(tab => tab.Id).SequenceEqual(new[] { "files", DockState.SpecsTool }) &&
+        Require(window.Layout.Group(fallbackGroup.Id).Tools.Select(tab => tab.Id).SequenceEqual(new[] { "files", DockState.SpecsTool, "agent" }) &&
             window.Layout.State.Groups.Count(group => group.Region == "right") == 2,
             "An entry's lower half must reorder within its pane without creating a neighboring group.");
         window.Width = 2200; window.Height = 920;
@@ -345,7 +345,7 @@ internal static class DockInputChecks
             "Overlapping compact-pane targets must emphasize the nearer creation target rather than the entire header.");
         window.MouseUp(compactHeader.Center, MouseButton.Left); Dispatcher.UIThread.RunJobs();
         Require(window.Layout.State.Groups.Where(group => group.Region == "right").First().Tools.Single().Id == compactTab &&
-            window.Layout.Group(compactGroup.Id).Tools.Select(tab => tab.Id).SequenceEqual(new[] { DockState.SpecsTool, "files" }),
+            window.Layout.Group(compactGroup.Id).Tools.Select(tab => tab.Id).SequenceEqual(new[] { DockState.SpecsTool, "files", "agent" }),
             "Corner-distance collision must create a compact pane's nearer neighboring group instead of always preferring its header.");
         window.Width = 1440;
         foreach (var region in new[] { "left" })
