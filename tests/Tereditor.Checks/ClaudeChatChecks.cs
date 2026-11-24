@@ -100,6 +100,13 @@ internal static class ClaudeChatChecks
                 *) emit "{\"type\":\"user\",\"uuid\":\"$UUID\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"echo\"}]},\"parent_tool_use_id\":null}" ;;
               esac
               case "$TEXT" in
+                *leak*)
+                  emit '{"type":"system","subtype":"hook_response","env":{"ANTHROPIC_API_KEY":"sk-ant-api03-ENVSECRET99","max_tokens":4096,"input_tokens":7},"Authorization":"Bearer headersecret1234","nested":{"apiKey":"key-NESTEDSECRET","password":"pw-SECRET","accessToken":"tok-SECRET"},"note":"export GITHUB_TOKEN=ghp_0123456789abcdefghijABCDEFGHIJ done"}'
+                  echo "diagnostic Bearer stderrsecret12345" >&2
+                  result ;;
+                *flood*)
+                  for i in $(seq 1 2100); do emit '{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"x"}},"parent_tool_use_id":null}'; done
+                  result ;;
                 *hello*)
                   emit '{"type":"stream_event","event":{"type":"message_start","message":{"id":"m1"}},"parent_tool_use_id":null}'
                   emit '{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}},"parent_tool_use_id":null}'
@@ -220,8 +227,90 @@ internal static class ClaudeChatChecks
             Directory.CreateDirectory(path);
             Environment.SetEnvironmentVariable(name, path);
         }
-        try { await RunIn(directory); await SharedDraft(Path.Combine(directory, "shared-draft")); await BashMode(Path.Combine(directory, "bash-mode")); await SideQuestion(Path.Combine(directory, "side-question")); await ChromeOverride(Path.Combine(directory, "chrome")); await ExitStderr(Path.Combine(directory, "exit-stderr")); await ClearConversation(Path.Combine(directory, "clear")); }
+        try { await RunIn(directory); await SharedDraft(Path.Combine(directory, "shared-draft")); await BashMode(Path.Combine(directory, "bash-mode")); await SideQuestion(Path.Combine(directory, "side-question")); await ChromeOverride(Path.Combine(directory, "chrome")); await ExitStderr(Path.Combine(directory, "exit-stderr")); await ClearConversation(Path.Combine(directory, "clear")); await DebugLogCases(Path.Combine(directory, "debug")); }
         finally { foreach (var (name, value) in previous) Environment.SetEnvironmentVariable(name, value); }
+    }
+
+    // Debug mode: off records nothing; on lists both directions in order with their summaries, hides credentials in the copy it shows (never in the traffic), and is bounded.
+    private static async Task DebugLogCases(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        var holder = new StateHolder();
+        var off = Guid.NewGuid().ToString();
+        await using (var quiet = await Start(directory, holder))
+        {
+            quiet.Watch(off);
+            var opened = await quiet.Call(ChatContract.Open, new ChatOpenParams(quiet.Project, off));
+            await quiet.Until(off, view => view.Header.Status == ChatStatus.Idle, "the chat with Debug mode off");
+            await quiet.Call(ChatContract.Send, new ChatSendParams(quiet.Project, off, "hello"));
+            var talked = await quiet.Until(off, view => view.Header.Status == ChatStatus.Idle && view.Items.OfType<ChatAssistantItem>().Any(), "an answer with Debug mode off");
+            await Task.Delay(300);
+            Require(!opened.DebugLog && !talked.Header.DebugLog && (await quiet.Call(ChatContract.DebugLog, new ChatKey(quiet.Project, off))).Entries.Count == 0 && !quiet.Pushes.OfType<ChatDebugPush>().Any(),
+                "With Debug mode off a chat records nothing, publishes no debug lines and says it keeps no log.");
+        }
+        var chat = Guid.NewGuid().ToString();
+        await using var fixture = await Start(directory, holder, debug: true);
+        var key = new ChatKey(fixture.Project, chat);
+        fixture.Watch(chat);
+        await fixture.Call(ChatContract.Open, new ChatOpenParams(fixture.Project, chat));
+        var ready = await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle, "the chat with Debug mode on");
+        Require(ready.Header.DebugLog, "With Debug mode on the header says the host keeps a debug log.");
+        await fixture.Call(ChatContract.Send, new ChatSendParams(fixture.Project, chat, "hello"));
+        await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle && view.Items.OfType<ChatAssistantItem>().Any(), "the first answer");
+        var log = (await fixture.Call(ChatContract.DebugLog, key)).Entries;
+        Require(log.Select(entry => entry.Seq).SequenceEqual(log.Select(entry => entry.Seq).Order()) && log.Select(entry => entry.Seq).Distinct().Count() == log.Count && log.Zip(log.Skip(1)).All(pair => pair.First.TimeMs <= pair.Second.TimeMs),
+            "The log lists lines in the order they happened, each once, with times that never go back.");
+        int At(ChatDebugDirection direction, string summary) => log.ToList().FindIndex(entry => entry.Direction == direction && entry.Summary.StartsWith(summary, StringComparison.Ordinal));
+        var initialize = At(ChatDebugDirection.ToAgent, "control_request/initialize");
+        var prompt = At(ChatDebugDirection.ToAgent, "user (text: hello)");
+        var init = At(ChatDebugDirection.FromAgent, "system/init");
+        var delta = At(ChatDebugDirection.FromAgent, "stream_event/content_block_delta");
+        var answer = At(ChatDebugDirection.FromAgent, "assistant (text: Hi there)");
+        var result = At(ChatDebugDirection.FromAgent, "result/success");
+        Require(initialize >= 0 && init >= 0 && prompt > initialize && delta > prompt && answer > delta && result > answer,
+            "Both directions are there in order: the initialize request and the prompt we wrote, then the init, stream events, assistant message and result the CLI wrote.");
+        Require(log.All(entry => entry.Size > 0) && log[prompt].Text.Contains("\n") && log[prompt].Text.Contains("\"type\": \"user\"", StringComparison.Ordinal) && log[delta].Type == "stream_event",
+            "Each line has its size, its type, and pretty-printed JSON.");
+        for (var wait = 0; wait < 100 && fixture.Pushes.OfType<ChatDebugPush>().SelectMany(push => push.Entries).Select(entry => entry.Seq).DefaultIfEmpty().Max() < log[^1].Seq; wait++) await Task.Delay(50);
+        Require(fixture.Pushes.OfType<ChatDebugPush>().SelectMany(push => push.Entries).Select(entry => entry.Seq).ToHashSet().IsSupersetOf(log.Select(entry => entry.Seq)), "Every recorded line is also published, in batches.");
+
+        // Credentials are hidden in the log; the traffic is not touched.
+        await fixture.Call(ChatContract.Send, new ChatSendParams(fixture.Project, chat, "leak Authorization: Bearer qrstuvwx9999 ANTHROPIC_API_KEY=sk-ant-api03-PROMPTSECRET99"));
+        for (var wait = 0; wait < 200 && !(await fixture.Call(ChatContract.DebugLog, key)).Entries.Any(entry => entry.Direction == ChatDebugDirection.Stderr); wait++) await Task.Delay(25);
+        await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle && view.Items.OfType<ChatUserItem>().Count() == 2, "the leaking turn");
+        await Task.Delay(300);
+        var shown = (await fixture.Call(ChatContract.DebugLog, key)).Entries;
+        var secrets = new[] { "ENVSECRET99", "headersecret1234", "NESTEDSECRET", "pw-SECRET", "tok-SECRET", "0123456789abcdefghij", "qrstuvwx9999", "PROMPTSECRET99", "stderrsecret12345" };
+        Require(!shown.Any(entry => secrets.Any(secret => entry.Text.Contains(secret, StringComparison.Ordinal) || entry.Summary.Contains(secret, StringComparison.Ordinal))), "No credential survives in a line's text or summary.");
+        var hooked = shown.Single(entry => entry.Summary == "system/hook_response");
+        Require(hooked.Text.Contains("\"max_tokens\": 4096", StringComparison.Ordinal) && hooked.Text.Contains("\"input_tokens\": 7", StringComparison.Ordinal) && hooked.Text.Split("[hidden]").Length - 1 >= 6,
+            "Credential fields are hidden and counts such as max_tokens are left alone.");
+        Require(shown.Any(entry => entry.Direction == ChatDebugDirection.Stderr && entry.Summary == "diagnostic Bearer [hidden]"), "A stderr line is listed, with its bearer value hidden.");
+        Require(File.ReadAllText(Path.Combine(directory, "fake", "users.log")).Contains("qrstuvwx9999", StringComparison.Ordinal), "The real traffic still carries what the user typed.");
+
+        // Clear empties the host's copy, and numbering goes on.
+        var before = shown[^1].Seq;
+        await fixture.Call(ChatContract.DebugClear, key);
+        Require((await fixture.Call(ChatContract.DebugLog, key)).Entries.Count == 0, "Clear empties the log.");
+
+        // A flood is cut to the most recent 2000 lines.
+        await fixture.Call(ChatContract.Send, new ChatSendParams(fixture.Project, chat, "flood"));
+        await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle && view.Items.OfType<ChatUserItem>().Count() == 3, "the flood");
+        await Task.Delay(300);
+        var flood = (await fixture.Call(ChatContract.DebugLog, key)).Entries;
+        Require(flood.Count == ChatDebugLimits.MaxEntries && flood[0].Seq > before && flood[^1].Seq - flood[0].Seq == ChatDebugLimits.MaxEntries - 1 && flood[^1].Summary.StartsWith("result/success", StringComparison.Ordinal),
+            $"The log keeps the last {ChatDebugLimits.MaxEntries} lines and drops the oldest ({flood.Count} kept).");
+
+        // The size bound: whichever of 2000 lines or 8 MB comes first. A line over 1 MB is listed without its text.
+        var bounded = new ChatDebugLog("w", "c", _ => { });
+        var big = "{\"type\":\"user\",\"message\":\"" + new string('x', 900_000) + "\"}";
+        for (var line = 0; line < 12; line++) bounded.Record(ChatDebugDirection.FromAgent, big);
+        bounded.Record(ChatDebugDirection.FromAgent, "{\"type\":\"user\",\"message\":\"" + new string('y', 1_200_000) + "\"}");
+        var kept = bounded.Entries();
+        Require(kept.Sum(entry => (long)entry.Text.Length) <= ChatDebugLimits.MaxChars && kept.Count < 13 && kept[^1].Seq == 13 && kept[^1].Text.Length < 100 && kept[^1].Size > 1_200_000,
+            "The log stays under 8 MB by dropping the oldest lines, and a line over 1 MB keeps its size but not its text.");
+        Require(ChatDebugLog.Describe(1, 0, ChatDebugDirection.ToAgent, "{\"type\":\"control_request\",\"request\":{\"subtype\":\"can_use_tool\",\"tool_name\":\"Bash\"},\"token\":\"abc\"}") is { Summary: "control_request/can_use_tool Bash", Type: "control_request" } described && !described.Text.Contains("abc"),
+            "A control request is summarized by its subtype and tool.");
     }
 
     // /clear starts a fresh conversation: the rows and counters go, the new session id is kept, and the next prompt builds on the empty chat.
@@ -311,7 +400,7 @@ internal static class ClaudeChatChecks
         Require(clean.Header.Status == ChatStatus.Exited && none.Length == 0, "A zero exit adds no error notice.");
     }
 
-    private static async Task<Fixture> Start(string directory, StateHolder holder, bool chrome = false)
+    private static async Task<Fixture> Start(string directory, StateHolder holder, bool chrome = false, bool debug = false)
     {
         var project = Path.Combine(directory, "project");
         Directory.CreateDirectory(project);
@@ -331,7 +420,7 @@ internal static class ClaudeChatChecks
             Worktrees = (_, _) => Task.FromResult<IReadOnlyList<WorktreeInfo>>([])
         });
         await runtime.Start();
-        await state.ChangeAsync([HostStateChange.PluginSettings("claude-code", JsonSerializer.Serialize(new { enabled = true, command = fake, mode = "Chat", chrome }))]);
+        await state.ChangeAsync([HostStateChange.PluginSettings("claude-code", JsonSerializer.Serialize(new { enabled = true, command = fake, mode = "Chat", chrome, debugMode = debug }))]);
         await runtime.Schedule();
         Require((await runtime.ListAsync()).Single().Status == PluginStatus.Active, "The Claude Code host activates with the scripted CLI as its command.");
         return new Fixture { Runtime = runtime, Project = project, Directory = directory };

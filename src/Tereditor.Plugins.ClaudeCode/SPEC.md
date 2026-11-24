@@ -213,6 +213,20 @@ hook events' mapping (`ClaudeValues.StatusForAgentEvent`): `prompt_submit` when 
 waiting for an answer, `stop` or `stop_failure` on a result, `interrupted` on interrupt and close, so tab badges and attention
 notifications need no terminal. `--claude-chat-host` checks all of this against a scripted stand-in for the CLI.
 
+Debug mode. The `DebugMode` setting (Settings > Claude Code > Debug mode, off by default, read when a chat starts or restarts) makes
+the chat keep a log of the raw lines exchanged with the child: every line written to stdin (user messages, control requests and
+responses, permission replies), every line read from stdout, and every stderr line, each with direction, time, size, type and a
+one-line summary. The tap is two `Action` calls in `ChatProcess` (null when off, so the cost is a null check); `ChatDebugLog`
+keeps a ring of the last 2000 lines or 8 MB of text, whichever comes first (`ChatDebugLimits`), and publishes new lines as
+`ChatDebugPush` batches every 100 ms from the reader and writer threads, never the UI thread. The log is memory only: never written to
+disk and never sent anywhere but to the chat's own subscribers. A line over 1 MB is listed with its size and without its text.
+Credentials are hidden in the logged copy (never in the traffic): values of keys that end in token, apiKey, authorization, password
+or secret (counts such as `max_tokens` stay), `Bearer` and `Basic` values, `NAME_TOKEN=value` style assignments and well-known token
+shapes. The header (`ChatHeader.DebugLog`) tells the view a log exists, `chatDebugLog` returns it (the view fetches it once; pushes
+carry the rest) and `chatDebugClear` empties it. Both methods are served by this plugin only; they are not part of
+`ChatContract.Methods`. Pi, Codex and ACP chats keep no debug log. `--claude-chat-host` checks that off records nothing, that both
+directions are listed in order with their summaries, the hiding, Clear and both bounds.
+
 ## Chat semantics (from the VS Code extension)
 
 The host folds stream-json the way the official extension's webview does, live and from a transcript through one path

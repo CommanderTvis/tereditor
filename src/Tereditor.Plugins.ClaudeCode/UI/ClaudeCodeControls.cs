@@ -24,6 +24,7 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
     private readonly TextBlock permissionNote;
     private readonly ComboBox advisor;
     private readonly CheckBox chrome;
+    private readonly CheckBox debugMode;
     private readonly CheckBox agentView;
     private readonly CheckBox systemPrompt;
     private bool applying;
@@ -91,6 +92,8 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
         };
         chrome = this.FindControl<CheckBox>("ClaudeChrome")!;
         chrome.IsCheckedChanged += (_, _) => Update(settings => settings with { Chrome = chrome.IsChecked == true }, "Couldn't change the Claude in Chrome setting");
+        debugMode = this.FindControl<CheckBox>("ClaudeDebugMode")!;
+        debugMode.IsCheckedChanged += (_, _) => Update(settings => settings with { DebugMode = debugMode.IsChecked == true }, "Couldn't change the Debug mode setting");
         agentView = this.FindControl<CheckBox>("ClaudeDisableAgentView")!;
         systemPrompt = this.FindControl<CheckBox>("ClaudeAppendSystemPrompt")!;
         this.FindControl<Button>("ClaudeCommandBrowse")!.Click += (_, _) => _ = Browse();
@@ -126,6 +129,7 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
         ShowPermissionNote(settings.PermissionMode);
         advisor.SelectedItem = advisor.Items.OfType<ComboBoxItem>().FirstOrDefault(item => Equals(item.Tag, settings.Advisor ?? "")) ?? advisor.Items.OfType<ComboBoxItem>().First();
         chrome.IsChecked = settings.Chrome;
+        debugMode.IsChecked = settings.DebugMode;
         agentView.IsChecked = settings.DisableAgentView;
         systemPrompt.IsChecked = settings.AppendSystemPrompt;
         applying = false;

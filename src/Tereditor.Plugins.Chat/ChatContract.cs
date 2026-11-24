@@ -438,6 +438,8 @@ public sealed record ChatHeader(ChatStatus Status)
     public bool CanSendQueuedNow { get; init; }
     /// <summary>Whether the host serves <see cref="ChatContract.RunShell"/>; the composer offers bash mode (a leading <c>!</c>) only then.</summary>
     public bool CanRunShell { get; init; }
+    /// <summary>Whether the host keeps a debug log of this chat's raw traffic (<see cref="ChatContract.DebugLog"/>); the view offers the log only then.</summary>
+    public bool DebugLog { get; init; }
 }
 
 /// <summary>The runtime a failed start is missing: <paramref name="Kind"/> as the Runtimes page names it (<c>bun</c>, <c>uv</c>) and <paramref name="Name"/> for the user.</summary>
@@ -450,6 +452,7 @@ public sealed record ChatRuntimeOffer(string Kind, string Name);
 [JsonDerivedType(typeof(ChatResetPush), "reset")]
 [JsonDerivedType(typeof(ChatRemovePush), "remove")]
 [JsonDerivedType(typeof(ChatDraftPush), "draft")]
+[JsonDerivedType(typeof(ChatDebugPush), "debug")]
 public abstract record ChatPush(string WorkspaceId, string ChatId);
 
 /// <summary>An item was added, or replaced in place (same id).</summary>
@@ -474,6 +477,30 @@ public sealed record ChatDraft(string Text, long Revision)
 
 /// <summary>The draft changed (written by a client, or cleared by a send); the snapshot ends with the current one.</summary>
 public sealed record ChatDraftPush(string WorkspaceId, string ChatId, ChatDraft Draft) : ChatPush(WorkspaceId, ChatId);
+
+/// <summary>Which way a debug-log line went.</summary>
+public enum ChatDebugDirection { ToAgent, FromAgent, Stderr }
+
+/// <summary>
+/// One line of the raw traffic between tereditor and the agent process, as the debug log shows it: when, which way, how big it was
+/// (before hiding credentials), its type and a one-line summary, and its text with credentials hidden (pretty-printed when it is JSON).
+/// </summary>
+public sealed record ChatDebugEntry(long Seq, long TimeMs, ChatDebugDirection Direction, int Size, string Type, string Summary, string Text);
+
+/// <summary>New debug-log lines, in order. Only a chat whose host keeps a debug log sends these; they are not part of the snapshot (see <see cref="ChatContract.DebugLog"/>).</summary>
+public sealed record ChatDebugPush(string WorkspaceId, string ChatId, IReadOnlyList<ChatDebugEntry> Entries) : ChatPush(WorkspaceId, ChatId);
+
+/// <summary>The debug log a host holds for one chat, oldest first.</summary>
+public sealed record ChatDebugLogResult(IReadOnlyList<ChatDebugEntry> Entries);
+
+/// <summary>The bounds of a debug log, on the host and in the view: whichever comes first drops the oldest lines.</summary>
+public static class ChatDebugLimits
+{
+    public const int MaxEntries = 2000;
+    public const int MaxChars = 8 * 1024 * 1024;
+    /// <summary>A line longer than this is listed with its size and without its text.</summary>
+    public const int MaxEntryChars = 1024 * 1024;
+}
 
 /// <summary>Replaces the draft's text. Last-writer-wins today; <paramref name="BaseRevision"/> is the revision the client's text was made against (reserved for host-ordered edits).</summary>
 public sealed record ChatSetDraftParams(string WorkspaceId, string ChatId, long BaseRevision, string Text, string ClientId);
@@ -645,6 +672,11 @@ public static class ChatContract
     /// <summary>Lists one host directory for <c>@</c> path completion, resolved against the chat's working directory (<c>~</c> against the host user's home).</summary>
     public static readonly PluginMethod<ChatPathParams, ChatPathList> CompletePath = new("chatCompletePath");
 
+    /// <summary>The chat's debug log. Not in <see cref="Methods"/>: only a host that keeps one (Claude Code, with Debug mode on) serves it.</summary>
+    public static readonly PluginMethod<ChatKey, ChatDebugLogResult> DebugLog = new("chatDebugLog");
+    /// <summary>Empties the chat's debug log on the host. Not in <see cref="Methods"/>, like <see cref="DebugLog"/>.</summary>
+    public static readonly PluginMethod<ChatKey, Ack> DebugClear = new("chatDebugClear");
+
     /// <summary>A chat's pushes, scoped by workspace and chat id; the snapshot is the same list a late subscriber replays.</summary>
     public static readonly PluginChannel<ChatPush> Updates = PluginChannel<ChatPush>.State("chatUpdates", Snapshot, "workspaceId", "chatId");
 
@@ -674,7 +706,7 @@ public static class ChatContract
     public static IJsonTypeInfoResolver Json => ChatJson.Default;
 }
 
-[JsonSourceGenerationOptions(Converters = [typeof(PluginJson.EnumConverter<ChatStatus>), typeof(PluginJson.EnumConverter<ChatToolState>), typeof(PluginJson.EnumConverter<ChatNoticeLevel>), typeof(PluginJson.EnumConverter<ChatTaskKind>), typeof(PluginJson.EnumConverter<ChatTaskStatus>), typeof(PluginJson.EnumConverter<ChatPermissionDecision>), typeof(PluginJson.EnumConverter<ChatAgentState>)])]
+[JsonSourceGenerationOptions(Converters = [typeof(PluginJson.EnumConverter<ChatStatus>), typeof(PluginJson.EnumConverter<ChatToolState>), typeof(PluginJson.EnumConverter<ChatNoticeLevel>), typeof(PluginJson.EnumConverter<ChatTaskKind>), typeof(PluginJson.EnumConverter<ChatTaskStatus>), typeof(PluginJson.EnumConverter<ChatPermissionDecision>), typeof(PluginJson.EnumConverter<ChatAgentState>), typeof(PluginJson.EnumConverter<ChatDebugDirection>)])]
 [JsonSerializable(typeof(ChatOpenParams))]
 [JsonSerializable(typeof(ChatHeader))]
 [JsonSerializable(typeof(ChatKey))]
@@ -704,6 +736,7 @@ public static class ChatContract
 [JsonSerializable(typeof(ChatPathList))]
 [JsonSerializable(typeof(ChatSetDraftParams))]
 [JsonSerializable(typeof(ChatDraft))]
+[JsonSerializable(typeof(ChatDebugLogResult))]
 [JsonSerializable(typeof(ChatSnapshot))]
 [JsonSerializable(typeof(ChatItem))]
 internal sealed partial class ChatJson : JsonSerializerContext;

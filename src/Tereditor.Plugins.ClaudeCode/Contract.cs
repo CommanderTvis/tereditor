@@ -378,6 +378,8 @@ public sealed record ClaudeCodeSettings
     public string Advisor { get; set; } = "";
     /// <summary>Adds <c>--chrome</c> to every tereditor launch; off adds nothing, so the CLI's own Chrome setting applies.</summary>
     public bool Chrome { get; init; }
+    /// <summary>Debug mode: a chat keeps a log of the raw JSON it exchanges with the Claude process (credentials hidden, memory only) and shows it in a Debug panel. Read when a chat starts.</summary>
+    public bool DebugMode { get; init; }
     /// <summary>How a tereditor launch is presented: the CLI's terminal UI, or the chat view driven over stream-json.</summary>
     public ClaudeCodeMode Mode { get; init; }
 }
@@ -512,7 +514,7 @@ public static class ClaudeCodeContract
     public static readonly PluginChannel<InstructionSectionsChanged> InstructionsChanged = PluginChannel<InstructionSectionsChanged>.Event("instructionsChanged");
 
     public static readonly PluginContract Contract = PluginContract.Create<ClaudeCodeSettings>(Id, 3,
-        [.. ChatContract.Methods, ConfigGet, Account, SystemPromptGet, Installed, InstructionsList, InstructionsSet, PluginUninstallPlan, PluginUninstall, PluginMovePlan, PluginMove,
+        [.. ChatContract.Methods, ChatContract.DebugLog, ChatContract.DebugClear, ConfigGet, Account, SystemPromptGet, Installed, InstructionsList, InstructionsSet, PluginUninstallPlan, PluginUninstall, PluginMovePlan, PluginMove,
             SkillMovePlan, SkillMove, MarketplacePlan, MarketplaceRun, McpList, ReadFile, WriteFile, PlanEdit, ApplyEdit, PermissionModesGet, SelectionChanged, DocumentClosed,
             AtMention, ActionReply, StatusSnapshot, ContextUsageGet],
         [Status, IdeAction, ContextUsage, ConfigChange, AccountUsage, InstructionsChanged, ChatContract.Updates], ClaudeCodeJson.Default, ChatContract.Json);

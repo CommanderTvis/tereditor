@@ -23,7 +23,11 @@ internal sealed record ChatRecord(string WorkspaceId, string ChatId)
 internal sealed record ChatSpawn(string? SessionId, string? Resume, bool Fork, string? ResumeAt);
 
 /// <summary>The command line, environment and directory of one spawn, as the host's launch rules compose them.</summary>
-internal sealed record ChatLaunch(string Executable, IReadOnlyList<string> Arguments, IReadOnlyDictionary<string, string> Environment, string Cwd);
+internal sealed record ChatLaunch(string Executable, IReadOnlyList<string> Arguments, IReadOnlyDictionary<string, string> Environment, string Cwd)
+{
+    /// <summary>Debug mode: the spawn's raw traffic goes to the chat's debug log.</summary>
+    public bool Debug { get; init; }
+}
 
 /// <summary>What a session needs from the host that owns it.</summary>
 internal sealed record ChatDeps(
@@ -153,10 +157,12 @@ internal sealed class ClaudeChatSession(ChatRecord initial, ChatDeps deps)
         }
         var launch = deps.Launch(current, spawn);
         var advisorAt = launch.Arguments.ToList().IndexOf("--advisor");
-        lock (gate) folder.SetHeader(header => header with { Advisor = advisorAt >= 0 && advisorAt + 1 < launch.Arguments.Count ? launch.Arguments[advisorAt + 1] : null, Chrome = launch.Arguments.Contains("--chrome"), CanSendQueuedNow = true, CanRunShell = true });
+        lock (gate) folder.SetHeader(header => header with { Advisor = advisorAt >= 0 && advisorAt + 1 < launch.Arguments.Count ? launch.Arguments[advisorAt + 1] : null, Chrome = launch.Arguments.Contains("--chrome"), CanSendQueuedNow = true, CanRunShell = true, DebugLog = launch.Debug });
+        ChatDebugLog? log;
+        lock (gate) log = debugLog = launch.Debug ? debugLog ?? new ChatDebugLog(record.WorkspaceId, record.ChatId, deps.Push) : null;
         lock (gate) folder.AllowBypass = current.PermissionMode == "bypassPermissions" || launch.Arguments.Any(argument => argument is "--dangerously-skip-permissions" or "--allow-dangerously-skip-permissions");
         var started = ChatProcess.Start(launch.Executable, launch.Arguments, launch.Environment, launch.Cwd,
-            line => OnLineAsync(mine, line), text => OnError(mine, text));
+            line => OnLineAsync(mine, line), text => OnError(mine, text), log is null ? null : (direction, text) => RecordDebug(log, direction, text));
         lock (gate)
         {
             if (closed || mine != generation) { _ = started.StopAsync(); return; }
@@ -182,6 +188,26 @@ internal sealed class ClaudeChatSession(ChatRecord initial, ChatDeps deps)
                 lock (gate) if (mine == generation && folder.Header.Status == ChatStatus.Starting && process is not null) { folder.SetStatus(ChatStatus.Idle); ScheduleFlush(); }
             }
         });
+    }
+
+    private ChatDebugLog? debugLog;
+
+    // The tap never takes the chat down: a line the log cannot describe is simply not listed.
+    private static void RecordDebug(ChatDebugLog log, ChatDebugDirection direction, string text)
+    {
+        try { log.Record(direction, text); }
+        catch (Exception error) when (error is not OutOfMemoryException) { }
+    }
+
+    /// <summary>The debug log so far; empty when Debug mode is off.</summary>
+    public IReadOnlyList<ChatDebugEntry> DebugEntries()
+    {
+        lock (gate) return debugLog?.Entries() ?? [];
+    }
+
+    public void ClearDebug()
+    {
+        lock (gate) debugLog?.Clear();
     }
 
     private const int StderrTailLines = 20;

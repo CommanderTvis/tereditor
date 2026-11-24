@@ -151,6 +151,10 @@ record's `Attachments` stays null (reserved for path-only attachments later).
   The view
   shows a quiet note under the input when a send is refused as already sent.
 
+## Debug log
+
+A host may keep a log of the raw lines it exchanges with its agent process (today only Claude Code, with its Debug mode setting on). It is optional: `ChatHeader.DebugLog` says the host keeps one, `chatDebugLog` (`ChatKey` to `ChatDebugLogResult`) returns it oldest first, `chatDebugClear` empties it, and new lines arrive as `ChatDebugPush` (kind `debug`) batches on `chatUpdates`, not in the snapshot. Both methods stay out of `ChatContract.Methods`; a host that serves them adds them to its contract. A `ChatDebugEntry` is a sequence number (increasing, never reused after a clear), time, direction (to the agent, from it, stderr), size in bytes, type, a one-line summary and the text with credentials already hidden by the host, so a remote client never receives them. The view drops a push it already holds (sequence not newer) and keeps the last `ChatDebugLimits.MaxEntries` (2000) lines or `MaxChars` (8 MB) of text, whichever comes first. With a log, the "+" menu has a "Debug log" check row that opens `ChatDebugPanel` over the transcript: a "Credentials are hidden" note, a count, Copy all and Clear, a filter box (matches a line's type or summary), a "Stream events" toggle (`stream_event` lines are hidden until it is on), and a virtualized list whose rows show direction, time, size and summary, open to the read-only pretty-printed JSON (first 64,000 characters; Copy has all) and have their own Copy. `--claude-chat-ui` checks the panel and `--claude-chat-host` the host half.
+
 ## Serving another agent protocol (ACP)
 
 The ACP plugin (`src/Tereditor.Plugins.Acp/SPEC.md`, Early support) implements this mapping; the gaps listed below are the ones it lives with.

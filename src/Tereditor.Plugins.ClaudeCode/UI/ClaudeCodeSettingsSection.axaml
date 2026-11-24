@@ -52,6 +52,12 @@
         <TextBlock Text="Launch sessions with --chrome. The launcher's right-click menu overrides it for one run." />
       </StackPanel>
     </CheckBox>
+    <CheckBox x:Name="ClaudeDebugMode">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="heading" Text="Debug mode" />
+        <TextBlock Text="Chats keep a log of the raw JSON they exchange with Claude Code and show it in a Debug panel. Credentials are hidden in the log. It lives in memory only. Applies to chats you start or restart afterwards." />
+      </StackPanel>
+    </CheckBox>
     <CheckBox x:Name="ClaudeDisableAgentView">
       <StackPanel Spacing="2">
         <TextBlock Classes="heading" Text="Start Claude Code without its own agent view" />

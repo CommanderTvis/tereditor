@@ -53,6 +53,8 @@ internal static class ClaudeChatUiChecks
         public List<ChatSendParams> SendParams { get; } = [];
         public List<string> DraftWrites { get; } = [];
         public List<(string Method, string Value)> Sets { get; } = [];
+        /// <summary>What the fake host's debug log holds.</summary>
+        public List<ChatDebugEntry> Debug { get; } = [];
         public List<(string Option, string Value)> OptionSets { get; } = [];
         public TaskCompletionSource<ChatHeader>? ModelGate { get; set; }
         public ChatHeader Header { get; set; } = new(ChatStatus.Idle);
@@ -103,6 +105,7 @@ internal static class ClaudeChatUiChecks
                 ChatRewindParams when method.Name == ChatContract.RewindPreview.Name => RewindPreview,
                 ChatSessionsParams => new ChatSessionList([new ChatSessionInfo("s1", "Fix the parser", "today"), new ChatSessionInfo("s2", "Write docs", "yesterday")]),
                 ChatSendParams => new Ack(),
+                ChatKey when method.Name == ChatContract.DebugLog.Name => new ChatDebugLogResult([.. Debug]),
                 ChatKey => new Ack(),
                 ChatDetailParams => new ChatDetail("full output"),
                 _ => new Ack()
@@ -300,6 +303,7 @@ internal static class ClaudeChatUiChecks
         WrappedHistory();
         DraftSurvivesHistory();
         DraftWithoutHost();
+        DebugPanel();
         TaskNoticeBounded();
         DurationFormat();
         OnlyRunningChips();
@@ -1106,6 +1110,90 @@ internal static class ClaudeChatUiChecks
     }
 
     // A host that does not share drafts answers the draft method with an error: the view stops asking and keeps the draft client-locally.
+    // The debug log panel: offered only when the host keeps a log; lines in order with direction and summary, stream events hidden until asked for,
+    // a filter, expandable pretty JSON, Copy and Copy all, Clear, a bound, and a virtualized list.
+    private static void DebugPanel()
+    {
+        static ChatDebugEntry Line(long seq, ChatDebugDirection direction, string type, string summary, string text = "") =>
+            new(seq, 1_700_000_000_000 + seq * 1000, direction, 100 + (int)seq, type, summary, text.Length > 0 ? text : "{\n  \"type\": \"" + type + "\"\n}");
+        var plain = new FakeChat();
+        var quietView = new ChatView(new ChatEnvironment(plain, TestAgent), Workspace, Chat);
+        var quiet = new Window { Width = 900, Height = 600, Content = quietView };
+        quiet.Show();
+        try
+        {
+            Frame(quiet); Frame(quiet);
+            Require(quietView.BuildPlusMenu().Items.OfType<MenuItem>().All(item => item.Name != "ChatDebugToggle") && !quietView.DebugPanel!.IsVisible, "A chat whose host keeps no debug log offers none.");
+        }
+        finally { quiet.Close(); }
+
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) { DebugLog = true } };
+        chat.Debug.Add(Line(1, ChatDebugDirection.ToAgent, "control_request", "control_request/initialize"));
+        chat.Debug.Add(Line(2, ChatDebugDirection.FromAgent, "system", "system/init"));
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        try
+        {
+            for (var frame = 0; frame < 6; frame++) Frame(window);
+            var panel = view.DebugPanel!;
+            Require(panel.Total == 2 && !panel.IsVisible && chat.Calls.Contains(ChatContract.DebugLog.Name), "The log the host holds is fetched once the header says there is one, and the panel starts closed.");
+            var toggle = view.BuildPlusMenu().Items.OfType<MenuItem>().Single(item => item.Name == "ChatDebugToggle");
+            toggle.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            for (var frame = 0; frame < 3; frame++) Frame(window);
+            Require(panel.IsVisible, "The + menu's Debug log row opens the panel.");
+            Require(view.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Name == "ChatDebugNote" && text.Text == "Credentials are hidden"), "The header says the credentials are hidden.");
+            chat.Handler!(new ChatDebugPush(Workspace, Chat, [
+                Line(3, ChatDebugDirection.ToAgent, "user", "user (text: hello)", "{\n  \"type\": \"user\"\n}"),
+                Line(4, ChatDebugDirection.FromAgent, "stream_event", "stream_event/content_block_delta"),
+                Line(5, ChatDebugDirection.FromAgent, "assistant", "assistant (text: Hi there)"),
+                Line(6, ChatDebugDirection.Stderr, "stderr", "warning text"),
+                Line(2, ChatDebugDirection.FromAgent, "system", "system/init")]));
+            for (var frame = 0; frame < 3; frame++) Frame(window);
+            Require(panel.Total == 6 && panel.Shown == 5 && panel.Rows.Select(row => row.Entry.Seq).SequenceEqual([1, 2, 3, 5, 6]), "Lines arrive in order, a line already held is not listed twice, and stream events are hidden by default.");
+            panel.ShowStreamEvents = true; Frame(window);
+            Require(panel.Shown == 6, "The Stream events toggle brings the stream lines back.");
+            panel.ShowStreamEvents = false;
+            panel.Filter = "ASSISTANT"; Frame(window);
+            Require(panel.Shown == 1 && panel.Rows[0].Entry.Seq == 5, "The filter matches a line's type or summary, ignoring case.");
+            panel.Filter = ""; Frame(window);
+            var texts = view.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text).ToList();
+            Require(texts.Contains("to Claude") && texts.Contains("from Claude") && texts.Contains("stderr") && texts.Contains("user (text: hello)"), "Each line names its direction and carries its summary.");
+            // Open one line: the pretty JSON shows in a read-only box.
+            panel.Toggle(panel.Rows[2]); Frame(window); Frame(window);
+            Require(view.GetVisualDescendants().OfType<TextBox>().Any(box => box.Name == "ChatDebugText" && box.IsReadOnly && (box.Text ?? "").Contains("\"type\": \"user\"")), "Opening a line shows its JSON.");
+            // Copy.
+            var copied = new List<string>();
+            panel.Copier = text => { copied.Add(text); return Task.CompletedTask; };
+            view.GetVisualDescendants().OfType<Button>().First(button => button.Name == "ChatDebugCopy").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            view.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ChatDebugCopyAll").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Require(copied.Count == 2 && copied[0] == panel.Rows[0].Entry.Text, "A line's Copy puts its text on the clipboard.");
+            var all = copied[1];
+            Require(all.Contains("to Claude") && all.Contains("from Claude") && all.Contains("stderr") && all.Contains("control_request/initialize") && all.IndexOf("system/init", StringComparison.Ordinal) < all.IndexOf("assistant (text: Hi there)", StringComparison.Ordinal)
+                && !all.Contains("content_block_delta") && all.Contains("\"type\": \"user\""), "Copy all gives the shown lines in order, each with its heading and text.");
+            Require(ChatDebugPanel.Heading(Line(1, ChatDebugDirection.ToAgent, "x", "s"), "Claude").EndsWith(" to Claude 101 B s", StringComparison.Ordinal), "A heading reads direction, size and summary.");
+
+            // The bound, and a list that realizes only what it shows.
+            panel.ShowStreamEvents = true;
+            chat.Handler!(new ChatDebugPush(Workspace, Chat, [.. Enumerable.Range(10, 2100).Select(seq => Line(seq, ChatDebugDirection.FromAgent, "stream_event", "stream_event/content_block_delta"))]));
+            for (var frame = 0; frame < 4; frame++) Frame(window);
+            Require(panel.Total == ChatDebugLimits.MaxEntries && panel.Rows[0].Entry.Seq == 2109 - ChatDebugLimits.MaxEntries + 1 && panel.Rows[^1].Entry.Seq == 2109, $"The view keeps the last {ChatDebugLimits.MaxEntries} lines ({panel.Total}).");
+            Require(panel.List.GetVisualDescendants().OfType<ListBoxItem>().Count() is > 0 and < 100, "Only the visible lines are realized.");
+            chat.Handler!(new ChatDebugPush(Workspace, Chat, [.. Enumerable.Range(3000, 12).Select(seq => Line(seq, ChatDebugDirection.FromAgent, "assistant", "big", new string('x', 900_000)))]));
+            Frame(window);
+            Require(panel.Chars <= ChatDebugLimits.MaxChars, "The view keeps under 8 MB of text.");
+
+            // Clear empties the view and asks the host to empty its copy.
+            view.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ChatDebugClear").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            for (var frame = 0; frame < 3; frame++) Frame(window);
+            Require(panel.Total == 0 && chat.Calls.Contains(ChatContract.DebugClear.Name), "Clear empties the list and the host's log.");
+            view.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ChatDebugClose").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Frame(window);
+            Require(!panel.IsVisible, "Close hides the panel.");
+        }
+        finally { window.Close(); }
+    }
+
     private static void DraftWithoutHost()
     {
         Require(ChatView.MapCaret("hello world", "hello brave world", 11) == 17 && ChatView.MapCaret("hello world", "hello brave world", 3) == 3 &&

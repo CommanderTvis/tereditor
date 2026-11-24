@@ -86,6 +86,12 @@ internal sealed class ClaudeChatHost
         context.AgentSessions(() => [.. sessions.Values.Where(session => session.Pid is not null).Select(session => new AgentSession(session.Record.WorkspaceId, session.Record.ChatId, session.Pid!.Value, "claude-code", session.Record.Title))]);
         context.Method(ChatContract.Open, (p, _, _) => OpenAsync(p));
         context.Method(ChatContract.Snapshot, (p, _, _) => ValueTask.FromResult<IReadOnlyList<ChatPush>>([new ChatDraftPush(p.WorkspaceId, p.ChatId, drafts.Get(p.WorkspaceId, p.ChatId)), .. sessions.TryGetValue((p.WorkspaceId, p.ChatId), out var session) ? session.Snapshot() : []]));
+        context.Method(ChatContract.DebugLog, (p, _, _) => ValueTask.FromResult(new ChatDebugLogResult(sessions.TryGetValue((p.WorkspaceId, p.ChatId), out var session) ? session.DebugEntries() : [])));
+        context.Method(ChatContract.DebugClear, (p, _, _) =>
+        {
+            if (sessions.TryGetValue((p.WorkspaceId, p.ChatId), out var session)) session.ClearDebug();
+            return ValueTask.FromResult(new Ack());
+        });
         context.Method(ChatContract.SetDraft, (p, _, _) => ValueTask.FromResult(drafts.Set(p.WorkspaceId, p.ChatId, p.Text, p.ClientId)));
         context.Method(ChatContract.Send, async (p, _, _) =>
         {
@@ -395,7 +401,7 @@ internal sealed class ClaudeChatHost
         if (record.Chrome ?? settings.Chrome) arguments.Add("--chrome");
         if (settings.AppendSystemPrompt && environment.TryGetValue(ClaudeCodeContract.PromptFileVariable, out var promptFile)) arguments.AddRange(["--append-system-prompt-file", promptFile]);
         arguments.AddRange(["--plugin-dir", hookPluginDirectory]);
-        return new ChatLaunch(prefix[0], [.. prefix.Skip(1), .. arguments], environment, cwd);
+        return new ChatLaunch(prefix[0], [.. prefix.Skip(1), .. arguments], environment, cwd) { Debug = settings.DebugMode };
     }
 }
 

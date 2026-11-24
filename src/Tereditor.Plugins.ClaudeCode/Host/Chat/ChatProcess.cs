@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
+using Tereditor.Plugins.Chat;
+
 namespace Tereditor.Plugins.ClaudeCode.Host.Chat;
 
 /// <summary>
@@ -17,6 +19,7 @@ internal sealed class ChatProcess
     private readonly Process child;
     private readonly SemaphoreSlim writer = new(1, 1);
     private readonly CancellationTokenSource stopped = new();
+    private readonly Action<ChatDebugDirection, string>? tap;
     private readonly Task reading;
     private int closing;
 
@@ -26,10 +29,16 @@ internal sealed class ChatProcess
     /// <summary>Completes with the exit code once stdout has ended and the child is reaped.</summary>
     public Task<int> Exited { get; }
 
-    private ChatProcess(Process child, Func<string, Task> onLine, Action<string> onError)
+    private ChatProcess(Process child, Func<string, Task> onLine, Action<string> onError, Action<ChatDebugDirection, string>? tap)
     {
         this.child = child;
-        child.ErrorDataReceived += (_, data) => { if (data.Data is { Length: > 0 } text) onError(text); };
+        this.tap = tap;
+        child.ErrorDataReceived += (_, data) =>
+        {
+            if (data.Data is not { Length: > 0 } text) return;
+            tap?.Invoke(ChatDebugDirection.Stderr, text);
+            onError(text);
+        };
         child.BeginErrorReadLine();
         reading = Task.Run(async () =>
         {
@@ -37,6 +46,7 @@ internal sealed class ChatProcess
             {
                 while (await child.StandardOutput.ReadLineAsync(stopped.Token) is { } line)
                 {
+                    if (line.Length > 0) tap?.Invoke(ChatDebugDirection.FromAgent, line);
                     if (line.Length is 0 or > MaxLine) continue;
                     await onLine(line);
                 }
@@ -55,7 +65,7 @@ internal sealed class ChatProcess
     internal static string GroupLauncher => Path.Combine(AppContext.BaseDirectory, "tereditor-claude-process-group");
 
     /// <summary>Starts the child; the caller runs this off the UI thread.</summary>
-    public static ChatProcess Start(string executable, IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment, string cwd, Func<string, Task> onLine, Action<string> onError)
+    public static ChatProcess Start(string executable, IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment, string cwd, Func<string, Task> onLine, Action<string> onError, Action<ChatDebugDirection, string>? tap = null)
     {
         // Off Windows the child runs behind the setsid launcher, so it leads a group the whole of which can be signalled.
         var grouped = !OperatingSystem.IsWindows();
@@ -74,7 +84,7 @@ internal sealed class ChatProcess
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
         foreach (var (name, value) in environment) start.Environment[name] = value;
         var child = Process.Start(start) ?? throw new InvalidOperationException("Could not start Claude Code.");
-        return new ChatProcess(child, onLine, onError);
+        return new ChatProcess(child, onLine, onError, tap);
     }
 
     public async Task WriteAsync(string line, CancellationToken cancellationToken = default)
@@ -82,6 +92,7 @@ internal sealed class ChatProcess
         await writer.WaitAsync(cancellationToken);
         try
         {
+            tap?.Invoke(ChatDebugDirection.ToAgent, line);
             await child.StandardInput.WriteAsync((line + "\n").AsMemory(), cancellationToken);
             await child.StandardInput.FlushAsync(cancellationToken);
         }

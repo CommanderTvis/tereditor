@@ -210,6 +210,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         var body = new Grid();
         body.Children.Add(list);
         body.Children.Add(jump);
+        InitDebug(body);
         Place(body, 3);
         Place(widgetsAbove, 4);
         Place(requestPanel, 5);
@@ -373,6 +374,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         }
         for (var index = 0; index < batch.Length; index++)
             if (batch[index] is ChatDraftPush draft) OnDraft(draft.Draft);
+            else if (batch[index] is ChatDebugPush debug) debugPanel?.Add(debug.Entries);
             else if (!skip[index]) transcript.Apply(batch[index]);
         ShowQueue();
         UpdateRequests();
@@ -410,6 +412,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
 
     private void OnHeader(ChatHeader header)
     {
+        OnDebugHeader(header);
         NoteTaskCompletions(header);
         if (firstPrompt is { } first && header.Status == ChatStatus.Idle)
         {

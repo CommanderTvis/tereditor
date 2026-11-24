@@ -1405,6 +1405,7 @@ internal sealed partial class ChatView
             menu.Items.Add(Row("TerminalAgentFact_mcp", "server", "MCP servers", down > 0 ? $"{header.McpServers.Count} ({down} down)" : header.McpServers.Count.ToString(),
                 () => { }, tip: string.Join("\n", header.McpServers.Select(server => $"{server.Name} \u2014 {server.Status}"))));
         }
+        AddDebugRow(menu);
         return menu;
     }
 
