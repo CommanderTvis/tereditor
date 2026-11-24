@@ -64,19 +64,20 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         usageView.RetryRequested += () => LoadUsage(refresh: true);
         Name = "ClaudeConfigPanel";
         Background = Ui.Sidebar;
-        var header = new DockPanel { Margin = new Thickness(8, 4) };
+        var header = new DockPanel { Margin = new Thickness(0, 4, 8, 0) };
         auto = new ClaudeAutoRefresh(() => DateTimeOffset.UtcNow, () => TopLevel.GetTopLevel(this) is Window { IsActive: true, WindowState: not WindowState.Minimized } && IsEffectivelyVisible,
             () => usagePending || contextUsage?.Running == true || account?.Busy == true, LastRead, Refresh);
         var refresh = Ui.IconButton("refresh", "Refresh usage and context (also runs hourly)", Refresh);
         refresh.Name = "ClaudeConfigRefresh";
         refresh.Width = refresh.Height = 24;
         refresh.Padding = new Thickness(4);
+        refresh.VerticalAlignment = VerticalAlignment.Top;
         DockPanel.SetDock(refresh, Dock.Right);
         header.Children.Add(refresh);
+        // The button shares the title's row; the title wraps to its left.
+        header.Children.Add(scopeBlock);
         SetDock(header, Dock.Top);
         Children.Add(header);
-        SetDock(scopeBlock, Dock.Top);
-        Children.Add(scopeBlock);
         SetDock(notices, Dock.Top);
         Children.Add(notices);
         Children.Add(new ScrollViewer { Name = "ClaudeConfigBody", Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
@@ -291,6 +292,8 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         Render();
     }
 
+    private static TextBlock Wrapped(TextBlock text) { text.TextWrapping = TextWrapping.Wrap; return text; }
+
     private void RenderScope()
     {
         var key = (surface, session?.TabKey, session?.Title, activeTab?.Title, snapshot?.Root);
@@ -301,12 +304,12 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         scopeBlock.Tag = session is not null ? "session" : "workspace";
         if (session is not null)
         {
-            scopeBlock.Children.Add(Ui.Text($"Context of Claude in tab {TabNames.Quote(session.Title)}", Ui.Muted, 13));
+            scopeBlock.Children.Add(Wrapped(Ui.Text($"Context of Claude in tab {TabNames.Quote(session.Title)}", Ui.Muted, 13)));
             scopeBlock.Children.Add(new PathLine { Path = snapshot?.Root });
         }
         else
         {
-            scopeBlock.Children.Add(Ui.Text(activeTab is not null ? $"No Claude in tab {TabNames.Quote(activeTab.Title)}" : "No terminal open", Ui.Muted, 13));
+            scopeBlock.Children.Add(Wrapped(Ui.Text(activeTab is not null ? $"No Claude in tab {TabNames.Quote(activeTab.Title)}" : "No terminal open", Ui.Muted, 13)));
             scopeBlock.Children.Add(Ui.Text("Showing what a new session here would load", Ui.Hint, 12));
         }
         var rightClick = Ui.Text("Right-click to turn off tool/skill to save tokens", Ui.Hint, 12);

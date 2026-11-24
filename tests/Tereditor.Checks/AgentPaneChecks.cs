@@ -1,7 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using Tereditor.Checks.E2E;
 using Tereditor.Plugins.Api;
@@ -207,7 +209,33 @@ internal static class AgentPaneChecks
         Require(first.Length > 0 && second.Length > 0 && first != second, $"Each focused session of the agent is the one its Context tab describes: '{first}' and '{second}'.");
         focus(content, new PluginDocumentTabRef(app.Root, "claude-chat", "chat-1"));
         Require(Find<StackPanel>(app, "ClaudeConfigScope") is { Tag: "workspace" }, "A focused chat describes the workspace.");
+        RefreshSharesTitle(content, "ClaudeConfigScope", "ClaudeConfigRefresh");
         Console.WriteLine("PASS agent pane follows the focused session of one agent");
+    }
+
+    /// <summary>
+    /// At narrow and ordinary widths the panel's refresh button sits in the same row as the context title: inside the scope block's
+    /// vertical range, to its right, and the scope block (the title wraps) has height, so no row holds the button alone.
+    /// </summary>
+    internal static void RefreshSharesTitle(Control panel, string scopeName, string refreshName)
+    {
+        var scope = panel.GetLogicalDescendants().OfType<StackPanel>().Single(control => control.Name == scopeName);
+        var button = panel.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == refreshName);
+        var title = scope.GetLogicalDescendants().OfType<TextBlock>().First();
+        foreach (var width in new double[] { 260, 420 })
+        {
+            panel.Measure(new Avalonia.Size(width, 600));
+            panel.Arrange(new Avalonia.Rect(0, 0, width, 600));
+            var origin = new Avalonia.Point(0, 0);
+            var buttonBox = new Avalonia.Rect(button.TranslatePoint(origin, panel)!.Value, button.Bounds.Size);
+            var scopeBox = new Avalonia.Rect(scope.TranslatePoint(origin, panel)!.Value, scope.Bounds.Size);
+            var titleBox = new Avalonia.Rect(title.TranslatePoint(origin, panel)!.Value, title.Bounds.Size);
+            Require(scope.IsVisible && scopeBox.Height > 0, $"At {width}px the title block is shown.");
+            Require(buttonBox.Top >= scopeBox.Top - 1 && buttonBox.Top < titleBox.Bottom, $"At {width}px {refreshName} sits in the title's row (button {buttonBox}, title {titleBox}).");
+            Require(titleBox.Right <= buttonBox.Left + 0.5 && buttonBox.Right <= width, $"At {width}px {refreshName} does not overlap the title (button {buttonBox}, title {titleBox}).");
+        }
+        panel.InvalidateMeasure();
+        Dispatcher.UIThread.RunJobs();
     }
 
     /// <summary>The state machine alone: follow, manual choice, keeping the chip on a non-agent tab.</summary>

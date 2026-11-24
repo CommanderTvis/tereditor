@@ -321,7 +321,7 @@ specs require no spec workflow or unsolicited spec creation.
 
 ### Context usage
 
-The Context surface's context table is the one place for baseline costs, in tokens only (no sizes on disk).
+The Context surface's context table is the one place for baseline costs, in tokens only (no sizes on disk). The refresh button shares the row of the "Context of Claude in tab …" title, at its right end; the title wraps to its left in a narrow pane.
 Its rows are everything a fresh session started like the tab's pays for, as `/context` counts it: the memory and
 instruction files the resolver lists (a file `/context` does not list says "not loaded", an on-demand rule shows a
 dash), files `/context` lists that the resolver does not (nested instructions, rules, imports) with its source label,
