@@ -38,7 +38,7 @@ internal static class BoundaryChecks
         [UI] = [Abstractions, Core, Client, Remote, Scintilla, Ghostty, Api, ApiUi, Kit, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
         // The Android client compiles the UI's sources and reaches what they do, except the serving half.
         [Android] = [Abstractions, Core, Client, Scintilla, Ghostty, UI, Api, ApiUi, Kit, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
-        [Browser] = [Abstractions, Core, Client, Scintilla, Ghostty, UI, Api, ApiUi, Kit, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
+        [Browser] = [Abstractions, Protocol, Core, Client, Scintilla, Ghostty, UI, Api, ApiUi, Kit, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
         [Checks] = [Abstractions, Wire, Protocol, Core, Client, Headless, Remote, Scintilla, Ghostty, UI, Android, Api, ApiHost, ApiUi, Kit,
             "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex", "Tereditor.Plugins.Agent.UI", "Tereditor.PluginFixture.Host", "Tereditor.PluginFixture.UI", "Tereditor.PluginFixture.Outsider.UI", Isolation, IsolationUi, IsolationGenerator, Runner],
         [Api] = [],
