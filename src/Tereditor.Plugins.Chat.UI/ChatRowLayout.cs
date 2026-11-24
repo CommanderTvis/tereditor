@@ -227,15 +227,19 @@ internal sealed class ChatRowLayout : IDisposable
     /// <summary>True when the row has blocks that come and go with the viewport, so scrolling must redraw it.</summary>
     public bool Blocked => plans.Count > 1;
 
-    private ChatRowLayout(double left, double width)
+    // Whether a file reference names a file that exists: unknown or missing ones stay plain text. Null accepts every reference.
+    private readonly Func<string, bool>? known;
+
+    private ChatRowLayout(double left, double width, Func<string, bool>? known)
     {
+        this.known = known;
         this.left = left;
         inner = Math.Max(40, width - left - Pad);
     }
 
-    public static ChatRowLayout Build(ChatRow row, double width, bool expandable)
+    public static ChatRowLayout Build(ChatRow row, double width, bool expandable, Func<string, bool>? known = null)
     {
-        var layout = new ChatRowLayout(Pad + row.Depth * Indent, width);
+        var layout = new ChatRowLayout(Pad + row.Depth * Indent, width, known);
         // An empty row draws nothing and takes no room.
         if (IsEmpty(row.Item))
         {
@@ -567,7 +571,7 @@ internal sealed class ChatRowLayout : IDisposable
 
     private ChatRowLayout Fragment(Markdown.Piece piece, bool caret)
     {
-        var fragment = new ChatRowLayout(left + inset, left + inner - inset + Pad);
+        var fragment = new ChatRowLayout(left + inset, left + inner - inset + Pad, known);
         fragment.Piece(piece, caret);
         Interlocked.Increment(ref live);
         Interlocked.Add(ref liveTexts, fragment.texts.Count);
@@ -623,7 +627,7 @@ internal sealed class ChatRowLayout : IDisposable
     // Inline Markdown as one layout: emphasis, code and links are style runs over it, and each link keeps the rectangles it covers as click targets.
     private void Rich(string markdown, IBrush ink, double size, double indent, bool caret, bool bold = false)
     {
-        var (plain, spans, links) = Markdown.Inline(markdown, ink, Ui.Accent, size);
+        var (plain, spans, links) = Markdown.Inline(markdown, ink, Ui.Accent, size, known);
         var layout = Make(plain.Length == 0 ? " " : plain, ink, size, inner - indent, bold: bold, spans: spans);
         var origin = new Point(left + indent, y);
         texts.Add(new(origin, layout, false));
@@ -650,7 +654,7 @@ internal sealed class ChatRowLayout : IDisposable
             for (var c = 0; c < columns; c++)
             {
                 var text = c < rows[r].Count ? rows[r][c] : "";
-                var (plain, spans, _) = Markdown.Inline(text, Ui.TextBrush, Ui.Accent, 12);
+                var (plain, spans, _) = Markdown.Inline(text, Ui.TextBrush, Ui.Accent, 12, known);
                 layouts.Add(Make(plain.Length == 0 ? " " : plain, Ui.TextBrush, 12, cellWidth - 12, bold: r == 0, spans: spans));
             }
             var height = layouts.Max(layout => layout.Height) + 8;
@@ -1241,6 +1245,8 @@ internal static class Markdown
         string decoded;
         try { decoded = Uri.UnescapeDataString(text.Trim()); }
         catch (UriFormatException) { return null; }
+        // A file:// address names an absolute path (no host); the view decides whether it lies inside the chat's directory or project.
+        if (decoded.StartsWith("file://", StringComparison.OrdinalIgnoreCase)) { decoded = decoded[7..]; if (!decoded.StartsWith('/')) return null; }
         if (decoded.StartsWith("//", StringComparison.Ordinal) || decoded.Contains("://", StringComparison.Ordinal) || decoded.StartsWith('#')) return null;
         if (FilePattern.Match(decoded) is not { Success: true } match) return null;
         var path = match.Groups["path"].Value.Replace('\\', '/');
@@ -1253,7 +1259,7 @@ internal static class Markdown
         Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto";
 
     public static (string Plain, IReadOnlyList<ValueSpan<TextRunProperties>> Spans, IReadOnlyList<(int Start, int Length, string Url)> Links) Inline(
-        string text, IBrush ink, IBrush accent, double size)
+        string text, IBrush ink, IBrush accent, double size, Func<string, bool>? known = null)
     {
         var plain = new StringBuilder();
         var spans = new List<ValueSpan<TextRunProperties>>();
@@ -1305,7 +1311,7 @@ internal static class Markdown
                     Flush(bold, italic, strike, link);
                     var code = value[(index + 1)..end];
                     // A code span that names a file is a chip that opens it, unless it already sits in link text.
-                    var file = !link && FileTarget(code) is not null;
+                    var file = !link && FileTarget(code) is not null && (known?.Invoke(code) ?? true);
                     if (file) links.Add((plain.Length, code.Length, "file:" + code));
                     Run(code, new Typeface(Ui.CodeFont, italic ? FontStyle.Italic : FontStyle.Normal, bold ? FontWeight.Bold : FontWeight.Normal), size - 1, accent, Decorations(strike, link, file));
                     index = end + 1;
@@ -1341,7 +1347,7 @@ internal static class Markdown
                     Flush(bold, italic, strike, link);
                     var label = value[(index + 1)..mid];
                     var url = value[(mid + 2)..stop].Trim();
-                    var target = SafeLink(url) ? url : FileTarget(url) is not null ? "file:" + url : null;
+                    var target = SafeLink(url) ? url : FileTarget(url) is not null && (known?.Invoke(url) ?? true) ? "file:" + url : null;
                     var start = plain.Length;
                     Scan(label, bold, italic, strike, link || target is not null);
                     if (target is not null) links.Add((start, plain.Length - start, target));

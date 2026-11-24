@@ -440,7 +440,7 @@ internal sealed class ChatList : ScrollViewer
     {
         if (!layouts.TryGetValue(key, out var layout))
         {
-            layout = ChatRowLayout.Build(row, width, true);
+            layout = ChatRowLayout.Build(row, width, true, KnownFile);
             layouts[key] = layout;
         }
         recent.Remove(key);
@@ -503,7 +503,7 @@ internal sealed class ChatList : ScrollViewer
         for (var i = Math.Max(0, first); i < Math.Min(rows.Count, first + count); i++)
         {
             var key = (rows[i].Id, rows[i].Revision, (int)Math.Round(width));
-            using var layout = ChatRowLayout.Build(rows[i], width, true);
+            using var layout = ChatRowLayout.Build(rows[i], width, true, KnownFile);
             measured[key] = layout.Height;
             current[i] = layout.Height;
         }
@@ -751,7 +751,7 @@ internal sealed class ChatList : ScrollViewer
         else
         {
             // A row that is not near the viewport is laid out only to read its text, and let go at once.
-            using var transient = ChatRowLayout.Build(row, this.width, true);
+            using var transient = ChatRowLayout.Build(row, this.width, true, KnownFile);
             text = transient.SelectableText();
         }
         if (rowTexts.Count > 60_000) rowTexts.Clear();
@@ -992,6 +992,12 @@ internal sealed class ChatList : ScrollViewer
 
         protected override AutomationPeer OnCreateAutomationPeer() => new ListPeer(this);
     }
+
+    /// <summary>Whether a file reference in a reply names an existing file (answered from memory); set by the view.</summary>
+    internal Func<string, bool>? KnownFile { get; set; }
+
+    /// <summary>Lays rows out again, as when a file reference turns out to exist.</summary>
+    internal void RefreshLinks() { DropLayouts(); surface.Redraw(); }
 
     internal void DropLayouts()
     {

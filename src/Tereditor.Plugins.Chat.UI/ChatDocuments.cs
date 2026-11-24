@@ -80,6 +80,7 @@ internal static class ChatDocuments
         OpenDiff = request => OpenDiffAsync(context, readFile, workspaceId, request),
         OpenFile = async path => { if (path.Length > 0) await context.Editors.OpenAsync(workspaceId, path); },
         OpenFileAt = async (path, line) => { if (path.Length > 0) await context.Editors.OpenAsync(workspaceId, path, new() { Line = line > 0 ? line : null }); },
+        OpenFileIn = async (root, path, line) => { if (path.Length > 0) await context.Editors.OpenAsync(root, path, new() { Line = line > 0 ? line : null }); },
         OpenLink = url => Launch(url),
         RunInTerminal = async command =>
         {

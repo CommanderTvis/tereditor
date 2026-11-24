@@ -58,6 +58,8 @@ internal static class ClaudeChatUiChecks
         public ChatHeader Header { get; set; } = new(ChatStatus.Idle);
         public int Subscriptions { get; private set; }
         public Exception? OpenFailure { get; set; }
+        /// <summary>The files each root lists, by root; null lists the default three for every root.</summary>
+        public Dictionary<string, string[]>? RootFiles { get; set; }
         public ChatRewindPreview RewindPreview { get; set; } = new(true) { FilesChanged = ["/w/a.cs", "/w/b.cs"], Insertions = 3, Deletions = 1 };
 
         public IDisposable Subscribe(ChatKey key, Action<ChatPush> handler)
@@ -91,7 +93,7 @@ internal static class ClaudeChatUiChecks
                 ChatSetParams plain => Plain(method.Name, plain),
                 ChatSetOptionParams option => SetOption(option),
                 ChatPathParams { Prefix: var prefix } => PathHost(prefix),
-                ChatFilesParams { Query: var query } => new ChatFileList([.. new[] { "src/Alpha.cs", "src/Beta.cs", "README.md" }.Where(path => path.Contains(query, StringComparison.OrdinalIgnoreCase))]),
+                ChatFilesParams { WorkspaceId: var root, Query: var query } => new ChatFileList([.. (RootFiles?.GetValueOrDefault(root) ?? ["src/Alpha.cs", "src/Beta.cs", "README.md"]).Where(path => path.Contains(query, StringComparison.OrdinalIgnoreCase))]),
                 ChatAnswerParams answer => Answered(answer),
                 ChatAnswerQuestionParams asked => Asked(asked),
                 ChatQueuedParams now when method.Name == ChatContract.SendQueuedNow.Name => SentNow(now),
@@ -3767,13 +3769,15 @@ internal static class ClaudeChatUiChecks
         var diffs = new List<ChatDiffRequest>();
         var composerPreference = new MemoryPreference();
         var opened = new List<(string Path, int Line)>();
+        var fileNotes = new List<string>();
         ChatSelection? selected = new("src/Alpha.cs", 3, 5, true);
         var view = new ChatView(new ChatEnvironment(chat, TestAgent)
         {
             OpenDiff = request => { diffs.Add(request); return Task.CompletedTask; },
             ActiveSelection = () => selected,
             ComposerPreference = composerPreference,
-            OpenFileAt = (path, line) => { opened.Add((path, line)); return Task.CompletedTask; }
+            OpenFileAt = (path, line) => { opened.Add((path, line)); return Task.CompletedTask; },
+            Notify = (_, title, text) => fileNotes.Add(title + ": " + text)
         }, Workspace, Chat);
         var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
         window.Show();
@@ -4047,7 +4051,24 @@ internal static class ClaudeChatUiChecks
             var (_, _, inlineLinks) = Markdown.Inline("see `src/A.cs:9` and [there](b/c.cs:2) or [web](https://x.y)", Ui.TextBrush, Ui.Accent, 14);
             Require(inlineLinks.Select(link => link.Url).SequenceEqual(["file:src/A.cs:9", "file:b/c.cs:2", "https://x.y"]), "Code spans and links naming files become file chips next to web links.");
             Await(view.OpenFileLink("src/Alpha.cs:12")); Await(view.OpenFileLink("/work/project/src/B.cs:3")); Await(view.OpenFileLink("/etc/passwd.txt")); Await(view.OpenFileLink("../up.cs"));
-            Require(opened.SequenceEqual([("src/Alpha.cs", 12), ("src/B.cs", 3)]), "A reference opens relative to the chat's directory, and an outside path does not open.");
+            Require(opened.SequenceEqual([("src/Alpha.cs", 12)]), "A reference opens relative to the chat's directory, and an outside path does not open.");
+            Require(fileNotes.Count == 3 && fileNotes.All(note => note.StartsWith("File not found in this workspace", StringComparison.Ordinal)), "A file the workspace lacks says so instead of failing in the editor.");
+            fileNotes.Clear();
+            // Only files that exist become links: the chat's own directory wins, the workspace is the fallback, and a name found nowhere stays code.
+            chat.RootFiles = new() { ["/work/project"] = ["src/B.cs", "presentation/notes.md"], [Workspace] = ["only-in-project.md", "presentation/notes.md"] };
+            const string Mention = "see `presentation/notes.md:4` and `nowhere/x.md` and `only-in-project.md` and `file:///work/project/src/B.cs:3` and [b](/work/project/src/B.cs)";
+            Require(Markdown.Inline(Mention, Ui.TextBrush, Ui.Accent, 14, view.KnownFile).Links.Count == 0, "A reference is plain text until the background check answers.");
+            var checkedLinks = new List<string>();
+            E2eWorkspace.Until(() => { Frame(window); checkedLinks = [.. Markdown.Inline(Mention, Ui.TextBrush, Ui.Accent, 14, view.KnownFile).Links.Select(link => link.Url)]; return checkedLinks.Count >= 4; });
+            Require(checkedLinks.SequenceEqual(["file:presentation/notes.md:4", "file:only-in-project.md", "file:file:///work/project/src/B.cs:3", "file:/work/project/src/B.cs"]),
+                $"Existing files link, a missing one stays plain, and file:// and absolute paths inside the chat's directory work: {string.Join(" | ", checkedLinks)}");
+            opened.Clear();
+            Await(view.OpenFileLink("presentation/notes.md:4")); Await(view.OpenFileLink("only-in-project.md")); Await(view.OpenFileLink("file:///work/project/src/B.cs:3"));
+            Require(opened.SequenceEqual([("presentation/notes.md", 4), ("only-in-project.md", 0), ("src/B.cs", 3)]), "Links open the file where it was found, at its line.");
+            chat.RootFiles = new() { ["/work/project"] = [], [Workspace] = [] };
+            Await(view.OpenFileLink("presentation/notes.md:4"));
+            Require(opened.Count == 3 && fileNotes.SequenceEqual(["File not found in this workspace: presentation/notes.md"]) && !view.KnownFile("presentation/notes.md:4"), "A file that vanished says so on click and stops being a link.");
+            chat.RootFiles = null;
             Await(view.OpenFileLink("Alpha.cs:4"));
             Require(opened.Last() == ("src/Alpha.cs", 4), "A bare file name the workspace holds once opens that file, as the agent may have named it from another directory.");
 

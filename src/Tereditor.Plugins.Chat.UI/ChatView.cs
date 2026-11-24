@@ -24,6 +24,8 @@ internal sealed record ChatEnvironment(IChatClient Client, ChatAgent Agent)
     /// <summary>Follows a link that passed the safe-scheme check.</summary>
     /// <summary>Opens a workspace file at a one-based line (0 for none).</summary>
     public Func<string, int, Task> OpenFileAt { get; init; } = (_, _) => Task.CompletedTask;
+    /// <summary>Opens a file of another root than the chat's workspace (the chat's own directory), at a one-based line; null falls back to <see cref="OpenFileAt"/>.</summary>
+    public Func<string, string, int, Task>? OpenFileIn { get; init; }
     public Action<string> OpenLink { get; init; } = _ => { };
     /// <summary>Opens a terminal in the chat's workspace that runs one command line (a notice's action, such as an agent's sign-in).</summary>
     public Func<string, Task> RunInTerminal { get; init; } = _ => Task.CompletedTask;
@@ -155,7 +157,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         ide = ideInitial;
         Name = "ChatView";
         InitZoom();
-        list = new ChatList(transcript, this);
+        list = new ChatList(transcript, this) { KnownFile = KnownFile };
         jump = new Button
         {
             Name = "ChatJumpToLatest",
@@ -829,28 +831,75 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         }
     }
 
-    // A file reference in a reply opens in the editor at its line, if it stays inside the chat's directory.
-    internal Task OpenFileLink(string target)
+    // A file reference in a reply is a link only once a file is found for it: first in the chat's own directory (a worktree the chat runs in),
+    // then in the workspace. Answers are kept per reference; a miss is asked again after a while, since the agent may write the file later.
+    private readonly Dictionary<string, (string? Root, long At)> fileAnswers = [];
+    private readonly HashSet<string> fileChecks = [];
+
+    // Called while rows are laid out, so it reads memory only: an unanswered reference stays plain text and is looked up in the background.
+    internal bool KnownFile(string text)
     {
-        if (Markdown.FileTarget(target) is not { } file) return Task.CompletedTask;
-        var path = Relative(file.Path);
-        if (path.StartsWith('/') || path.Length > 1 && path[1] == ':') return Task.CompletedTask;
-        return OpenFileResolved(path, file.Line);
+        if (fileAnswers.TryGetValue(text, out var answer) && (answer.Root is not null || Environment.TickCount64 - answer.At < 15_000)) return answer.Root is not null;
+        if (fileChecks.Add(text)) _ = CheckFile(text);
+        return false;
     }
 
-    // A reply often names a file relative to a directory the agent had moved into, not the chat's: a path that is not there as written
-    // opens the one file of the workspace it ends, and otherwise opens as written (the editor says it is missing).
-    private async Task OpenFileResolved(string path, int line)
+    private async Task CheckFile(string text)
     {
-        var target = path;
-        try
+        (string Root, string Path)? found = null;
+        try { found = await Task.Run(() => FindFile(text)); }
+        catch (Exception error) when (error is not OperationCanceledException) { }
+        fileChecks.Remove(text);
+        fileAnswers[text] = (found?.Root, Environment.TickCount64);
+        if (found is not null) list.RefreshLinks();
+    }
+
+    // The file a reference names, as (root, path relative to that root): an absolute path or file:// address counts when it lies inside the
+    // chat's directory or the workspace; a bare name or a path from another directory matches the one file of the root it ends.
+    private async Task<(string Root, string Path)?> FindFile(string text)
+    {
+        if (Markdown.FileTarget(text) is not { } file) return null;
+        var roots = new List<string>();
+        if (transcript.Header?.Cwd is { Length: > 0 } cwd) roots.Add(cwd.Length > 1 ? cwd.TrimEnd('/') : cwd);
+        if (!roots.Contains(workspaceId)) roots.Add(workspaceId);
+        foreach (var root in roots)
         {
-            var found = await env.Client.RequestAsync(ChatContract.Files, new ChatFilesParams(workspaceId, path));
-            var files = found.Paths.Where(candidate => !candidate.EndsWith('/')).ToArray();
-            if (!files.Contains(path, StringComparer.Ordinal) && files.Where(candidate => candidate.EndsWith('/' + path, StringComparison.Ordinal)).ToArray() is [var only]) target = only;
+            var path = file.Path;
+            if (path.StartsWith('/'))
+            {
+                var prefix = root.TrimEnd('/') + "/";
+                if (!path.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                path = path[prefix.Length..];
+            }
+            while (path.StartsWith("./", StringComparison.Ordinal)) path = path[2..];
+            if (path.Length == 0) continue;
+            try
+            {
+                var found = await env.Client.RequestAsync(ChatContract.Files, new ChatFilesParams(root, path));
+                var files = found.Paths.Where(candidate => !candidate.EndsWith('/')).ToArray();
+                if (files.Contains(path, StringComparer.Ordinal)) return (root, path);
+                if (files.Where(candidate => candidate.EndsWith('/' + path, StringComparison.Ordinal)).ToArray() is [var only]) return (root, only);
+            }
+            catch (Exception error) when (error is not OperationCanceledException) { }
         }
-        catch (Exception) { }
-        await env.OpenFileAt(target, line);
+        return null;
+    }
+
+    // Opens the file at its line; a file that is gone says so instead of handing the editor a path it cannot find.
+    internal async Task OpenFileLink(string target)
+    {
+        (string Root, string Path)? found = null;
+        try { found = await Task.Run(() => FindFile(target)); }
+        catch (Exception error) when (error is not OperationCanceledException) { }
+        if (found is not { } located || Markdown.FileTarget(target) is not { } file)
+        {
+            fileAnswers[target] = (null, Environment.TickCount64);
+            list.RefreshLinks();
+            env.Notify(PluginNotificationKind.Info, "File not found in this workspace", Markdown.FileTarget(target)?.Path ?? target);
+            return;
+        }
+        if (located.Root != workspaceId && env.OpenFileIn is { } openIn) await openIn(located.Root, located.Path, file.Line);
+        else await env.OpenFileAt(located.Path, file.Line);
     }
 
     private static string DiffPath(ChatItem item) => item switch
