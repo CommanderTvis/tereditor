@@ -139,6 +139,7 @@ internal static class PiChecks
             if [ "$1" = "--version" ]; then echo "0.99.1"; exit 0; fi
             printf '%s\n' "$@" > "$(dirname "$0")/argv.txt"
             printf '%s' "$PI_CODING_AGENT_DIR" > "$(dirname "$0")/agentdir.txt"
+            printf '%s' "$THINKRAIL_MCP_URL" > "$(dirname "$0")/mcpurl.txt"
             while IFS= read -r line; do
               id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
               case "$line" in
@@ -195,6 +196,29 @@ internal static class PiChecks
         Require(header.Effort == "low", "A thinking-level change is reflected.");
         await session.CloseAsync();
         Require(session.Header.Status == ChatStatus.Exited, "Closing ends the child.");
+
+        // tereditor's MCP server reaches Pi for one run: an extension file under the state directory (never the profile or the project) and the chat's address in the environment.
+        var mcpDirectory = Path.Combine(directory, "mcp");
+        var mcpSpawn = spawn with { McpUrl = "http://127.0.0.1:1/mcp/token-1", McpDirectory = mcpDirectory };
+        var withMcp = new PiChatSession("ws", "chat-mcp", _ => { }, _ => { }, (_, _) => { });
+        withMcp.Begin(mcpSpawn);
+        await withMcp.StartAsync(mcpSpawn);
+        await Until(() => withMcp.Header.Status == ChatStatus.Idle, "A chat with the tereditor server starts.");
+        var extension = Path.Combine(mcpDirectory, "tereditor-mcp.mjs");
+        Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Skip(6).SequenceEqual(["-e", extension]), "Pi is told to load the per-run extension with -e, after its own flags.");
+        Require(File.ReadAllText(extension).Contains("registerMcpServer(\"tereditor\"", StringComparison.Ordinal) && File.ReadAllText(extension).Contains("THINKRAIL_MCP_URL", StringComparison.Ordinal), "The extension registers the server named by THINKRAIL_MCP_URL.");
+        Require(File.ReadAllText(Path.Combine(directory, "mcpurl.txt")) == "http://127.0.0.1:1/mcp/token-1", "The chat's MCP address reaches Pi through its environment.");
+        Require(!Directory.Exists(Path.Combine(directory, "profile")) && Directory.GetFiles(mcpDirectory).Length == 1, "Nothing is written to the agent directory, and no temporary file stays.");
+        await withMcp.CloseAsync();
+        File.Delete(Path.Combine(directory, "argv.txt"));
+        var without = new PiChatSession("ws", "chat-nomcp", _ => { }, _ => { }, (_, _) => { });
+        // The checks may themselves run inside a tereditor terminal that has the variable, so the fixture blanks it.
+        var bare = spawn with { Environment = new Dictionary<string, string>(spawn.Environment) { [PiMcpExtension.Variable] = "" } };
+        without.Begin(bare);
+        await without.StartAsync(bare);
+        await Until(() => without.Header.Status == ChatStatus.Idle, "A chat without the server starts.");
+        Require(!File.ReadAllLines(Path.Combine(directory, "argv.txt")).Contains("-e") && File.ReadAllText(Path.Combine(directory, "mcpurl.txt")).Length == 0, "Without an address Pi gets no extension.");
+        await without.CloseAsync();
 
         var missing = new PiChatSession("ws", "chat2", _ => { }, _ => { }, (_, _) => { });
         var absent = new PiSpawn(Path.Combine(directory, "no-such-pi"), directory);
@@ -444,7 +468,7 @@ internal static class PiChecks
         var nearer = Read(new() { [fixture] = true, [repo] = false });
         Require(nearer.Trust == "not trusted", "The nearest decision wins over a parent's.");
 
-        Require(PiConfigReader.ScopeLabel(PiScopes.Project) == "PROJECT" && PiConfigReader.ScopeLabel(PiScopes.User) == "USER", "Scope labels are USER and PROJECT; -l maps to PROJECT.");
+        Require(PiConfigReader.ScopeLabel(PiScopes.Project) == "PROJECT" && PiConfigReader.ScopeLabel(PiScopes.User) == "USER" && PiConfigReader.ScopeLabel(PiScopes.Tereditor) == "TEREDITOR", "Scope labels are USER, PROJECT and TEREDITOR; -l maps to PROJECT.");
         var contributed = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = "/contributed" };
         Require(PiConfigReader.AgentDir(contributed, "/environment", home) == "/contributed"
             && PiConfigReader.AgentDir(new Dictionary<string, string>(), "/environment", home) == "/environment"

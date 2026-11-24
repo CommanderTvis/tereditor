@@ -53,6 +53,9 @@ public sealed class PiHost : PluginHostModule
         var agent = PiConfigReader.AgentDir(PiChatHost.ContributedEnvironment(context), Environment.GetEnvironmentVariable("PI_CODING_AGENT_DIR"), HomeDirectory());
         var commands = header?.Commands.Select(command => new PiConfigCommand(command.Name, command.Source ?? "", command.Description ?? "")).ToArray() ?? [];
         var snapshot = await Task.Run(() => PiConfigReader.Read(new PiConfigRoots(agent, HomeDirectory(), cwd), commands, header is not null), cancellationToken);
+        // A running chat carries tereditor's own server through a per-run extension; show it beside the files' servers.
+        if (header is not null && PiLinks.InTab is null)
+            snapshot = snapshot with { Items = [.. snapshot.Items, new PiConfigItem(PiConfigKinds.Mcp, PiScopes.Tereditor, PiMcpExtension.ServerName, Path.Combine(PiMcpExtension.DefaultDirectory(), "tereditor-mcp.mjs"), true, "Added by tereditor for this chat only; nothing is written to mcp.json.")] };
         return snapshot with { Provider = AgentLaunchComposition.ProviderName(context.AgentLaunchContributions(PiManifest.Id)) ?? "Pi's own provider (built in)" };
     }
 

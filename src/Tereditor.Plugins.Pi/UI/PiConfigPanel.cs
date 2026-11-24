@@ -302,7 +302,7 @@ internal sealed class PiConfigPanel : DockPanel
 
     private static IReadOnlyList<PiConfigItem> Items(PiConfigSnapshot current, string kind) => current.Items.Where(item => item.Kind == kind).ToArray();
 
-    private static string ScopeLabel(string scope) => scope == PiScopes.Project ? "PROJECT" : "USER";
+    private static string ScopeLabel(string scope) => scope == PiScopes.Project ? "PROJECT" : scope == PiScopes.Tereditor ? "TEREDITOR" : "USER";
 
     private static string KindIcon(string kind) => kind switch
     {

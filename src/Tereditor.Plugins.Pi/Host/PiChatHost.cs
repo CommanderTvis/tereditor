@@ -141,7 +141,8 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
             Thinking = p.Effort ?? (settings.Thinking.Length > 0 ? settings.Thinking : null),
             Codemode = settings.Codemode,
             Session = resume is not null && File.Exists(resume) ? resume : null,
-            Environment = ContributedEnvironment(context)
+            Environment = ContributedEnvironment(context),
+            McpUrl = PiLinks.InTab is null ? McpUrlFor(p.WorkspaceId, p.ChatId) : null
         };
         var session = existing ?? sessions.AddOrUpdate((p.WorkspaceId, p.ChatId),
             _ => new PiChatSession(p.WorkspaceId, p.ChatId, Publish, message => context.Log.Warn(message), (chat, file) => SaveSessionFile(p.WorkspaceId, chat, file)),
@@ -149,6 +150,22 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         var header = session.Begin(spawn);
         _ = pinned is null ? session.StartAsync(spawn) : Task.Run(() => StartPinnedAsync(session, spawn, pinned));
         return header;
+    }
+
+    // The host's MCP address keyed to this chat, as a Claude Code chat gets it; null (no tools, chat still starts) when the host gives none.
+    private string? McpUrlFor(string workspaceId, string chatId)
+    {
+        try
+        {
+            var url = context.PublicBaseUrl();
+            var route = PluginIdentity.Route(context.Id);
+            return $"{(url.EndsWith(route, StringComparison.Ordinal) ? url[..^route.Length] : url)}/mcp/{context.TerminalToken(new TerminalRef(workspaceId, chatId))}";
+        }
+        catch (InvalidOperationException error)
+        {
+            context.Log.Warn("the chat gets no tereditor tools: " + error.Message);
+            return null;
+        }
     }
 
     // Downloads the pinned Pi when it is not there yet, then runs it on Bun.

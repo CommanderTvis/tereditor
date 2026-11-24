@@ -60,6 +60,8 @@ public static class PiScopes
 {
     public const string User = "user";
     public const string Project = "project";
+    /// <summary>Added by tereditor for one run (its own MCP server), not read from a file Pi owns.</summary>
+    public const string Tereditor = "tereditor";
 }
 
 /// <summary>The kinds of resource the Settings › Pi and Context views list.</summary>

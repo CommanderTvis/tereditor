@@ -42,6 +42,7 @@ internal sealed class ProcessPiLink : IPiLink
         if (spawn.Session is { Length: > 0 } session) arguments.AddRange(["--session", session]);
         if (spawn.Model is { Length: > 0 } model) arguments.AddRange(["--model", model]);
         if (spawn.Codemode) arguments.AddRange(["--tools", "+codemode"]);
+        if (spawn.McpUrl is { Length: > 0 }) arguments.AddRange(["-e", PiMcpExtension.Ensure(spawn.McpDirectory ?? PiMcpExtension.DefaultDirectory())]);
         var start = new ProcessStartInfo(spawn.Executable, arguments)
         {
             WorkingDirectory = spawn.Cwd,
@@ -54,6 +55,7 @@ internal sealed class ProcessPiLink : IPiLink
             StandardInputEncoding = new UTF8Encoding(false)
         };
         foreach (var (name, value) in spawn.Environment) start.Environment[name] = value;
+        if (spawn.McpUrl is { Length: > 0 } mcp) start.Environment[PiMcpExtension.Variable] = mcp;
         var process = await Task.Run(() => Process.Start(start)) ?? throw new InvalidOperationException("Pi could not be started.");
         spawn.Started?.Invoke(process.Id);
         process.ErrorDataReceived += (_, data) => { if (data.Data is { Length: > 0 } text) error(text); };

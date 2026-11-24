@@ -73,7 +73,7 @@ internal static class PiConfigReader
     }
 
     /// <summary>The label a scope chip shows: USER for the agent directory and home, PROJECT for the working directory tree.</summary>
-    public static string ScopeLabel(string scope) => scope == PiScopes.Project ? "PROJECT" : "USER";
+    public static string ScopeLabel(string scope) => scope == PiScopes.Project ? "PROJECT" : scope == PiScopes.Tereditor ? "TEREDITOR" : "USER";
 
     internal static string NotLoaded(string trust) =>
         trust == TrustNo ? "Not loaded: this project is not trusted." : "Not loaded until the project is trusted with /trust in Pi.";
