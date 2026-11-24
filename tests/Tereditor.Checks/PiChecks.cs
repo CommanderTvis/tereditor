@@ -539,4 +539,73 @@ internal static class PiChecks
         Config(root);
         await Packages(root);
     }
+
+    // Every text row of the Context tab starts at its row title's left edge (the trust value on the right excepted), and the
+    // section headers and notes sit at the pane's inset of 8.
+    internal static void ContextInsets()
+    {
+        UiChecks.EnsureHeadlessApp();
+        var snapshot = new PiConfigSnapshot("/work", "/home/agent", "not decided", "/home/agent/trust.json",
+            [
+                new PiConfigItem(PiConfigKinds.Context, PiScopes.User, "AGENTS.md", "/home/agent/AGENTS.md", true, ""),
+                new PiConfigItem(PiConfigKinds.Skill, PiScopes.Project, "a1", "/work/.agents/skills/a1/SKILL.md", false, "Not loaded until the project is trusted.")
+            ], [], [], false);
+        var panel = new PiConfigPanel(ConfigContext.For(snapshot), "workspace");
+        var window = new Window { Width = 420, Height = 600, Content = panel };
+        window.Show();
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (!panel.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "Project trust") && DateTime.UtcNow < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(5);
+        }
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+
+        double LeftOf(Visual visual) => visual.TranslatePoint(default, panel)!.Value.X;
+        var body = panel.GetVisualDescendants().OfType<ScrollViewer>().Single(scroll => scroll.Name == "PiConfigBody");
+        var rows = panel.GetVisualDescendants().OfType<DockPanel>().Where(row => row.Name is "PiTrust" or "PiConfigItem").ToList();
+        Require(rows.Count == 3, "The Context tab shows the trust line and one row per item.");
+        foreach (var row in rows)
+        {
+            var title = row.GetVisualDescendants().OfType<TextBlock>().First(text => DockPanel.GetDock(text) != Dock.Right);
+            foreach (var text in row.GetVisualDescendants().OfType<TextBlock>())
+            {
+                if (text == title || DockPanel.GetDock(text) == Dock.Right) continue;
+                if (text.GetVisualAncestors().TakeWhile(ancestor => ancestor != row).OfType<WrapPanel>().Any()) continue;
+                Require(Math.Abs(LeftOf(text) - LeftOf(title)) < 0.5,
+                    $"The text \"{text.Text}\" starts at {LeftOf(text)}, not under its row title \"{title.Text}\" at {LeftOf(title)}.");
+            }
+        }
+        var detail = body.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text!.StartsWith("Pi loads project extensions", StringComparison.Ordinal));
+        Require(detail.TextWrapping == Avalonia.Media.TextWrapping.Wrap, "The trust description wraps instead of ending in an ellipsis.");
+        var inRows = rows.SelectMany(row => row.GetVisualDescendants().OfType<TextBlock>()).ToHashSet();
+        foreach (var text in body.GetVisualDescendants().OfType<TextBlock>().Where(text => !string.IsNullOrEmpty(text.Text) && !inRows.Contains(text)))
+            Require(Math.Abs(LeftOf(text) - 8) < 0.5, $"The text \"{text.Text}\" starts at {LeftOf(text)}, not at the pane's inset of 8.");
+        window.Close();
+    }
+
+    // A stand-in for the host: answers the config read with a fixed snapshot and the version probe with nothing.
+    private class ConfigContext : DispatchProxy
+    {
+        private PiConfigSnapshot? snapshot;
+
+        internal static IPluginUIContext For(PiConfigSnapshot snapshot)
+        {
+            var proxy = (ConfigContext)(object)DispatchProxy.Create<IPluginUIContext, ConfigContext>()!;
+            proxy.snapshot = snapshot;
+            return (IPluginUIContext)(object)proxy;
+        }
+
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+        {
+            if (method?.Name == nameof(IPluginUIContext.RequestAsync) && method.ReturnType.IsGenericType)
+            {
+                var result = method.ReturnType.GetGenericArguments()[0];
+                var value = result == typeof(PiConfigSnapshot) ? snapshot : null;
+                return Activator.CreateInstance(method.ReturnType, new object?[] { value });
+            }
+            return null;
+        }
+    }
 }

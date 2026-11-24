@@ -246,7 +246,10 @@ internal sealed class PiConfigPanel : DockPanel
         line.Children.Add(Ui.Text("Project trust", Ui.TextBrush, 13));
         var column = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
         column.Children.Add(line);
-        column.Children.Add(Ui.Text("Pi loads project extensions, skills, prompts, MCP servers and settings only after you trust the project. Set this with /trust in a Pi chat; tereditor only shows it.", Ui.Hint, 12));
+        var detail = Ui.Text("Pi loads project extensions, skills, prompts, MCP servers and settings only after you trust the project. Set this with /trust in a Pi chat; tereditor only shows it.", Ui.Hint, 12);
+        detail.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
+        detail.Margin = new Thickness(8, 0, 8, 4);
+        column.Children.Add(detail);
         return column;
     }
 
