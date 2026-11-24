@@ -72,9 +72,10 @@ public sealed class CodexHost : PluginHostModule
         context.Method(CodexContract.Account, async (_, _, cancellationToken) =>
         {
             // A launch another plugin governs runs under that source's account, so the OpenAI account is not even read.
+            var provider = AgentLaunchComposition.ProviderName(context.AgentLaunchContributions(CodexManifest.Id)) ?? "OpenAI sign-in (built in)";
             if (context.AgentLaunchContributions(CodexManifest.Id).Select(contribution => contribution.Account).OfType<AgentAccountSource>().FirstOrDefault() is { } governing)
-                return new CodexAccount(false, false, []) { Governed = await governing.Read(cancellationToken) };
-            return await account.ReadAsync();
+                return new CodexAccount(false, false, []) { Governed = await governing.Read(cancellationToken), Provider = provider };
+            return (await account.ReadAsync()) with { Provider = provider };
         });
         context.Method(CodexContract.Installed, async (_, _, _) => await Task.Run(() => AgentExecutable.Probe(CommandOf(context))));
         context.Method(CodexContract.Daemon, (_, _, _) => new ValueTask<CodexDaemonState>(daemon.ReadAsync()));

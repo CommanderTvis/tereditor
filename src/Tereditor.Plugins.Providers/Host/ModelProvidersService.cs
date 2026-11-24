@@ -242,7 +242,10 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
     /// What an agent's launch takes from its chosen provider, or null when it has none or its file is not in place: Pi runs in the agent
     /// directory that holds the models file, omp in its <c>tereditor</c> profile. Neither carries a key; the file asks the helper for it.
     /// </summary>
-    public AgentLaunchContribution? Launch(string agentId)
+    public AgentLaunchContribution? Launch(string agentId) =>
+        LaunchFor(agentId) is { } contribution ? contribution with { Provider = ProviderLaunch.SourceName(Report(), agentId) } : null;
+
+    private AgentLaunchContribution? LaunchFor(string agentId)
     {
         if (files is null || !active.Contains(agentId)) return null;
         return agentId switch

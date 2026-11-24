@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Threading;
 
+using Tereditor.Plugins.Agent.UI;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.UI.Kit;
@@ -227,6 +228,7 @@ internal sealed class PiConfigPanel : DockPanel
         var list = new StackPanel { Margin = new Thickness(8, 4), Spacing = 4 };
         var badge = new Border { Background = Ui.WarningWash, CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 0), Child = Ui.Text("Early support", Ui.Warning, 11), HorizontalAlignment = HorizontalAlignment.Left };
         list.Children.Add(badge);
+        if (current.Provider is { } provider) list.Children.Add(Account.Provider(provider, "Pi"));
         var version = status?.Installed == true ? (status.Version is { Length: > 0 } found ? "Version " + found : "Version unknown") : status?.Detail ?? "Reading the version…";
         var versionLine = Ui.Text(version, Ui.Hint, 12);
         versionLine.Name = "PiVersion";

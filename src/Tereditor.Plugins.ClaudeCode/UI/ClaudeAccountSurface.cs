@@ -120,6 +120,7 @@ internal sealed class ClaudeAccountSurface(IPluginUIContext context) : StackPane
             Children.Add(Ui.Text("Reading account…", Ui.Muted, 13));
             return;
         }
+        if (account.Provider is { } provider) Children.Add(Account.Provider(provider, "Claude"));
         if (account.Governed is { } governed)
         {
             Children.Add(Account.Governed(governed.Source, governed.Identity, governed.Plan, governed.Remaining, governed.Total, governed.TopUp, governed.RefillNext, governed.Problem, "Claude"));
@@ -170,7 +171,8 @@ internal sealed class ClaudeAccountSurface(IPluginUIContext context) : StackPane
             failed.Name = "ClaudeUsageStale";
             usage.Children.Add(failed);
         }
-        Children.Add(usage);
+        // The usage is Claude's own sign-in's; under another model source it does not apply.
+        if (account.ProviderInternal) Children.Add(usage);
 
         if (account.Version is { } version)
         {

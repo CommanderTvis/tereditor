@@ -632,3 +632,6 @@ static Tereditor.Plugins.Api.AgentRouting.operator !=(Tereditor.Plugins.Api.Agen
 static Tereditor.Plugins.Api.AgentRouting.operator ==(Tereditor.Plugins.Api.AgentRouting? left, Tereditor.Plugins.Api.AgentRouting? right) -> bool
 static Tereditor.Plugins.Api.ModelApiKinds.All.get -> System.Collections.Generic.IReadOnlyList<string!>!
 static Tereditor.Plugins.Api.ModelApiKinds.IsKnown(string! kind) -> bool
+Tereditor.Plugins.Api.AgentLaunchContribution.Provider.get -> string?
+Tereditor.Plugins.Api.AgentLaunchContribution.Provider.init -> void
+static Tereditor.Plugins.Api.AgentLaunchComposition.ProviderName(System.Collections.Generic.IEnumerable<Tereditor.Plugins.Api.AgentLaunchContribution!>! contributions) -> string?

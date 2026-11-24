@@ -141,6 +141,7 @@ invitation is excluded by the tereditor product contract; a Codex chat component
   is left whole. Disabling the plugin removes the unedited files and the directories that leaves empty.
   The disposer cannot tell disabling from host shutdown, so the files may also go when the app quits and
   return on the next start; a second running host is not considered.
+- The Account tab starts with a Provider row (`Account.Provider`, shared with Claude Code and Pi): the chosen Model source's name, or "OpenAI sign-in (built in)" when none is chosen. Air Gateway's launches read "JetBrains (Air Gateway)". `CodexChecks` `--codex` runs `AccountProviderChecks`.
 - While another plugin governs Codex launches (an `Account` on its launch contribution, Plugin API H18; Air Gateway, with Codex's Model source set to JetBrains (Air Gateway)), the Account method returns that source's account instead and never starts the OpenAI account read or `codex app-server`; the tab shows the source's identity, credits and refill time, or its actionable problem. Ungoverned launches are unchanged. The terminal fact chips show session token totals and the plan, not vendor quota, so they are unchanged.
 - App-server and IDE bridge messages are built as JSON nodes, and the configuration, rollouts and skills stamp file
   use the plugin's own source-generated metadata, never reflection; the bytes are those the reflection serializer

@@ -113,12 +113,14 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         });
         context.Method(ClaudeCodeContract.Account, async (p, _, cancellationToken) =>
         {
+            var chosen = AgentLaunchComposition.ProviderName(context.AgentLaunchContributions("claude"));
+            var provider = chosen ?? "Claude sign-in (built in)";
             // A launch another plugin governs runs under that source's account, so Claude's own account and usage are not read.
             if (context.AgentLaunchContributions("claude").Select(contribution => contribution.Account).OfType<AgentAccountSource>().FirstOrDefault() is { } governing)
-                return new ClaudeAccount(false, []) { Governed = await governing.Read(cancellationToken) };
+                return new ClaudeAccount(false, []) { Governed = await governing.Read(cancellationToken), Provider = provider };
             if (p.Refresh == true) await usagePoller!.RefreshAsync().WaitAsync(cancellationToken);
             else usagePoller!.Opened();
-            return await ClaudeAccountReader.ReadAsync(Command(), false);
+            return (await ClaudeAccountReader.ReadAsync(Command(), false)) with { Provider = provider, ProviderInternal = chosen is null };
         });
         // The usage numbers are read in the background (at start, every 15 minutes, when the Account tab opens): a launch another
         // plugin governs has no Claude account to read, so that read is skipped.

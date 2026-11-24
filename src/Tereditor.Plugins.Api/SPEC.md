@@ -1498,7 +1498,7 @@ A host-side contribution may also set `Account`, an `AgentAccountSource` (a name
 `AgentLaunchContributions`, shows the first such source in place of the vendor account and usage, and must not start
 the vendor account read while one is present. `Read` runs on the host, reports an unavailable source in `Problem`
 (not installed, signed out, limit unreadable) rather than throwing, and is requested again on each refresh. UI-side
-contributions leave `Account` unset because reading it is I/O. `Account` does not affect `Apply`.
+contributions leave `Account` unset because reading it is I/O. `Account` does not affect `Apply`. `Provider` names the model provider a launch runs under (a chosen Model source, or Air Gateway); an agent's Account reads it through `AgentLaunchComposition.ProviderName`, and `Apply` ignores it. Unset means the agent's own provider.
 
 A contribution may be blocked: `BlockedReason` is a short plain sentence saying why the agent cannot start now (not signed
 in, not supported on this host). The other members are then ignored. `AgentLaunchComposition.Blocked` returns the first

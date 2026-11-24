@@ -89,7 +89,11 @@ public sealed record PiConfigCommand(string Name, string Source, string Descript
 /// workspace, when there is one.
 /// </summary>
 public sealed record PiConfigSnapshot(string Cwd, string AgentDir, string Trust, string TrustFile, IReadOnlyList<PiConfigItem> Items,
-    IReadOnlyList<PiConfigSetting> Settings, IReadOnlyList<PiConfigCommand> Commands, bool ChatOpen);
+    IReadOnlyList<PiConfigSetting> Settings, IReadOnlyList<PiConfigCommand> Commands, bool ChatOpen)
+{
+    /// <summary>The model provider Pi runs under: the chosen source's name, or Pi's own provider.</summary>
+    public string? Provider { get; init; }
+}
 
 public sealed record PiPackageParams(string WorkspaceId, string Source, bool Local);
 

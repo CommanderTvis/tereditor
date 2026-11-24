@@ -51,6 +51,26 @@ public static class Account
         return new AccountUsageWindow(id, label, percent, resetsAt, namePrefix, severity);
     }
 
+    /// <summary>
+    /// The model provider an agent's Model source chose, the first row of its account section; a built-in provider says so in its name.
+    /// </summary>
+    public static Control Provider(string name, string namePrefix)
+    {
+        var row = Row("Provider", name);
+        row.Name = namePrefix + "Provider";
+        return row;
+    }
+
+    /// <summary>Puts the provider row above an account surface's content; with no provider the content is returned as it is.</summary>
+    public static Control WithProvider(string? provider, string namePrefix, Control content)
+    {
+        if (provider is null) return content;
+        var stack = new StackPanel { Spacing = 16 };
+        stack.Children.Add(Provider(provider, namePrefix));
+        stack.Children.Add(content);
+        return stack;
+    }
+
     /// <summary>A section heading in the account surface's eyebrow style.</summary>
     public static TextBlock Heading(string text)
     {

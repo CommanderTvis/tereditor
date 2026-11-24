@@ -53,6 +53,12 @@ public sealed record AgentLaunchContribution
 
     /// <summary>The short plain sentence for a launch blocked by <see cref="ConflictingArguments"/>.</summary>
     public string? ConflictReason { get; init; }
+
+    /// <summary>
+    /// The model provider the agent's model source chose, by name, when one is chosen. Null when the agent uses its own provider. Only the agent's
+    /// Account reads it, so it never changes the command line.
+    /// </summary>
+    public string? Provider { get; init; }
 }
 
 /// <summary>
@@ -84,6 +90,10 @@ public static partial class AgentLaunchComposition
 
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$")]
     private static partial Regex VariableName();
+
+    /// <summary>The model provider the launch runs under, from the first contribution that names one; null when the agent uses its own provider.</summary>
+    public static string? ProviderName(IEnumerable<AgentLaunchContribution> contributions) =>
+        contributions.Select(contribution => contribution.Provider).FirstOrDefault(name => name is { Length: > 0 });
 
     /// <summary>The reason of the first blocked contribution, or <see langword="null"/> when none is blocked.</summary>
     /// <param name="contributions">The contributions for one agent.</param>

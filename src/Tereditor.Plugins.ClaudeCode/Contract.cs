@@ -95,6 +95,10 @@ public sealed record ClaudeAccount(bool LoggedIn, IReadOnlyList<ClaudeUsageWindo
     public string? UsageError { get; init; }
     /// <summary>Set when another plugin governs Claude Code launches: the account Claude Code runs under, in place of the Claude account and its usage (which are then not read).</summary>
     public AgentGovernedAccount? Governed { get; init; }
+    /// <summary>The model provider Claude Code runs under: the chosen source's name, or the built-in Claude sign-in.</summary>
+    public string? Provider { get; init; }
+    /// <summary>Whether Claude Code runs on its built-in sign-in (no model source chosen), so its own usage is the one that applies.</summary>
+    public bool ProviderInternal { get; init; }
 }
 
 public enum ClaudeProblemSeverity { Warning, Info }

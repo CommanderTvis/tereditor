@@ -103,7 +103,7 @@ internal sealed class AirGatewayRuntime : IDisposable
     /// <summary>The host-side contribution: <see cref="AirLaunch.Contribution"/> plus the account the governed launcher runs under.</summary>
     public AgentLaunchContribution? Contribution(string launcherId) =>
         AirLaunch.Contribution(chosen(), launcherId, cli.Locate()) is { } contribution
-            ? contribution with { Account = new("Central", AccountAsync) } : null;
+            ? contribution with { Account = new("Central", AccountAsync), Provider = AirLaunch.Provider.Name } : null;
 
     private AirStatus Build(AirCentral central)
     {

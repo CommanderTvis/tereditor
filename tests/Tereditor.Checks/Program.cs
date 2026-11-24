@@ -1045,6 +1045,7 @@ internal static class Program
         if (args.SequenceEqual(["--codex"]))
         {
             CodexChecks.RunHost(root).GetAwaiter().GetResult();
+            AccountProviderChecks.Run();
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
             E2E.CodexE2E.Run(root);
@@ -1115,6 +1116,7 @@ internal static class Program
         if (args.SequenceEqual(["--claude-code"]))
         {
             ClaudeCodeChecks.Run(root).GetAwaiter().GetResult();
+            AccountProviderChecks.Run();
             AppBuilder.Configure<App>().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia().AfterSetup(HostHotkeys.Apply).SetupWithoutStarting();
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
             ClaudeCodeChecks.RunUi(root);
@@ -1550,6 +1552,7 @@ internal static class Program
             PiChecks.Account();
             PiChecks.ContextInsets();
             PiChecks.ContextRows();
+            AccountProviderChecks.Run();
             Console.WriteLine("PASS Pi checks");
             return;
         }
@@ -1707,6 +1710,7 @@ internal static class Program
         Gate.Case("cloud-platforms", () => CloudPlatformChecks.Run(Path.Combine(root, "cloud-platforms")));
         Gate.Case("acp", () => AcpChecks.Run(Path.Combine(root, "acp")).GetAwaiter().GetResult());
         Gate.Case("pi", () => PiChecks.Run(Path.Combine(root, "pi")).GetAwaiter().GetResult());
+        Gate.Case("account-providers", () => AccountProviderChecks.Run());
         Gate.Case("workspace-watch", () => WorkspaceWatchChecks.Run(root).GetAwaiter().GetResult());
         UiChecks.Run(root);
         Gate.Case("resources", () => ResourceChecks.Run(root));

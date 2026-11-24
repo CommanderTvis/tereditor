@@ -42,7 +42,15 @@ public static class ProviderLaunch
     /// <param name="launcherId">The launcher asking.</param>
     /// <param name="report">The latest merged list and sources.</param>
     /// <param name="windows">Whether the launch line is read by a Windows shell, which gets no variables; null reads this host's system.</param>
-    public static AgentLaunchContribution? For(string launcherId, ModelProvidersReport? report, bool? windows = null)
+    public static AgentLaunchContribution? For(string launcherId, ModelProvidersReport? report, bool? windows = null) =>
+        ForLauncher(launcherId, report, windows) is { } contribution ? contribution with { Provider = SourceName(report!, launcherId == Claude ? ClaudeAgent : Codex) } : null;
+
+    /// <summary>The name of the provider an agent's model source chose (the provider's name, else its id); null when the agent uses its own provider.</summary>
+    public static string? SourceName(ModelProvidersReport report, string agentId) =>
+        report.Sources.FirstOrDefault(choice => choice.AgentId == agentId) is not { } source ? null
+            : report.Providers.FirstOrDefault(row => row.Provider.Id == source.ProviderId)?.Provider.Name ?? source.ProviderId;
+
+    private static AgentLaunchContribution? ForLauncher(string launcherId, ModelProvidersReport? report, bool? windows)
     {
         if (launcherId == Claude) return ForClaude(report, windows ?? OperatingSystem.IsWindows());
         if (launcherId != Codex || report?.Sources.FirstOrDefault(choice => choice.AgentId == Codex) is not { } source) return null;

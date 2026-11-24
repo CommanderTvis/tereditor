@@ -37,7 +37,7 @@ public static class CodexAccountSurface
             try
             {
                 var account = await context.RequestAsync(CodexContract.Account, new CodexNoParams());
-                Dispatcher.UIThread.Post(() => host.Content = Render(account));
+                Dispatcher.UIThread.Post(() => host.Content = Account.WithProvider(account.Provider, "Codex", Render(account)));
             }
             catch (Exception error)
             {

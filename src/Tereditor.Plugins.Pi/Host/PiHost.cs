@@ -52,7 +52,8 @@ public sealed class PiHost : PluginHostModule
         var header = chats.HeaderOf(workspaceId);
         var agent = PiConfigReader.AgentDir(PiChatHost.ContributedEnvironment(context), Environment.GetEnvironmentVariable("PI_CODING_AGENT_DIR"), HomeDirectory());
         var commands = header?.Commands.Select(command => new PiConfigCommand(command.Name, command.Source ?? "", command.Description ?? "")).ToArray() ?? [];
-        return await Task.Run(() => PiConfigReader.Read(new PiConfigRoots(agent, HomeDirectory(), cwd), commands, header is not null), cancellationToken);
+        var snapshot = await Task.Run(() => PiConfigReader.Read(new PiConfigRoots(agent, HomeDirectory(), cwd), commands, header is not null), cancellationToken);
+        return snapshot with { Provider = AgentLaunchComposition.ProviderName(context.AgentLaunchContributions(PiManifest.Id)) ?? "Pi's own provider (built in)" };
     }
 
     // `pi install` or `pi remove`, started the way a chat starts Pi: the chosen Pi, the managed copy on Bun, or a model source's wrapper.
