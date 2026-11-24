@@ -47,6 +47,8 @@ internal static class ClaudeChatChecks
         # The host's own usage reads (auth status, /usage) are not chat spawns.
         case "$*" in "auth "*|*" /usage") exit 1 ;; esac
         echo "$*" >> "$D/args.log"
+        # The CLI starts its TUI on a terminal stdin; a chat child must always get a pipe.
+        [ -t 0 ] && echo tty >> "$D/tty.log"
         sleep 300 >/dev/null 2>&1 &
         # The plugin also runs the command for its own queries (--help); only a chat's start names the grandchild to check.
         case "$*" in *stream-json*) echo $! > "$D/grandchild.pid" ;; esac
@@ -694,6 +696,8 @@ internal static class ClaudeChatChecks
                 Spawns().Last().Contains("--permission-mode acceptEdits", StringComparison.Ordinal) && Spawns().Last().Contains("--append-system-prompt-file", StringComparison.Ordinal) &&
                 Spawns().Last().Contains("--permission-prompt-tool=stdio", StringComparison.Ordinal) && Spawns().Last().Contains(ClaudeToolPolicy.Flag, StringComparison.Ordinal),
                 "A new chat starts the CLI under its id with the stream-json flags, the chosen permission mode, the appended prompt and the built-in worktree tool denied.");
+            Require(!(" " + Spawns().Last() + " ").Contains(" -p ", StringComparison.Ordinal) && !Spawns().Last().Contains("--print", StringComparison.Ordinal) && !File.Exists(Path.Combine(directory, "fake", "tty.log")),
+                "A chat child runs without -p or --print and with piped stdin, as the Agent SDK starts it; a terminal stdin would start the TUI.");
             var environment = File.ReadAllText(Path.Combine(directory, "fake", "env.log"));
             Require(environment.Contains("TEREDITOR_UI_LAUNCH=claude", StringComparison.Ordinal) && environment.Contains("THINKRAIL_MCP_URL=http://127.0.0.1:1", StringComparison.Ordinal) &&
                 environment.Contains("/mcp/chat-fixture-token", StringComparison.Ordinal) && environment.Contains("CLAUDE_CODE_SSE_PORT=", StringComparison.Ordinal),

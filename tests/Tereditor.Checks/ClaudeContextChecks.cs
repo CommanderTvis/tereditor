@@ -18,7 +18,7 @@ namespace Tereditor.Checks;
 /// <summary>The Context surface's <c>/context</c> baseline: the report parser, the runner, the appended prompt difference, its triggers, live usage and the table rows.</summary>
 internal static class ClaudeContextChecks
 {
-    // A trimmed capture of `claude -p /context --output-format json`'s result, with the paths made up.
+    // A trimmed capture of `claude /context --output-format json`'s result, with the paths made up.
     public const string Report = """
         ## Context Usage
 
@@ -168,7 +168,7 @@ internal static class ClaudeContextChecks
         Require(first.Running && second.Running && runner.Runs == 1, "A baseline measures in the background, one run at a time per directory and flags.");
         await runner.IdleAsync();
         var lines = File.ReadAllLines(log);
-        Require(lines.Length == 1 && lines[0].EndsWith("/cwd|-p /context --output-format json --no-session-persistence --model opus|env", StringComparison.Ordinal),
+        Require(lines.Length == 1 && lines[0].EndsWith("/cwd|/context --output-format json --no-session-persistence --model opus|env", StringComparison.Ordinal),
             "The run happens in the tab's directory with its flags and environment, without session persistence. Got: " + string.Join('\n', lines));
         var cached = runner.Get(Spec(), refresh: false);
         Require(!cached.Running && cached.Breakdown?.Window == 1_000_000 && cached.MeasuredAt is not null && runner.Runs == 1 && finished == 1,

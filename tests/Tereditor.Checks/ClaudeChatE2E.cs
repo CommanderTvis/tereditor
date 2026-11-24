@@ -251,7 +251,7 @@ internal static class ClaudeChatE2E
         Begin(governed, "governed start", enter: false);
         E2eWorkspace.Until(() => File.Exists(centralLog) && File.ReadAllText(centralLog).Contains("end", StringComparison.Ordinal));
         var launched = File.ReadAllLines(centralLog);
-        Require(launched.Take(2).SequenceEqual(["arg:claude-code", "arg:--"]) && new[] { "arg:-p", "arg:--output-format", "arg:stream-json", "arg:--effort", "arg:high", "arg:--permission-mode", "arg:acceptEdits", "arg:--model", "arg:haiku" }.All(launched.Contains) &&
+        Require(launched.Take(2).SequenceEqual(["arg:claude-code", "arg:--"]) && new[] { "arg:--output-format", "arg:stream-json", "arg:--effort", "arg:high", "arg:--permission-mode", "arg:acceptEdits", "arg:--model", "arg:haiku" }.All(launched.Contains) &&
             launched.Contains("env:TEREDITOR_UI_LAUNCH=claude"), "A governed chat start runs through the contributed wrapper with the chat's arguments and environment: " + string.Join(" ", launched));
 
         // Terminal mode starts a terminal as before.

@@ -1,7 +1,7 @@
 namespace Tereditor.Plugins.ClaudeCode.Host.ClaudeConfig;
 
 /// <summary>
-/// Keeps the account usage fresh without anyone asking: <c>claude -p /usage</c> starts no model turn and spends no tokens, so
+/// Keeps the account usage fresh without anyone asking: <c>claude /usage</c> starts no model turn and spends no tokens, so
 /// the host reads it at start and then every <see cref="Interval"/>. One read runs at a time; a tick that finds one running does
 /// nothing. A failed read doubles the wait up to <see cref="MaxWait"/> and a good one resets it. A manual refresh runs at once
 /// and restarts the wait. A read that cannot run (no CLI, not signed in) is skipped quietly. Time comes from an injected clock

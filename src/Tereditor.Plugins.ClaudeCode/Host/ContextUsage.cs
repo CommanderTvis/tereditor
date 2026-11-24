@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace Tereditor.Plugins.ClaudeCode.Host;
 
 /// <summary>
-/// Reads what <c>claude -p /context --output-format json</c> prints. The JSON wraps the same Markdown report the TUI
+/// Reads what <c>claude /context --output-format json</c> prints. The JSON wraps the same Markdown report the TUI
 /// command renders in its <c>result</c> field, so the report's tables are read by their section titles and header rows.
 /// </summary>
 internal static class ContextReport
@@ -113,7 +113,7 @@ internal sealed record ContextRunSpec(string WorkspaceId, string Binary, string 
     /// <summary>The cache key: a directory and the launch flags that shape what a session there starts with.</summary>
     public string Key => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Binary + "\0" + Cwd + "\0" + string.Join('\0', Flags))))[..16];
 
-    public IReadOnlyList<string> Argv => [Binary, "-p", "/context", "--output-format", "json", "--no-session-persistence", .. Flags];
+    public IReadOnlyList<string> Argv => [Binary, "/context", "--output-format", "json", "--no-session-persistence", .. Flags];
 
     private const string AppendFlag = "--append-system-prompt-file";
 
@@ -255,7 +255,7 @@ internal sealed class ContextUsageRunner(Func<ContextRunSpec, TimeSpan, Cancella
                 if (bare is not null)
                     lock (gate) { entry.BareSystemPrompt = bareSystem; entry.BareFingerprint = bareSystem is null ? null : bareFingerprint; }
                 if (result.LaunchFailed) error = $"Could not run {spec.Binary}: {result.Err.Trim()}";
-                else if (result.TimedOut) error = $"claude -p /context did not finish within {timeout.TotalSeconds:0} s.";
+                else if (result.TimedOut) error = $"claude /context did not finish within {timeout.TotalSeconds:0} s.";
                 else if ((breakdown = ContextReport.ParseJson(result.Out)) is null)
                     error = result.Err.Trim() is { Length: > 0 } stderr ? stderr : "Claude Code printed no context report.";
                 else

@@ -388,7 +388,8 @@ internal sealed class ClaudeChatHost
         foreach (var (name, value) in own) environment[name] = value;
         arguments.AddRange(line.Arguments);
         if (ClaudeToolPolicy.FlagFor([.. contributions.SelectMany(contribution => contribution.Arguments), .. line.Arguments]) is { } denial) arguments.Add(denial);
-        arguments.AddRange(["-p", "--output-format", "stream-json", "--verbose", "--input-format", "stream-json", "--include-partial-messages", "--replay-user-messages", "--permission-prompt-tool=stdio"]);
+        // No -p: the Agent SDK starts the CLI the same way, and piped stdin keeps it out of the TUI (ChatProcess redirects stdin).
+        arguments.AddRange(["--output-format", "stream-json", "--verbose", "--input-format", "stream-json", "--include-partial-messages", "--replay-user-messages", "--permission-prompt-tool=stdio"]);
         if (spawn.Resume is { } resume) arguments.AddRange(["--resume", resume]);
         if (spawn.Fork) arguments.Add("--fork-session");
         if (spawn.ResumeAt is { } at) arguments.AddRange(["--resume-session-at", at]);

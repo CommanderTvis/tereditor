@@ -1069,7 +1069,7 @@ internal static class ClaudeCodeChecks
         Directory.CreateDirectory(directory);
         var log = Path.Combine(directory, "launch.log");
         var fake = Path.Combine(directory, "fake-claude");
-        File.WriteAllText(fake, $"#!/bin/sh\nif [ \"$1\" = --help ]; then printf '%s\\n' '  --permission-mode <mode>   Permission mode to use (choices: \"acceptEdits\", \"manual\",' '      \"plan\", \"bypassPermissions\")'; exit 0; fi\nif [ \"$1\" = auth ] || [ \"$1\" = -p ]; then exit 1; fi\nprintf '%s\\n' \"agent-view=$CLAUDE_CODE_DISABLE_AGENT_VIEW\" \"$@\" > '{log}.part' && mv '{log}.part' '{log}'\n");
+        File.WriteAllText(fake, $"#!/bin/sh\nif [ \"$1\" = --help ]; then printf '%s\\n' '  --permission-mode <mode>   Permission mode to use (choices: \"acceptEdits\", \"manual\",' '      \"plan\", \"bypassPermissions\")'; exit 0; fi\nif [ \"$1\" = auth ]; then exit 1; fi\ncase \"$*\" in /context*|*' /usage') exit 1 ;; esac\nprintf '%s\\n' \"agent-view=$CLAUDE_CODE_DISABLE_AGENT_VIEW\" \"$@\" > '{log}.part' && mv '{log}.part' '{log}'\n");
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(fake, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         using var app = new E2eWorkspace(Path.Combine(directory, "project"), openFiles: false);
         E2eWorkspace.Until(() => app.Workbench.PluginLoader!.Registry.Entry("claude-code") is not null);
@@ -1332,7 +1332,7 @@ internal static class ClaudeCodeChecks
         var noisy = "claude starting up\n{not json\n{\"type\":\"system\",\"subtype\":\"init\"}\n[1,2]\n" + UsageLimits + "\n{\"type\":\"result\",\"subtype\":\"success\",\"local_command\":\"usage\"}\n";
         var good = Fake("good", noisy);
         var account = await ClaudeAccountReader.ReadAsync(good, true);
-        Require(File.ReadAllText(good + ".log").Contains("-p --output-format stream-json --verbose /usage", StringComparison.Ordinal), "Usage is read with the stream-json form of /usage.");
+        Require(File.ReadAllText(good + ".log").Contains("--output-format stream-json --verbose /usage", StringComparison.Ordinal), "Usage is read with the stream-json form of /usage.");
         Require(account.Usage.Select(window => (window.Label, window.Percent, window.Severity)).SequenceEqual(
             [("Session (5 hr)", 18, ClaudeUsageSeverity.Normal), ("Weekly (7 day)", 25, ClaudeUsageSeverity.Warning), ("Fable limit", 0, ClaudeUsageSeverity.Normal)]),
             "Session, weekly and the model-scoped limit parse, noise lines skipped.");

@@ -425,7 +425,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private static Control Unmeasured()
     {
         var pending = ClaudeParts.Code("…", Ui.Hint);
-        ToolTip.SetTip(pending, "Measuring with claude -p /context");
+        ToolTip.SetTip(pending, "Measuring with claude /context");
         return pending;
     }
 

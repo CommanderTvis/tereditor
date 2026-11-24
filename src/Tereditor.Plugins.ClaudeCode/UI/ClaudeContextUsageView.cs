@@ -8,7 +8,7 @@ using Tereditor.Plugins.UI.Kit;
 namespace Tereditor.Plugins.ClaudeCode.UI;
 
 /// <summary>
-/// The state of the Context surface's baseline (<c>claude -p /context</c> for a fresh session started like the tab's):
+/// The state of the Context surface's baseline (<c>claude /context</c> for a fresh session started like the tab's):
 /// measuring, when it was measured, or a failure with Retry. The costs themselves are rows of the context
 /// table. Static layout lives in the compiled AXAML.
 /// </summary>
@@ -55,7 +55,7 @@ internal sealed partial class ClaudeContextUsageView : UserControl
             ? ClaudeParts.Absolute(when) : null);
         message.Text = usage switch
         {
-            null or { Running: true, Breakdown: null } => "Measuring with claude -p /context…",
+            null or { Running: true, Breakdown: null } => "Measuring with claude /context…",
             { Error: { } error } => "Could not measure the context: " + error,
             { Running: true } => "Measuring again…",
             { MeasuredAt: { } at } when DateTimeOffset.TryParse(at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var measured) =>

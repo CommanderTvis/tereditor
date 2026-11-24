@@ -320,7 +320,7 @@ public sealed record ClaudeContextCategory(string Name, long Tokens, double Perc
 /// <summary>A row of <c>/context</c>'s MCP tools, memory files or skills table: a name, where it comes from, and its token estimate.</summary>
 public sealed record ClaudeContextItem(string Name, string Source, long Tokens);
 
-/// <summary>What <c>claude -p /context</c> reported for a fresh session started the way a tab starts.</summary>
+/// <summary>What <c>claude /context</c> reported for a fresh session started the way a tab starts.</summary>
 public sealed record ClaudeContextBreakdown(string Model, long Used, long Window, IReadOnlyList<ClaudeContextCategory> Categories)
 {
     public IReadOnlyList<ClaudeContextItem> McpTools { get; set; } = [];
@@ -501,7 +501,7 @@ public static class ClaudeCodeContract
     public static readonly PluginMethod<IdeAtMention, IdeAtMentionResult> AtMention = new("atMention");
     public static readonly PluginMethod<IdeActionReply, Ack> ActionReply = new("actionReply");
     public static readonly PluginMethod<StatusSnapshotParams, IReadOnlyList<ClaudeCodeStatusPush>> StatusSnapshot = new("statusSnapshot");
-    /// <summary>The tab's context baseline from <c>claude -p /context</c>, measured in the background when missing or stale.</summary>
+    /// <summary>The tab's context baseline from <c>claude /context</c>, measured in the background when missing or stale.</summary>
     public static readonly PluginMethod<ContextUsageParams, ClaudeContextUsage> ContextUsageGet = new("contextUsageGet");
 
     public static readonly PluginChannel<ClaudeCodeStatusPush> Status = PluginChannel<ClaudeCodeStatusPush>.State("status", StatusSnapshot, "workspaceId");

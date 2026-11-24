@@ -91,7 +91,7 @@ internal static class ClaudeAccountReader
     /// </summary>
     private static async Task<UsagePoll> FetchUsageAsync(string binary, IReadOnlyDictionary<string, string> environment)
     {
-        var run = await Bounded.RunAsync([binary, "-p", "--output-format", "stream-json", "--verbose", "/usage"], UsageTimeout, environment: environment);
+        var run = await Bounded.RunAsync([binary, "--output-format", "stream-json", "--verbose", "/usage"], UsageTimeout, environment: environment);
         if (run.Ok && ParseUsage(run.Out, DateTimeOffset.UtcNow) is { } parsed)
         {
             LastUsage[binary] = parsed;
