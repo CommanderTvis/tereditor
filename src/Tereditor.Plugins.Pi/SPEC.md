@@ -61,7 +61,7 @@ Settings › Pi shows the Model source control from Model providers as its first
 
 ## Pi pane
 
-The Pi side pane (`pane`) follows Claude Code's configuration pane (`src/Tereditor.Plugins.ClaudeCode/UI/ClaudeConfigPanel.cs`): the same kit,
+Pi's content in the Agent pane (`AgentPaneRegistration` `pi`; the pane draws the chips and the four tabs) follows Claude Code's configuration pane (`src/Tereditor.Plugins.ClaudeCode/UI/ClaudeConfigPanel.cs`): the same kit,
 scope chips and hints, with the tabs Context, Settings, Capabilities and Account. `PiConfigPanel` only reads through the host (`PiContract.Config`,
 `PiConfigReader`), and it changes one thing: packages, with `pi install` and `pi remove` (`PiPackages`), started the way a chat starts Pi (the chosen
 Pi, the managed copy on Bun, or a Model source's wrapper), in the workspace directory, with stdin closed.
@@ -78,7 +78,7 @@ Pi, the managed copy on Bun, or a Model source's wrapper), in the workspace dire
 - Capabilities: the commands the workspace's open Pi chat reports (`get_commands`), with where each comes from. Without an open chat it says so.
 - Model list: the chat's model picker lists what Pi's `get_available_models` returns (Pi's own catalog, in its order, oldest first). The picker leads with one model per family, so only the newest model of each provider and family keeps its family name (`PiChatSession.LeadingByFamily`); the rest are in "More models".
 - Settings › Pi › Model (--model) explains the accepted forms (`provider/id`, a pattern, `pattern:thinking`) with examples; it offers no list, as the host has no cheap read-only list outside a running chat.
-- Pane header: the title "Pi" with the Early support badge beside it, above the tab switcher, so every tab shows it (the Account tab does not repeat it).
+- Pane header: the title "Pi" with the Early support badge beside it, above the tab content, so every tab shows it (the Account tab does not repeat it).
 - Account: a Provider row first, the chosen Model source's name or "Pi's own provider (built in)" when none is chosen (the name is the launch contribution's `Provider`, `AgentLaunchComposition.ProviderName`), then the Pi version and the project's trust state. The chat header shows the model and thinking level.
 - Scope chips read USER and PROJECT (`-l` maps to PROJECT). Click a row to open its file.
 - Not offered: turning single resources on or off, changing trust, and `/reload`.

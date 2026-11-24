@@ -81,7 +81,7 @@ This API carries no compatibility promise yet. There is no semantic versioning, 
 shims, and no commitment to keep a capability that stops being used. Any release may rename, reshape, or remove
 anything described here, including the UI kit a plugin's UI is built against.
 
-`PluginApi.Generation` records the shape a plugin was built against. It is declared in the manifest
+`PluginApi.Generation` (3 since the Agent pane registration, W5a, joined the UI surface) records the shape a plugin was built against. It is declared in the manifest
 (`ApiGeneration`), incremented with any breaking change, and checked before load. A mismatch is refused and
 reported, rather than allowed to half-load and fail somewhere further from the cause. Builtin plugins are
 updated alongside it; external plugins are expected to break on upgrade and are told so directly. Since any
@@ -766,6 +766,7 @@ to pi.
 | W2 | read and write its own settings namespace (`Settings<T>`, `OnSettings<T>`, `UpdateSettingsAsync<T>`) | `HostStateChange.Setting` names a closed set |
 | W3 | read a projection: projects, workspaces, active workspace, context project, active editor, applied settings, terminals, shown terminals, per-workspace file revision, roster, host platform; synchronously (`Host`) or observed by selection (`WatchHost`) | window fields and `SharedState` |
 | W4 | contribute a Settings section (`SettingsSection`) | `SettingsView`'s fixed section buttons |
+| W5a | contribute an agent to the Agent pane (`AgentPane`): chip label and icon, `Usable`, `Owns`/`SubAgentOf` (which focused tab holds it), `Create`, `ShowTab`, `Retarget`, `SubAgents`/`SelectSubAgent`; the pane itself is core (`agent`) | `DockState.ToolNames`, `AgentPane` in `Tereditor.UI/Panels`, the tool body switch in `WorkbenchWindow` |
 | W5 | contribute a side tool under `plugin:<id>:<tool>`, declared in the manifest, rendered by the UI half (`SideTool`) | `DockState.ToolNames`, `DockState.ToolRegion`, the tool body switch in `WorkbenchWindow`, the tool icon switch in `DockGroups` |
 | W6 | contribute an embedded companion pane beside a terminal, and focus it (`Companion`, `FocusCompanion`; optional `Items` and `SelectItem` for the strip) | none |
 | W7 | register a file viewer: extensions, names and read strategy from the manifest, control and finer predicate from the UI half, optionally handling the open outright (`FileViewer`) | the open path picks text, Markdown or image by extension |

@@ -253,10 +253,13 @@ internal static class OmpChecks
             AgentPaneChecks.Show(app, "omp");
             E2eWorkspace.Until(() => Find<Control>(app.Window, "OmpPanel").Any());
             var panel = Find<Control>(app.Window, "OmpPanel").Single();
+            AgentPaneChecks.Tab(app, "account");
             E2eWorkspace.Until(() => Find<TextBlock>(panel, "OmpVersion").Single().Text == "v9.8.7");
+            AgentPaneChecks.Tab(app, "settings");
             Require(Find<Border>(panel, "OmpEarlyBadge").Single().IsEffectivelyVisible, "the pane wears the Early badge");
             Require(Find<TextBlock>(panel, "OmpCodeIntelligence").Single().Text!.Contains("tereditor", StringComparison.Ordinal), "the pane says sessions use tereditor's code intelligence");
             Require(Find<TextBlock>(panel, "OmpProfileNote").Single().IsEffectivelyVisible, "the pane notes what the profile keeps apart");
+            AgentPaneChecks.Tab(app, "context");
             E2eWorkspace.Until(() => Find<Control>(panel, "OmpContextRow").Count >= 3);
             var rows = Find<Control>(panel, "OmpContextRow");
             Require(rows.Any(row => row.Margin.Left == 16 && Equals(row.Tag, Path.Combine(workspace, "docs", "more.md"))) &&
@@ -272,6 +275,7 @@ internal static class OmpChecks
             // The sign-in import pipes the fixture's export into the profile's import on the host, only when pressed.
             var imported = Path.Combine(home, ".omp", "profiles", "tereditor", "imported.json");
             Require(!File.Exists(imported), "the sign-in import never runs by itself");
+            AgentPaneChecks.Tab(app, "account");
             E2eWorkspace.Until(() => Find<StackPanel>(panel, "OmpSignIn").Single().IsEffectivelyVisible);
             var signIn = Find<Button>(panel, "OmpImportSignIn").Single();
             var signInResult = Find<TextBlock>(panel, "OmpSignInResult").Single();
@@ -311,8 +315,9 @@ internal static class OmpChecks
             Require(args.Take(2).SequenceEqual(["--profile", "tereditor"]) && args[2] == "--session-dir" &&
                 OmpLaunch.SessionIdOf("--session-dir " + args[3]) is not null && args.Skip(4).SequenceEqual(["--model", "@smol", "--approval-mode", "write", "--advisor", "--no-lsp"]),
                 "the launch argv: " + string.Join(" ", args));
-            E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Button>().Any(button => button.Name?.StartsWith("Tab_", StringComparison.Ordinal) == true &&
-                button.GetLogicalDescendants().OfType<Control>().Any(control => Equals(control.Tag, OmpManifest.Icon))));
+            // The Agent pane's chip wears the same mark.
+            E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Any(chip => chip.Name == "AgentChip_omp" &&
+                chip.GetLogicalDescendants().OfType<Control>().Any(control => Equals(control.Tag, OmpManifest.Icon))));
 
             // A missing binary: the pane says so with the install link, and the launcher is unavailable.
             Settings(new { command = Path.Combine(root, "nowhere", "omp"), model = "@smol", approvalMode = "write", advisor = true });

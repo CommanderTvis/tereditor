@@ -166,6 +166,10 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 
 - Prompt content (`AcpPromptBuilder`): the text comes first, then one block per chip. Paths are host paths in `file://` URIs; a folder link ends with a slash. An editor or preview selection is an embedded `resource` (label `path:start-end` or `path (selected text)`, then the text; the range also rides in `_meta.tereditor`) when `promptCapabilities.embeddedContext` is on, else a `resource_link` plus the text in a fenced block. A selection over 100000 characters is linked with its range and the chat says so. A picked file or folder is a `resource_link` (a file with its size), never embedded. A finished `@path` or `@path#L1-5` in the text inside the workspace becomes a link or an excerpt; one outside stays text. Images go inline only with `promptCapabilities.image`; without it a picked image is linked and a pasted one is dropped, and the chat tells the user. The editor's own context (chip kinds `selection` and `file`, sent as chips because `ChatAgent.StructuredContext` is on) is left out, with a note, when the file is outside the workspace or Git ignores it; a file the user picks is sent anyway. The chat view shares the chips and `ChatMentions` with the Claude Code chat.
 
+## Agent pane
+
+ACP is one chip in the Agent pane (`AgentPaneRegistration` `acp`). It is owned by `acp-chat` documents; the sub-agent picker lists the enabled agents (`AcpAgents`, read from the host off the UI thread) and follows the agent the focused chat talks to (`AcpTabIcons.AgentOf`). Tabs: Context (the agent's name, version, command and folder; the chat itself reports the rest), Settings (the mode for new chats, read only, with a link to Settings, ACP), Capabilities (nothing yet) and Account (the "Signs in with" list and sign-in actions of the settings page). The registry, install, custom agents and every edit stay on Settings, ACP.
+
 ## Not yet supported
 
 - Writes shown as a diff on the tool card: a write through `fs/write_text_file` has no tool call to attach to, so only a tool's own diff content is drawn; the write itself reaches an open editor through the file watcher.

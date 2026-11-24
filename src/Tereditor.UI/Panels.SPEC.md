@@ -725,6 +725,8 @@ Plugins settings preserves colored plugin assets. Claude and Discord use their b
 
 The Java/Kotlin provider selector applies to every project on the connected host, and open Settings follows shared changes without replacing its page. Provider-specific project JDK, installation and importer configuration remain workspace-scoped.
 
+The Agent pane (`agent`, rail icon robot) holds every agent's configuration: chips for the enabled and usable agents, a sub-agent picker for an agent that lists several (ACP), and the tabs Context, Settings, Capabilities and Account. Plugins fill the tabs; Plugins/SPEC.md has the follow rules. It is one control per window and a workspace switch retargets each agent's content like the Language pane below. Its tab strip scrolls horizontally when narrow without a visible scrollbar. With no usable agent it says so and points to Settings, Plugins.
+
 The Language pane is one control for every workspace and project of a window: a switch calls its `Retarget`, which drops the old workspace's inventory, rows, added or expanded servers, status line and plugin-slot sections, cancels its requests (the pane's lifetime is replaced, so replies are rejected), closes its settings windows and reads the new inventory at once. Configuration views are kept per workspace and server, so an unsaved draft stays with its workspace and returns with it, and is never saved into another; views of workspaces that no longer exist are dropped.
 
 Each language-server configuration view also offers a project-wide start-before-agent checkbox. It saves immediately and does not alter workspace settings; see [language services](../Tereditor.Host.Core/Language/SPEC.md).

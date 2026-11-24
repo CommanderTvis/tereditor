@@ -564,15 +564,15 @@ Git diff tabs do not represent unsaved proposed content, so `FILE_SAVED` and `DI
 nothing to stand on yet. `closeAllDiffTabs`, which the CLI sends on every submitted prompt, closes
 nothing: every open diff or Changes tab is the user's own, since `openDiff` opens none. `getDiagnostics` and `executeCode` are not offered.
 
-UI contributions are the Context/Settings/Capabilities/Account pane, compiled settings section,
+UI contributions are the Claude Code content of the Agent pane (Context/Settings/Capabilities/Account tabs, owned by Claude terminals and `claude-chat` documents; a focused chat shows workspace-level Context), compiled settings section,
 workspace launcher, generic `claude` launcher, status tab decorations and one terminal accessory
 combining facts, model/effort chips, plan, tokens, attach and session `/ide` switch, and a terminal tab menu
 item, Copy session ID (Plugin API W26), offered while the tab's agent record is Claude's and has a session id and copying
 that bare id, the one `claude --resume` takes; it is hidden, not disabled, otherwise.
 Tab marks refresh as soon as the host identifies or clears Claude in a terminal, without switching
 tabs or reopening a pane. The host agent record remains the source of truth for terminal identity.
-The surface selector scrolls horizontally when narrow without a visible scrollbar or extra header height.
-Each workspace retains its pane and selected surface. An unchanged configuration/capability result
+The Agent pane draws the tab selector (it scrolls horizontally when narrow without a visible scrollbar or extra header height).
+Each workspace retains its content and the pane its selected tab. An unchanged configuration/capability result
 preserves the body, scope and surface controls, including local input and scroll state.
 The generic launcher supplies a fresh Claude SVG icon through its owning asset reader for
 consumer plugins, at the requested size and theme tint.

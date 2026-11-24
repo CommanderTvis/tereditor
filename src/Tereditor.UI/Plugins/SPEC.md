@@ -220,10 +220,19 @@ and roster registration still precede reconciliation, preserving dormant tools a
   `OpenTerminalAsync`'s callers; an unavailable launcher shows its reason.
 - Workspace-scoped actions (W10) render in the workspace's start-actions row beside New terminal; project-scoped
   ones on Project Home.
+- The Agent pane (core tool `agent`, robot icon) is one control per window that composes agent plugins' `AgentPaneRegistration`s (Plugin API W5a):
+  a chip row with one chip per enabled and usable agent in the fixed order Claude Code, Codex, Pi, omp, ACP, then others; an optional
+  sub-agent picker (ACP lists its configured agents); and the four tabs Context, Settings, Capabilities and Account, always present.
+  A plugin supplies one control per workspace and shows the tab it is told to show; a tab it has nothing for says so in the control.
+  The pane follows the focused document: when the selected tab of the last-focused document group is owned by an agent (`Owns`: a
+  terminal running it or a chat document of it), its chip and sub-agent show and a manual choice ends. A click on another chip or on
+  the picker is kept while focus moves between tabs no agent owns, and ends when focus reaches an agent's tab. Focusing the same tab
+  again changes nothing, and a tab no agent owns keeps the last chip. The chip, sub-agent, tab and manual flag are window state per
+  workspace and are not saved. Pane ids of the former Claude Code, Codex, Pi and omp panes are retired layout ids.
 - Side-tool bodies and workspace actions are retained per window/workspace rather than recreated on
   navigation or unchanged host updates. Tools may opt into `Retarget` to serve every workspace with
-  one control: repository history across worktrees of a project (Git Graph), and the Claude Code, Codex and omp panes across
-  projects too. A retargeted control shows only the new workspace's data: work in flight for the old one is rejected by a
+  one control: repository history across worktrees of a project (Git Graph). The agents' content in the Agent pane
+  is retargeted the same way, across projects too. A retargeted control shows only the new workspace's data: work in flight for the old one is rejected by a
   generation check, drafts, search text, expanded rows and the surface selection are dropped (never written into the new
   workspace), the account surface (not workspace data) stays, and host watches are registered once, re-registered only for
   the new workspace. Pending routing retains the previous tool body; unregistering a

@@ -63,6 +63,7 @@ internal sealed class AgentPane : DockPanel
     private readonly StackPanel tabs = new() { Name = "AgentTabs", Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4) };
     private readonly ComboBox picker = new() { Name = "AgentSubAgents", Margin = new Thickness(8, 4, 8, 0), HorizontalAlignment = HorizontalAlignment.Stretch, IsVisible = false };
     private readonly ContentControl body = new() { Name = "AgentBody", HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
+    private readonly ScrollViewer strip;
     private string chipsKey = "";
     private string? shownChip;
     private string? appliedSub;
@@ -76,7 +77,8 @@ internal sealed class AgentPane : DockPanel
         Background = Ui.Sidebar;
         SetDock(chips, Dock.Top); Children.Add(chips);
         SetDock(picker, Dock.Top); Children.Add(picker);
-        SetDock(tabs, Dock.Top); Children.Add(tabs);
+        strip = new ScrollViewer { Content = tabs, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        SetDock(strip, Dock.Top); Children.Add(strip);
         foreach (var tab in Enum.GetValues<AgentPaneTab>())
         {
             var segment = Ui.Segment("AgentTab_" + tab.ToString().ToLowerInvariant(), tab.ToString());
@@ -163,7 +165,8 @@ internal sealed class AgentPane : DockPanel
                 var chip = Ui.Segment("AgentChip_" + row.Value.Id, row.Value.Label);
                 chip.Content = new StackPanel
                 {
-                    Orientation = Orientation.Horizontal, Spacing = 4,
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 4,
                     Children = { PluginIcons.Resolve(row.Value.Icon, registry.Entry(row.PluginId), Ui.Muted, 14), new TextBlock { Text = row.Value.Label, VerticalAlignment = VerticalAlignment.Center } }
                 };
                 chip.Height = 24;
@@ -174,7 +177,7 @@ internal sealed class AgentPane : DockPanel
             }
         }
         chips.IsVisible = offered.Count > 0;
-        tabs.IsVisible = offered.Count > 0;
+        strip.IsVisible = offered.Count > 0;
         foreach (var segment in tabs.Children.OfType<ToggleButton>()) segment.IsChecked = Equals(segment.Tag, state.Tab);
         if (shownChip is null)
         {

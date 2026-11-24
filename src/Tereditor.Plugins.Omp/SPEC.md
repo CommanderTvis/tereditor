@@ -9,8 +9,8 @@ parent: group-plugins-agents
 # omp builtin
 
 Basic ("Early support") integration of the omp coding agent (https://omp.sh). Disabled by default. The manifest
-declares `Support = early`, which Settings › Plugins shows as an "Early support" badge on the card; the side tool and
-Settings › omp wear the same badge. Host and UI talk only through the plugin contract (wire version 1). tereditor never
+declares `Support = early`, which Settings › Plugins shows as an "Early support" badge on the card; the Agent pane content and
+Settings › omp wear the same badge. omp fills Context (context files and offers), Account (version, install link, sign-in import) and Settings (the code-intelligence and profile notes); Capabilities says omp has nothing there. Host and UI talk only through the plugin contract (wire version 1). tereditor never
 installs omp: it runs the `omp` the host finds on PATH (or the configured command).
 
 Facts below come from omp's docs: CLI https://omp.sh/docs/cli, context files https://omp.sh/docs/context-files,
@@ -83,7 +83,7 @@ No real omp run backs them; the checks use a fixture `omp`.
   detected; this is not verified against a real install.
 - Air Gateway does not govern omp: Central serves Claude Code, Codex and Pi only.
 - Mark: the manifest icon is `asset:omp.svg`, omp's π mark from the omp.sh site header redrawn as one `currentColor`
-  path, so Settings › omp, the plugin card, the side tool, its pane tab and omp terminal tabs (workbench and Projects)
+  path, so Settings › omp, the plugin card, its Agent pane chip and omp terminal tabs (workbench and Projects)
   wear it. The launcher's icons and the start action draw it in a theme brush and follow theme changes; the kit's
   terminal glyph stands in until the asset is read, and a failed read is never remembered: it is retried (six
   attempts, a growing delay) and on the next glyph built, so no launcher icon keeps the stand-in permanently.

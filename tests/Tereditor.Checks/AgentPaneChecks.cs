@@ -81,7 +81,9 @@ internal static class AgentPaneChecks
             registry.SetActive(plugin, true);
             registry.AddAgentPane(plugin, new(id, id.ToUpperInvariant(), "robot", _ => new TextBlock { Name = "Body_" + id })
             {
-                Usable = usable, Owns = owns, SubAgentOf = sub,
+                Usable = usable,
+                Owns = owns,
+                SubAgentOf = sub,
                 ShowTab = (_, tab) => shownTabs.Add(id + ":" + tab),
                 SubAgents = picker ? _ => [.. acpAgents.Select(agent => new AgentSubAgent(agent, agent))] : null,
                 SelectSubAgent = picker ? (_, agent) => acpPicked.Add(agent) : null
