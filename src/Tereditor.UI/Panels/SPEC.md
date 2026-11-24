@@ -37,6 +37,7 @@ explicitly invoking the builtin `add-highlighting` skill. Buttons are disabled w
 the corresponding launcher or workspace is unavailable; these actions do not start
 agents merely by opening Settings. Static controls live in the compiled page template.
 
+- Choosing the page already open in the Settings navigation does nothing: no rebuild, no reload, scroll and focus stay (on a phone, with the section list in front, it still opens the page). Another page and back, and a refresh for a host broadcast, rebuild as usual.
 - Settings reads and changes shared settings only through `SharedState` / `IHostStateService` and re-renders
   when the snapshot broadcast arrives; it writes window-local and app-local preferences through
   `ProfileStore`. It never keeps a local copy of host state.

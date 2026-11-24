@@ -149,7 +149,12 @@ public sealed partial class SettingsView : UserControl
     private void Navigation(Button button, string key, Panel content)
     {
         button.Content = content;
-        button.Click += (_, _) => ShowSection(key);
+        // The page already shown stays as it is; on a phone the list is in front, so the same row still opens its page.
+        button.Click += (_, _) =>
+        {
+            if (key == section && body.Content is not null && !(showSectionList is not null && this.FindControl<Border>("SettingsNavigationPane")!.IsVisible)) return;
+            ShowSection(key);
+        };
         navigation[key] = button;
     }
 
@@ -276,8 +281,12 @@ public sealed partial class SettingsView : UserControl
         Show(true);
     }
 
+    /// <summary>How many times a page was built; choosing the page already open must not add one.</summary>
+    public int PageBuilds { get; private set; }
+
     public void ShowSection(string name)
     {
+        PageBuilds++;
         // The page moved under Plugins; its old name still opens it.
         if (name == "Code Intelligence") name = Tereditor.Plugins.CodeIntelligence.UI.CodeIntelligenceUI.SectionKey;
         if (name.StartsWith("plugin:", StringComparison.Ordinal) && !navigation.ContainsKey(name)) name = "Plugins";

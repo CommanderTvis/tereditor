@@ -48,12 +48,36 @@ internal static class SettingsNavigationChecks
             Dispatcher.UIThread.RunJobs(); settings.UpdateLayout();
             trimmed = Verify(settings, pane, "narrow");
             Require(trimmed.Count > 0, "At 120 px at least the longest label must be trimmed, so the check sees an overflow.");
+            Reselect(settings, pane);
         }
         finally
         {
             settings.Close();
             window.Close();
         }
+    }
+
+    // Choosing the open page again builds nothing and keeps its content; another page and back builds each; a forced refresh rebuilds.
+    private static void Reselect(SettingsView settings, Border pane)
+    {
+        Button Row(string name) => pane.GetLogicalDescendants().OfType<Button>().First(button => button.Name == name);
+        void Click(string name) { Row(name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Dispatcher.UIThread.RunJobs(); }
+        var body = settings.GetLogicalDescendants().OfType<ContentControl>().First(control => control.Name == "SettingsBody");
+        foreach (var name in pane.GetLogicalDescendants().OfType<Button>().Select(button => button.Name!).Where(name => name.StartsWith("Settings_", StringComparison.Ordinal)).ToArray())
+        {
+            Click(name);
+            var builds = settings.PageBuilds; var page = body.Content;
+            Click(name);
+            Require(settings.PageBuilds == builds && ReferenceEquals(body.Content, page), $"Choosing {name} again must not rebuild its page.");
+        }
+        Click("Settings_Editor");
+        var editor = body.Content; var count = settings.PageBuilds;
+        Click("Settings_Terminal");
+        Require(settings.PageBuilds == count + 1 && !ReferenceEquals(body.Content, editor), "Another page must be built.");
+        Click("Settings_Editor");
+        Require(settings.PageBuilds == count + 2 && body.Content is not null, "Going back must build the page again.");
+        settings.ShowSection("Editor");
+        Require(settings.PageBuilds == count + 3, "A forced ShowSection must still rebuild the page.");
     }
 
     // Returns the labels that are trimmed; throws for any clipped without an ellipsis and tip.
