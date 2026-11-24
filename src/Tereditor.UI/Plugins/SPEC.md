@@ -227,7 +227,7 @@ and roster registration still precede reconciliation, preserving dormant tools a
   The pane follows the focused document: when the selected tab of the last-focused document group is owned by an agent (`Owns`: a
   terminal running it or a chat document of it), its chip and sub-agent show and a manual choice ends. A click on another chip or on
   the picker is kept while focus moves between tabs no agent owns, and ends when focus reaches an agent's tab. Focusing the same tab
-  again changes nothing, and a tab no agent owns keeps the last chip. The chip, sub-agent, tab and manual flag are window state per
+  again changes nothing, and a tab no agent owns keeps the last chip. The content follows the focused tab too: when the shown chip's agent owns the focused tab, the pane calls its `Focus` once with that tab (again after the content is created or retargeted) so the four tabs describe that session, and keeps it while focus is on other tabs, as long as that session is still shown (a terminal hidden behind an editor falls back to the first shown session). Claude Code and Codex use the terminal key for their per-session reads; Pi, omp and ACP read workspace-level state only, so they have no `Focus`. The chip, sub-agent, tab and manual flag are window state per
   workspace and are not saved. Pane ids of the former Claude Code, Codex, Pi and omp panes are retired layout ids.
 - Side-tool bodies and workspace actions are retained per window/workspace rather than recreated on
   navigation or unchanged host updates. Tools may opt into `Retarget` to serve every workspace with

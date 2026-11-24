@@ -61,6 +61,11 @@ public static class CodexPanel
     /// <summary>Shows one of the four tabs the Agent pane offers; the pane draws no switcher of its own.</summary>
     public static void ShowTab(Control pane, AgentPaneTab tab) { if (ShowTabs.TryGetValue(pane, out var show)) show(tab); }
 
+    private static readonly ConditionalWeakTable<Control, Action<TabRef?>> Focuses = new();
+
+    /// <summary>Points the pane at the tab the Agent pane reports as focused: a Codex terminal pins that session, null follows the first shown Codex.</summary>
+    public static void Focus(Control pane, TabRef? tab) { if (Focuses.TryGetValue(pane, out var focus)) focus(tab); }
+
     public static Control Create(IPluginUIContext context, string workspaceId)
     {
         CodexConfigSnapshot? snapshot = null;
@@ -77,11 +82,22 @@ public static class CodexPanel
         var scopeDetail = root.FindControl<TextBlock>("CodexConfigScopeDetail")!;
         var scopeFolder = root.FindControl<ContentControl>("CodexConfigScopeFolder")!;
         scopeFolder.Content = Ui.Icon("folder", Ui.Muted, 12);
-        var (session, activeTab) = Shown(context.Host(), workspaceId);
+        string? subject = null;
+        var (session, activeTab) = Shown(context.Host(), workspaceId, subject);
         var generation = 0;
         var snapshotKey = "";
         (Surface, string, string?)? rendered = null;
         Control? account = null;
+        Focuses.Add(root, tab =>
+        {
+            var next = (tab as TerminalTabRef)?.TabKey;
+            if (next == subject) return;
+            var (previousTab, previousCommand) = (session?.TabKey, session?.Agent?.Command);
+            subject = next;
+            (session, activeTab) = Shown(context.Host(), workspaceId, subject);
+            if (session?.TabKey != previousTab || session?.Agent?.Command != previousCommand) Refresh();
+            else Render();
+        });
         ShowTabs.Add(root, tab => { var next = (Surface)(int)tab; if (next == surface) return; surface = next; Render(); });
         refresh.Click += (_, _) =>
         {
@@ -279,16 +295,16 @@ public static class CodexPanel
         IDisposable? watch = null;
         void Start()
         {
-            (session, activeTab) = Shown(context.Host(), workspaceId);
+            (session, activeTab) = Shown(context.Host(), workspaceId, subject);
             Render();
             Refresh();
             watch ??= context.WatchHost(host =>
             {
-                var (found, active) = Shown(host, workspaceId);
+                var (found, active) = Shown(host, workspaceId, subject);
                 return (found?.TabKey, found?.Title, found?.Agent?.Command, active?.TabKey, active?.Title);
             }, (next, previous) =>
             {
-                (session, activeTab) = Shown(context.Host(), workspaceId);
+                (session, activeTab) = Shown(context.Host(), workspaceId, subject);
                 if (next.Item1 != previous.Item1 || next.Item3 != previous.Item3) Refresh();
                 else Render();
             });
@@ -301,8 +317,8 @@ public static class CodexPanel
             workspaceId = next;
             // Rejects the old workspace's reads; the key comparison below would otherwise keep a stale body on screen.
             generation++;
-            snapshot = null; snapshotKey = ""; error = null; surface = Surface.Context; rendered = null;
-            (session, activeTab) = Shown(context.Host(), workspaceId);
+            snapshot = null; snapshotKey = ""; error = null; surface = Surface.Context; rendered = null; subject = null;
+            (session, activeTab) = Shown(context.Host(), workspaceId, subject);
             Render();
             // The host watch compares against the old workspace's tab, so it is registered again for the new one.
             watch?.Dispose(); watch = null;
@@ -315,10 +331,14 @@ public static class CodexPanel
         return root;
     }
 
-    private static (TerminalTabInfo? Session, TerminalTabInfo? Active) Shown(PluginHostProjection host, string workspaceId)
+    private static (TerminalTabInfo? Session, TerminalTabInfo? Active) Shown(PluginHostProjection host, string workspaceId, string? subject)
     {
         var tabs = host.Terminals.GetValueOrDefault(workspaceId) ?? [];
-        var shown = (host.ShownTerminalTabKeys.GetValueOrDefault(workspaceId) ?? []).Select(key => tabs.FirstOrDefault(tab => tab.TabKey == key))
+        var shownKeys = host.ShownTerminalTabKeys.GetValueOrDefault(workspaceId) ?? [];
+        // Pinned only while its tab is still visible: a terminal hidden behind an editor is no longer what the user looks at.
+        var pinned = subject is null || !shownKeys.Contains(subject) ? null : tabs.FirstOrDefault(tab => tab.TabKey == subject && tab.Agent?.Kind == CodexManifest.Id);
+        if (pinned is not null) return (pinned, pinned);
+        var shown = shownKeys.Select(key => tabs.FirstOrDefault(tab => tab.TabKey == key))
             .OfType<TerminalTabInfo>().ToArray();
         return (shown.FirstOrDefault(tab => tab.Agent?.Kind == CodexManifest.Id), shown.FirstOrDefault());
     }

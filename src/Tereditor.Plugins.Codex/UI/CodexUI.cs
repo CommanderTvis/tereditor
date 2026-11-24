@@ -134,7 +134,8 @@ public sealed class CodexUI : PluginUIModule
             Owns = tab => tab is TerminalTabRef terminal && context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
                 .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == CodexManifest.Id,
             Retarget = CodexPanel.Retarget,
-            ShowTab = CodexPanel.ShowTab
+            ShowTab = CodexPanel.ShowTab,
+            Focus = CodexPanel.Focus
         });
 
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("codex-launch", (workspace, group) =>

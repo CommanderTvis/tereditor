@@ -834,7 +834,7 @@ public sealed partial class WorkbenchWindow
         if (workspace != workspaceRoot || !Layout.IsToolAvailable(tool)) return;
         var group = Layout.State.Groups.FirstOrDefault(item => item.Tools.Any(tab => tab.Id == tool));
         if (group is null) Layout.RestoreTool(tool);
-        else { Layout.Visible(group.Region, true); if (group.Folded) Layout.Fold(group.Id); Layout.Select(group.Id, tool); }
+        else { Layout.Visible(group.Region, true); if (group.Folded) Layout.Fold(group.Id); if (Layout.View.Selected.GetValueOrDefault(group.Id) != tool) Layout.Reseat(group.Id, tool); Layout.Select(group.Id, tool); }
     }
 
     internal void SetDiffScope(string workspace, GitDiffScope scope)

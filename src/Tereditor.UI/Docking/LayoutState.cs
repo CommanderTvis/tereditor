@@ -394,13 +394,13 @@ public sealed class DockState
     {
         var center = new DockGroup();
         var left = new DockGroup { Region = "left", Tools = [Tool("projects")] };
-        var top = new DockGroup { Region = "right", Tools = [Tool(SpecsTool), Tool("files")], Weight = 1.25 };
+        var top = new DockGroup { Region = "right", Tools = [Tool(SpecsTool), Tool("files"), Tool("agent")], Weight = 1.25 };
         var lower = new DockGroup { Region = "right", Tools = [Tool(ReviewTool)] };
         var state = new DockState { Center = new() { GroupId = center.Id }, Groups = [center, left, top, lower] };
         if (name == "focus") state.LeftVisible = state.RightVisible = false;
         if (name == "review")
         {
-            top.Tools = [Tool(ReviewTool)]; top.Weight = 1.4;
+            top.Tools = [Tool(ReviewTool), Tool("agent")]; top.Weight = 1.4;
             lower.Tools = [Tool(SpecsTool), Tool("files")];
             state.LeftWidth = .16; state.RightWidth = .32;
         }

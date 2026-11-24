@@ -162,6 +162,8 @@ internal static class ClaudeCodeChecks
         File.WriteAllText(Path.Combine(app.Root, "CLAUDE.local.md"), "# Local instructions with a long enough row\n");
         AgentPaneChecks.Show(app, "claude");
         E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "ClaudeConfigPanel"));
+        // The pane sits in the layout from the start, so it read the folder before these files existed: reading again is the user's refresh.
+        app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeConfigRefresh"));
         E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "ClaudeContextTotal"));
         app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_capabilities"));
         E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "ClaudeLspCapability"));

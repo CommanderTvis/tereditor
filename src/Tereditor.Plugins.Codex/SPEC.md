@@ -36,7 +36,7 @@ invitation is excluded by the tereditor product contract; a Codex chat component
   an old `--no-daemon` or `--remote unix://` and re-decides; other `--remote` endpoints and a custom-argument
   `--remote`/`--no-daemon` are kept and not doubled. Windows has no Unix socket and always stays standalone.
 
-- Codex fills the Agent pane (`AgentPaneRegistration` `codex`, owned by Codex terminals) with the Context, Settings, Capabilities and Account tabs; the pane draws the switcher. Trust gates the
+- Codex fills the Agent pane (`AgentPaneRegistration` `codex`, owned by Codex terminals; the focused terminal is the session the tabs describe, through `Focus`) with the Context, Settings, Capabilities and Account tabs; the pane draws the switcher. Trust gates the
   project TOML layer; source provenance and shadowed values remain visible. Edits preserve comments
   and bookkeeping and reject changes beyond the requested leaf. Instructions follow override/base
   precedence and never overwrite existing files. External file access uses the generic plugin API.

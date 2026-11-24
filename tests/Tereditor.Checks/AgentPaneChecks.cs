@@ -4,6 +4,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
 using Tereditor.Checks.E2E;
+using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
 using Tereditor.UI.Panels;
 
@@ -30,7 +31,8 @@ internal static class AgentPaneChecks
             _ = app.Workbench.State.ChangeAsync(Tereditor.Host.Abstractions.HostStateChange.PluginSettings(plugin, json.ToJsonString()));
         }
         app.Window.RevealToolFor(app.Window.WorkspaceRoot, "agent");
-        try { Until(() => Find<ToggleButton>(app, "AgentChip_" + chip) is not null); }
+        // The pane can sit in the layout before the plugins finish loading, and its chips are rebuilt as agents become usable: click once they match what is offered.
+        try { Until(() => Find<AgentPane>(app, "AgentPane") is { } shown && Chips(shown).SequenceEqual(shown.Offered().Select(offer => offer.Row.Value.Id)) && Chips(shown).Contains(chip)); }
         catch (InvalidOperationException)
         {
             Dispatcher.UIThread.RunJobs();
@@ -75,6 +77,7 @@ internal static class AgentPaneChecks
         var shownTabs = new List<string>();
         var codexUsable = true;
         var acpPicked = new List<string?>();
+        var subjects = new List<string>();
         string[] acpAgents = ["copilot", "junie"];
         void Add(string plugin, string id, Func<TabRef, bool> owns, Func<TabRef, string?>? sub = null, Func<bool>? usable = null, bool picker = false)
         {
@@ -85,14 +88,15 @@ internal static class AgentPaneChecks
                 Owns = owns,
                 SubAgentOf = sub,
                 ShowTab = (_, tab) => shownTabs.Add(id + ":" + tab),
+                Focus = (_, tab) => subjects.Add(id + ":" + tab switch { TerminalTabRef terminal => terminal.TabKey, PluginDocumentTabRef chat => chat.Id, _ => "?" }),
                 SubAgents = picker ? _ => [.. acpAgents.Select(agent => new AgentSubAgent(agent, agent))] : null,
                 SelectSubAgent = picker ? (_, agent) => acpPicked.Add(agent) : null
             });
         }
         // Registered out of order on purpose: the row keeps the fixed order.
         Add("acp", "acp", tab => tab is PluginDocumentTabRef { Scheme: "acp-chat" }, tab => tab is PluginDocumentTabRef chat ? chat.Id : null, picker: true);
-        Add("codex", "codex", tab => tab is TerminalTabRef { TabKey: "codex-tab" }, usable: () => codexUsable);
-        Add("claude-code", "claude", tab => tab is TerminalTabRef { TabKey: "claude-tab" } or PluginDocumentTabRef { Scheme: "claude-chat" });
+        Add("codex", "codex", tab => tab is TerminalTabRef { TabKey: "codex-tab" or "codex-tab-2" }, usable: () => codexUsable);
+        Add("claude-code", "claude", tab => tab is TerminalTabRef { TabKey: "claude-tab" or "claude-tab-2" } or PluginDocumentTabRef { Scheme: "claude-chat" });
         (string Key, TabRef Tab)? focus = null;
         var pane = new AgentPane(registry, () => "/w", () => focus, (_, create) => new ContentControl { Content = create() });
         var window = new Window { Content = pane, Width = 400, Height = 600 };
@@ -126,6 +130,20 @@ internal static class AgentPaneChecks
         Require(Checked(pane) == "acp" && picker.IsVisible && ((AgentSubAgent)picker.SelectedItem!).Id == "junie" && acpPicked.Last() == "junie", "A focused ACP chat shows the ACP chip and its agent in the picker.");
         focus = ("w|5", new PluginDocumentTabRef("/w", "acp-chat", "copilot")); pane.Sync();
         Require(((AgentSubAgent)picker.SelectedItem!).Id == "copilot" && acpPicked.Last() == "copilot", "Another ACP chat moves the picker.");
+        // Two sessions of one agent: the content is told which one is focused, once, and keeps it while focus is on anything else.
+        focus = ("w|6", new TerminalTabRef("/w", "claude-tab")); pane.Sync();
+        Require(subjects.Last() == "claude:claude-tab", "Focusing a Claude terminal tells the Claude content which session it is: " + string.Join(",", subjects));
+        var told = subjects.Count;
+        pane.Sync();
+        Require(subjects.Count == told, "Reporting the same focused tab again does not tell the content twice.");
+        focus = ("w|7", new TerminalTabRef("/w", "claude-tab-2")); pane.Sync();
+        Require(Checked(pane) == "claude" && subjects.Last() == "claude:claude-tab-2" && subjects.Count == told + 1, "Focusing a second session of the same agent changes the content's subject.");
+        focus = ("w|8", new FileTabRef("/w", EditorKind.File, "c.cs")); pane.Sync();
+        Require(subjects.Count == told + 1, "Focusing a file leaves the content on its last session.");
+        focus = ("w|9", new PluginDocumentTabRef("/w", "claude-chat", "chat-1")); pane.Sync();
+        Require(subjects.Last() == "claude:chat-1", "A focused chat of the agent is the subject too.");
+        focus = ("w|10", new TerminalTabRef("/w", "codex-tab-2")); pane.Sync();
+        Require(subjects.Last() == "codex:codex-tab-2" && !subjects.Skip(told + 2).Any(entry => entry.StartsWith("claude:", StringComparison.Ordinal)), "A Codex tab goes to the Codex content only.");
         Click(pane, "AgentChip_codex");
         Require(!picker.IsVisible, "The picker shows only for an agent that has sub-agents.");
         registry.RemovePlugin("claude-code");
@@ -138,7 +156,50 @@ internal static class AgentPaneChecks
     internal static void Run(string root)
     {
         State();
+        Presets();
         Compose();
+    }
+
+    /// <summary>Every layout preset seats the Agent pane in the right rail, where the old Claude Code, Codex and Pi panes were opened.</summary>
+    internal static void Presets()
+    {
+        foreach (var name in new[] { "balanced", "focus", "review" })
+        {
+            var state = Tereditor.UI.Docking.DockState.Preset(name);
+            Require(state.Groups.Count(group => group.Region == "right" && group.Tools.Any(tool => tool.Id == "agent")) == 1, $"The {name} preset seats the Agent pane once, on the right.");
+            Require(Tereditor.UI.Docking.DockState.RetiredToolIds.All(id => state.Groups.All(group => group.Tools.All(tool => tool.Id != id))), $"The {name} preset holds no retired agent pane.");
+        }
+        Console.WriteLine("PASS agent pane presets: seated in the right rail of every preset");
+    }
+
+    /// <summary>
+    /// Two sessions of one real agent in a workspace: the pane's content describes the focused tab's session, not the first shown one.
+    /// </summary>
+    internal static void FollowsSessions(E2eWorkspace app)
+    {
+        var layout = app.Window.Layout;
+        string[] ids = ["agent-session-one", "agent-session-two"];
+        foreach (var id in ids)
+        {
+            layout.NewTerminal(app.Center, id);
+            Until(() => app.Window.GetLogicalDescendants().OfType<Tereditor.UI.Terminal.TerminalView>().Any(view => view.Launch.TabKey == id));
+            app.State!.SetTerminalAgent(new TerminalRef(app.Root, id), new("claude", "sh"));
+        }
+        var pane = Show(app, "claude");
+        var content = pane.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "ClaudeConfigPanel");
+        var focus = app.Workbench.PluginLoader!.Registry.AgentPanes.Single(row => row.PluginId == "claude-code" && row.Value.Id == "claude").Value.Focus!;
+        string Heading() => Find<StackPanel>(app, "ClaudeConfigScope") is { Tag: "session" } scope ? scope.GetLogicalDescendants().OfType<TextBlock>().First().Text ?? "" : "";
+        // Side by side, both sessions are shown; the focused one must win over whichever the host lists first.
+        layout.GroupTabs(app.Center, ids[0], ids[1], "horizontal");
+        Until(() => Heading().Length > 0);
+        focus(content, new TerminalTabRef(app.Root, ids[0]));
+        var first = Heading();
+        focus(content, new TerminalTabRef(app.Root, ids[1]));
+        var second = Heading();
+        Require(first.Length > 0 && second.Length > 0 && first != second, $"Each focused session of the agent is the one its Context tab describes: '{first}' and '{second}'.");
+        focus(content, new PluginDocumentTabRef(app.Root, "claude-chat", "chat-1"));
+        Require(Find<StackPanel>(app, "ClaudeConfigScope") is { Tag: "workspace" }, "A focused chat describes the workspace.");
+        Console.WriteLine("PASS agent pane follows the focused session of one agent");
     }
 
     /// <summary>The state machine alone: follow, manual choice, keeping the chip on a non-agent tab.</summary>

@@ -59,6 +59,9 @@ internal sealed class AgentPane : DockPanel
     private readonly Func<string, Func<Control>, Control> mount;
     private readonly Dictionary<string, AgentPaneState> states = [];
     private readonly Dictionary<string, (Control Content, Control Host, string Workspace)> contents = [];
+    // The tab last handed to each agent's content, so a repeated report is not sent again.
+    private readonly Dictionary<string, TabRef> subjects = [];
+    private TabRef? focusTab;
     private readonly WrapPanel chips = new() { Name = "AgentChips", Margin = new Thickness(8, 4, 8, 0) };
     private readonly StackPanel tabs = new() { Name = "AgentTabs", Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4) };
     private readonly ComboBox picker = new() { Name = "AgentSubAgents", Margin = new Thickness(8, 4, 8, 0), HorizontalAlignment = HorizontalAlignment.Stretch, IsVisible = false };
@@ -127,8 +130,10 @@ internal sealed class AgentPane : DockPanel
     {
         var offered = Offered();
         var state = State;
+        focusTab = null;
         if (focused() is { } focus)
         {
+            focusTab = focus.Tab;
             string? owner = null, sub = null;
             foreach (var (key, row) in offered)
                 if (row.Value.Owns is { } owns && Safely(() => owns(focus.Tab)))
@@ -194,6 +199,7 @@ internal sealed class AgentPane : DockPanel
             var kept = shown.Value.Retarget is { } retarget && Safe(() => retarget(held.Content, current));
             if (kept) contents[shownChip] = held with { Workspace = current };
             else contents.Remove(shownChip);
+            subjects.Remove(shownChip);
         }
         if (!contents.TryGetValue(shownChip, out held))
         {
@@ -201,10 +207,21 @@ internal sealed class AgentPane : DockPanel
             var content = host is ContentControl { Content: Control inner } ? inner : host;
             contents[shownChip] = held = (content, host, current);
             appliedSub = null; pickerKey = "";
+            subjects.Remove(shownChip);
         }
+        Follow(shownChip, shown, held.Content);
         ShowPicker(shown, state, current, held.Content);
         if (shown.Value.ShowTab is { } show) { try { show(held.Content, state.Tab); } catch (Exception error) { Console.Error.WriteLine("Agent pane tab failed: " + error.Message); } }
         if (!ReferenceEquals(body.Content, held.Host)) body.Content = held.Host;
+    }
+
+    // The content describes the focused tab's session while that tab is the agent's own; any other focus leaves it on the last one.
+    private void Follow(string chip, PluginRow<AgentPaneRegistration> row, Control content)
+    {
+        if (focusTab is not { } tab || row.Value.Focus is not { } focus || row.Value.Owns is not { } owns || !Safely(() => owns(tab))) return;
+        if (subjects.TryGetValue(chip, out var applied) && applied == tab) return;
+        subjects[chip] = tab;
+        try { focus(content, tab); } catch (Exception error) { Console.Error.WriteLine("Agent pane focus failed: " + error.Message); }
     }
 
     private static bool Safe(Func<bool> read)

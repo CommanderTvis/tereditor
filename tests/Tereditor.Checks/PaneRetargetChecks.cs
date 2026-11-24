@@ -36,17 +36,19 @@ internal static class PaneRetargetChecks
     }
 
     // The handlers on the events a pane may subscribe to: a leak shows as growth after many retargets.
-    private static int Handlers(E2eWorkspace app)
+    private static int Handlers(E2eWorkspace app) => HandlerCounts(app).Sum();
+
+    private static int[] HandlerCounts(E2eWorkspace app)
     {
         static int Count(object? owner, Type type, string name)
         {
             var field = type.GetField(name, BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
             return (field?.GetValue(owner) as Delegate)?.GetInvocationList().Length ?? 0;
         }
-        return Count(app.Workbench, typeof(Tereditor.UI.Workbench), "ProjectionChanged") +
-            Count(app.Workbench.PluginRegistry, typeof(Tereditor.UI.Plugins.PluginRegistry), "Changed") +
-            Count(app.Workbench.State, typeof(Tereditor.UI.State.SharedState), "Changed") +
-            Count(null, typeof(Ui), "ThemeChanged");
+        return [Count(app.Workbench, typeof(Tereditor.UI.Workbench), "ProjectionChanged"),
+            Count(app.Workbench.PluginRegistry, typeof(Tereditor.UI.Plugins.PluginRegistry), "Changed"),
+            Count(app.Workbench.State, typeof(Tereditor.UI.State.SharedState), "Changed"),
+            Count(null, typeof(Ui), "ThemeChanged")];
     }
 
     /// <summary>The instruction sections update their rows in place: same controls, open disclosures and text kept, only the changed part differs.</summary>
@@ -151,6 +153,7 @@ internal static class PaneRetargetChecks
         Settle(600);
         Require(omp.GetLogicalDescendants().OfType<Control>().Where(item => item.Name == "OmpContextRow").SequenceEqual(ompRows), "An identical omp context read must keep its rows.");
         var before = Handlers(app);
+        var beforeCounts = string.Join("/", HandlerCounts(app));
 
         var others = new[] { b, c, a };
         var visited = new Dictionary<string, HashSet<Control>>(tools.ToDictionary(item => item.Tool, _ => new HashSet<Control>(ReferenceEqualityComparer.Instance)));
@@ -172,9 +175,13 @@ internal static class PaneRetargetChecks
             }
         }
         Settle(300);
+        // The handlers depend on which agent's content is attached, so count with the same chip showing as before.
+        Show(tools[0].Tool, tools[0].Name);
+        Settle(300);
         foreach (var (tool, _) in tools) Require(visited[tool].Count == 1, $"{tool} must be one instance over 21 switches, saw {visited[tool].Count}.");
         var after = Handlers(app);
-        Require(after <= before, $"Handlers on the shared events must not grow over 21 retargets: {before} became {after}.");
+        Require(after <= before, $"Handlers on the shared events must not grow over 21 retargets: {before} ({beforeCounts}) became {after} ({string.Join("/", HandlerCounts(app))}).");
+        AgentPaneChecks.FollowsSessions(app);
         Console.WriteLine($"PASS pane retarget: one instance per tool over 21 switches across projects, content per workspace, handlers {before} -> {after}");
     }
 }

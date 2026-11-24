@@ -564,7 +564,7 @@ Git diff tabs do not represent unsaved proposed content, so `FILE_SAVED` and `DI
 nothing to stand on yet. `closeAllDiffTabs`, which the CLI sends on every submitted prompt, closes
 nothing: every open diff or Changes tab is the user's own, since `openDiff` opens none. `getDiagnostics` and `executeCode` are not offered.
 
-UI contributions are the Claude Code content of the Agent pane (Context/Settings/Capabilities/Account tabs, owned by Claude terminals and `claude-chat` documents; a focused chat shows workspace-level Context), compiled settings section,
+UI contributions are the Claude Code content of the Agent pane (Context/Settings/Capabilities/Account tabs, owned by Claude terminals and `claude-chat` documents; a focused terminal pins that session's Context, MCP and usage reads through `Focus`, and a focused chat shows workspace-level Context: the chat host exposes no model, effort or permission mode to the pane), compiled settings section,
 workspace launcher, generic `claude` launcher, status tab decorations and one terminal accessory
 combining facts, model/effort chips, plan, tokens, attach and session `/ide` switch, and a terminal tab menu
 item, Copy session ID (Plugin API W26), offered while the tab's agent record is Claude's and has a session id and copying

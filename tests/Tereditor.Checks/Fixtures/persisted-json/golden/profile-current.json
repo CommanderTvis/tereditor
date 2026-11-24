@@ -151,6 +151,16 @@
                 "Scope": "",
                 "Comparison": "",
                 "IsTool": true
+              },
+              {
+                "Id": "agent",
+                "Title": "Agent",
+                "Kind": "tool",
+                "Path": "",
+                "Preview": false,
+                "Scope": "",
+                "Comparison": "",
+                "IsTool": true
               }
             ],
             "Folded": false,

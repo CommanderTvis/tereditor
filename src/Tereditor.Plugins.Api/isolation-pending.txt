@@ -129,5 +129,6 @@ P:Tereditor.Plugins.Api.UI.SideToolRegistration.Retarget
 P:Tereditor.Plugins.Api.UI.AgentPaneRegistration.Owns
 P:Tereditor.Plugins.Api.UI.AgentPaneRegistration.SubAgentOf
 P:Tereditor.Plugins.Api.UI.AgentPaneRegistration.ShowTab
+P:Tereditor.Plugins.Api.UI.AgentPaneRegistration.Focus
 P:Tereditor.Plugins.Api.UI.AgentPaneRegistration.Retarget
 P:Tereditor.Plugins.Api.UI.AgentPaneRegistration.SelectSubAgent

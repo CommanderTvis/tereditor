@@ -1198,6 +1198,8 @@ Tereditor.Plugins.Api.UI.AgentPaneRegistration.Owns.get -> System.Func<Tereditor
 Tereditor.Plugins.Api.UI.AgentPaneRegistration.Owns.init -> void
 Tereditor.Plugins.Api.UI.AgentPaneRegistration.Retarget.get -> System.Func<Avalonia.Controls.Control!, string!, bool>?
 Tereditor.Plugins.Api.UI.AgentPaneRegistration.Retarget.init -> void
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Focus.get -> System.Action<Avalonia.Controls.Control!, Tereditor.Plugins.Api.UI.TabRef?>?
+Tereditor.Plugins.Api.UI.AgentPaneRegistration.Focus.init -> void
 Tereditor.Plugins.Api.UI.AgentPaneRegistration.SelectSubAgent.get -> System.Action<Avalonia.Controls.Control!, string?>?
 Tereditor.Plugins.Api.UI.AgentPaneRegistration.SelectSubAgent.init -> void
 Tereditor.Plugins.Api.UI.AgentPaneRegistration.ShowTab.get -> System.Action<Avalonia.Controls.Control!, Tereditor.Plugins.Api.UI.AgentPaneTab>?

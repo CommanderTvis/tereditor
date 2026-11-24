@@ -49,6 +49,15 @@ public sealed record AgentPaneRegistration(string Id, string Label, string Icon,
     [PluginCrossing(PluginCrossing.Live, IsolatedShape = "called with the control the factory returned; the plugin process passes its own control")]
     public Action<Control, AgentPaneTab>? ShowTab { get; init; }
 
+    /// <summary>
+    /// Tells the control which of this agent's tabs (a terminal session or a chat it <see cref="Owns"/>) the user is looking at; the control then
+    /// shows that session's state in the four tabs. The pane calls it when focus moves to such a tab and keeps the last one while focus is on
+    /// anything else (the control may fall back to its default once that session is no longer shown); null returns the control to its default session. Called on the UI thread, again after the control is created or
+    /// retargeted, and does nothing when the tab is the one already shown.
+    /// </summary>
+    [PluginCrossing(PluginCrossing.Live, IsolatedShape = "called with the control the factory returned; the plugin process passes its own control")]
+    public Action<Control, TabRef?>? Focus { get; init; }
+
     /// <summary>Points the control at another workspace, with the meaning of <see cref="SideToolRegistration.Retarget"/>; false asks for a new control.</summary>
     [PluginCrossing(PluginCrossing.Live, IsolatedShape = "called with the control the factory returned; the plugin process passes its own control")]
     public Func<Control, string, bool>? Retarget { get; init; }

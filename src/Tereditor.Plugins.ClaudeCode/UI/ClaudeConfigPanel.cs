@@ -49,6 +49,8 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private int generation;
     private TerminalTabInfo? session;
     private TerminalTabInfo? activeTab;
+    // The tab the Agent pane says the user is looking at: null follows the first shown Claude, a terminal key pins that session, "" is a chat (no terminal).
+    private string? subject;
     private string settingsQuery = "";
     private bool showDocumented;
     private IDisposable? watch;
@@ -100,7 +102,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         workspaceId = next;
         generation++; usageGeneration++;
         usagePending = false; requestedAt = null;
-        snapshot = null; reached = []; error = null; contextUsage = null; session = activeTab = null;
+        snapshot = null; reached = []; error = null; contextUsage = null; session = activeTab = null; subject = null;
         snapshotKey = reachedKey = memoryKey = ""; settingsQuery = ""; surface = Surface.Context;
         expandedRows.Clear();
         collapsedGroups.Clear();
@@ -114,12 +116,32 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return true;
     }
 
-    // The session this pane describes: among the terminals the workspace shows, the first running Claude.
+    /// <summary>
+    /// Points the pane at the tab the Agent pane reports as focused (null: none of Claude's, so the first shown Claude is described).
+    /// A terminal pins that session; a chat has no terminal, so the pane shows the workspace's context.
+    /// </summary>
+    internal void Focus(TabRef? tab)
+    {
+        var next = tab switch { null => null, TerminalTabRef terminal => terminal.TabKey, _ => "" };
+        if (next == subject) return;
+        var (previousTab, previousCommand) = (session?.TabKey, session?.Agent?.Command);
+        subject = next;
+        (session, activeTab) = Shown(context.Host());
+        if (session?.TabKey != previousTab || session?.Agent?.Command != previousCommand) { Load(); LoadUsage(refresh: false); }
+        RenderScope();
+    }
+
+    // The session this pane describes: the focused tab's when the Agent pane pinned one, else among the terminals the workspace shows, the first running Claude.
     private (TerminalTabInfo? Session, TerminalTabInfo? Active) Shown(PluginHostProjection host)
     {
         var tabs = host.Terminals.GetValueOrDefault(workspaceId) ?? [];
-        var shown = (host.ShownTerminalTabKeys.GetValueOrDefault(workspaceId) ?? []).Select(key => tabs.FirstOrDefault(tab => tab.TabKey == key)).OfType<TerminalTabInfo>().ToArray();
-        return (shown.FirstOrDefault(tab => tab.Agent?.Kind == "claude"), shown.FirstOrDefault());
+        var shownKeys = host.ShownTerminalTabKeys.GetValueOrDefault(workspaceId) ?? [];
+        // Pinned only while its tab is still visible: a terminal hidden behind an editor is no longer what the user looks at.
+        var pinned = subject is { Length: > 0 } && shownKeys.Contains(subject) ? tabs.FirstOrDefault(tab => tab.TabKey == subject && tab.Agent?.Kind == "claude") : null;
+        if (pinned is not null) return (pinned, pinned);
+        var shown = shownKeys.Select(key => tabs.FirstOrDefault(tab => tab.TabKey == key)).OfType<TerminalTabInfo>().ToArray();
+        // A focused chat has no terminal: its context is the workspace's, whatever Claude terminal is also open.
+        return (subject == "" ? null : shown.FirstOrDefault(tab => tab.Agent?.Kind == "claude"), shown.FirstOrDefault());
     }
 
     private void Start()

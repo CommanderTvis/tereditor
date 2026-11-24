@@ -98,7 +98,8 @@ public sealed class ClaudeCodeUI : PluginUIModule
                 Hydrate(workspace);
                 return panel.Retarget(workspace);
             },
-            ShowTab = (pane, tab) => (pane as ClaudeConfigPanel)?.ShowTab(tab)
+            ShowTab = (pane, tab) => (pane as ClaudeConfigPanel)?.ShowTab(tab),
+            Focus = (pane, tab) => (pane as ClaudeConfigPanel)?.Focus(tab)
         });
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("claude-launch",
             (workspace, group) => ClaudeLauncherAction.Create(context, glyph, workspace, group, chat)));
