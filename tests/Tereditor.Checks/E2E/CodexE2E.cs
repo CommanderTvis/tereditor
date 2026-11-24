@@ -885,6 +885,12 @@ internal static class CodexE2E
         var view = Chip().GetLogicalAncestors().OfType<Tereditor.UI.Terminal.TerminalView>().First();
         E2eWorkspace.Until(() => view.ChipSettings.IsVisible);
         Require(new[] { "model", "usage", "plan", "ide", "attach" }.All(id => view.ChipKinds().Any(kind => kind.Id == id)), "the gear lists every Codex chip kind");
+        var codexLink = ((Panel)view.BuildChipMenu()).Children.OfType<Button>().Single(item => item.Name == "TerminalChipSettingsLink");
+        codexLink.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        E2eWorkspace.Until(() => codex.App.Window.OpenSettingsViews.Any());
+        Require(Texts(codexLink).Trim() == "Open Codex settings" && codex.App.Window.OpenSettingsViews.Single().Section == "plugin:codex:codex",
+            "the chip menu's link opens Codex's own Settings page");
+        codex.App.Window.OpenSettingsViews.Single().Close();
         _ = codex.App.Workbench.State.ChangeAsync(HostStateChange.Setting("terminal-hidden-chips", "model"));
         E2eWorkspace.Until(() => Find("model") is null);
         _ = codex.App.Workbench.State.ChangeAsync(HostStateChange.Setting("terminal-hidden-chips", ""));

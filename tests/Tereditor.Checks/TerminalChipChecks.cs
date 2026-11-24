@@ -68,6 +68,8 @@ internal static class TerminalChipChecks
                 toggles.All(box => box.IsChecked == true) && !showAll.IsEnabled,
                 "The popup lists every kind the rows can show, all checked; Show all is idle while none is hidden.");
 
+            Require(!list.Children.OfType<Button>().Any(button => button.Name == "TerminalChipSettingsLink"), "A terminal with no agent row has no Settings link in the chip menu.");
+
             // Two toggles in a row: the popup stays open, keeps its rows and applies both; it stays put while the gear moves.
             var popupAt = TopLevel.GetTopLevel(list)!.PointToScreen(new Point(0, 0));
             var gearBefore = gear.TranslatePoint(new Point(0, 0), flow)!.Value;
@@ -118,6 +120,21 @@ internal static class TerminalChipChecks
             var wideBottom = wide.TranslatePoint(new Point(0, wide.Bounds.Height), flow)!.Value.Y;
             Require(Math.Abs(gearAt.X - 8) < 1 && gearAt.Y >= wideBottom - 0.5 && strip.Bounds.Height > before + gear.Bounds.Height - 1,
                 $"With no room after the last chip the gear wraps to its own line at the row's start and the strip grows by it (gear at {gearAt}, chip bottom {wideBottom}, {strip.Bounds.Height} against {before}).");
+
+            // A row that shows an agent adds its Settings link under Show all; clicking it runs the row's action and closes the popup.
+            var opened = 0;
+            agent.SetValue(TerminalChips.LinkProperty, new TerminalChipLink("Open Test settings", () => opened++));
+            gear.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Settle(); window.UpdateLayout();
+            var linked = (Panel)terminal.ChipMenu!.Content!;
+            var link = linked.Children.OfType<Button>().Single(button => button.Name == "TerminalChipSettingsLink");
+            var showAllNow = linked.Children.OfType<Button>().Single(button => button.Name == "TerminalChipShowAll");
+            Require(linked.Children.IndexOf(link) > linked.Children.IndexOf(showAllNow) && link.HorizontalAlignment == HorizontalAlignment.Stretch &&
+                link.Padding == showAllNow.Padding && link.BorderThickness == default, "The agent's link sits below Show all, as wide and padded like it, without its border.");
+            link.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Settle();
+            Require(opened == 1 && !terminal.ChipMenu.IsOpen, "Clicking the link runs the agent's open action once and closes the popup.");
+            agent.SetValue(TerminalChips.LinkProperty, null);
 
             // The stored setting's form: comma-separated ids, empty for none.
             Require(TerminalView.HiddenChipIds("env/env-mise,model").SequenceEqual(["env/env-mise", "model"]) && TerminalView.HiddenChipIds("").Count == 0, "The stored setting reads back as its ids.");

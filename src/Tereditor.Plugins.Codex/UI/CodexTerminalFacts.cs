@@ -116,6 +116,7 @@ public sealed class CodexTerminalFacts : ContentControl
         if (signature == shown) return;
         shown = signature;
         SetValue(TerminalChips.KindsProperty, isCodex ? ChipKinds : null);
+        SetValue(TerminalChips.LinkProperty, isCodex ? new TerminalChipLink("Open Codex settings", () => context.OpenSettings(UiPages.PluginSection(context.Id))) : null);
         Content = isCodex ? Row(state, ide) : null;
     }
 

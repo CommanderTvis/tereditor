@@ -136,6 +136,12 @@ internal static class ClaudeCodeChecks
         Require(!Marked(), "A plain shell must not wear the Claude mark.");
         app.State.SetTerminalAgent(terminalRef, new("claude", "/usr/bin/false"));
         E2eWorkspace.Until(() => backend.AgentNewline && Marked());
+        E2eWorkspace.Until(() => terminalView.ChipSettings.IsVisible);
+        var claudeLink = ((Panel)terminalView.BuildChipMenu()).Children.OfType<Button>().Single(item => item.Name == "TerminalChipSettingsLink");
+        claudeLink.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        E2eWorkspace.Until(() => app.Window.OpenSettingsViews.Any());
+        Require(app.Window.OpenSettingsViews.Single().Section == "plugin:claude-code:claude-code", "The chip menu's link opens Claude Code's own Settings page.");
+        app.Window.OpenSettingsViews.Single().Close();
         string[] Mentions(FileActionTarget target) => [.. registry.FileActionsFor(target).Where(offer => offer.PluginId == "claude-code").Select(offer => offer.Label)];
         E2eWorkspace.Until(() => Mentions(new(app.Root, "README.md", false)) is ["Mention file in Claude Code"]);
         Require(Mentions(new(app.Root, "README.md", false) { StartLine = 2, EndLine = 4 }) is ["Mention lines 2–4 in Claude Code"] &&

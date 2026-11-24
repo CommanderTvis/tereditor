@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 
@@ -125,7 +126,7 @@ public sealed partial class TerminalView
         ChipMenu.ShowAt(this);
     }
 
-    /// <summary>One check per chip kind of this terminal, then Show all. Each change applies at once and leaves the popup open.</summary>
+    /// <summary>One check per chip kind of this terminal, then Show all and, when a row offers one, its link (an agent's Settings). Each change applies at once and leaves the popup open.</summary>
     internal Control BuildChipMenu()
     {
         chipToggles.Clear();
@@ -148,6 +149,16 @@ public sealed partial class TerminalView
         showAllChips.Name = "TerminalChipShowAll";
         showAllChips.HorizontalAlignment = HorizontalAlignment.Stretch;
         list.Children.Add(showAllChips);
+        if (Accessories.GetLogicalDescendants().OfType<Control>().Select(control => control.GetValue(TerminalChips.LinkProperty)).FirstOrDefault(found => found is not null) is { } link)
+        {
+            list.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 2), Background = Ui.BorderBrush });
+            var open = Ui.Button(link.Label, () => { ChipMenu?.Hide(); link.Open(); });
+            open.Name = "TerminalChipSettingsLink";
+            open.HorizontalAlignment = HorizontalAlignment.Stretch;
+            open.BorderThickness = new Thickness(0);
+            open.Background = Brushes.Transparent;
+            list.Children.Add(open);
+        }
         RefreshChipToggles();
         return list;
     }

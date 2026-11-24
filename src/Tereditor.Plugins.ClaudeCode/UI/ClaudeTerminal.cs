@@ -137,6 +137,7 @@ internal sealed class ClaudeTerminalAccessory : StackPanel
     {
         var claude = RunsClaude;
         SetValue(TerminalChips.KindsProperty, claude ? ChipKinds : null);
+        SetValue(TerminalChips.LinkProperty, claude ? new TerminalChipLink("Open Claude Code settings", () => context.OpenSettings(UiPages.PluginSection(context.Id))) : null);
         launchNotice.IsVisible = claude && Agent(context.Host())?.LaunchedByUi == false;
         terminal.SetKeyEncoding(claude ? TerminalKeyEncoding.AgentNewline : TerminalKeyEncoding.Default);
         if (claude && store.IdeContext(terminal.WorkspaceId, terminal.TabKey) is null) store.SetIdeContext(terminal.WorkspaceId, terminal.TabKey, true);

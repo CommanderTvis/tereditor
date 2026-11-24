@@ -32,7 +32,7 @@ A gear chip ("Choose chips") is the last chip of the strip: it sits right after 
 chip gap after it, and moves with the flow as chips show, hide or wrap. When that line has no room left it wraps to a line of its
 own at the row's start; with every chip hidden it is the strip's only chip, where the first chip would be. It opens a popup with
 one check per chip kind the terminal's rows can show, present now or not (each row declares its kinds and tags its chips with
-`TerminalChips`), then Show all. The popup stays open while the user toggles, so several chips change in one go; it closes on a
+`TerminalChips`), then Show all and, below a separator, a quiet link of the same width to the Settings page of the terminal's agent ("Open Claude Code settings", "Open Codex settings"; the agent's row offers it through `TerminalChips.LinkProperty`, so a terminal with no such agent shows none). The link closes the popup and opens that Settings page through the plugin context. The popup stays open while the user toggles, so several chips change in one go; it closes on a
 click outside, Escape or the gear. Its checks update in place, also when the set changes from another client, and it stays
 where it opened when the gear moves. Unchecking a kind hides it at once in this terminal and, through the
 `terminal-hidden-chips` host setting every client shares, in every terminal; Show all clears the set. A window skips the

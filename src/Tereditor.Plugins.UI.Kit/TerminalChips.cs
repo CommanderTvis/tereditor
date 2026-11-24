@@ -8,6 +8,11 @@ namespace Tereditor.Plugins.UI.Kit;
 /// <param name="Label">The name the chip menu shows.</param>
 public sealed record TerminalChipKind(string Id, string Label);
 
+/// <summary>A link the strip's chip menu shows under Show all, such as the way to an agent's Settings page.</summary>
+/// <param name="Label">The text of the link.</param>
+/// <param name="Open">Runs when the user clicks it; the menu closes first.</param>
+public sealed record TerminalChipLink(string Label, Action Open);
+
 /// <summary>
 /// How a terminal accessory row tells the strip what its chips are, so the user can choose which ones show. A row tags each
 /// chip (the control that carries the chip's gap) with <see cref="IdProperty"/> and declares every kind it can show, present
@@ -24,6 +29,10 @@ public sealed class TerminalChips : AvaloniaObject
     /// <summary>The chip kinds this row can show, in its order; null or empty while it shows none (for example, the terminal does not run its agent).</summary>
     public static readonly AttachedProperty<IReadOnlyList<TerminalChipKind>?> KindsProperty =
         AvaloniaProperty.RegisterAttached<TerminalChips, Control, IReadOnlyList<TerminalChipKind>?>("Kinds");
+
+    /// <summary>The link this row adds to the chip menu; null while the row does not show an agent.</summary>
+    public static readonly AttachedProperty<TerminalChipLink?> LinkProperty =
+        AvaloniaProperty.RegisterAttached<TerminalChips, Control, TerminalChipLink?>("Link");
 
     /// <summary>Tags <paramref name="control"/> as the chip <paramref name="id"/> and returns it.</summary>
     public static T Tag<T>(T control, string id) where T : Control
