@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
@@ -251,6 +252,7 @@ internal sealed class ProvidersPage : StackPanel
             warning.TextWrapping = TextWrapping.Wrap;
             panel.Children.Add(warning);
         }
+        if (provider.Apis.Count > 0) panel.Children.Add(ApiUrls(provider));
         var column = new ApiKeyRow(provider.Name,
             secret => Load(() => context.RequestAsync(ProvidersContract.SaveModelKey, new SaveModelKeyParams(provider.Id, secret)).AsTask()),
             () => Load(() => context.RequestAsync(ProvidersContract.RemoveModelKey, new ModelProviderParams(provider.Id)).AsTask()))
@@ -266,6 +268,38 @@ internal sealed class ProvidersPage : StackPanel
         if (provider.Id == "anthropic") panel.Children.Add(Credits(ProviderCatalog.AnthropicCredits, ProviderCatalog.AnthropicCreditsUrl, "About API credits for subscribers"));
         else if (provider.Id == "google") panel.Children.Add(Credits(ProviderCatalog.GoogleCredits, ProviderCatalog.GoogleCreditsUrl, "About Google credits"));
         return panel;
+    }
+
+    // One address per API, each with its own label. A custom provider's addresses can be edited here (Enter or leaving the field saves); others are shown as read-only text.
+    private Control ApiUrls(ProviderDefinition provider)
+    {
+        var list = new StackPanel { Name = "ModelProviderApiUrls", Spacing = 4 };
+        foreach (var api in provider.Apis.Where(api => api.Kind is not (ModelApiKinds.Bedrock or ModelApiKinds.Vertex)))
+        {
+            var label = Ui.Text(Label(api.Kind), Ui.Muted, 12);
+            if (!(provider.Custom && provider.Contributor is null))
+            {
+                var shown = Ui.Text(api.BaseUrl, Ui.TextBrush, 12);
+                shown.Name = "ModelProviderApiUrl_" + api.Kind;
+                shown.TextWrapping = TextWrapping.Wrap;
+                list.Children.Add(label);
+                list.Children.Add(shown);
+                continue;
+            }
+            var box = new TextBox { Text = api.BaseUrl, Name = "ModelProviderApiUrl_" + api.Kind };
+            AutomationProperties.SetName(box, Label(api.Kind) + " address");
+            void Save()
+            {
+                var text = (box.Text ?? "").Trim();
+                if (text.Length == 0 || text == api.BaseUrl) { box.Text = api.BaseUrl; return; }
+                Load(() => context.RequestAsync(ProvidersContract.SetCustomApiUrl, new SetCustomApiUrlParams(provider.Id, api.Kind, text)).AsTask());
+            }
+            box.KeyDown += (_, e) => { if (e.Key == Key.Enter) Save(); };
+            box.LostFocus += (_, _) => Save();
+            list.Children.Add(label);
+            list.Children.Add(box);
+        }
+        return list;
     }
 
     // Where a subscriber gets API credit: a plain note and a link that opens in the system browser.
@@ -290,9 +324,23 @@ internal sealed class ProvidersPage : StackPanel
         AutomationProperties.SetName(key, "API key for the custom provider");
         panel.Children.Add(name);
         panel.Children.Add(url);
-        panel.Children.Add(Ui.Text("The APIs this address speaks:", Ui.Muted, 12));
+        panel.Children.Add(Ui.Text("The APIs it speaks. Each has its own address; it starts as the one above.", Ui.Muted, 12));
         var boxes = CustomKinds.Select(kind => new CheckBox { Content = Label(kind), Tag = kind, Name = "CustomKind-" + kind }).ToList();
-        foreach (var box in boxes) panel.Children.Add(box);
+        var addresses = new Dictionary<string, TextBox>();
+        var edited = new HashSet<string>();
+        foreach (var box in boxes)
+        {
+            var kind = (string)box.Tag!;
+            var address = new TextBox { Name = "CustomUrl-" + kind, IsVisible = false, Margin = new Thickness(24, 0, 0, 0), PlaceholderText = "address of the " + Label(kind) + " API" };
+            AutomationProperties.SetName(address, Label(kind) + " address");
+            address.TextChanged += (_, _) => { if (address.IsFocused) edited.Add(kind); };
+            addresses[kind] = address;
+            box.IsCheckedChanged += (_, _) => address.IsVisible = box.IsChecked == true;
+            panel.Children.Add(box);
+            panel.Children.Add(address);
+        }
+        // An address the user has not typed in follows the main one.
+        url.TextChanged += (_, _) => { foreach (var (kind, address) in addresses) if (!edited.Contains(kind)) address.Text = url.Text; };
         panel.Children.Add(key);
         void Add()
         {
@@ -301,7 +349,11 @@ internal sealed class ProvidersPage : StackPanel
             var kinds = boxes.Where(box => box.IsChecked == true).Select(box => (string)box.Tag!).ToList();
             custom = false;
             focusNew = true;
-            Load(() => context.RequestAsync(ProvidersContract.AddCustomProvider, new AddCustomProviderParams(name.Text ?? "", url.Text ?? "", kinds) { Key = secret.Length > 0 ? secret : null }).AsTask());
+            Load(() => context.RequestAsync(ProvidersContract.AddCustomProvider, new AddCustomProviderParams(name.Text ?? "", url.Text ?? "", kinds)
+            {
+                Key = secret.Length > 0 ? secret : null,
+                Urls = [.. kinds.Select(kind => new ProviderApiUrl(kind, (addresses[kind].Text ?? "").Trim())).Where(entry => entry.BaseUrl.Length > 0 && entry.BaseUrl != (url.Text ?? "").Trim())]
+            }).AsTask());
         }
         panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { Ui.Button("Add provider", Add) } });
         return panel;

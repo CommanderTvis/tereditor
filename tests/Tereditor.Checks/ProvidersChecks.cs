@@ -239,6 +239,20 @@ internal static class ProvidersChecks
         var added = report.Providers.Single(row => row.Provider.Custom);
         Require(added.Provider is { Id: "custom-my-gateway", NeedsKey: true } && added.Ready && added.Provider.Apis.Select(api => api.Kind).SequenceEqual([ModelApiKinds.AnthropicMessages, ModelApiKinds.OpenAiChat]) && added.Provider.Apis.All(api => api.BaseUrl == "https://llm.example.com/anthropic"), "A custom provider keeps its declared kinds and base URL.");
         Require(ProviderMatching.Offered(Routing("claude-code"), added.Provider) && !ProviderMatching.Offered(Routing("codex"), added.Provider), "A custom provider is offered by its declared kinds.");
+        // One address per API: DeepSeek-like, OpenAI-style at the root and Anthropic under /anthropic. An unlisted API takes the main address.
+        Throws(() => service.AddCustom(new("x", "https://example.com", [ModelApiKinds.OpenAiChat]) { Urls = [new(ModelApiKinds.AnthropicMessages, "https://example.com/anthropic")] }), "An address for an API that is not chosen is refused.");
+        Throws(() => service.AddCustom(new("x", "https://example.com", [ModelApiKinds.AnthropicMessages]) { Urls = [new(ModelApiKinds.AnthropicMessages, "http://example.com/anthropic")] }), "An API address follows the same rules as the main one.");
+        var split = service.AddCustom(new("Split host", "https://api.split.test/", [ModelApiKinds.OpenAiChat, ModelApiKinds.OpenAiResponses, ModelApiKinds.AnthropicMessages]) { Urls = [new(ModelApiKinds.AnthropicMessages, "https://api.split.test/anthropic/")] }).Providers.Single(row => row.Provider.Id == "custom-split-host");
+        Require(split.Provider.Apis.ToDictionary(api => api.Kind, api => api.BaseUrl) is { Count: 3 } urls && urls[ModelApiKinds.OpenAiChat] == "https://api.split.test" && urls[ModelApiKinds.OpenAiResponses] == "https://api.split.test" && urls[ModelApiKinds.AnthropicMessages] == "https://api.split.test/anthropic", "Each API keeps its own address; one without an entry takes the main one.");
+        Throws(() => service.SetCustomApiUrl(new("custom-split-host", ModelApiKinds.GoogleGenerative, "https://api.split.test/g")), "An API the provider lacks cannot be changed.");
+        Throws(() => service.SetCustomApiUrl(new("openrouter", ModelApiKinds.OpenAiChat, "https://x.test")), "A bundled provider's address cannot be changed.");
+        Throws(() => service.SetCustomApiUrl(new("custom-split-host", ModelApiKinds.OpenAiChat, "ftp://x.test")), "A changed address is validated.");
+        service.SaveKey(new("custom-split-host", Sentinel));
+        Require(service.SetCustomApiUrl(new("custom-split-host", ModelApiKinds.OpenAiResponses, "https://api.split.test/v1/")).Providers.Single(row => row.Provider.Id == "custom-split-host").Provider.Apis.Select(api => api.BaseUrl).SequenceEqual(["https://api.split.test", "https://api.split.test/v1", "https://api.split.test/anthropic"]), "Changing one API's address leaves the others.");
+        var splitReport = service.Report();
+        Require(ProviderLaunch.For("codex", splitReport with { Sources = [new("codex", "custom-split-host")] })?.Arguments?.Any(word => word.Contains("base_url='https://api.split.test/v1'", StringComparison.Ordinal)) == true, "Codex's Responses address is the Responses API's own.");
+        Require(ProviderLaunch.ClaudeApi(splitReport.Providers.Single(row => row.Provider.Id == "custom-split-host").Provider)?.BaseUrl == "https://api.split.test/anthropic", "Claude Code's address is the Anthropic API's own.");
+        service.RemoveCustom(new("custom-split-host"));
         Require(service.AddCustom(new("My gateway", "http://localhost:8080", [ModelApiKinds.OpenAiResponses])).Providers.Any(row => row.Provider.Id == "custom-my-gateway-2" && !row.Provider.NeedsKey && row.Ready), "A name taken gets a new id, and a local provider needs no key.");
 
         // The recorded source: only a ready provider, cleared when the provider or its key goes.
@@ -276,8 +290,8 @@ internal static class ProvidersChecks
         Require(holders.Length == 1 && holders[0] == Path.Combine("providers", "keys", "openrouter"), "Only the key's own file holds it: " + string.Join(", ", holders));
         Require(new AgentLaunchContribution().Environment.Count == 0 && Routing("claude-code").Accepts.All(api => !PluginJson.Serialize(api).Contains("sentinel", StringComparison.Ordinal)), "A declaration or a launch contribution carries no key.");
 
-        // The contract is wire version 3, lists the model provider methods only (no per-agent key-file methods) and pushes the models channel.
-        Require(ProvidersContract.WireVersion == 4 && ProvidersContract.Contract.Channels.Any(channel => channel.Name == "models") && new[] { "list", "setKey", "removeKey" }.All(name => ProvidersContract.Contract.Methods.All(method => method.Name != name)) && new[] { "models", "saveModelKey", "removeModelKey", "addCustomProvider", "removeCustomProvider", "setModelSource", "refreshSignIn", "contribute", "withdraw" }.All(name => ProvidersContract.Contract.Methods.Any(method => method.Name == name)), "The contract lists the model provider methods.");
+        // The contract is wire version 5, lists the model provider methods only (no per-agent key-file methods) and pushes the models channel.
+        Require(ProvidersContract.WireVersion == 5 && ProvidersContract.Contract.Channels.Any(channel => channel.Name == "models") && new[] { "list", "setKey", "removeKey" }.All(name => ProvidersContract.Contract.Methods.All(method => method.Name != name)) && new[] { "models", "saveModelKey", "removeModelKey", "addCustomProvider", "removeCustomProvider", "setCustomApiUrl", "setModelSource", "refreshSignIn", "contribute", "withdraw" }.All(name => ProvidersContract.Contract.Methods.Any(method => method.Name == name)), "The contract lists the model provider methods.");
     }
 
     // The launch seams: a chosen source writes the agent's models file with a helper command and no key, and the launch gets only the place to read it.
@@ -372,6 +386,22 @@ internal static class ProvidersChecks
         service.AddCustom(new("Claude only", "https://claude.example.com", [ModelApiKinds.AnthropicMessages]) { Key = Sentinel });
         service.SetSource(new("omp", "custom-claude-only"));
         Require(File.ReadAllText(ompFile).Contains("api: anthropic-messages", StringComparison.Ordinal), "A provider with only an Anthropic API is written with that adapter.");
+        // One provider, one address per API: each agent's file carries the address of the API it uses.
+        service.AddCustom(new("Two hosts", "https://api.two.test", [ModelApiKinds.OpenAiChat, ModelApiKinds.AnthropicMessages]) { Key = Sentinel, Urls = [new(ModelApiKinds.AnthropicMessages, "https://api.two.test/anthropic")] });
+        service.SetSource(new("pi", "custom-two-hosts"));
+        service.SetSource(new("omp", "custom-two-hosts"));
+        service.SetSource(new("claude-code", "custom-two-hosts"));
+        var claudeFile = files.ClaudeSettingsPath;
+        Require(JsonDocument.Parse(File.ReadAllText(piFile)).RootElement.GetProperty("providers").GetProperty("custom-two-hosts").GetProperty("baseUrl").GetString() == "https://api.two.test"
+            && File.ReadAllText(ompFile).Contains("\"https://api.two.test\"", StringComparison.Ordinal) && !File.ReadAllText(ompFile).Contains("/anthropic", StringComparison.Ordinal)
+            && JsonDocument.Parse(File.ReadAllText(claudeFile)).RootElement.GetProperty("env").GetProperty("ANTHROPIC_BASE_URL").GetString() == "https://api.two.test/anthropic", "Pi and omp get the OpenAI address and Claude Code the Anthropic one.");
+        service.SetCustomApiUrl(new("custom-two-hosts", ModelApiKinds.AnthropicMessages, "https://api.two.test/claude"));
+        service.SetCustomApiUrl(new("custom-two-hosts", ModelApiKinds.OpenAiChat, "https://api.two.test/v1"));
+        Require(JsonDocument.Parse(File.ReadAllText(piFile)).RootElement.GetProperty("providers").GetProperty("custom-two-hosts").GetProperty("baseUrl").GetString() == "https://api.two.test/v1"
+            && File.ReadAllText(ompFile).Contains("\"https://api.two.test/v1\"", StringComparison.Ordinal)
+            && JsonDocument.Parse(File.ReadAllText(claudeFile)).RootElement.GetProperty("env").GetProperty("ANTHROPIC_BASE_URL").GetString() == "https://api.two.test/claude", "Changing an address rewrites the files of the agents that use the provider.");
+        service.SetSource(new("claude-code", null));
+        service.SetSource(new("pi", "deepseek"));
         service.AddCustom(new("Local", "http://localhost:8080", [ModelApiKinds.OpenAiChat]));
         service.SetSource(new("omp", "custom-local"));
         Require(File.ReadAllText(ompFile).Contains("auth: none", StringComparison.Ordinal), "A provider that needs no key is written without a helper.");

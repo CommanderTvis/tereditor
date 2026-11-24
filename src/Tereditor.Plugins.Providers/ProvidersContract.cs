@@ -41,11 +41,23 @@ public sealed record ModelProviderParams(string Id);
 /// <summary>Stores <paramref name="Key"/> for a provider in the key store. It is never returned.</summary>
 public sealed record SaveModelKeyParams(string Id, string Key);
 
-/// <summary>Adds a provider the user declares: a name, one base URL, the API kinds that URL speaks, and optionally a key.</summary>
+/// <summary>The base URL of one API of a provider.</summary>
+public sealed record ProviderApiUrl(string Kind, string BaseUrl);
+
+/// <summary>
+/// Adds a provider the user declares: a name, the API kinds it speaks, a base URL and optionally a key. <see cref="BaseUrl"/> is the address of every
+/// kind that has no entry in <see cref="Urls"/>; a provider with one address for all its APIs sends only that.
+/// </summary>
 public sealed record AddCustomProviderParams(string Name, string BaseUrl, IReadOnlyList<string> Kinds)
 {
     public string? Key { get; init; }
+
+    /// <summary>The address of an API that differs from <see cref="BaseUrl"/>, such as <c>https://api.deepseek.com/anthropic</c> for Anthropic Messages.</summary>
+    public IReadOnlyList<ProviderApiUrl>? Urls { get; init; }
 }
+
+/// <summary>Changes the base URL of one API of a custom provider.</summary>
+public sealed record SetCustomApiUrlParams(string Id, string Kind, string BaseUrl);
 
 /// <summary>Chooses where an agent's model comes from. A null <paramref name="ProviderId"/> means the agent's own provider.</summary>
 /// <param name="AgentId">The agent plugin's id, such as <c>claude-code</c>.</param>
@@ -64,13 +76,14 @@ public sealed record WithdrawParams(string Contributor);
 
 public static class ProvidersContract
 {
-    public const int WireVersion = 4;
+    public const int WireVersion = 5;
 
     public static readonly PluginMethod<ModelProvidersParams, ModelProvidersReport> Models = new("models");
     public static readonly PluginMethod<SaveModelKeyParams, ModelProvidersReport> SaveModelKey = new("saveModelKey");
     public static readonly PluginMethod<ModelProviderParams, ModelProvidersReport> RemoveModelKey = new("removeModelKey");
     public static readonly PluginMethod<AddCustomProviderParams, ModelProvidersReport> AddCustomProvider = new("addCustomProvider");
     public static readonly PluginMethod<ModelProviderParams, ModelProvidersReport> RemoveCustomProvider = new("removeCustomProvider");
+    public static readonly PluginMethod<SetCustomApiUrlParams, ModelProvidersReport> SetCustomApiUrl = new("setCustomApiUrl");
     public static readonly PluginMethod<SetModelSourceParams, ModelProvidersReport> SetModelSource = new("setModelSource");
     /// <summary>Reads the provider's own sign-in status again (for OpenAI: <c>codex login status</c> on the host) and returns the report with it.</summary>
     public static readonly PluginMethod<ModelProviderParams, ModelProvidersReport> RefreshSignIn = new("refreshSignIn");
@@ -81,7 +94,7 @@ public static class ProvidersContract
     public static readonly PluginChannel<ModelProvidersReport> ModelsChanged = PluginChannel<ModelProvidersReport>.State("models", Models);
 
     public static readonly PluginContract Contract = PluginContract.Create<ProvidersSettings>(ProvidersManifest.Id, WireVersion,
-        [Models, SaveModelKey, RemoveModelKey, AddCustomProvider, RemoveCustomProvider, SetModelSource, RefreshSignIn, Contribute, Withdraw], [ModelsChanged], ProvidersJson.Default);
+        [Models, SaveModelKey, RemoveModelKey, AddCustomProvider, RemoveCustomProvider, SetCustomApiUrl, SetModelSource, RefreshSignIn, Contribute, Withdraw], [ModelsChanged], ProvidersJson.Default);
 }
 
 public sealed record ProvidersSettings;
@@ -94,6 +107,7 @@ public sealed record ProvidersSettings;
 [JsonSerializable(typeof(ModelProviderParams))]
 [JsonSerializable(typeof(SaveModelKeyParams))]
 [JsonSerializable(typeof(AddCustomProviderParams))]
+[JsonSerializable(typeof(SetCustomApiUrlParams))]
 [JsonSerializable(typeof(SetModelSourceParams))]
 [JsonSerializable(typeof(ProviderContribution))]
 [JsonSerializable(typeof(WithdrawParams))]

@@ -162,12 +162,27 @@ internal static class ProvidersUiChecks
             Require(rail.SelectedItem is null && Find<TextBox>(page, "CustomProviderName").Count == 1, "the custom provider form opens in the pane with no provider selected");
             Find<TextBox>(page, "CustomProviderName").Single().Text = "Test gateway";
             Find<TextBox>(page, "CustomProviderUrl").Single().Text = "https://llm.example.com/v1";
+            Require(Find<TextBox>(page, "CustomUrl-" + ModelApiKinds.AnthropicMessages).Single() is { IsVisible: false }, "an API's address stays hidden until the API is ticked");
             Find<CheckBox>(page, "CustomKind-" + ModelApiKinds.AnthropicMessages).Single().IsChecked = true;
+            Find<CheckBox>(page, "CustomKind-" + ModelApiKinds.OpenAiChat).Single().IsChecked = true;
+            Settle();
+            Require(Find<TextBox>(page, "CustomUrl-" + ModelApiKinds.AnthropicMessages).Single() is { IsVisible: true, Text: "https://llm.example.com/v1" } && Find<TextBox>(page, "CustomUrl-" + ModelApiKinds.OpenAiChat).Single().Text == "https://llm.example.com/v1", "a ticked API's address starts as the main one");
+            Find<TextBox>(page, "CustomUrl-" + ModelApiKinds.AnthropicMessages).Single().Text = "https://llm.example.com/anthropic";
             Click(page, "Add provider", page);
             Settle();
             Require(rail.SelectedItem is Control { Tag: "custom-test-gateway" } && Find<TextBox>(page, "CustomProviderName").Count == 0, "the new custom provider is selected and the form is gone");
             var row = Find<Border>(page, "ModelProviderDetail_custom-test-gateway").Single();
             Require(Texts(row).Any(text => text.Contains("Works with Claude Code", StringComparison.Ordinal) && !text.Contains("Anthropic Messages", StringComparison.Ordinal)) && Buttons(row).Contains("Remove provider"), "the custom provider is listed with the agents it works with, not its API kinds, and can be removed");
+
+            var apiUrls = (ModelProviderRow r) => r.Provider.Apis.ToDictionary(api => api.Kind, api => api.BaseUrl);
+            Require(apiUrls(service.Report().Providers.Single(r => r.Provider.Id == "custom-test-gateway")) is { Count: 2 } stored && stored[ModelApiKinds.AnthropicMessages] == "https://llm.example.com/anthropic" && stored[ModelApiKinds.OpenAiChat] == "https://llm.example.com/v1", "each API of the new provider keeps its own address");
+            Require(Find<TextBox>(row, "ModelProviderApiUrl_" + ModelApiKinds.AnthropicMessages).Single().Text == "https://llm.example.com/anthropic" && Find<TextBox>(row, "ModelProviderApiUrl_" + ModelApiKinds.OpenAiChat).Single().Text == "https://llm.example.com/v1", "the pane lists each API with its address");
+            var edit = Find<TextBox>(row, "ModelProviderApiUrl_" + ModelApiKinds.OpenAiChat).Single();
+            edit.Text = "https://llm.example.com/openai/v1";
+            edit.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter });
+            Settle();
+            Require(apiUrls(service.Report().Providers.Single(r => r.Provider.Id == "custom-test-gateway")) is { } edited && edited[ModelApiKinds.OpenAiChat] == "https://llm.example.com/openai/v1" && edited[ModelApiKinds.AnthropicMessages] == "https://llm.example.com/anthropic", "editing one address in the pane changes only that API");
+            Require(Find<ListBox>(page, "ModelProvidersRail").Single().ContainerFromIndex(0) is ListBoxItem { IsHitTestVisible: false, Focusable: false }, "the Set up and Not set up headings take no pointer and no focus");
 
             // The red dot: only a provider an agent uses while it has no key. A provider nobody uses and with no key is just Not set up.
             Require(Find<Avalonia.Controls.Shapes.Ellipse>(page, "MasterProblem_anthropic").Count == 0 && Find<Avalonia.Controls.Shapes.Ellipse>(page, "MasterProblem_together").Count == 0, "a provider with no key that nobody uses has no red dot");
@@ -298,6 +313,7 @@ internal static class ProvidersUiChecks
                             "removeModelKey" => service.RemoveKey((ModelProviderParams)args[1]!),
                             "addCustomProvider" => service.AddCustom((AddCustomProviderParams)args[1]!),
                             "removeCustomProvider" => service.RemoveCustom((ModelProviderParams)args[1]!),
+                            "setCustomApiUrl" => service.SetCustomApiUrl((SetCustomApiUrlParams)args[1]!),
                             "setModelSource" => service.SetSource((SetModelSourceParams)args[1]!),
                             var other => throw new NotSupportedException(other)
                         };

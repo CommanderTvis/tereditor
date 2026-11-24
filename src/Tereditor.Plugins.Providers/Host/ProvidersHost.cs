@@ -37,6 +37,7 @@ public sealed class ProvidersHost : PluginHostModule
         context.Method(ProvidersContract.SaveModelKey, (p, _, ct) => Report(() => models.SaveKey(p), ct));
         context.Method(ProvidersContract.RemoveModelKey, (p, _, ct) => Report(() => models.RemoveKey(p), ct));
         context.Method(ProvidersContract.AddCustomProvider, (p, _, ct) => Report(() => models.AddCustom(p), ct));
+        context.Method(ProvidersContract.SetCustomApiUrl, (p, _, ct) => Report(() => models.SetCustomApiUrl(p), ct));
         context.Method(ProvidersContract.RemoveCustomProvider, (p, _, ct) => Report(() => models.RemoveCustom(p), ct));
         context.Method(ProvidersContract.SetModelSource, (p, _, ct) => Report(() => models.SetSource(p), ct));
         context.Method(ProvidersContract.RefreshSignIn, (p, _, ct) => new ValueTask<ModelProvidersReport>(Task.Run(async () => Publish(await models.RefreshSignInAsync(p, ct)), ct)));

@@ -65,11 +65,12 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
         {
             var name = p.Name.Trim();
             if (name.Length is 0 or > 64 || name.Any(char.IsControl)) throw new ArgumentException("Give the provider a name of up to 64 characters.");
-            if (!Uri.TryCreate(p.BaseUrl.Trim(), UriKind.Absolute, out var url) || url.Scheme is not ("http" or "https") || url.UserInfo.Length > 0)
-                throw new ArgumentException("The base URL must start with http:// or https:// and carry no user name.");
-            if (url.Scheme == "http" && !url.IsLoopback) throw new ArgumentException("A plain http:// address is allowed only on this computer. Use https:// for any other.");
             var kinds = p.Kinds.Distinct().ToArray();
             if (kinds.Length == 0 || kinds.Any(kind => !CustomKinds.Contains(kind))) throw new ArgumentException("Choose at least one API kind from the list.");
+            var urls = (p.Urls ?? []).Where(entry => !string.IsNullOrWhiteSpace(entry.BaseUrl)).ToList();
+            if (urls.Any(entry => !kinds.Contains(entry.Kind)) || urls.Select(entry => entry.Kind).Distinct().Count() != urls.Count) throw new ArgumentException("Give each chosen API at most one address.");
+            // Every chosen API has an address: its own, else the main one.
+            var addresses = kinds.Select(kind => (Kind: kind, Url: CustomUrl(urls.FirstOrDefault(entry => entry.Kind == kind)?.BaseUrl ?? p.BaseUrl))).ToArray();
             var key = p.Key?.Trim() ?? "";
             if (key.Any(c => c is '\n' or '\r' or '\0')) throw new ArgumentException("A key is one line.");
             var taken = Merged().Select(provider => provider.Id).ToHashSet(StringComparer.Ordinal);
@@ -78,13 +79,37 @@ internal sealed class ModelProvidersService(ProviderKeyStore keys, ModelProvider
             var id = baseId;
             for (var n = 2; taken.Contains(id); n++) id = baseId + "-" + n;
             var auth = new[] { ModelAuthKind.ApiKey };
-            var definition = new ProviderDefinition(id, name, ProviderGroup.Other, [.. kinds.Select(kind => new ProviderApi(kind, url.ToString().TrimEnd('/'), auth))])
+            var definition = new ProviderDefinition(id, name, ProviderGroup.Other, [.. addresses.Select(address => new ProviderApi(address.Kind, address.Url, auth))])
             {
                 Custom = true,
                 NeedsKey = key.Length > 0
             };
             if (key.Length > 0) keys.Save(id, key);
             state.SaveCustom([.. state.LoadCustom(), definition]);
+            return Build();
+        }
+    }
+
+    // A custom API address: absolute http(s) with no user name; plain http only on this computer. Returns it without a trailing slash.
+    private static string CustomUrl(string text)
+    {
+        if (!Uri.TryCreate(text.Trim(), UriKind.Absolute, out var url) || url.Scheme is not ("http" or "https") || url.UserInfo.Length > 0)
+            throw new ArgumentException("The base URL must start with http:// or https:// and carry no user name.");
+        if (url.Scheme == "http" && !url.IsLoopback) throw new ArgumentException("A plain http:// address is allowed only on this computer. Use https:// for any other.");
+        return url.ToString().TrimEnd('/');
+    }
+
+    public ModelProvidersReport SetCustomApiUrl(SetCustomApiUrlParams p)
+    {
+        lock (gate)
+        {
+            var custom = state.LoadCustom();
+            var at = custom.ToList().FindIndex(provider => provider.Id == p.Id);
+            if (at < 0 || !custom[at].Apis.Any(api => api.Kind == p.Kind)) throw new ArgumentException("That custom provider has no such API.");
+            var url = CustomUrl(p.BaseUrl);
+            state.SaveCustom([.. custom.Select((provider, index) => index != at ? provider : provider with { Apis = [.. provider.Apis.Select(api => api.Kind == p.Kind ? api with { BaseUrl = url } : api)] })]);
+            // A model file already written for this provider carries the old address.
+            Sync();
             return Build();
         }
     }
