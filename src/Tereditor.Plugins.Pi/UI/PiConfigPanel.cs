@@ -42,7 +42,7 @@ internal sealed class PiConfigPanel : DockPanel
         var header = new ScrollViewer { Content = switcher, Margin = new Thickness(8, 4), HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
         SetDock(header, Dock.Top);
         Children.Add(header);
-        var hint = Ui.Text("Right-click a row to open its file", Ui.Hint, 12);
+        var hint = Ui.Text("Click a row to open its file", Ui.Hint, 12);
         scopeBlock.Children.Add(Ui.Text("Showing what a new Pi session here would load", Ui.Muted, 13));
         scopeBlock.Children.Add(hint);
         SetDock(scopeBlock, Dock.Top);
@@ -265,8 +265,8 @@ internal sealed class PiConfigPanel : DockPanel
         column.Children.Add(ScopedSetting.SourcePath(item.Path, OpenFile));
         if (item.Detail.Length > 0) column.Children.Add(Ui.Text(item.Detail, Ui.Hint, 12));
         row.Children.Add(column);
-        ToolTip.SetTip(row, "Right-click to open the file");
-        row.PointerPressed += (_, pointer) => { if (pointer.GetCurrentPoint(row).Properties.IsRightButtonPressed) OpenFile(item.Path); };
+        ToolTip.SetTip(row, "Click to open the file");
+        row.PointerPressed += (_, pointer) => { if (pointer.GetCurrentPoint(row).Properties.IsLeftButtonPressed) OpenFile(item.Path); };
         return row;
     }
 

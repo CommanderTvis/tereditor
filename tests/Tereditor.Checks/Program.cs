@@ -1548,6 +1548,7 @@ internal static class Program
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
             PiChecks.PackagesLayout();
             PiChecks.Account();
+            PiChecks.ContextRows();
             Console.WriteLine("PASS Pi checks");
             return;
         }

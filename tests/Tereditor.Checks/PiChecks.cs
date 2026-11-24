@@ -1,18 +1,23 @@
+using System.Reflection;
 using System.Text.Json;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
+using Tereditor.Plugins.Api.UI;
 using Tereditor.Plugins.Chat;
 using Tereditor.Plugins.Pi;
 using Tereditor.Plugins.Pi.Host;
 using Tereditor.Plugins.Pi.UI;
 using Tereditor.Plugins.UI.Kit;
+using Tereditor.UI;
 
 namespace Tereditor.Checks;
 
@@ -473,6 +478,55 @@ internal static class PiChecks
         Require(!failed.Ok && failed.Output.Contains("no such package", StringComparison.Ordinal), "A failed install reports pi's message and is not ok.");
         var blocked = await PiPackages.RunAsync(new PiSpawn(script, dir) { Blocked = "Blocked by the model source." }, PiPackages.Arguments("remove", "npm:@s/p", false), CancellationToken.None);
         Require(!blocked.Ok && blocked.Output == "Blocked by the model source.", "A blocked launch runs nothing and says why.");
+    }
+
+    // A Context row opens its file on a left click; a right click opens nothing.
+    internal static void ContextRows()
+    {
+        const string file = "/ws/AGENTS.md";
+        var opened = new List<string>();
+        var editors = DispatchProxy.Create<IPluginEditors, Stub>();
+        ((Stub)(object)editors).Handle = (method, args) => { opened.Add((string)args![1]!); return Activator.CreateInstance(method.ReturnType); };
+        var snapshot = new PiConfigSnapshot("/ws", "/agent", "trusted", "/agent/trust.json",
+            [new PiConfigItem(PiConfigKinds.Context, PiScopes.User, "AGENTS.md", file, true, "")], [], [], false);
+        var context = DispatchProxy.Create<IPluginUIContext, Stub>();
+        ((Stub)(object)context).Handle = (method, args) =>
+        {
+            if (method.Name == "get_Editors") return editors;
+            if (method.ReturnType.IsGenericType && method.ReturnType.GetGenericArguments()[0] == typeof(PiConfigSnapshot)) return Activator.CreateInstance(method.ReturnType, snapshot);
+            return Activator.CreateInstance(method.ReturnType);
+        };
+        var panel = new PiConfigPanel(context, "ws");
+        var host = new Window { Width = 400, Height = 300, Content = panel };
+        host.Show();
+        try
+        {
+            static void Pump(Func<bool>? ready = null)
+            {
+                for (var pass = 0; pass < 300 && !(ready?.Invoke() ?? false); pass++) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
+                Dispatcher.UIThread.RunJobs();
+            }
+            Pump(() => panel.GetLogicalDescendants().OfType<DockPanel>().Any(candidate => candidate.Name == "PiConfigItem"));
+            var row = panel.GetLogicalDescendants().OfType<DockPanel>().Single(candidate => candidate.Name == "PiConfigItem");
+            Require(panel.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Text == "Click a row to open its file"),
+                "The Context hint reads \"Click a row to open its file\".");
+            var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, true);
+            void Press(RawInputModifiers button, PointerUpdateKind kind) => row.RaiseEvent(new PointerPressedEventArgs(row, pointer, host, default, 0,
+                new PointerPointProperties(button, kind), KeyModifiers.None));
+            Press(RawInputModifiers.RightMouseButton, PointerUpdateKind.RightButtonPressed);
+            Pump();
+            Require(opened.Count == 0, "A right click on a Context row opens nothing.");
+            Press(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed);
+            Pump();
+            Require(opened.SequenceEqual([file]), "A left click on a Context row opens its file.");
+        }
+        finally { host.Close(); }
+    }
+
+    internal class Stub : DispatchProxy
+    {
+        internal Func<MethodInfo, object?[]?, object?>? Handle { get; set; }
+        protected override object? Invoke(MethodInfo? method, object?[]? args) => Handle!(method!, args);
     }
 
     internal static async Task Run(string root)
