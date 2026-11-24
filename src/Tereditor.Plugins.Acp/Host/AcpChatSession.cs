@@ -126,7 +126,7 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
         }
         catch (Exception error) when (error is AcpException or AcpVersionException or IOException or InvalidOperationException or System.ComponentModel.Win32Exception or TimeoutException)
         {
-            var needsSignIn = error is AcpException { Code: AcpException.AuthRequired } && agent is { AuthMethods.Count: > 0 };
+            var needsSignIn = error is AcpException { NeedsSignIn: true };
             AcpSignInInfo? found = null;
             if (needsSignIn && signIn is not null)
             {
@@ -169,17 +169,19 @@ internal sealed class AcpChatSession : IAsyncDisposable, IAcpClientHandler
     {
         var text = new System.Text.StringBuilder("The agent needs you to sign in.");
         ChatNoticeAction? action = null;
+        var requests = new List<ChatNoticeRequest>();
         if (found is not null)
         {
             text.Append("\nSigns in with:");
             foreach (var line in found.Display()) text.Append("\n- ").Append(line);
             text.Append("\nWhy: ").Append(found.Why);
             if (found.Terminal is { } terminal) action = new ChatNoticeAction(terminal.Label is { Length: > 0 } label ? "Run in terminal: " + label : "Run in terminal", terminal.CommandLine!);
+            foreach (var method in found.Authenticable) requests.Add(new ChatNoticeRequest("Sign in with " + method.Name, new AcpAuthenticateParams(found.AgentId, method.Id).Encode()));
         }
         else if (agent is not null)
             text.Append(' ').Append(string.Join("; ", agent.AuthMethods.Select(method => method.Name + (method.Description is { Length: > 0 } d ? " (" + d + ")" : ""))));
-        text.Append(action is null ? "\nSign in with the agent's own tool, then reopen this chat." : "\nSign in in the terminal, then reopen this chat.");
-        folder.Notice(ChatNoticeLevel.Warning, text.ToString(), ChatNoticeKinds.Failure, action: action);
+        text.Append(requests.Count > 0 ? "\nChoose a sign-in below; the chat starts again when it works." : action is null ? "\nSign in with the agent's own tool, then reopen this chat." : "\nSign in in the terminal, then reopen this chat.");
+        folder.Notice(ChatNoticeLevel.Warning, text.ToString(), ChatNoticeKinds.Failure, action: action, requests: requests);
     }
 
     private async Task WatchAsync(AcpClient watched, IAcpTransport owner)

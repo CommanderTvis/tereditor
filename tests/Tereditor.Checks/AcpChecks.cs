@@ -1272,6 +1272,35 @@ internal static class AcpChecks
         info = await detector.ResolveAsync(noticeEntry, seen, false, ct);
         Require(info.Methods.Count == 2 && info.Methods[1].CommandLine is null && info.Terminal!.Id == "term", "Only the terminal-type method has a command line.");
         secrets.Add(notice.Text + "\n" + notice.Action?.Command + "\n" + string.Join('\n', captured));
+        Require(typed.ClientCapabilities?["auth"]?["terminal"]?.GetValue<bool>() == true, "initialize says the client can run a terminal sign-in (clientCapabilities.auth.terminal).");
+
+        // A sign-in the agent does itself gets its own button, on the card and in the settings; a terminal one does not (the protocol forbids sending it to authenticate).
+        Require(info.Methods.Single(method => method.Id == "agent-login").Authenticate && !info.Methods.Single(method => method.Id == "term").Authenticate && info.Authenticable.Single().Id == "agent-login", "Only the agent-type method is offered as a Sign in button.");
+        Require(notice.Requests.Single() is { Label: "Sign in with Let the agent do it" } request && AcpAuthenticateParams.Decode(request.Request) == new AcpAuthenticateParams("custom-typed", "agent-login") && notice.Text.Contains("Choose a sign-in below", StringComparison.Ordinal), "The failure card has a Sign in with button for the agent's own method, naming the agent and the method id.");
+        Require(AcpAuthenticateParams.Decode("nonsense") is null && AcpAuthenticateParams.Decode("a\nb\nc") is null, "A request that is not an agent and a method is not understood.");
+
+        // authenticate sends exactly the method id of an offered agent-type method; a terminal method, an unknown id and an agent that fails are refused or reported.
+        var signer = new AcpFakeAgent { TerminalType = true };
+        await AcpAuthenticate.RunAsync(new FakeTransport(signer), "agent-login", ct);
+        Require(signer.Methods.SequenceEqual(["initialize", "authenticate"]) && signer.Last["authenticate"]!.AsObject().Count == 1 && signer.Last["authenticate"]!["methodId"]!.GetValue<string>() == "agent-login", "authenticate carries only the methodId of the chosen method, after initialize and nothing else.");
+        foreach (var refused in new[] { "term", "missing" })
+        {
+            var other = new AcpFakeAgent { TerminalType = true };
+            string? refusal = null;
+            try { await AcpAuthenticate.RunAsync(new FakeTransport(other), refused, ct); }
+            catch (InvalidOperationException error) { refusal = error.Message; }
+            Require(refusal is not null && !other.Methods.Contains("authenticate"), "A terminal method or an id the agent did not offer is never sent to authenticate: " + refused);
+        }
+
+        // Junie answers session/new with its own code and words; the card still offers the sign-in.
+        var junie = new AcpFakeAgent { TerminalType = true, AuthRequired = true, AuthRequiredOtherCode = true };
+        var junieEntry = new AcpAgentEntry("junie", "Junie", "/bin/junie");
+        AcpAnswer? junieSeen = null;
+        await using var junieSession = new AcpChatSession("ws", "chat-junie", "/work", () => Task.FromResult<IAcpTransport>(new FakeTransport(junie)), _ => { }, _ => { }, null,
+            got => junieSeen = got, () => new AcpSignIn(clean(null), home).ResolveAsync(junieEntry, junieSeen, false, ct));
+        junieSession.Begin();
+        await junieSession.StartAsync(null);
+        Require(Items(junieSession).OfType<ChatNoticeItem>().Single(item => item.Category == ChatNoticeKinds.Failure).Requests.Count == 1 && junieSession.Header.Status == ChatStatus.Failed, "An agent that refuses with other words than -32000 still gets the sign-in buttons.");
 
         // An agent that does not advertise auth/status is never asked it.
         Require(!fake.Methods.Contains("auth/status"), "Copilot's initialize does not advertise auth/status, so it is not asked.");
@@ -1410,6 +1439,72 @@ internal static class AcpChecks
         }
     }
 
+    // The safety warning is on Settings > ACP once: the banner above the list. Neither the intro nor an agent's pane repeats it.
+    internal static void SettingsText()
+    {
+        UiChecks.EnsureHeadlessApp();
+        var previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new Avalonia.Threading.AvaloniaSynchronizationContext(Avalonia.Threading.Dispatcher.UIThread, Avalonia.Threading.DispatcherPriority.Normal));
+        try
+        {
+            var view = (Tereditor.Plugins.Acp.UI.AcpSettingsView)UpdateHost.Create(out _);
+            var window = new Avalonia.Controls.Window { Width = 900, Height = 600, Content = view };
+            window.Show();
+            void Settle() { Avalonia.Threading.Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }
+            try
+            {
+                for (var tries = 0; tries < 500 && view.GetVisualDescendants().OfType<Avalonia.Controls.Control>().All(control => control.Name != "AcpUpdate_junie"); tries++) { Settle(); Thread.Sleep(10); }
+                Require(view.GetVisualDescendants().OfType<Avalonia.Controls.Control>().Any(control => control.Name == "AcpUpdate_junie"), "the page lists the installed agents");
+                if (view.GetVisualDescendants().OfType<Avalonia.Controls.Control>().All(control => control.Name?.StartsWith("AcpAgentDetail_", StringComparison.Ordinal) != true))
+                {
+                    var row = view.GetVisualDescendants().OfType<Avalonia.Controls.Control>().First(control => control.Name == "MasterNote_junie");
+                    var at = Avalonia.VisualExtensions.TranslatePoint(row, new Avalonia.Point(row.Bounds.Width / 2, row.Bounds.Height / 2), window)!.Value;
+                    window.MouseDown(at, Avalonia.Input.MouseButton.Left);
+                    window.MouseUp(at, Avalonia.Input.MouseButton.Left);
+                    for (var tries = 0; tries < 200; tries++) { Settle(); Thread.Sleep(5); }
+                }
+                var texts = view.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Select(text => text.Text ?? "").ToArray();
+                Require(view.GetVisualDescendants().OfType<Avalonia.Controls.Control>().Any(control => control.Name?.StartsWith("AcpAgentDetail_", StringComparison.Ordinal) == true), "an agent's pane is showing while the warning is counted");
+                Require(texts.Count(text => text.Contains("third-party programs", StringComparison.Ordinal)) == 1 && texts.Count(text => text == AcpInstallPlan.TrustNote) == 1, "the registry warning appears once on the page, with an agent's pane open");
+                Require(view.GetVisualDescendants().OfType<Avalonia.Controls.Control>().Count(control => control.Name == "AcpBrowserTrust") == 1 && !view.GetVisualDescendants().OfType<Avalonia.Controls.Control>().Any(control => control.Name == "AcpTrustNote"), "the one warning is the banner above the list, not one in the pane");
+                Require(!texts.Any(text => text.Contains("sandboxed", StringComparison.OrdinalIgnoreCase) || text.Contains("only use agents you trust", StringComparison.Ordinal)), "the intro does not repeat the warning");
+            }
+            finally { window.Close(); }
+
+            // The search is pinned at the top of the agents rail: inside its bounds, above the list, and it does not move when the list scrolls.
+            var small = (Tereditor.Plugins.Acp.UI.AcpSettingsView)UpdateHost.Create(out _);
+            var shortWindow = new Avalonia.Controls.Window { Width = 900, Height = 230, Content = small };
+            shortWindow.Show();
+            try
+            {
+                void Fit() { Avalonia.Threading.Dispatcher.UIThread.RunJobs(); shortWindow.UpdateLayout(); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }
+                T? Find<T>(string name) where T : Avalonia.Controls.Control => small.GetVisualDescendants().OfType<T>().FirstOrDefault(control => control.Name == name);
+                for (var tries = 0; tries < 500 && Find<Avalonia.Controls.Control>("MasterRow_junie") is null; tries++) { Fit(); Thread.Sleep(10); }
+                var rail = Find<Avalonia.Controls.ListBox>("AcpAgentsRail")!;
+                var box = Find<Avalonia.Controls.TextBox>("AcpSearch")!;
+                Avalonia.Rect Bounds(Avalonia.Controls.Control control) => new(Avalonia.VisualExtensions.TranslatePoint(control, new Avalonia.Point(0, 0), shortWindow)!.Value, control.Bounds.Size);
+                var before = Bounds(box);
+                var railBox = Bounds(rail);
+                Require(box.GetVisualAncestors().Contains(rail.GetVisualParent()!) && before.Left >= railBox.Left - 1 && before.Right <= railBox.Right + 1 && before.Bottom <= railBox.Top + 1, "the search sits at the top of the agents rail, inside its width and above the list");
+                Require(Find<Avalonia.Controls.Button>("AcpRefresh") is not null && Find<Avalonia.Controls.Button>("AcpAddCustom") is not null && Bounds(Find<Avalonia.Controls.Button>("AcpAddCustom")!).Top >= railBox.Bottom - 1, "Refresh and Add custom agent are under the list");
+                var scroller = rail.GetVisualDescendants().OfType<Avalonia.Controls.ScrollViewer>().First();
+                Require(scroller.Extent.Height > scroller.Viewport.Height, "the check's window is short enough for the list to scroll");
+                scroller.Offset = new Avalonia.Vector(0, scroller.Extent.Height);
+                for (var tries = 0; tries < 20; tries++) Fit();
+                Require(scroller.Offset.Y > 0 && Bounds(box) == before, "the search stays put while the list scrolls under it");
+            }
+            finally { shortWindow.Close(); }
+        }
+        finally { SynchronizationContext.SetSynchronizationContext(previousContext); }
+    }
+
+    private static void RegistryTimes()
+    {
+        var now = DateTimeOffset.Parse("2026-11-24T12:00:00+00:00");
+        Require(Tereditor.Plugins.Acp.UI.AcpSettingsView.Ago("2026-11-24T11:58:00.0000000+00:00", now) == "2 minutes ago" && Tereditor.Plugins.Acp.UI.AcpSettingsView.Ago("2026-11-24T11:59:30+00:00", now) == "just now" && Tereditor.Plugins.Acp.UI.AcpSettingsView.Ago("2026-11-24T11:00:00+00:00", now) == "1 hour ago" && Tereditor.Plugins.Acp.UI.AcpSettingsView.Ago("2026-11-21T12:00:00+00:00", now) == "3 days ago" && Tereditor.Plugins.Acp.UI.AcpSettingsView.Ago("garbage", now) == "garbage", "the registry time reads as a relative time, never a raw ISO stamp");
+        Require(!Tereditor.Plugins.Acp.UI.AcpSettingsView.Ago("2026-11-24T11:24:05.5874740+00:00", now).Contains('T'), "no ISO stamp reaches the status line");
+    }
+
     private static volatile string phase = "";
 
     internal static async Task Run(string root)
@@ -1419,6 +1514,7 @@ internal static class AcpChecks
         Manifest();
         phase = "UpdateButton";
         UpdateButton();
+        RegistryTimes();
         phase = "Rows";
         Rows();
         phase = "MasterList";

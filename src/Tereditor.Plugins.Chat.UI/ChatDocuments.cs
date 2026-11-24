@@ -10,12 +10,12 @@ namespace Tereditor.Plugins.Chat.UI;
 internal static class ChatDocuments
 {
     /// <summary>Registers the agent's chat document; <paramref name="readFile"/> reads a workspace file for the diff of a proposed edit.</summary>
-    public static IDisposable Register(IPluginUIContext context, IChatClient client, ChatAgent agent, Func<string, string, Task<string>> readFile)
+    public static IDisposable Register(IPluginUIContext context, IChatClient client, ChatAgent agent, Func<string, string, Task<string>> readFile, Func<string, Task<string?>>? noticeRequest = null)
     {
         var selection = new SelectionSource();
         var watch = context.Editors.OnEvent(change => selection.Observe(change, editor => context.Editors.List(editor.WorkspaceId).Any(listed => listed.Id == editor.Id)));
         context.Document(new PluginDocumentRegistration(agent.Scheme,
-            props => new ChatView(Environment(context, client, agent, readFile, props.WorkspaceId, selection), props.WorkspaceId, props.Id))
+            props => new ChatView(Environment(context, client, agent, readFile, props.WorkspaceId, selection, noticeRequest), props.WorkspaceId, props.Id))
         {
             Icon = agent.Icon,
             // A chat tab hosts the same embedded companion panes as a terminal (the visualize view, for one).
@@ -73,8 +73,9 @@ internal static class ChatDocuments
         }
     }
 
-    public static ChatEnvironment Environment(IPluginUIContext context, IChatClient client, ChatAgent agent, Func<string, string, Task<string>> readFile, string workspaceId, SelectionSource selection) => new(client, agent)
+    public static ChatEnvironment Environment(IPluginUIContext context, IChatClient client, ChatAgent agent, Func<string, string, Task<string>> readFile, string workspaceId, SelectionSource selection, Func<string, Task<string?>>? noticeRequest = null) => new(client, agent)
     {
+        RunRequest = noticeRequest ?? (_ => Task.FromResult<string?>("This chat cannot do that.")),
         // A proposal opens tereditor's own diff of the file against the text the call would write; a call that already ran shows the file's changes.
         OpenDiff = request => OpenDiffAsync(context, readFile, workspaceId, request),
         OpenFile = async path => { if (path.Length > 0) await context.Editors.OpenAsync(workspaceId, path); },

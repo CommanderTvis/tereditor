@@ -10,7 +10,7 @@ using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Plugins.Chat.UI;
 
-internal enum ChatHitKind { Toggle, Allow, Deny, Always, Rewind, Fork, OpenDiff, LoadFull, Link, EditInput, OpenThread, OpenText, Pick, OtherText, Submit, CancelAsk, Retry, StopShell, CopyCode, Tip, DismissSide, NoticeAction }
+internal enum ChatHitKind { Toggle, Allow, Deny, Always, Rewind, Fork, OpenDiff, LoadFull, Link, EditInput, OpenThread, OpenText, Pick, OtherText, Submit, CancelAsk, Retry, StopShell, CopyCode, Tip, DismissSide, NoticeAction, NoticeRequest }
 
 internal readonly record struct ChatHit(Rect Bounds, ChatHitKind Kind, string? Arg = null);
 
@@ -1018,6 +1018,15 @@ internal sealed class ChatRowLayout : IDisposable
                     Place(actionLabel, actionBox.X + 10, actionBox.Y + 5);
                     hits.Add(new(actionBox, ChatHitKind.NoticeAction, noticeAction.Command));
                     y = actionBox.Bottom;
+                }
+                foreach (var request in notice.Requests)
+                {
+                    var requestLabel = Make(request.Label, Ui.TextBrush, 12, Math.Max(80, inner - 40), maxLines: 1, bold: true);
+                    var requestBox = new Rect(left + 10, y + 2, requestLabel.Width + 20, requestLabel.Height + 10);
+                    fills.Add(new(requestBox, Ui.Elevated, 4, new Pen(Ui.BorderBrush)));
+                    Place(requestLabel, requestBox.X + 10, requestBox.Y + 5);
+                    hits.Add(new(requestBox, ChatHitKind.NoticeRequest, request.Request));
+                    y = requestBox.Bottom;
                 }
                 y += 6;
                 fills.Insert(0, new(new Rect(left, top, inner, y - top), Ui.DangerWash, 6, new Pen(Ui.Danger)));

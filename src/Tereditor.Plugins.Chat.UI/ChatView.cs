@@ -27,6 +27,8 @@ internal sealed record ChatEnvironment(IChatClient Client, ChatAgent Agent)
     public Action<string> OpenLink { get; init; } = _ => { };
     /// <summary>Opens a terminal in the chat's workspace that runs one command line (a notice's action, such as an agent's sign-in).</summary>
     public Func<string, Task> RunInTerminal { get; init; } = _ => Task.CompletedTask;
+    /// <summary>Hands a notice button's request to the plugin; null when it worked (the chat then starts again), else what went wrong.</summary>
+    public Func<string, Task<string?>> RunRequest { get; init; } = _ => Task.FromResult<string?>("This chat cannot do that.");
     public Func<Task<string?>> PickFile { get; init; } = () => Task.FromResult<string?>(null);
     public Func<Task<string?>> PickFolder { get; init; } = () => Task.FromResult<string?>(null);
     public Action<PluginNotificationKind, string, string?> Notify { get; init; } = (_, _, _) => { };
@@ -304,6 +306,16 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         if (problem.Length == 0) { await Open(restartFrom: transcript.Header?.SessionId); return; }
         turnOnRuntime.IsVisible = true;
         env.Notify(PluginNotificationKind.Error, "Couldn't get " + offer.Name, problem);
+    }
+
+    // A failure card's request button (an agent's own sign-in): the plugin does it, and a success starts the chat again.
+    private async Task RunNoticeRequest(string request)
+    {
+        string? problem;
+        try { problem = await env.RunRequest(request); }
+        catch (Exception error) when (error is not OperationCanceledException) { problem = ChatErrors.Text(error); }
+        if (problem is null) { await Open(restartFrom: transcript.Header?.SessionId); return; }
+        env.Notify(PluginNotificationKind.Error, "Couldn't sign in", problem);
     }
 
     private async Task Open(string? restartFrom = null)
@@ -742,6 +754,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
             case ChatHitKind.OpenThread when arg is not null: OpenThread(arg); break;
             case ChatHitKind.Retry: _ = RetryLast(); break;
             case ChatHitKind.NoticeAction when arg is { Length: > 0 }: _ = env.RunInTerminal(arg); break;
+            case ChatHitKind.NoticeRequest when arg is { Length: > 0 }: _ = RunNoticeRequest(arg); break;
             case ChatHitKind.StopShell: _ = StopShell(); break;
             case ChatHitKind.DismissSide: _ = DismissSide(row.Item.Id); break;
             case ChatHitKind.Link when arg is not null && Markdown.SafeLink(arg): OpenUrl(arg); break;

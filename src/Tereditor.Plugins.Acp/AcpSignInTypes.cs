@@ -18,8 +18,19 @@ public sealed record AcpSignInLine(string Kind, string Text)
 /// <summary>A sign-in the agent offered in its answer to <c>initialize</c>. <see cref="CommandLine"/> is set when it is a terminal login: the exact line a terminal would run.</summary>
 public sealed record AcpSignInMethod(string Id, string Name, string? Description)
 {
+    /// <summary>The agent signs in itself when asked (<c>authenticate</c>); a terminal login has no such call.</summary>
+    public bool Authenticate { get; init; }
     public string? Label { get; init; }
     public string? CommandLine { get; init; }
+}
+
+/// <summary>Asks the host to run <c>authenticate</c> with one method the agent offered.</summary>
+public sealed record AcpAuthenticateParams(string AgentId, string MethodId)
+{
+    /// <summary>The text a chat's notice button carries: the chat knows nothing of agents, so the pair travels as one opaque string.</summary>
+    public string Encode() => AgentId + "\n" + MethodId;
+
+    public static AcpAuthenticateParams? Decode(string text) => text.Split('\n') is [{ Length: > 0 } agent, { Length: > 0 } method] ? new(agent, method) : null;
 }
 
 /// <summary>What the host found for one agent: the sources in the order the agent checks them, why, and what the agent itself offered.</summary>
@@ -29,5 +40,8 @@ public sealed record AcpSignInInfo(string AgentId, IReadOnlyList<AcpSignInLine> 
     public IReadOnlyList<string> Display() => [.. Lines.Select(line => line.Display())];
 
     /// <summary>The first terminal login the agent offered, if any.</summary>
+    /// <summary>The methods whose sign-in the agent does itself when asked.</summary>
+    public IEnumerable<AcpSignInMethod> Authenticable => Methods.Where(method => method.Authenticate);
+
     public AcpSignInMethod? Terminal => Methods.FirstOrDefault(method => method.CommandLine is { Length: > 0 });
 }

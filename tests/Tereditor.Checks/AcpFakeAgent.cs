@@ -33,6 +33,8 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
 
     /// <summary>session/new answers "authentication required" (-32000), as an agent that is not signed in does.</summary>
     public bool AuthRequired { get; init; }
+    /// <summary>With <see cref="AuthRequired"/>: refuses with the code and words of Junie's answer instead (not -32000).</summary>
+    public bool AuthRequiredOtherCode { get; init; }
     /// <summary>Advertises <c>agentCapabilities.auth.status</c> and answers auth/status with two accounts.</summary>
     public bool AuthStatus { get; init; }
     /// <summary>Offers a sign-in of <c>type: "terminal"</c> (arguments and a variable) and one of <c>type: "agent"</c>.</summary>
@@ -208,8 +210,11 @@ internal sealed class AcpFakeAgent : IAsyncDisposable
                         : new JsonArray(new JsonObject { ["id"] = "login", ["name"] = "Log in", ["description"] = "Sign in with the agent's own flow." }),
                     ["agentInfo"] = new JsonObject { ["name"] = "fake-agent", ["title"] = "Fake agent", ["version"] = "1.0.0" }
                 };
-            case "authenticate": return new JsonObject();
+            case "authenticate":
+                lock (Last) Last[method] = parameters;
+                return new JsonObject();
             case "auth/status": return new JsonObject { ["accounts"] = new JsonArray(new JsonObject { ["label"] = "octocat" }, "second-account") };
+            case "session/new" when AuthRequired && AuthRequiredOtherCode: throw new AcpException(AcpException.Internal, "Authentication is required before this operation can be performed.");
             case "session/new" when AuthRequired: throw new AcpException(AcpException.AuthRequired, "Authentication required");
             case "session/new":
                 lock (Last) Last[method] = parameters;

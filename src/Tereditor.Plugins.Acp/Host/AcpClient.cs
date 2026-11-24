@@ -95,6 +95,8 @@ internal sealed class AcpClient : IAsyncDisposable
             {
                 ["fs"] = new JsonObject { ["readTextFile"] = true, ["writeTextFile"] = true },
                 ["terminal"] = true,
+                // The client can run the agent program itself in a terminal, so the agent may offer a terminal sign-in.
+                ["auth"] = new JsonObject { ["terminal"] = true },
                 ["session"] = new JsonObject { ["configOptions"] = new JsonObject { ["boolean"] = new JsonObject() } }
             },
             ["clientInfo"] = new JsonObject { ["name"] = clientName.ToLowerInvariant(), ["title"] = clientName, ["version"] = clientVersion }

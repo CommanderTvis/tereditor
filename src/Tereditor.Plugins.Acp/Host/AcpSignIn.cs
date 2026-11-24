@@ -140,7 +140,7 @@ internal sealed partial class AcpSignIn(Func<string, string?> environment, strin
         foreach (var method in answer?.Methods ?? [])
         {
             var commandLine = CommandLine(entry, method);
-            methods.Add(new AcpSignInMethod(method.Id, method.Name, method.Description) { Label = method.Label, CommandLine = commandLine });
+            methods.Add(new AcpSignInMethod(method.Id, method.Name, method.Description) { Label = method.Label, CommandLine = commandLine, Authenticate = !method.Terminal });
             lines.Add(new AcpSignInLine("agent", "A sign-in the agent will ask for: " + method.Name + (method.Label is { Length: > 0 } label && label != method.Name ? " (" + label + ")" : "")));
         }
         foreach (var account in answer?.Accounts ?? []) lines.Add(new AcpSignInLine("agent", "The agent says it uses: " + account));

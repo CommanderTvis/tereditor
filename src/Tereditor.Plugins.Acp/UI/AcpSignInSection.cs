@@ -78,10 +78,39 @@ internal sealed class AcpSignInSection : StackPanel
             ToolTip.SetTip(run, "Opens a terminal and runs: " + terminal.CommandLine);
             actions.Children.Add(run);
         }
+        foreach (var method in info.Authenticable)
+        {
+            var id = method.Id;
+            var button = Ui.Button("Sign in with " + method.Name, () => _ = AuthenticateAsync(id));
+            button.Name = "AcpSignInAuthenticate_" + id;
+            ToolTip.SetTip(button, method.Description is { Length: > 0 } description ? description : "Asks the agent to sign you in. It finishes in its own tool, for example your browser.");
+            actions.Children.Add(button);
+        }
         var again = Ui.Button("Check again", Refresh);
         again.Name = "AcpSignInAgain";
         actions.Children.Add(again);
         Children.Add(actions);
+    }
+
+    private async Task AuthenticateAsync(string methodId)
+    {
+        context.Notify(PluginNotificationKind.Info, "Signing in", "Finish the sign-in in the agent's own tool, for example your browser.");
+        var problem = await AuthenticateAsync(context, new AcpAuthenticateParams(agentId, methodId).Encode());
+        if (problem is not null) context.Notify(PluginNotificationKind.Error, "Couldn't sign in", problem);
+        else context.Notify(PluginNotificationKind.Info, "Signed in", "Start a new chat with this agent.");
+        await Dispatcher.UIThread.InvokeAsync(Refresh);
+    }
+
+    /// <summary>Asks the host to sign in with one method; null when it worked, else what went wrong. Also the handler of a chat's sign-in button.</summary>
+    internal static async Task<string?> AuthenticateAsync(IPluginUIContext context, string request)
+    {
+        if (AcpAuthenticateParams.Decode(request) is not { } sign) return "That sign-in is not known.";
+        try
+        {
+            await Task.Run(() => context.RequestAsync(AcpContract.Authenticate, sign).AsTask());
+            return null;
+        }
+        catch (Exception error) when (error is not OperationCanceledException) { return error.Message; }
     }
 
     private async Task RunAsync(string commandLine)

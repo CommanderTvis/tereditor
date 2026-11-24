@@ -289,10 +289,15 @@ public sealed record ChatNoticeItem(string Id, long Seq, ChatNoticeLevel Level, 
     public bool Running { get; init; }
     /// <summary>For a <see cref="ChatNoticeKinds.Failure"/> card: a button that opens a terminal running <see cref="ChatNoticeAction.Command"/> (a sign-in the user starts); null for none.</summary>
     public ChatNoticeAction? Action { get; init; }
+    /// <summary>For a <see cref="ChatNoticeKinds.Failure"/> card: buttons that ask the plugin to do one thing (such as an agent's own sign-in) and then start the chat again; empty for none.</summary>
+    public IReadOnlyList<ChatNoticeRequest> Requests { get; set; } = [];
 }
 
 /// <summary>A button on a notice that runs one command line in a new terminal. The user sees the whole line before clicking; nothing is typed for them.</summary>
 public sealed record ChatNoticeAction(string Label, string Command);
+
+/// <summary>A button on a notice that hands <see cref="Request"/>, an opaque text only the plugin understands, back to the plugin. When it succeeds, the chat starts again.</summary>
+public sealed record ChatNoticeRequest(string Label, string Request);
 
 /// <summary>Obsolete and never emitted: the extension draws nothing for a result; its numbers go to the header, a failure to a notice.</summary>
 public sealed record ChatResultItem(string Id, long Seq, bool IsError) : ChatItem(Id, Seq)

@@ -55,6 +55,15 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         return await Detector.ResolveAsync(entry, answers.GetValueOrDefault(agentId), failures.ContainsKey(agentId), cancellationToken);
     }
 
+    /// <summary>Runs the agent's own protocol sign-in for one method it offered (see <see cref="AcpAuthenticate"/>), on a start of the agent made for that alone.</summary>
+    public async Task AuthenticateAsync(string agentId, string methodId, CancellationToken cancellationToken)
+    {
+        var entry = ListAgents().Agents.FirstOrDefault(agent => agent.Id == agentId) ?? throw new InvalidOperationException("No such agent: " + agentId);
+        var cwd = entry.Cwd.Length > 0 ? entry.Cwd : Home;
+        await using var owner = await (connect is null ? LaunchAsync(entry, cwd) : connect(entry, cwd));
+        await AcpAuthenticate.RunAsync(owner, methodId, cancellationToken);
+    }
+
     /// <summary>The icons of the registry's agents. The urls come from the registry copy here, never from the UI.</summary>
     public async Task<AcpIconSet> IconsAsync(AcpIconParams p, CancellationToken cancellationToken)
     {
@@ -262,6 +271,12 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         context.Method(AcpContract.Registry, async (p, _, ct) => (await Cache.LoadAsync(p.Refresh, ct)).View);
         context.Method(AcpContract.Icons, async (p, _, ct) => await IconsAsync(p, ct));
         context.Method(AcpContract.SignIn, async (p, _, ct) => await SignInAsync(p.AgentId, ct));
+        context.Method(AcpContract.Authenticate, async (p, call, ct) =>
+        {
+            await AuthenticateAsync(p.AgentId, p.MethodId, ct);
+            failures.TryRemove(p.AgentId, out _);
+            return new Ack();
+        });
         context.Method(AcpContract.InstallPlan, async (p, _, ct) => await PlanAsync(p, ct));
         context.Method(AcpContract.Install, async (p, _, ct) => WithProblems(await InstallAsync(p, ct)));
         context.Method(AcpContract.RemoveAgent, (p, _, _) => ValueTask.FromResult(WithProblems(RemoveAgent(p.AgentId))));

@@ -12,6 +12,9 @@ public sealed class AcpException(int code, string message) : Exception(message)
     public const int AuthRequired = -32000;
 
     public int Code { get; } = code;
+
+    /// <summary>The agent refused because the user is not signed in: the code the ACP schema names, or the words some agents use with their own code.</summary>
+    public bool NeedsSignIn => Code == AuthRequired || Message.Contains("authentication", StringComparison.OrdinalIgnoreCase) && Message.Contains("required", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>The agent went away (its output ended) while a request was waiting.</summary>

@@ -22,6 +22,7 @@ internal sealed partial class AcpSettingsView : Grid
     private readonly MasterDetail master;
     private readonly TextBlock status;
     private readonly TextBox search;
+    private readonly StackPanel notesPanel = new() { Spacing = 4 };
     private readonly Control page;
     private AcpRegistryView? registry;
     private string? registryError;
@@ -48,7 +49,7 @@ internal sealed partial class AcpSettingsView : Grid
         master = new MasterDetail("AcpAgents");
         master.Selected += id => { selectedId = id; ShowPane(true); };
         status = new TextBlock { Name = "AcpRegistryStatus", FontSize = 12, Foreground = Ui.Muted, TextWrapping = TextWrapping.Wrap };
-        search = new TextBox { Name = "AcpSearch", PlaceholderText = "Search agents", Width = 260, FontSize = 12 };
+        search = new TextBox { Name = "AcpSearch", PlaceholderText = "Search agents", FontSize = 12 };
         Avalonia.Automation.AutomationProperties.SetName(search, "search agents");
         search.TextChanged += (_, _) => RenderList(false);
         page = BuildPage();
@@ -151,7 +152,7 @@ internal sealed partial class AcpSettingsView : Grid
 
     private const string RegistryPrefix = "registry:";
 
-    /// <summary>The pane of a registry agent that is not installed: what it is, where it comes from, the trust notice and Install.</summary>
+    /// <summary>The pane of a registry agent that is not installed: what it is, where it comes from and Install. The trust notice is the one above the list.</summary>
     private Control BuildRegistryDetail(AcpRegistryAgent agent)
     {
         var model = AcpRows.Registry(registry!, configured, null).FirstOrDefault(row => row.Agent.Id == agent.Id);
@@ -166,7 +167,6 @@ internal sealed partial class AcpSettingsView : Grid
         if (links.Children.Count > 0) panel.Children.Add(links);
         if (agent.License is { } license) panel.Children.Add(Text("License: " + license, detail: true));
         if (model is not null) panel.Children.Add(Text(model.StatusText, detail: true));
-        panel.Children.Add(TrustNotice("AcpTrustNote"));
         if (model is { CanInstall: true })
         {
             var install = Ui.Button(model.ActionLabel, () => Install(agent.Id));
@@ -221,7 +221,6 @@ internal sealed partial class AcpSettingsView : Grid
             var checks = Text("Checked: " + detail.Verification, detail: true);
             checks.Name = "AcpVerification";
             panel.Children.Add(checks);
-            panel.Children.Add(TrustNotice("AcpTrustNote"));
         }
 
         var enabled = new CheckBox { Name = "AcpEnabled", Content = "Offer this agent in the New ACP chat button", IsChecked = entry.Enabled };
@@ -313,7 +312,7 @@ internal sealed partial class AcpSettingsView : Grid
         return box;
     }
 
-    /// <summary>The permanent trust notice: registry agents are third-party programs, and a checksum does not make one safe.</summary>
+    /// <summary>The permanent trust notice, shown once above the list: registry agents are third-party programs, and a checksum does not make one safe.</summary>
     private static Control TrustNotice(string name) =>
         new Border { Name = name, Background = Ui.WarningWash, CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 6), Child = new TextBlock { Text = AcpInstallPlan.TrustNote, FontSize = 12, Foreground = Ui.TextBrush, TextWrapping = TextWrapping.Wrap } };
 
@@ -369,10 +368,14 @@ internal sealed partial class AcpSettingsView : Grid
 
     private Control BuildPage()
     {
-        var panel = new Grid { Name = "AcpBrowser", RowSpacing = 8, RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*") };
+        var panel = new Grid { Name = "AcpBrowser", RowSpacing = 8, RowDefinitions = new RowDefinitions("Auto,Auto,*") };
         panel.Children.Add(TrustNotice("AcpBrowserTrust"));
-        var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        controls.Children.Add(search);
+        // The search is pinned at the top of the agents rail and the list scrolls under it; Refresh and Add custom agent sit under the list.
+        master.Header.Children.Add(search);
+        master.Header.Children.Add(notesPanel);
+        var controls = master.Footer;
+        controls.Orientation = Orientation.Horizontal;
+        controls.Spacing = 8;
         var refresh = new Button { Name = "AcpRefresh", Content = "Refresh" };
         Avalonia.Automation.AutomationProperties.SetName(refresh, "refresh registry");
         refresh.Click += (_, _) => LoadRegistry(true);
@@ -381,13 +384,24 @@ internal sealed partial class AcpSettingsView : Grid
         Avalonia.Automation.AutomationProperties.SetName(add, "add custom agent");
         add.Click += (_, _) => AddCustom();
         controls.Children.Add(add);
-        Grid.SetRow(controls, 1);
-        panel.Children.Add(controls);
-        Grid.SetRow(status, 2);
+        Grid.SetRow(status, 1);
         panel.Children.Add(status);
-        Grid.SetRow(master, 3);
+        Grid.SetRow(master, 2);
         panel.Children.Add(master);
         return panel;
+    }
+
+    /// <summary>When the registry was read, in plain words: "2 minutes ago", else the local date. An unreadable stamp is shown as it is.</summary>
+    internal static string Ago(string? stamp, DateTimeOffset now)
+    {
+        if (!DateTimeOffset.TryParse(stamp, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var at)) return stamp ?? "";
+        var age = now - at;
+        static string Count(double n, string unit) => (int)n == 1 ? "1 " + unit + " ago" : (int)n + " " + unit + "s ago";
+        if (age < TimeSpan.Zero || age < TimeSpan.FromMinutes(1)) return "just now";
+        if (age < TimeSpan.FromHours(1)) return Count(age.TotalMinutes, "minute");
+        if (age < TimeSpan.FromDays(1)) return Count(age.TotalHours, "hour");
+        if (age < TimeSpan.FromDays(7)) return Count(age.TotalDays, "day");
+        return at.ToLocalTime().ToString("MMM d, yyyy", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
     }
 
     private void LoadRegistry(bool refresh)
@@ -413,8 +427,8 @@ internal sealed partial class AcpSettingsView : Grid
         if (registry is not null)
             status.Text = registry.Source switch
             {
-                "network" => "Fetched " + registry.FetchedAt,
-                "cache" => "Saved copy from " + registry.FetchedAt,
+                "network" => "Fetched " + Ago(registry.FetchedAt, DateTimeOffset.Now),
+                "cache" => "Saved copy from " + Ago(registry.FetchedAt, DateTimeOffset.Now),
                 _ => "Built-in list"
             } + (registry.Note is { } note ? ". " + note : "");
         else if (registryError is not null) status.Text = "";
@@ -433,8 +447,8 @@ internal sealed partial class AcpSettingsView : Grid
         else if (registry is null) notes.Add("Loading the registry…");
         if (combined.Installed.Count == 0 && string.IsNullOrWhiteSpace(search.Text)) notes.Add("No agents installed. Install one from the registry, or add a custom agent.");
         if (registry is not null && combined.Available.Count == 0) notes.Add(string.IsNullOrWhiteSpace(search.Text) ? "Every registry agent is installed." : "No agent matches the search.");
-        master.Header.Children.Clear();
-        foreach (var note in notes) master.Header.Children.Add(Text(note, detail: true));
+        notesPanel.Children.Clear();
+        foreach (var note in notes) notesPanel.Children.Add(Text(note, detail: true));
         master.SetRows(rows, selectedId);
         var previous = selectedId;
         selectedId = master.SelectedId;

@@ -19,7 +19,7 @@ public sealed class AcpUI : PluginUIModule
     {
         var client = new PluginChatClient(context);
         // The agent edits files through the client methods the host serves, so the diff of a proposal has no file to read here.
-        var selections = ChatDocuments.Register(context, client, AcpChat.Agent, (_, _) => Task.FromResult(""));
+        var selections = ChatDocuments.Register(context, client, AcpChat.Agent, (_, _) => Task.FromResult(""), request => AcpSignInSection.AuthenticateAsync(context, request));
         AcpTabIcons tabIcons = null!;
         tabIcons = new AcpTabIcons { AskAgents = workspace => _ = LoadTabIconsAsync(context, tabIcons, workspace) };
         context.TabDecoration(tabIcons.Decorate);

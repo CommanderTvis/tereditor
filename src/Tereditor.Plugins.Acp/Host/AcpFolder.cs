@@ -81,10 +81,10 @@ internal sealed class AcpFolder
         return item;
     }
 
-    public void Notice(ChatNoticeLevel level, string text, string? category = null, bool? retryable = null, ChatNoticeAction? action = null)
+    public void Notice(ChatNoticeLevel level, string text, string? category = null, bool? retryable = null, ChatNoticeAction? action = null, IReadOnlyList<ChatNoticeRequest>? requests = null)
     {
         CloseStreaming();
-        Put(new ChatNoticeItem("n" + ++counter, Next(), level, text) { Category = category, Retryable = retryable, Action = action });
+        Put(new ChatNoticeItem("n" + ++counter, Next(), level, text) { Category = category, Retryable = retryable, Action = action, Requests = requests ?? [] });
     }
 
     /// <summary>

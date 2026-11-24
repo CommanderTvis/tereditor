@@ -107,6 +107,8 @@ public static class AcpContract
     public static readonly PluginMethod<AcpChatAgentsParams, AcpChatAgents> ChatAgents = new("chatAgents");
     /// <summary>Where an agent's sign-in comes from: names and accounts the host detected, never a secret.</summary>
     public static readonly PluginMethod<AcpSignInParams, AcpSignInInfo> SignIn = new("signIn");
+    /// <summary>Runs the agent's own protocol sign-in (<c>authenticate</c>) for one method it offered. The user finishes it in the agent's own tool; no secret passes here.</summary>
+    public static readonly PluginMethod<AcpAuthenticateParams, Ack> Authenticate = new("authenticate");
     /// <summary>The editor's answer to a <see cref="Buffer"/> request.</summary>
     public static readonly PluginMethod<AcpBufferReply, Ack> BufferReply = new("bufferReply");
     /// <summary>The host asks the editor for the unsaved text of a file (workspace-relative path).</summary>
@@ -114,7 +116,7 @@ public static class AcpContract
 
     /// <summary>The chat contract is shared with the other chat plugins: ACP serves its methods and its updates channel.</summary>
     public static readonly PluginContract Contract = PluginContract.Create<AcpSettings>(AcpManifest.Id, WireVersion,
-        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, AgentIcon, ChatAgents, SignIn, BufferReply], [ChatContract.Updates, Buffer],
+        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, AgentIcon, ChatAgents, SignIn, Authenticate, BufferReply], [ChatContract.Updates, Buffer],
         AcpJson.Default, ChatContract.Json);
 }
 
@@ -136,6 +138,7 @@ public static class AcpContract
 [JsonSerializable(typeof(AcpChatAgents))]
 [JsonSerializable(typeof(AcpSignInParams))]
 [JsonSerializable(typeof(AcpSignInInfo))]
+[JsonSerializable(typeof(AcpAuthenticateParams))]
 [JsonSerializable(typeof(AcpBufferRequest))]
 [JsonSerializable(typeof(AcpBufferReply))]
 internal sealed partial class AcpJson : JsonSerializerContext;

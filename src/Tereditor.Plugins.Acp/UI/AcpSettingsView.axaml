@@ -24,7 +24,7 @@
         <TextBlock Text="Early support" FontSize="11" Foreground="{x:Static kit:Ui.Warning}" />
       </Border>
     </StackPanel>
-    <TextBlock Classes="detail" Text="Chat with any ACP agent in tereditor's chat view. The agent is a program that runs on this machine, in the workspace folder, and is not sandboxed: only use agents you trust. Sign-in happens in the agent's own tool; tereditor never asks for credentials." />
+    <TextBlock Classes="detail" Text="Chat with any ACP agent in tereditor's chat view. An agent runs in the workspace folder. Sign-in happens in the agent's own tool; tereditor never asks for credentials." />
   </StackPanel>
   <TextBlock x:Name="AcpDefaultNote" Classes="detail" IsVisible="False" Grid.Row="1" Margin="0,0,0,16" />
   <Border x:Name="AcpListHost" Grid.Row="2" />

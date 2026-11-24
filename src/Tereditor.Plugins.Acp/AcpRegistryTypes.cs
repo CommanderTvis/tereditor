@@ -36,7 +36,7 @@ public sealed record AcpInstallPlan(string AgentId, string Name, string Version,
     /// <summary>The line the confirmation shows when <see cref="NotRecommended"/> is set.</summary>
     public const string NotRecommendedLine = "tereditor supports this agent directly. Installing the ACP adapter is not recommended.";
 
-    /// <summary>The trust notice shown in the install confirmation, at the top of the registry browser and in each registry agent's pane.</summary>
+    /// <summary>The trust notice shown in the install confirmation, and once at the top of the registry browser.</summary>
     public const string TrustNote = "Agents from the ACP registry are third-party programs. They run on this machine with your user's access, so only install ones you trust.";
 
     /// <summary>What can be checked about this install and what was found, in plain words: a verified SHA-256, no checksum, a pinned version or an unpinned one.</summary>

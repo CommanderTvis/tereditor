@@ -1558,6 +1558,7 @@ internal static class Program
         }
         if (args.SequenceEqual(["--acp"]))
         {
+            AcpChecks.SettingsText();
             AcpChecks.Run(Path.Combine(root, "acp")).GetAwaiter().GetResult();
             Console.WriteLine("PASS ACP checks");
             return;
