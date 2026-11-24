@@ -724,7 +724,7 @@ internal static class ClaudeContextChecks
     }
 
     // The tree connectors of a group stay inside it: the vertical line of the first level ends at the elbow of the group's last plugin and
-    // never reaches the row's bottom rule, the next group or the pane's left edge, with one child or several, one line of text or wrapped.
+    // never reaches the row's bottom edge, the next group or the pane's left edge, with one child or several, one line of text or wrapped.
     private static void TreeConnectorBounds()
     {
         const string longText = "Does a great many things for the project, and the line that says so is long enough to wrap in a narrow pane several times over";
@@ -775,11 +775,20 @@ internal static class ClaudeContextChecks
                             Require(Of(arm).Left >= 14.5, $"An elbow starts at its line {where}: arm {Of(arm)} {arm.Bounds}, guide {guide0(arm)}, row {plugins[0].Bounds}, group {group.Bounds}.");
                         foreach (var row in plugins.Concat(group.GetVisualDescendants().OfType<DockPanel>().Where(p => p.IsEffectivelyVisible && p.Children.OfType<Grid>().Any(g => g.Margin.Left == 15 && g.Width == 5))).Distinct())
                             foreach (var rule in row.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<Border>()).Where(b => b.Width == 1))
-                                Require(rule.TranslatePoint(new(0, rule.Bounds.Height), row)!.Value.Y <= row.Bounds.Height - 1 + 0.5, $"A tree line stops above the row separator {where}: {Of(rule)} in row {row.Bounds}.");
+                                Require(rule.TranslatePoint(new(0, rule.Bounds.Height), row)!.Value.Y <= row.Bounds.Height - 1 + 0.5, $"A tree line stops above the row's bottom edge {where}: {Of(rule)} in row {row.Bounds}.");
                         var parent = section.Children[section.Children.IndexOf(group) - 1];
                         var stem = parent.GetVisualDescendants().OfType<Border>().SingleOrDefault(border => border.Name == "ClaudeContextStem");
-                        Require(stem is null || stem.TranslatePoint(new(0, stem.Bounds.Height), parent)!.Value.Y <= parent.Bounds.Height + 0.5,
+                        Require(stem is null || stem.TranslatePoint(new(0, stem.Bounds.Height), parent)!.Value.Y <= parent.Bounds.Height + parent.Margin.Bottom + 0.5,
                             $"A parent's stem ends at the bottom of its row {where}.");
+                        // The tree draws no border of its own: no bordered element of this group or its parent row meets a connector or a stem.
+                        Rect InSection(Control control) => new(control.TranslatePoint(default, section)!.Value, control.Bounds.Size);
+                        var strokes = guides.SelectMany(guide => guide.Children.OfType<Border>()).Select(line => InSection(line))
+                            .Concat(section.GetVisualDescendants().OfType<Border>().Where(border => border.Name == "ClaudeContextStem").Select(stemBorder => InSection(stemBorder))).ToArray();
+                        var edges = group.GetVisualDescendants().OfType<Border>().Concat(parent.GetVisualDescendants().OfType<Border>())
+                            .Where(border => border.BorderThickness != default && border.IsEffectivelyVisible).Select(border => InSection(border)).ToArray();
+                        foreach (var edge in edges)
+                            foreach (var line in strokes)
+                                Require(!edge.Intersects(line), $"A bordered element never meets a tree line {where}: edge {edge}, line {line}.");
                     }
                 }
                 finally { window.Close(); }

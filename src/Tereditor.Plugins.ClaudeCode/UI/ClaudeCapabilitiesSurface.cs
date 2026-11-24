@@ -208,7 +208,7 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
         if (part.Path is { } path) row.Children.Add(ClaudeParts.SourceButton(path, null, pane.Open));
         Avalonia.Automation.AutomationProperties.SetName(row, part.Name);
         if (part.Description is not null) Avalonia.Automation.AutomationProperties.SetHelpText(row, part.Description);
-        return new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Child = row };
+        return row;
     }
 
     private static Control Child(Control content, int depth, bool last, IReadOnlyList<bool>? endedAbove = null)
@@ -248,7 +248,7 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
         return named;
     }
 
-    // The parent's own glyph carries the stem; the wrapper keeps the row's name, tag and bottom rule.
+    // The parent's own glyph carries the stem; the line keeps the row's name and tag. No border: groups are apart by spacing.
     private Control Parent(StackPanel row, ClaudeFold group)
     {
         var glyph = ClaudeTree.Glyph(Ui.Icon("box", Ui.Hint, 14), group.HasChildren);
@@ -259,7 +259,7 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
         var line = new DockPanel { Margin = new Thickness(8, 4) };
         line.Children.Add(glyph);
         line.Children.Add(row);
-        return new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Child = line };
+        return line;
     }
 
     private Control NoMarketplaceRow(ClaudePluginGroup group)
@@ -381,7 +381,9 @@ internal sealed class ClaudeCapabilitiesSurface(IClaudeCapabilityHost pane, IRea
             summary.Name = item.Parts is null ? "ClaudePluginMissing" : "ClaudePluginSummary";
             row.Children.Add(summary);
         }
-        return group is not null ? Parent(row, group) : new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Child = row };
+        if (group is not null) return Parent(row, group);
+        if (item.Kind == ClaudeCapabilityKind.Plugin) return row;
+        return new Border { BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Child = row };
     }
 
     /// <summary>The health of a server as a short coloured word; an unknown status shows Claude's own text, muted.</summary>
