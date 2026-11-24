@@ -41,7 +41,7 @@ public sealed partial class HostLaunchView : UserControl
 
     private Control Card(LaunchOption option, bool withSystem = false)
     {
-        var card = new StackPanel { Name = "Launch_" + option.Id, Spacing = 6 };
+        var card = new StackPanel { Name = "Launch_" + option.Id, Spacing = 8 };
         card.Children.Add(new TextBlock { Text = withSystem ? option.Os + ": " + option.Title : option.Id.EndsWith("-uninstall") ? "Command" : option.Title, FontSize = 16 });
         card.Children.Add(new TextBlock { Text = option.Steps, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Foreground = Ui.Muted });
         var box = new TextBox { Text = option.Command, IsReadOnly = true, AcceptsReturn = true, FontFamily = Ui.CodeFont, FontSize = 12, MaxHeight = 160, Name = "LaunchCommand_" + option.Id };
