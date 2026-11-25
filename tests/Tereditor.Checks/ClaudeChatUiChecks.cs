@@ -1761,6 +1761,12 @@ internal static class ClaudeChatUiChecks
             Require(list.FocusedStop is { Kind: ChatHitKind.Fork }, "Tab reaches Fork next.");
             window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null); Frame(window);
             Require(list.FocusedStop is null, "Tab past the last target leaves the row.");
+
+            // A selected row keeps those controls with the pointer elsewhere; selecting another row takes them away.
+            var away = In("tool", 200, 10);
+            window.MouseMove(away); window.MouseMove(new Point(away.X + 1, away.Y)); Frame(window);
+            Require(list.ShowsActions("u"), "A selected prompt shows Rewind and Fork with the pointer on another row."); window.MouseDown(away, MouseButton.Left); window.MouseUp(away, MouseButton.Left); Frame(window);
+            Require(!list.ShowsActions("u"), "Once another row is selected and the pointer is away, the prompt hides them again.");
         }
         catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
         finally { window.Close(); }

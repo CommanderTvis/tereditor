@@ -53,6 +53,13 @@ internal sealed class ChatList : ScrollViewer
     private bool passScheduled;
     private bool followScheduled;
     private int hovered = -1;
+
+    // One rule for every hover-only control (Fork, Rewind, copy buttons): the row under the pointer or the selected row shows them.
+    private bool ActionsShown(int index) => index >= 0 && (hovered == index || index < rows.Count && rows[index].Id == selectedId);
+
+    /// <summary>Whether the row with this id currently shows its hover-only controls (pointer over it, or selected).</summary>
+    internal bool ShowsActions(string rowId) => ActionsShown(IndexOfId(rowId));
+
     private (string RowId, ChatHit Hit)? hoverHit;
     private ChatHit? focusStop;
     private static readonly Cursor Hand = new(StandardCursorType.Hand);
@@ -485,7 +492,7 @@ internal sealed class ChatList : ScrollViewer
             using (context.PushTransform(Matrix.CreateTranslation(0, tops[i])))
             {
                 // A folded row's whole line is its Toggle target; once the row wears the selection ring that line is not washed as well, so a selected row is the ring alone.
-                layout.Draw(context, hovered == i || focusStop is { Kind: ChatHitKind.CopyCode } && row.Id == selectedId, from - tops[i], to - tops[i], MarksFor(i, layout), hoverHit is { } washed && washed.RowId == row.Id && !(washed.Hit.Kind == ChatHitKind.Toggle && row.Id == selectedId && surface.IsFocused) ? washed.Hit.Bounds.Inflate(2) : null, copiedCode);
+                layout.Draw(context, ActionsShown(i) || focusStop is { Kind: ChatHitKind.CopyCode } && row.Id == selectedId, from - tops[i], to - tops[i], MarksFor(i, layout), hoverHit is { } washed && washed.RowId == row.Id && !(washed.Hit.Kind == ChatHitKind.Toggle && row.Id == selectedId && surface.IsFocused) ? washed.Hit.Bounds.Inflate(2) : null, copiedCode);
                 if (hoverHit is { } over && over.RowId == row.Id) DrawHover(context, over.Hit);
                 if (focusStop is { } stop && row.Id == selectedId && surface.IsFocused)
                     context.DrawRectangle(null, new Pen(Ui.Accent, 1.5), stop.Bounds.Inflate(2), 3, 3);
@@ -539,7 +546,7 @@ internal sealed class ChatList : ScrollViewer
             var row = rows[index];
             var layout = LayoutOf(row, (row.Id, row.Revision, (int)Math.Round(width)));
             var local = new Point(point.X, point.Y - tops[index]);
-            if (layout.HitAt(local) is { } hit && !(hit.Kind is ChatHitKind.Rewind or ChatHitKind.Fork && hovered != index))
+            if (layout.HitAt(local) is { } hit && !(hit.Kind is ChatHitKind.Rewind or ChatHitKind.Fork && !ActionsShown(index)))
                 next = (row.Id, hit);
             else if (row.Item is ChatToolItem or ChatThinkingItem or ChatActivityItem && local.Y < 24) next = (row.Id, new ChatHit(new Rect(0, 0, width, 22), ChatHitKind.Toggle));
         }
@@ -574,7 +581,7 @@ internal sealed class ChatList : ScrollViewer
         selectedId = row.Id;
         var layout = LayoutOf(row, (row.Id, row.Revision, (int)Math.Round(width)));
         var local = new Point(point.X, point.Y - tops[index]);
-        var hovering = hovered == index;
+        var hovering = ActionsShown(index);
         pendingLink = null;
         if (layout.HitAt(local) is { } hit && hit.Kind != ChatHitKind.Tip && !(hit.Kind is ChatHitKind.Rewind or ChatHitKind.Fork && !hovering))
         {
@@ -860,7 +867,7 @@ internal sealed class ChatList : ScrollViewer
         if (e.Key == Avalonia.Input.Key.Tab && index >= 0 && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift)
         {
             var row = rows[index];
-            var stops = LayoutOf(row, (row.Id, row.Revision, (int)Math.Round(width))).TabStops(hovered == index);
+            var stops = LayoutOf(row, (row.Id, row.Revision, (int)Math.Round(width))).TabStops(ActionsShown(index));
             var at = focusStop is { } current ? stops.ToList().FindIndex(stop => stop == current) : -1;
             var next = e.KeyModifiers == KeyModifiers.Shift ? (at < 0 ? stops.Count - 1 : at - 1) : at + 1;
             if (next >= 0 && next < stops.Count) { focusStop = stops[next]; surface.Redraw(); e.Handled = true; return; }

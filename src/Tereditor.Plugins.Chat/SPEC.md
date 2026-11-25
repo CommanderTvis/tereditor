@@ -218,7 +218,7 @@ workspace, never by the view.
 
 A chat document asks the dock for 360px beside another document (`ChatView.MinDocumentWidth`, the dock's minimum widths). Below that (phone, narrow window) the composer keeps its placeholder on one line cut with an ellipsis, Send stays inside the view, the footer chips wrap or give way by density level, and rows keep a text column of at least `ChatRowLayout.MinTextWidth` (120px) so text wraps between words.
 
-A selected, focused row wears an accent frame around its content: for a prompt the bubble plus its Rewind and Fork strip, for a reply its text. The frame sits `SelectionPad` (3px) outside that content on all four sides and uses the card radius of the prompt bubble.
+A row's hover-only controls (a prompt's Rewind and Fork, a code block's Copy) show while the pointer is over the row or the row is selected, by one rule in the list. A selected, focused row wears an accent frame around its content: for a prompt the bubble plus its Rewind and Fork strip, for a reply its text. The frame sits `SelectionPad` (3px) outside that content on all four sides and uses the card radius of the prompt bubble.
 
 Search history is a row of the composer's "+" menu, not a button in the prompt box; it opens the same prompt and conversation search. It has no keyboard shortcut.
 
