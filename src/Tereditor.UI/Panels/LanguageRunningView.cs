@@ -26,6 +26,7 @@ internal sealed class LanguageRunningView : UserControl
     private bool? open;
     private string summary = "Reading running servers…";
     private int count;
+    private bool failed;
 
     internal LanguageRunningView(IProjectServices host, string workspace)
     {
@@ -34,6 +35,7 @@ internal sealed class LanguageRunningView : UserControl
         header.Click += (_, _) => { open = !IsOpen; Render(); };
         Content = new StackPanel { Spacing = 4, Children = { header, body, message } };
         Render();
+        AutomationProperties.SetName(this, "Running servers");
         AttachedToVisualTree += (_, _) => { lifetime = new(); _ = PollAsync(lifetime.Token); };
         DetachedFromVisualTree += (_, _) => { lifetime?.Cancel(); lifetime?.Dispose(); lifetime = null; };
     }
@@ -51,11 +53,11 @@ internal sealed class LanguageRunningView : UserControl
         {
             try
             {
-                if (IsEffectivelyVisible) await ReadAsync(token);
+                if ((Parent as Avalonia.Visual)?.IsEffectivelyVisible ?? true) await ReadAsync(token);
                 await Task.Delay(TimeSpan.FromSeconds(5), token);
             }
             catch (OperationCanceledException) { return; }
-            catch (Exception error) { summary = "Running servers unavailable: " + error.Message; count = 0; body.Children.Clear(); Render(); return; }
+            catch (Exception error) { summary = "unavailable: " + error.Message; count = 0; failed = true; body.Children.Clear(); Render(); return; }
         }
     }
 
@@ -68,15 +70,17 @@ internal sealed class LanguageRunningView : UserControl
 
     private void Render()
     {
-        header.Content = (IsOpen ? "▾ " : "▸ ") + "Running · " + summary;
+        header.Content = (IsOpen ? "▾ " : "▸ ") + "Running servers · " + summary;
         body.IsVisible = IsOpen;
+        // Nothing runs, nothing shows: no empty band under the server list.
+        IsVisible = count > 0 || failed;
     }
 
     internal void Show(LanguageResult result)
     {
         var total = result.Configuration.Length > 0 && JsonNode.Parse(result.Configuration) is JsonObject json ? json["totalBytes"]?.GetValue<long>() ?? 0 : 0;
-        count = result.Servers.Count;
-        summary = $"{count} running · {Mib(total)}";
+        count = result.Servers.Count; failed = false;
+        summary = $"{count} · {Mib(total)}";
         body.Children.Clear();
         foreach (var group in result.Servers.GroupBy(server => server.Workspace)
                      .OrderByDescending(group => group.Key == Workspace).ThenBy(group => Path.GetFileName(group.Key), StringComparer.OrdinalIgnoreCase))

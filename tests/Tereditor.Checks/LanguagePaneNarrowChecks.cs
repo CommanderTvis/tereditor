@@ -55,6 +55,9 @@ internal static class LanguagePaneNarrowChecks
             Avalonia.Threading.Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
             var scroll = pane.FindControl<ScrollViewer>("PaneScroll")!;
             var servers = pane.FindControl<ListBox>("Servers")!;
+            var section = pane.FindControl<StackPanel>("LanguageServersSection")!;
+            Require(section.Children.OfType<Tereditor.UI.Panels.LanguageRunningView>().Count() == 1 && section.Children.IndexOf(section.Children.OfType<Tereditor.UI.Panels.LanguageRunningView>().Single()) > section.Children.IndexOf(servers),
+                "The running servers list must sit in the Language servers section under the server list, above the plugin sections.");
             Require(scroll.Extent.Height > scroll.Viewport.Height + 1, $"The pane does not overflow (extent {scroll.Extent.Height}, viewport {scroll.Viewport.Height}).");
             Require(scroll.Extent.Width <= scroll.Viewport.Width + 0.5, $"The pane is wider than its viewport (extent {scroll.Extent.Width}, viewport {scroll.Viewport.Width}).");
             foreach (var point in new[] { new Point(130, 20), new Point(130, 150), new Point(130, 280) })

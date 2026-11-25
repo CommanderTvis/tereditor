@@ -166,7 +166,8 @@ internal sealed partial class LanguagePanel : UserControl
         this.FindControl<Tereditor.Plugins.UI.Kit.PathLine>("Workspace")!.Path = workspace;
         this.FindControl<TextBlock>("LifetimeNote")!.Text = LanguageNotes.Lifetime;
         if (plugins is not null) this.FindControl<StackPanel>("PaneBody")!.Children.Add(slot = new Tereditor.UI.Plugins.PluginSlot(plugins, Tereditor.Plugins.Api.UI.UiSlots.WorkspaceLanguages, workspace));
-        this.FindControl<StackPanel>("PaneBody")!.Children.Add(running = new LanguageRunningView(host, workspace));
+        // The running list belongs to the Language servers section, above the plugin sections such as Air Context.
+        this.FindControl<StackPanel>("LanguageServersSection")!.Children.Add(running = new LanguageRunningView(host, workspace));
         var servers = this.FindControl<ListBox>("Servers")!;
         servers.ItemsSource = items;
         servers.ContextRequested += ServerContextRequested;

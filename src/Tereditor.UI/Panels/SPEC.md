@@ -318,10 +318,10 @@ editor features, and that agents can start the servers they need and manage the 
 `--lsp-settings`) asserts the text in both places. Rows of running servers show who started them and the
 agent call count with the time of the latest call.
 
-The Code Intelligence tool window ends with a collapsible Running section (`LanguageRunningView`): every running
+The Code Intelligence tool window shows a collapsible "Running servers" list (`LanguageRunningView`) as the last part of the Language servers section, under the server list and above the Air Context section; it is hidden while nothing runs. It lists every running
 server on the host, grouped by workspace folder (full path in the tooltip) with the current workspace first, each
 with its server, state, memory, idle time and a Stop that releases it (it restarts on its next request). The
-header is the one-line summary ("20 running · 28 MiB"); the section starts collapsed when more than five run.
+header is the one-line summary ("Running servers · 20 · 28 MiB"); the section starts collapsed when more than five run.
 It polls the host's `running` operation every 5 s off the UI thread while shown.
 
 Settings › Code Intelligence is the Code Intelligence plugin's own section, listed under Plugins (hidden while the plugin is off). The page is built by the plugin (`Tereditor.Plugins.CodeIntelligence/UI`). It holds only configuration in a Limits section (`LanguageLimitsView` in the plugin; every number row shares one grid: label, a fixed 128 px box column, and one shared unit column, so boxes and units align): the idle

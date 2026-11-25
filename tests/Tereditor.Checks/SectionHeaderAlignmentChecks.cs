@@ -38,9 +38,11 @@ internal static class SectionHeaderAlignmentChecks
         window.Show();
         try
         {
-            E2E.E2eWorkspace.Until(() => (running.GetVisualDescendants().OfType<Button>().First().Content as string)?.Contains("Reading") == false, "The Running section did not settle.");
+            E2E.E2eWorkspace.Until(() => (((Button)((StackPanel)running.Content!).Children[0]).Content as string)?.Contains("Reading") == false, "The Running section did not settle.");
+            if (running.IsVisible) throw new InvalidOperationException("The Running servers list shows while nothing runs.");
             running.Show(new LanguageResult("ok") { Servers = [new("csharp", "x", "running", "idle", "1") { Workspace = root, MemoryBytes = 28 << 20 }] });
             Avalonia.Threading.Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            if (!running.IsVisible || running.GetVisualDescendants().OfType<Button>().First().Content is not string label || !label.StartsWith("▾ Running servers · 1 · ", StringComparison.Ordinal)) throw new InvalidOperationException("The Running servers list is not shown with its title, count and memory.");
             var header = running.GetVisualDescendants().OfType<Button>().First(button => button.Classes.Contains("link"));
             var title = running.GetVisualDescendants().OfType<StackPanel>().First(panel => panel.Name == "RunningServers").Children.OfType<TextBlock>().First();
             Aligned("Running section", Left(header.GetVisualDescendants().OfType<TextBlock>().First(), window), Left(title, window));

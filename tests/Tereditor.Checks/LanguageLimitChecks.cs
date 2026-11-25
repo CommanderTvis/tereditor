@@ -284,11 +284,12 @@ internal static class LanguageLimitChecks
             window.Show();
             try
             {
+                E2E.E2eWorkspace.Until(() => running.IsVisible, "The Running servers list stayed hidden while a server runs.");
                 var rows = running.GetVisualDescendants().OfType<StackPanel>().Single(panel => panel.Name == "RunningServers");
                 E2E.E2eWorkspace.Until(() => rows.Children.Count == 2);
                 var text = string.Join(" ", rows.Children.OfType<TextBlock>().Concat(rows.Children.OfType<Grid>().SelectMany(row => row.Children.OfType<TextBlock>())).Select(block => block.Text));
                 Require(text.Contains("ui", StringComparison.Ordinal) && text.Contains("300\u00A0MiB", StringComparison.Ordinal), "The running rows lack their workspace or memory: " + text);
-                Require(running.GetVisualDescendants().OfType<Button>().Any(button => button.Content as string is { } label && label.Contains("1 running", StringComparison.Ordinal)), "The Running summary lacks the count.");
+                Require(running.GetVisualDescendants().OfType<Button>().Any(button => button.Content as string is { } label && label.Contains("Running servers · 1 · ", StringComparison.Ordinal)), "The Running servers summary lacks the count.");
                 Require(view.FindControl<TextBlock>("LimitsSummary")!.Text!.Contains("budget", StringComparison.Ordinal), "The summary lacks the budget.");
                 var idle = view.FindControl<Tereditor.Plugins.CodeIntelligence.UI.OptionalNumberRow>("LimitsIdle")!;
                 var budget = view.FindControl<Tereditor.Plugins.CodeIntelligence.UI.OptionalNumberRow>("LimitsBudget")!;
