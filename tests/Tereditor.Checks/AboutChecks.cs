@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Platform;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -15,6 +16,12 @@ internal static class AboutChecks
     private static void Require(bool value, string message)
     {
         if (!value) throw new InvalidOperationException(message);
+    }
+
+    private static void Pump(int milliseconds)
+    {
+        var end = DateTime.UtcNow.AddMilliseconds(milliseconds);
+        while (DateTime.UtcNow < end) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
     }
 
     internal static void Run()
@@ -53,8 +60,38 @@ internal static class AboutChecks
             Dispatcher.UIThread.RunJobs();
             Require(launched.Count == 1 && launched[0].Top == host && launched[0].Uri.AbsoluteUri == AboutInfo.NewIssue, "Report an issue must open the new-issue page from its window.");
             host.Close();
+            host.Content = null;
         }
         finally { LanguageProviderLinks.Launch = launch; }
+
+        // The frog says tero-tero: a floating bubble, no layout shift, gone after the timeout.
+        var frogHost = new Window { Content = fields, Width = 600, Height = 500 };
+        frogHost.Show();
+        Dispatcher.UIThread.RunJobs();
+        var frog = fields.GetLogicalDescendants().OfType<Button>().Single(button => button.Name == "AboutFrog");
+        var speech = fields.GetLogicalDescendants().OfType<Popup>().Single(popup => popup.Name == "AboutSpeech");
+        var version = fields.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "AboutVersion");
+        var before = version.Bounds;
+        Require(Avalonia.Automation.AutomationProperties.GetName(frog) == "tereditor logo" && frog.Focusable && !speech.IsOpen && speech.IsLightDismissEnabled, "The frog is a focusable button named tereditor logo; the bubble starts closed and closes on an outside click.");
+        var spoken = AboutFields.SpeechDuration;
+        AboutFields.SpeechDuration = TimeSpan.FromMilliseconds(300);
+        try
+        {
+            frog.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Require(speech.IsOpen && speech.Child!.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "tero-tero!"), "Clicking the frog shows the tero-tero! bubble.");
+            Require(version.Bounds == before, "The bubble must not move the version text.");
+            Pump(150);
+            frog.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Pump(200);
+            Dispatcher.UIThread.RunJobs();
+            Require(speech.IsOpen, "A second click restarts the timer.");
+            Pump(400);
+            Dispatcher.UIThread.RunJobs();
+            Require(!speech.IsOpen, "The bubble closes after the timeout.");
+            Require(version.Bounds == before, "Closing the bubble must not move the version text.");
+        }
+        finally { AboutFields.SpeechDuration = spoken; frogHost.Close(); }
 
         // The macOS application menu: About tereditor in place of the framework's About Avalonia.
         var settings = 0;

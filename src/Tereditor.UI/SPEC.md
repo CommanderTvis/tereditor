@@ -626,7 +626,7 @@ workspace frame's left side.
 
 The About screen (`AboutInfo`, `Panels/AboutFields`) shows the brand icon, name, version, one-line description, runtime lines
 (runtime, OS and architecture, Avalonia, renderer), the repository, ThinkRail and Report an issue (new-issue page) links, a license summary, Third-party notices
-and Copy details (version and runtime lines as plain text). It reads assembly attributes and the runtime only, with no network,
+and Copy details (version and runtime lines as plain text). Clicking the frog shows a "tero-tero!" bubble for two seconds (no animation, no layout shift). It reads assembly attributes and the runtime only, with no network,
 telemetry or UI-thread I/O; Third-party notices looks for the shipped `THIRD-PARTY-NOTICES.md` on a worker and falls back to the
 repository copy. The version is the assembly informational version: the packaging tasks pass `TereditorBuildStamp`
 (`YYYYMMDD-<short commit>`, as the nightly names its builds), giving `0.2.0+<stamp>`; a local build reads `dev`.

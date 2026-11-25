@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 
@@ -20,6 +21,7 @@ public sealed partial class AboutFields : UserControl
         Details = AboutInfo.Details(version, runtime);
         this.FindControl<ContentControl>("AboutBrand")!.Content = Ui.Icon("brand", Ui.Accent, 48);
         this.FindControl<TextBlock>("AboutName")!.Text = AboutInfo.Name;
+        Speech();
         Muted("AboutVersion").Text = "Version " + version;
         this.FindControl<TextBlock>("AboutDescription")!.Text = AboutInfo.Description;
         Muted("AboutRuntime").Text = string.Join('\n', runtime.Select(line => $"{line.Label}: {line.Value}"));
@@ -35,6 +37,33 @@ public sealed partial class AboutFields : UserControl
         copy.Name = "AboutCopy";
         notices.Margin = new(0, 0, 8, 0);
         actions.Children.Add(notices); actions.Children.Add(copy);
+    }
+
+    /// <summary>How long the frog's speech bubble stays; the checks shorten it.</summary>
+    internal static TimeSpan SpeechDuration = TimeSpan.FromSeconds(2);
+
+    /// <summary>Clicking the frog (pointer, Enter or Space) shows a bubble that floats beside it and hides again; a click while shown restarts the timer.</summary>
+    private void Speech()
+    {
+        var frog = this.FindControl<Button>("AboutFrog")!;
+        var popup = this.FindControl<Popup>("AboutSpeech")!;
+        var bubble = this.FindControl<Border>("AboutSpeechBubble")!;
+        var tail = this.FindControl<Border>("AboutSpeechTail")!;
+        bubble.Background = tail.Background = Ui.Elevated;
+        bubble.BorderBrush = tail.BorderBrush = Ui.BorderBrush;
+        CancellationTokenSource? timer = null;
+        void Stop() { timer?.Cancel(); timer = null; }
+        popup.Closed += (_, _) => Stop();
+        DetachedFromVisualTree += (_, _) => { Stop(); popup.IsOpen = false; };
+        frog.Click += async (_, _) =>
+        {
+            Stop();
+            var mine = timer = new CancellationTokenSource();
+            popup.IsOpen = true;
+            try { await Task.Delay(SpeechDuration, mine.Token); }
+            catch (OperationCanceledException) { return; }
+            popup.IsOpen = false;
+        };
     }
 
     /// <summary>The plain text Copy details puts on the clipboard.</summary>
