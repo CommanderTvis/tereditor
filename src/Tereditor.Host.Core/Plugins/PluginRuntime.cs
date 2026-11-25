@@ -454,6 +454,8 @@ public sealed partial class PluginRuntime : IPluginService, IAsyncDisposable
     // The program the user pinned for bun or uv in Settings > Runtimes for tooling.
     private string RuntimePin(string executable)
     {
+        // Reading the settings needs the plugin's JSON context; a host that does not load the plugin has not registered it, and creating its contract does.
+        _ = Tereditor.Plugins.Runtimes.RuntimesContract.Contract;
         var settings = Settings<Tereditor.Plugins.Runtimes.RuntimesSettings>(Tereditor.Plugins.Runtimes.RuntimesPlugin.Id);
         return executable switch { "bun" => settings.BunPath, "uv" => settings.UvPath, "java" => settings.JdkPath, _ => "" };
     }
