@@ -447,6 +447,12 @@ internal static class UnifiedChromeChecks
         var name = button.Name;
         var presenter = button.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First(part => part.Name == "PART_ContentPresenter");
         var parent = (Control)button.Parent!;
+        // Measured at rest, before any state is set: the theme's pressed state scales the whole button to 0.98 through a transition that is still easing back
+        // when the pseudo-class is cleared, and TranslatePoint includes that render transform (a 0.1 px shift is the transition caught mid-way).
+        var origin = presenter.TranslatePoint(default, parent)!.Value;
+        var inset = Tereditor.Plugins.UI.Kit.Ui.IconButtonInset;
+        Require(origin.X >= inset && origin.Y >= inset && parent.Bounds.Width - (origin.X + presenter.Bounds.Width) >= inset && parent.Bounds.Height - (origin.Y + presenter.Bounds.Height) >= inset,
+            $"{name}: the highlight {origin.X:0.#},{origin.Y:0.#} {presenter.Bounds.Width:0.#}x{presenter.Bounds.Height:0.#} sits closer than {inset} px to its parent's {parent.Bounds.Width:0.#}x{parent.Bounds.Height:0.#} edges.");
         foreach (var state in new[] { ":pointerover", ":pressed" })
         {
             ((Avalonia.Controls.IPseudoClasses)button.Classes).Set(state, true);
@@ -456,10 +462,6 @@ internal static class UnifiedChromeChecks
             ((Avalonia.Controls.IPseudoClasses)button.Classes).Set(state, false);
         }
         Require(presenter.CornerRadius == Tereditor.Plugins.UI.Kit.Ui.ChipRadius, $"{name}: the highlight has radius {presenter.CornerRadius}, not the chip radius.");
-        var origin = presenter.TranslatePoint(default, parent)!.Value;
-        var inset = Tereditor.Plugins.UI.Kit.Ui.IconButtonInset;
-        Require(origin.X >= inset && origin.Y >= inset && parent.Bounds.Width - (origin.X + presenter.Bounds.Width) >= inset && parent.Bounds.Height - (origin.Y + presenter.Bounds.Height) >= inset,
-            $"{name}: the highlight {origin.X:0.#},{origin.Y:0.#} {presenter.Bounds.Width:0.#}x{presenter.Bounds.Height:0.#} sits closer than {inset} px to its parent's {parent.Bounds.Width:0.#}x{parent.Bounds.Height:0.#} edges.");
         Require(button.FocusAdorner is null, $"{name}: the theme's square focus rectangle is off.");
         Console.WriteLine($"PASS unified chrome: {name}'s highlight is rounded, inset and uses the hover brush");
     }
