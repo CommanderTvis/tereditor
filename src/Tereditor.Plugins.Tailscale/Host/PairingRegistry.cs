@@ -47,9 +47,12 @@ internal sealed class PairingRegistry(IReadOnlyList<ApprovedDevice> restored, Ac
             if (!pending.TryGetValue(id, out var entry) || entry.Rejected) throw new InvalidOperationException("This pairing request has expired.");
             if (allow)
             {
-                if (approved.Count >= 128) throw new InvalidOperationException("Remove a remembered device before approving another.");
-                var next = approved.Values.Append(entry.Device).ToArray();
+                // A known device that came back with a new node replaces its old record; a changed key was still approved by the user above.
+                var superseded = Superseded(entry.Device).Select(device => device.Hash).ToHashSet();
+                if (approved.Count - superseded.Count >= 128) throw new InvalidOperationException("Remove a remembered device before approving another.");
+                var next = approved.Values.Where(device => !superseded.Contains(device.Hash)).Append(entry.Device).ToArray();
                 save(next);
+                foreach (var hash in superseded) approved.Remove(hash);
                 approved.Add(id, entry.Device);
                 pending.Remove(id);
             }
@@ -73,11 +76,34 @@ internal sealed class PairingRegistry(IReadOnlyList<ApprovedDevice> restored, Ac
         lock (gate)
         {
             Expire();
-            return new(detail, hostName, pending.Values.Where(entry => !entry.Rejected).Select(entry => Display(entry.Device)).ToArray(), approved.Values.GroupBy(device => device.NodeId).Select(group => Display(group.First())).ToArray());
+            return new(detail, hostName, pending.Values.Where(entry => !entry.Rejected).Select(entry => Display(entry.Device, Note(entry.Device))).ToArray(), approved.Values.GroupBy(device => device.NodeId).Select(group => Display(group.First())).ToArray());
         }
     }
 
-    private static TailscaleDevice Display(ApprovedDevice device) => new(device.Hash, device.Name, device.User, device.Hash[..8].ToUpperInvariant());
+    private static TailscaleDevice Display(ApprovedDevice device, string? note = null) => new(device.Hash, device.Name, device.User, device.Hash[..8].ToUpperInvariant(), note);
+
+    /// <summary>The device name without Tailscale's automatic "-N" suffix, which it adds when a name is taken, for example after a node is re-created.</summary>
+    internal static string StableName(string name)
+    {
+        var dot = name.IndexOf('.');
+        var label = dot < 0 ? name : name[..dot];
+        var dash = label.LastIndexOf('-');
+        if (dash > 0 && dash < label.Length - 1 && label[(dash + 1)..].All(char.IsAsciiDigit)) label = label[..dash];
+        return (dot < 0 ? label : label + name[dot..]).ToLowerInvariant();
+    }
+
+    private static bool SameDevice(ApprovedDevice a, ApprovedDevice b) =>
+        a.User.Length > 0 && string.Equals(a.User, b.User, StringComparison.OrdinalIgnoreCase) && StableName(a.Name) == StableName(b.Name);
+
+    /// <summary>Remembered devices of the same user and device name on another node: the new request is their successor, never trusted until approved.</summary>
+    private ApprovedDevice[] Superseded(ApprovedDevice device) => approved.Values.Where(known => known.NodeId != device.NodeId && SameDevice(known, device)).ToArray();
+
+    private string? Note(ApprovedDevice device)
+    {
+        if (Superseded(device) is { Length: > 0 } old) return "Known device with a new key. Approving replaces the remembered " + old[0].Name + ".";
+        return approved.Values.Any(known => known.NodeId == device.NodeId && SameDevice(known, device)) ? "Known device with a new key." : null;
+    }
+
     /// <summary>Drops expired requests; reports whether one the user could still answer went, so the host republishes.</summary>
     internal bool Sweep()
     {

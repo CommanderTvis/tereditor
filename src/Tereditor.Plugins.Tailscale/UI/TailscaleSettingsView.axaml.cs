@@ -22,7 +22,7 @@ internal sealed class PairingCommand(Action execute) : ICommand
     public void Execute(object? parameter) => execute();
 }
 
-internal sealed record TailscaleApprovalRow(string Caption, string Code, ICommand Approve, ICommand Decline, ICommand Revoke);
+internal sealed record TailscaleApprovalRow(string Caption, string Code, string? Note, ICommand Approve, ICommand Decline, ICommand Revoke);
 
 internal sealed partial class TailscaleSettingsView : UserControl
 {
@@ -91,7 +91,7 @@ internal sealed partial class TailscaleSettingsView : UserControl
         });
     }
 
-    private TailscaleApprovalRow Row(TailscaleDevice device) => new(device.Name + " · " + device.User, device.Code,
+    private TailscaleApprovalRow Row(TailscaleDevice device) => new(device.Name + " · " + device.User, device.Code, device.Note,
         new PairingCommand(() => _ = DecideAsync(device.Id, true)), new PairingCommand(() => _ = DecideAsync(device.Id, false)),
         new PairingCommand(() => _ = RevokeAsync(device.Id)));
 

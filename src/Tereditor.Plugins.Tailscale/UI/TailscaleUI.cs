@@ -28,7 +28,7 @@ public sealed class TailscaleUI : PluginUIModule
     }
 
     internal static PluginPrompt Prompt(IPluginUIContext context, TailscaleDevice device) => new(PluginNotificationKind.Info,
-        $"Tailscale pairing request from {device.Name} ({device.User}). Compare this code with the requesting device:",
+        $"Tailscale pairing request from {device.Name} ({device.User}). " + (device.Note is { } note ? note + " " : "") + "Compare this code with the requesting device:",
         [
             new("Approve", async () => await TailscaleSettingsView.DecideAsync(context, device.Id, true), PluginNotificationActionStyle.Primary),
             new("Decline", async () => await TailscaleSettingsView.DecideAsync(context, device.Id, false), PluginNotificationActionStyle.Plain),

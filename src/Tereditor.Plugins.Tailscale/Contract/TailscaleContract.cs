@@ -8,7 +8,7 @@ public sealed record TailscaleSettings;
 public sealed record TailscaleStatusParams;
 public sealed record TailscaleDecision(string Id, bool Allow);
 public sealed record TailscaleRevoke(string Id);
-public sealed record TailscaleDevice(string Id, string Name, string User, string Code);
+public sealed record TailscaleDevice(string Id, string Name, string User, string Code, string? Note = null);
 public sealed record TailscaleStatus(string Detail, string? HostName, IReadOnlyList<TailscaleDevice> Pending, IReadOnlyList<TailscaleDevice> Approved);
 public sealed record TailscaleHostInfo(string Name);
 public sealed record TailscalePairReply(string State, string? Address = null);

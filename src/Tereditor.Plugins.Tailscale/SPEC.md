@@ -63,6 +63,15 @@ while the request runs. Requests expire after two minutes, and the host sweeps t
 requests cannot be recreated by polling, and pending requests and approved grants are bounded to 32 and
 128 respectively. Pairing never releases the host's master session token.
 
+A request from a known user and device name (Tailscale's automatic "-N" suffix ignored, user compared
+case-insensitively) on another node, or from the same node with a new secret, is shown as "Known device with a new key",
+in Settings and in the prompt; for another node it adds that approving replaces the remembered device. The match only
+explains the request: it never trusts a changed key, and the old record stays valid until the user approves. Approving
+removes the superseded records of that user and name on other nodes, so one device is never listed twice. A different
+user with the same name is never matched. On Android the node state lives in app-private files (`filesDir/.tereditor`)
+and the node is not ephemeral, so an update keeps its identity; uninstalling the app or clearing its data creates a new node
+and a new secret, which is the case above.
+
 Approval persists the hash of the client's secret and its node identity in plugin state. Remembered
 devices are grouped by verified node identity, including existing persisted grants. Multiple approved
 client secrets on one node remain valid; revoking its single device row revokes every grant for that node. The client stores

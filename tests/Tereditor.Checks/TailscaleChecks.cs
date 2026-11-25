@@ -34,6 +34,7 @@ internal static class TailscaleChecks
     {
         await BrowserTailscaleChecks.Run();
         Registry();
+        RenewedDevice();
         Addresses();
         await BootstrapValidation();
         await ClientPolling();
@@ -234,6 +235,36 @@ internal static class TailscaleChecks
         var bounded = new PairingRegistry([], _ => { });
         for (var index = 0; index < 32; index++) bounded.Request(TailscaleClient.NewPairing("host").Token, "node", "phone", "me");
         Require(bounded.Request(TailscaleClient.NewPairing("host").Token, "node", "phone", "me") == "busy", "Pending requests have a hard bound.");
+    }
+
+    private static void RenewedDevice()
+    {
+        const string Old = "tereditor-android.tailba8684.ts.net";
+        Require(PairingRegistry.StableName("Tereditor-Android-2.tailba8684.ts.net") == Old && PairingRegistry.StableName("phone-2") == "phone" && PairingRegistry.StableName("node-a") == "node-a" && PairingRegistry.StableName("x-") == "x-",
+            "Tailscale's automatic numeric suffix is ignored when matching a device name.");
+        IReadOnlyList<ApprovedDevice> persisted = [];
+        var registry = new PairingRegistry([], next => persisted = next);
+        var first = TailscaleClient.NewPairing("host").Token;
+        registry.Request(first, "node-1", Old, "me@example.com");
+        Require(registry.Status("ready", "host").Pending.Single().Note is null, "A first-time device has no known-device note.");
+        registry.Decide(PairingRegistry.Hash(first), true);
+        var renewed = TailscaleClient.NewPairing("host").Token;
+        Require(registry.Request(renewed, "node-2", "tereditor-android-2.tailba8684.ts.net", "ME@example.com") == "pending" && !registry.Authenticate(renewed), "A known name on a new node and key is never trusted before approval.");
+        var note = registry.Status("ready", "host").Pending.Single().Note;
+        Require(note is not null && note.StartsWith("Known device with a new key.", StringComparison.Ordinal) && note.Contains("replaces", StringComparison.Ordinal), "The request explains that it replaces a known device.");
+        Require(registry.Status("ready", "host").Approved.Count == 1 && registry.Authenticate(first), "The old record stays valid until the new key is approved.");
+        registry.Decide(PairingRegistry.Hash(renewed), true);
+        var approved = registry.Status("ready", "host").Approved.Single();
+        Require(registry.Authenticate(renewed) && !registry.Authenticate(first) && persisted.Count == 1 && persisted[0].NodeId == "node-2" && approved.Name.StartsWith("tereditor-android-2", StringComparison.Ordinal),
+            "Approving replaces the remembered record instead of keeping a duplicate.");
+        var other = TailscaleClient.NewPairing("host").Token;
+        registry.Request(other, "node-3", Old, "someone@example.com");
+        Require(registry.Status("ready", "host").Pending.Single().Note is null, "A different Tailscale user with the same device name is not a known device.");
+        registry.Decide(PairingRegistry.Hash(other), true);
+        Require(registry.Status("ready", "host").Approved.Count == 2 && registry.Authenticate(renewed), "A different user's device never replaces another user's record.");
+        var sameNode = TailscaleClient.NewPairing("host").Token;
+        registry.Request(sameNode, "node-2", "tereditor-android-2.tailba8684.ts.net", "me@example.com");
+        Require(registry.Status("ready", "host").Pending.Single().Note == "Known device with a new key.", "A known node with a new key says so without announcing a replacement.");
     }
 
     private static void Addresses()
