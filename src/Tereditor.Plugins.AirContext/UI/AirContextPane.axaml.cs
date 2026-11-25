@@ -74,9 +74,13 @@ internal sealed partial class AirContextPane : UserControl
         else await RefreshWorkspaceAsync();
     }
 
+    /// <summary>Replaces the platform launcher so a check can see which page a click opens.</summary>
+    internal static Func<Uri, Task>? LaunchOverride { get; set; }
+
     /// <summary>Opens the "What is Air Context?" page in the platform's browser; the launcher call is asynchronous and never blocks the UI thread.</summary>
     internal static async Task OpenAboutAsync(Control from)
     {
+        if (LaunchOverride is { } launch) { await launch(new Uri(AirContextContract.AboutUrl)); return; }
         if (TopLevel.GetTopLevel(from) is { } top)
             try { await top.Launcher.LaunchUriAsync(new Uri(AirContextContract.AboutUrl)); } catch (Exception) { }
     }

@@ -206,7 +206,14 @@ internal static partial class AirContextChecks
             confirmation = Dialogs().Single(); Button(confirmation, "EnableContextConfirm");
             E2E.E2eWorkspace.Until(() => EnabledNow().Contains(workspace) && Find<CheckBox>(window, "ContextEnabled").IsChecked == true);
             Require(runtime is null, "Enabling started an index before a launch.");
-            Require(Equals(Find<Button>(window, "ContextAbout").Content, "What is Air Context? ↗"), "The workspace section lacks the What is Air Context? link.");
+            var about = Find<Button>(window, "ContextAbout");
+            Require(about.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "Air Context") && Avalonia.Automation.AutomationProperties.GetName(about) == "Air Context, opens the website" &&
+                !window.GetLogicalDescendants().OfType<Button>().Any(control => Equals(control.Content, "What is Air Context? ↗")), "The Air Context title is not the link, or the separate link line remains.");
+            var opened = new List<Uri>();
+            Tereditor.Plugins.AirContext.UI.AirContextPane.LaunchOverride = uri => { opened.Add(uri); return Task.CompletedTask; };
+            try { about.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent)); E2E.E2eWorkspace.Until(() => opened.Count == 1); }
+            finally { Tereditor.Plugins.AirContext.UI.AirContextPane.LaunchOverride = null; }
+            Require(opened[0].AbsoluteUri == AirContextContract.AboutUrl, "Clicking the title did not open the Air Context page.");
             // The sign-in lives in Settings › Code Intelligence; the workspace section only follows it.
             Require(!window.GetLogicalDescendants().OfType<Button>().Any(control => control.Name is "ContextLogin" or "ContextSetup" && control.IsEffectivelyVisible), "The workspace section offers its own sign-in.");
             Require(!window.GetLogicalDescendants().OfType<Button>().Any(control => control.Name is "ContextIndex" or "ContextStop" or "ContextLogs"), "The workspace section still offers Index now, Stop or Logs.");

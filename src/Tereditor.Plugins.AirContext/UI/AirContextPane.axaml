@@ -3,9 +3,13 @@
              xmlns:kit="using:Tereditor.Plugins.UI.Kit"
              x:Class="Tereditor.Plugins.AirContext.UI.AirContextPane" x:ClassModifier="internal">
   <StackPanel x:Name="AirContextSection" Spacing="8">
-    <TextBlock Text="Air Context" FontSize="16" FontWeight="SemiBold" />
+    <Button x:Name="ContextAbout" Classes="link" Padding="0" HorizontalAlignment="Left" AutomationProperties.Name="Air Context, opens the website" Click="ContextAboutClicked">
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <TextBlock Text="Air Context" FontSize="16" FontWeight="SemiBold" />
+        <TextBlock Text="↗" FontSize="12" VerticalAlignment="Center" />
+      </StackPanel>
+    </Button>
     <TextBlock x:Name="ContextBlurb" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" />
-    <Button x:Name="ContextAbout" Classes="link" Content="What is Air Context? ↗" HorizontalAlignment="Left" Click="ContextAboutClicked" />
     <StackPanel x:Name="AccountPart" Spacing="8">
       <WrapPanel Orientation="Horizontal">
         <Button x:Name="ContextSetup" Content="Review terms and download…" HorizontalAlignment="Left" Click="ContextSetupClicked" Margin="0,0,8,8" />
