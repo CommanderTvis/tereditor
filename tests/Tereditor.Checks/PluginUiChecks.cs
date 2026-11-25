@@ -390,7 +390,7 @@ internal static partial class PluginUiChecks
         var codexRow = settings.GetLogicalDescendants().OfType<Tereditor.UI.Panels.PluginsSettings>().Single().Card("codex")!;
         Require(!codexRow.GetLogicalDescendants().OfType<Border>().Single(border => border.Name == "PluginSupport").IsVisible, "A fully supported plugin wears no support badge.");
         var refusedRow = settings.GetLogicalDescendants().OfType<Tereditor.UI.Panels.PluginsSettings>().Single().Card("__refused:broken")!;
-        Require(Texts(refusedRow).Contains("999", StringComparison.Ordinal) && Texts(refusedRow).Contains("expects 2", StringComparison.Ordinal),
+        Require(Texts(refusedRow).Contains("999", StringComparison.Ordinal) && Texts(refusedRow).Contains("expects " + PluginApi.Generation, StringComparison.Ordinal),
             "A refused row names the plugin's generation and the host's: " + Texts(refusedRow));
 
         // Plugins are grouped under category headings: builtin categories in their fixed order, plugins without one under Other last,
