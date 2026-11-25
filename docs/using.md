@@ -22,7 +22,7 @@
 - Arrange tabs and split panes to suit the task.
 - Open another window with ⌘⇧N. Each window keeps its own layout, while projects and settings stay in sync.
 - Choose a bundled theme, including high contrast, or follow the system with your preferred light and dark pair.
-- File-type icons are built in. Turn them on or off in Settings › Appearance. Agent icons are plain by default; the Agent icons choice there shows Claude Code in its brand color, the one agent whose icon has a color of its own.
+- File-type icons are built in. Turn them on or off in Settings › Appearance. Agent icons are plain by default; the Agent icons choice there shows Claude Code, Pi and ACP in their brand colors, and ACP agents from the registry in the colors of their own icons. Other agents stay plain.
 - Settings › Editor sets how code reads and indents in every window: the font (any monospace font on this device or a
   typed family name; the bundled font stands in where a font is missing), the line height (1.0–2.0 times
   the font's own), Indent with (spaces or tabs) and Indent size. Detect from file, on by default, follows a file's own

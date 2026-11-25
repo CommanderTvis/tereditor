@@ -90,7 +90,7 @@ public static class PluginIcons
         using var buffer = new MemoryStream();
         input.CopyTo(buffer);
         var icon = new AssetIcon("plugin-brand:" + entry.Id, Fallback, Ui.TextBrush, 16);
-        icon.Show(buffer.ToArray(), Ui.TextBrush, 16);
+        icon.Show(buffer.ToArray(), Ui.TextBrush, 16, AgentOf(entry.Id, "asset:pi.svg"));
         return icon;
     }
 
@@ -113,11 +113,20 @@ public static class PluginIcons
         return buffer.ToArray();
     }
 
+    /// <summary>The agent whose brand colors a plugin's own mark takes while Agent icons is Colored (see <see cref="Ui.AgentColor"/>), or null.</summary>
+    private static string? AgentOf(string? plugin, string name) => (plugin, name) switch
+    {
+        ("claude-code", "asset:claude.svg") => "claude",
+        ("pi", "asset:pi.svg") => "pi",
+        ("acp", "asset:acp.svg") => "acp",
+        _ => null
+    };
+
     /// <summary>A plugin's own SVG drawn in the given colour wherever it uses <c>currentColor</c>, with the puzzle glyph while it cannot be drawn.</summary>
     internal static Control ResolveSvg(string svg, IBrush brush, double size)
     {
         var icon = new AssetIcon("svg", Fallback, brush, size);
-        icon.Show(System.Text.Encoding.UTF8.GetBytes(svg), brush, size);
+        icon.Show(System.Text.Encoding.UTF8.GetBytes(svg), brush, size, "acp-registry");
         return icon;
     }
 
@@ -127,7 +136,7 @@ public static class PluginIcons
         if (name?.StartsWith(AssetPrefix, StringComparison.Ordinal) == true && Bundled(entry?.Id) is { } mark)
         {
             var bundled = new AssetIcon(name, fallbackGlyph, color, size);
-            bundled.Show(mark, color ?? Ui.TextBrush, size);
+            bundled.Show(mark, color ?? Ui.TextBrush, size, AgentOf(entry!.Id, name));
             return bundled;
         }
         // A plugin without an icon keeps the slot, so its label lines up with the other rows.
@@ -146,7 +155,7 @@ public static class PluginIcons
             try { bytes = await pending; }
             catch (Exception error) when (error is not OperationCanceledException) { Console.Error.WriteLine($"Plugin {entry.Id} icon {name}: {error.Message}"); return; }
             if (bytes is null) return;
-            var agent = entry.Id == "claude-code" && name == "asset:claude.svg" ? "claude" : null;
+            var agent = AgentOf(entry.Id, name);
             if (Dispatcher.UIThread.CheckAccess()) host.Show(bytes, color ?? Ui.TextBrush, size, agent);
             else Dispatcher.UIThread.Post(() => host.Show(bytes, color ?? Ui.TextBrush, size, agent));
         }

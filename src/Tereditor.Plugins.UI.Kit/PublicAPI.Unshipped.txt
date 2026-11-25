@@ -246,6 +246,7 @@ static Tereditor.Plugins.UI.Kit.Ui.Theme.get -> Tereditor.Plugins.UI.Kit.ThemeMa
 static Tereditor.Plugins.UI.Kit.Ui.ThemeChanged -> System.Action?
 static Tereditor.Plugins.UI.Kit.Ui.AgentIconsChanged -> System.Action?
 static Tereditor.Plugins.UI.Kit.Ui.AgentColor(string! agent) -> Avalonia.Media.Color?
+static Tereditor.Plugins.UI.Kit.Ui.AgentPalette(string! agent) -> Avalonia.Media.Color[]?
 static Tereditor.Plugins.UI.Kit.Ui.ApplyAgentIcons(bool colored) -> void
 static Tereditor.Plugins.UI.Kit.Ui.ColoredAgentIcons.get -> bool
 Tereditor.Plugins.UI.Kit.SvgAsset.Agent.get -> string?

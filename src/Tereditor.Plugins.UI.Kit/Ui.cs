@@ -47,10 +47,22 @@ public static partial class Ui
     }
 
     /// <summary>
-    /// An agent's brand colour, only where its bundled icon has a real one: Claude's orange. Codex, Pi, omp, OpenAI, Agent Client Protocol and Air Gateway
-    /// ship single-colour marks, so they stay plain; an Agent Client Protocol agent's own registry icon keeps whatever colours it carries.
+    /// A single brand colour for a one-colour mark, only where the agent has one: Claude's orange, and the Agent Client Protocol's white on a dark theme
+    /// (its canonical colour; a light theme keeps the text colour, because white would vanish there). Codex, omp, OpenAI and Air Gateway ship no brand colour,
+    /// so they stay plain. Pi has three (see <see cref="AgentPalette"/>).
     /// </summary>
-    public static Color? AgentColor(string agent) => agent == "claude" ? Color.FromRgb(0xD9, 0x77, 0x57) : null;
+    public static Color? AgentColor(string agent) => agent switch
+    {
+        "claude" => Color.FromRgb(0xD9, 0x77, 0x57),
+        "acp" when !Theme.IsLight => Colors.White,
+        _ => null
+    };
+
+    /// <summary>
+    /// The brand colours of a mark drawn in several, in the order the mark's `currentColor` paths appear: Pi's salmon top bar, yellow foot and blue stem,
+    /// measured from the logo on pi.dev (no light-theme variants: the reference has none). Documented in `pi-color.svg` and the Pi spec.
+    /// </summary>
+    public static Color[]? AgentPalette(string agent) => agent == "pi" ? [Color.FromRgb(0xE3, 0x95, 0x86), Color.FromRgb(0xE9, 0xC0, 0x69), Color.FromRgb(0x61, 0x98, 0xBB)] : null;
 
     /// <summary>The fill of every chip: the terminal background nudged towards the text colour, so a chip floats on it in any theme (contrast with the background 1.2 or more).</summary>
     public static readonly SolidColorBrush ChipFill = new();

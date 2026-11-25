@@ -534,7 +534,7 @@ public sealed partial class SettingsView : UserControl
         refreshers.Add(FileIconChoices);
         // Host state too: the choice follows the broadcast, and open agent icons redraw from it.
         var agentIcons = PageControl<ComboBox>(panel, "AgentIconChoices");
-        var agentIconStyles = new[] { (false, "Plain: single-color icons that follow the text color"), (true, "Colored: Claude Code in its brand color; the other agents stay plain") };
+        var agentIconStyles = new[] { (false, "Plain: single-color icons that follow the text color"), (true, "Colored: Claude Code, Pi, ACP and registry agents in their own colors; the others stay plain") };
         var syncingAgentIcons = false;
         void AgentIconChoices()
         {

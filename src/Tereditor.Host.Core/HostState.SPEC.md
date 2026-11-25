@@ -187,7 +187,7 @@ remote clients as `StateReply` member 25, and dropped with the workspace's recor
   `terminal-hidden-chips` is the comma-separated ids of the terminal chips the user hid (`model`, `env/env-mise`), opaque to the
   host and stored distinct in ordinal order; empty, the default and what a host that predates it sends, hides none. An id that
   is longer than 128 characters or holds a control character rejects the change; such a loaded value reads as empty.
-  `agent-icons-colored` (`true`/`false`, default off) draws agent icons that have a brand color (Claude Code's) in it instead of the text color.
+  `agent-icons-colored` (`true`/`false`, default off) draws agent icons that have brand colors (Claude Code, Pi, ACP and registry agents' own icons) in them instead of the text color.
   `group-workspaces-under-creator` (`true`/`false`, default off) lists a workspace under the terminal or chat that created it in every client's Projects. It is nullable only until the first load: the store then takes the opening profile's value (the embedded desktop host's own preference, otherwise off) and keeps the stored value from then on.
 - Setting updates accept a closed set of keys and validate their values before publishing the batch;
   unknown setting keys and change kinds are rejected. The typed change-list contract replaces upstream's

@@ -13,15 +13,23 @@ namespace Tereditor.Plugins.UI.Kit;
 /// draws nothing. A glyph drawn in <c>currentColor</c> takes the given brush's colour and follows theme changes, the way
 /// a monochrome icon follows its text colour.
 /// </summary>
-public sealed class SvgAsset : Image
+public sealed partial class SvgAsset : Image
 {
     private readonly byte[] svg;
     private readonly ISolidColorBrush? color;
-    private static readonly Dictionary<(byte[] Bytes, Color? Tint), SharedSource> Sources = [];
-    private (byte[] Bytes, Color? Tint)? sourceKey;
+    private static readonly Dictionary<(byte[] Bytes, Color? Tint, string? Variant), SharedSource> Sources = [];
+    private (byte[] Bytes, Color? Tint, string? Variant)? sourceKey;
 
-    /// <summary>The agent this mark belongs to (<c>claude</c>); while <see cref="Ui.ColoredAgentIcons"/> is on and the agent has a brand colour, it replaces the tint, and the mark redraws when the choice changes.</summary>
+    /// <summary>
+    /// The agent this mark belongs to: <c>claude</c>, <c>pi</c> and <c>acp</c> have brand colours (see <see cref="Ui.AgentColor"/> and <see cref="Ui.AgentPalette"/>),
+    /// and <c>acp-registry</c> marks a registry agent's own icon, which keeps its hard-coded colours while <see cref="Ui.ColoredAgentIcons"/> is on and is drawn
+    /// in the tint alone while it is off. While <see cref="Ui.ColoredAgentIcons"/> is on and the agent has a brand colour, it replaces the tint, and the mark redraws when the choice changes.
+    /// </summary>
     public string? Agent { get; init; }
+
+    private Color[]? Palette => Agent is not null && Ui.ColoredAgentIcons ? Ui.AgentPalette(Agent) : null;
+
+    private string? Variant => Palette is not null ? "palette" : Agent == "acp-registry" && !Ui.ColoredAgentIcons ? "mono" : null;
 
     private Color? Tint => Agent is not null && Ui.ColoredAgentIcons && Ui.AgentColor(Agent) is { } brand ? brand : color?.Color;
 
@@ -54,7 +62,7 @@ public sealed class SvgAsset : Image
 
     private void Load()
     {
-        var key = (svg, Tint);
+        var key = (svg, Tint, Variant);
         if (sourceKey == key) return;
         Release();
         if (!Sources.TryGetValue(key, out var shared))
@@ -69,8 +77,15 @@ public sealed class SvgAsset : Image
         try
         {
             var bytes = svg;
-            if (Tint is { } tint)
-                bytes = Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(svg).Replace("currentColor", $"#{tint.R:x2}{tint.G:x2}{tint.B:x2}", StringComparison.Ordinal));
+            var text = Encoding.UTF8.GetString(svg);
+            if (Variant == "mono") text = HardColor().Replace(text, match => match.Groups["v"].Value.Trim() is "none" or "currentColor" or "inherit" or "transparent" || match.Groups["v"].Value.Contains("url(", StringComparison.Ordinal) ? match.Value : match.Groups["p"].Value + "currentColor");
+            if (Palette is { } palette)
+            {
+                var next = 0;
+                text = CurrentColor().Replace(text, _ => ToHex(palette[Math.Min(next++, palette.Length - 1)]));
+            }
+            if (Tint is { } tint) text = text.Replace("currentColor", ToHex(tint), StringComparison.Ordinal);
+            if (Variant is not null || Tint is not null) bytes = Encoding.UTF8.GetBytes(text);
             using var stream = new MemoryStream(bytes);
             return SvgSource.LoadFromStream(stream);
         }
@@ -79,6 +94,15 @@ public sealed class SvgAsset : Image
             return null;
         }
     }
+
+    private static string ToHex(Color color) => $"#{color.R:x2}{color.G:x2}{color.B:x2}";
+
+    [System.Text.RegularExpressions.GeneratedRegex("currentColor")]
+    private static partial System.Text.RegularExpressions.Regex CurrentColor();
+
+    // A fill, stroke or stop-color, as an attribute or a style declaration.
+    [System.Text.RegularExpressions.GeneratedRegex("""(?<p>\b(?:fill|stroke|stop-color)\s*[=:]\s*["']?)(?<v>[^"';}]+)""")]
+    private static partial System.Text.RegularExpressions.Regex HardColor();
 
     private void Release()
     {

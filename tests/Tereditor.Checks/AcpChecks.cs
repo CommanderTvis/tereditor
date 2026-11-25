@@ -280,6 +280,11 @@ internal static class AcpChecks
             Require(File.ReadAllText(asset).Trim() == svg.Trim(), "The plugin's acp.svg is the same drawing as the built-in glyph.");
             break;
         }
+        // Agent icons: the generic mark is the ACP brand mark (white on dark when colored); a registry icon is drawn so that colors are kept when colored and follow the text color when plain (pixels: --file-icons).
+        UiChecks.EnsureHeadlessApp();
+        const string fixture = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#FF0000"/></svg>""";
+        Require(((Tereditor.Plugins.UI.Kit.SvgAsset)((Avalonia.Controls.ContentControl)Tereditor.Plugins.Acp.UI.AcpGlyph.Create(16)).Content!).Agent == "acp", "The generic ACP glyph is the ACP brand mark.");
+        Require(((Tereditor.Plugins.UI.Kit.SvgAsset)((Avalonia.Controls.ContentControl)Tereditor.Plugins.Acp.UI.AcpGlyph.For(fixture, 14)).Content!).Agent == "acp-registry", "A registry agent's icon is drawn as a registry icon: its fills stay while Agent icons is Colored.");
     }
 
     internal static async Task Protocol()
