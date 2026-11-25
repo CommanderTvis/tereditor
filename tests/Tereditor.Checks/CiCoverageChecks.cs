@@ -45,7 +45,7 @@ internal static partial class CiCoverageChecks
         ["--check-root-child"] = new Exempt("Fixture, not a check: the child process of the check-root case"),
         ["--claude-chat-e2e"] = Cases("claude-chat-e2e"),
         ["--claude-chat-host"] = Cases("claude-chat-host"),
-        ["--claude-chat-ui"] = Cases("claude-chat-ui"),
+        ["--claude-chat-ui"] = Cases("claude-chat-ui", "claude-chat-ui-menus", "claude-chat-ui-transcript", "claude-chat-ui-composer"),
         ["--claude-code"] = Cases("claude-code", "claude-code-ui", "claude-code-launcher"),
         ["--closed-chat-views"] = Cases("claude-chat-ui", "closed-chat-tabs"),
         ["--cloud-platforms"] = Cases("cloud-platforms"),

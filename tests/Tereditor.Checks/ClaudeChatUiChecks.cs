@@ -255,78 +255,102 @@ internal static class ClaudeChatUiChecks
     private static string ChipText(Control root, string name) =>
         string.Join(" ", root.GetVisualDescendants().OfType<Control>().First(control => control.Name == name).GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text));
 
+    // One gate case runs the three parts in turn; CI times them apart (Linux, headless): the first about 6 minutes, the second under 2, the third about 13.
     internal static void Run()
     {
-        Placeholders();
-        GlyphAlignment();
-        ToolTitleWidth();
-        ItemKinds();
-        ImageMarkers();
-        Requests();
-        AcpOffered();
-        AcpCopilot();
-        Pickers();
-        PopupFamily();
-        FableMenu();
-        PopupLook();
-        ComposerLook();
-        SelectionChip();
-        DocumentSelection();
-        Grouping();
-        Bounded();
-        ClosedViewsCollectable();
-        ClosedRunningViewHasNoTimer();
-        ClosedChatForgetsLocalState();
-        StreamingStable();
-        Composer();
-        PageZoomSteps();
-        ResizeDrag();
-        ChatZoom();
-        ChatZoomOnePass();
-        BottomPinned();
-        ScrollbarClearOfRows();
-        QuestionStable();
-        PastConversations();
-        SessionsPopupStable();
-        CommandMenu();
-        HoverAffordance();
-        UserMarkdown();
-        InlineStylesCompose();
-        UserBubbleDrawsText();
-        SelectedThoughtRow();
-        SelectionFrameInsets();
-        NarrowChat();
-        AttachmentChipsContained();
-        StructuredContextChips();
-        PasteImages();
-        ImageTokens();
-        ImageHistoryRecall();
-        PasteCollapse();
-        PasteAgain();
-        WrappedHistory();
-        DraftSurvivesHistory();
-        DraftWithoutHost();
-        DebugPanel();
-        DebugChip();
-        TaskNoticeBounded();
-        DurationFormat();
-        OnlyRunningChips();
-        RunningFooter();
-        FooterChipEdges();
-        ChipVisibility();
-        ChipColours();
-        ChromeChip();
-        PrimaryContrast();
-        QuestionPreview();
-        ToolCardsText();
-        Selection();
-        TextCursors();
-        CodeCopyButton();
-        SelectionGeometry();
-        MarkdownBounded();
-        RuntimeOffer();
-        Behaviour();
-        CompanionSplit();
+        RunSurfaces();
+        RunComposer();
+        RunTranscript();
+    }
+
+    // Each check's time goes to the log, so a slow one is named in the CI output.
+    private static void T(string name, Action check)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        check();
+        Console.WriteLine($"TIMING {name} {watch.ElapsedMilliseconds} ms");
+    }
+
+    internal static void RunSurfaces()
+    {
+        T(nameof(Placeholders), Placeholders);
+        T(nameof(GlyphAlignment), GlyphAlignment);
+        T(nameof(ToolTitleWidth), ToolTitleWidth);
+        T(nameof(ItemKinds), ItemKinds);
+        T(nameof(ImageMarkers), ImageMarkers);
+        T(nameof(Requests), Requests);
+        T(nameof(AcpOffered), AcpOffered);
+        T(nameof(AcpCopilot), AcpCopilot);
+        T(nameof(Pickers), Pickers);
+        T(nameof(PopupFamily), PopupFamily);
+        T(nameof(FableMenu), FableMenu);
+        T(nameof(PopupLook), PopupLook);
+        T(nameof(ComposerLook), ComposerLook);
+        T(nameof(SelectionChip), SelectionChip);
+        T(nameof(DocumentSelection), DocumentSelection);
+        T(nameof(Grouping), Grouping);
+        T(nameof(Bounded), Bounded);
+        T(nameof(ClosedViewsCollectable), ClosedViewsCollectable);
+        T(nameof(ClosedRunningViewHasNoTimer), ClosedRunningViewHasNoTimer);
+        T(nameof(ClosedChatForgetsLocalState), ClosedChatForgetsLocalState);
+        T(nameof(StreamingStable), StreamingStable);
+        T(nameof(Composer), Composer);
+        T(nameof(PageZoomSteps), PageZoomSteps);
+        T(nameof(ResizeDrag), ResizeDrag);
+        T(nameof(ChatZoom), ChatZoom);
+        T(nameof(ChatZoomOnePass), ChatZoomOnePass);
+        T(nameof(BottomPinned), BottomPinned);
+        T(nameof(ScrollbarClearOfRows), ScrollbarClearOfRows);
+        T(nameof(QuestionStable), QuestionStable);
+        T(nameof(PastConversations), PastConversations);
+        T(nameof(SessionsPopupStable), SessionsPopupStable);
+        T(nameof(CommandMenu), CommandMenu);
+        T(nameof(HoverAffordance), HoverAffordance);
+        T(nameof(UserMarkdown), UserMarkdown);
+        T(nameof(InlineStylesCompose), InlineStylesCompose);
+        T(nameof(UserBubbleDrawsText), UserBubbleDrawsText);
+        T(nameof(SelectedThoughtRow), SelectedThoughtRow);
+        T(nameof(SelectionFrameInsets), SelectionFrameInsets);
+    }
+
+    internal static void RunComposer()
+    {
+        T(nameof(NarrowChat), NarrowChat);
+        T(nameof(AttachmentChipsContained), AttachmentChipsContained);
+        T(nameof(StructuredContextChips), StructuredContextChips);
+        T(nameof(PasteImages), PasteImages);
+        T(nameof(ImageTokens), ImageTokens);
+        T(nameof(ImageHistoryRecall), ImageHistoryRecall);
+        T(nameof(PasteCollapse), PasteCollapse);
+        T(nameof(PasteAgain), PasteAgain);
+        T(nameof(WrappedHistory), WrappedHistory);
+        T(nameof(DraftSurvivesHistory), DraftSurvivesHistory);
+        T(nameof(DraftWithoutHost), DraftWithoutHost);
+        T(nameof(DebugPanel), DebugPanel);
+        T(nameof(DebugChip), DebugChip);
+        T(nameof(TaskNoticeBounded), TaskNoticeBounded);
+        T(nameof(DurationFormat), DurationFormat);
+        T(nameof(OnlyRunningChips), OnlyRunningChips);
+        T(nameof(RunningFooter), RunningFooter);
+        T(nameof(FooterChipEdges), FooterChipEdges);
+        T(nameof(ChipVisibility), ChipVisibility);
+        T(nameof(ChipColours), ChipColours);
+        T(nameof(ChromeChip), ChromeChip);
+        T(nameof(PrimaryContrast), PrimaryContrast);
+    }
+
+    internal static void RunTranscript()
+    {
+        T(nameof(QuestionPreview), QuestionPreview);
+        T(nameof(ToolCardsText), ToolCardsText);
+        T(nameof(Selection), Selection);
+        T(nameof(TextCursors), TextCursors);
+        T(nameof(CodeCopyButton), CodeCopyButton);
+        T(nameof(SelectionGeometry), SelectionGeometry);
+        T(nameof(MarkdownBounded), MarkdownBounded);
+        T(nameof(RuntimeOffer), RuntimeOffer);
+        T(nameof(Behaviour), Behaviour);
+        T(nameof(CompanionSplit), CompanionSplit);
     }
 
     // A chat tab's body is a companion host like a terminal's: the chat stays the left column and the pane takes the right one, the close button folds it away and a later open restores the width.

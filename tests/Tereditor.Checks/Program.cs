@@ -1782,7 +1782,7 @@ internal static class Program
         Gate.Case("claude-code-ui", () => ClaudeCodeChecks.RunUi(root));
         Gate.Case("workspace-emigrate", () => { if (!OperatingSystem.IsWindows()) ClaudeCodeChecks.Emigrate(root); });
         Gate.Case("chat-input-history", ClaudeChatUiChecks.InputHistoryMachine);
-        Gate.Case("claude-chat-ui", () => { ClaudeChatUiChecks.Run(); ClaudeChatUiChecks.ResumeOfferDismiss(); ClaudeChatUiChecks.Launcher(root); ClaudeChatUiChecks.PlusMenuAlignment(); ClaudeChatUiChecks.ActivityMark(); });
+        Gate.Case("claude-chat-ui", ClaudeChatUiChecks.RunSurfaces);
         Gate.Case("DiscordChecks-RunUi", () => DiscordChecks.RunUi(root));
         Gate.Case("PdfPreviewChecks-Run", () => PdfPreviewChecks.Run(root));
         Gate.Case("ui-errors", () => UiErrorChecks.Run(root));
@@ -1833,6 +1833,10 @@ internal static class Program
         Gate.Case("terminal-links-ui", () => { GhosttySkiaChecks.CheckUnderlinesBeforeFrame(); GhosttySkiaChecks.CheckFailedBadgesFollowContent(); TerminalFileLinkChecks.RunUi(root); TerminalFileLinkChecks.RunWorkbench(root); EditorWorkbenchChecks.FileLinkPosition(root); });
         Gate.Case("plugin-json", () => RunPumped(() => PluginJsonChecks.Run(root)));
         Gate.Case("keymap", () => { KeymapChecks.Model(); RunPumped(() => KeymapChecks.Host(root)); KeymapChecks.Runtime(root); KeymapChecks.Page(root); KeymapChecks.BrowserPlatform(root); KeymapChecks.PluginActions(root); });
+        // The rest of the Claude chat UI checks, split off claude-chat-ui (20 minutes on CI, nearly all of shard 1's overrun) onto shards 2, 3 and 1, in that order (ordinals 286, 287, 288).
+        Gate.Case("claude-chat-ui-transcript", () => { ClaudeChatUiChecks.RunTranscript(); ClaudeChatUiChecks.ResumeOfferDismiss(); ClaudeChatUiChecks.Launcher(root); });
+        Gate.Case("claude-chat-ui-composer", ClaudeChatUiChecks.RunComposer);
+        Gate.Case("claude-chat-ui-menus", () => { ClaudeChatUiChecks.PlusMenuAlignment(); ClaudeChatUiChecks.ActivityMark(); });
         Console.WriteLine("PASS prototype checks and open-world runtime");
     }
 
