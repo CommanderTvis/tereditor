@@ -571,7 +571,7 @@ public sealed partial class DockSurface
         for (var index = 0; index < members.Length; index++)
         {
             var host = new Border { Name = "PaneMember", Tag = members[index].Id, ClipToBounds = true, Child = Adopt(renderContent(members[index])) };
-            if (columns) Ui.Place(grid, host, 0, index * 2);
+            if (columns) { Ui.Place(grid, host, 0, index * 2); grid.ColumnDefinitions[index * 2].MinWidth = TabMinimum(members[index]); }
             else Ui.Place(grid, host, index * 2);
             if (index == 0) continue;
             var before = index - 1;
@@ -591,7 +591,11 @@ public sealed partial class DockSurface
                 var sizes = start.ToArray();
                 var pair = sizes[before] + sizes[before + 1];
                 var minimum = Math.Min(pair / 2, Extent() * .1);
-                sizes[before] = Math.Clamp(start[before] + delta, minimum, pair - minimum);
+                // A member that names a least width keeps it, unless the pair has no room for both.
+                var low = columns ? Math.Max(minimum, TabMinimum(members[before])) : minimum;
+                var high = pair - (columns ? Math.Max(minimum, TabMinimum(members[before + 1])) : minimum);
+                if (low > high) return sizes;
+                sizes[before] = Math.Clamp(start[before] + delta, low, high);
                 sizes[before + 1] = pair - sizes[before];
                 return sizes;
             }

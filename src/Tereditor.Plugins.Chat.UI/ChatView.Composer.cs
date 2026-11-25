@@ -96,9 +96,12 @@ internal sealed partial class ChatView
     }
 
     // Laid out as upstream's composer: queued messages above a bordered shell whose input sits over a footer row (pickers, attach and
-    // Skills at the left, session stats between, history, Stop and Send at the right); the cwd, IDE and MCP facts sit under the shell.
+    // Skills at the left, session stats between, Stop and Send at the right); the cwd, IDE and MCP facts sit under the shell.
     /// <summary>The size of the round Send and Stop buttons: also the one-line height of the input, so the shell's insets around both are equal.</summary>
     internal const double SendSize = 28;
+
+    /// <summary>The least width a chat document keeps beside another document, so its text and composer stay usable.</summary>
+    internal const double MinDocumentWidth = 360;
 
     private Control BuildComposer()
     {
@@ -118,6 +121,10 @@ internal sealed partial class ChatView
             PlaceholderForeground = Ui.Muted,
             Text = StartDraft()
         };
+        // An empty box does not wrap, so a narrow one keeps its placeholder on one line instead of breaking it word by word; typed text wraps as before.
+        void KeepPlaceholderOnOneLine() => input.TextWrapping = string.IsNullOrEmpty(input.Text) ? TextWrapping.NoWrap : TextWrapping.Wrap;
+        input.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) KeepPlaceholderOnOneLine(); };
+        KeepPlaceholderOnOneLine();
         Avalonia.Automation.AutomationProperties.SetName(input, $"Message {env.Agent.Short}");
         send = new Button { Name = "ChatSend", Padding = new Thickness(12, 6), VerticalAlignment = VerticalAlignment.Center };
         send.Classes.Add("primary");
@@ -154,14 +161,12 @@ internal sealed partial class ChatView
         pie = TerminalFacts.ChipButton("ChatContextPie", new PieGlyph(), "Session usage", ShowUsage);
         pie.IsVisible = false;
         mentionRow = new WrapPanel { Name = "ChatMentions", Orientation = Orientation.Horizontal, IsVisible = false, Margin = new Thickness(8, 6, 8, 0) };
-        history = Ui.IconButton("search", "Search history", ShowHistory);
-        history.Name = "ChatHistory";
         queue = new StackPanel { Name = "ChatQueue", Spacing = 2, IsVisible = false, Margin = new Thickness(4, 0, 4, 4) };
         working = new TextBlock { Name = "ChatWorking", FontSize = 11, Foreground = Ui.Accent, VerticalAlignment = VerticalAlignment.Center, IsVisible = false };
 
-        // Inside the box, at the right of the input: the working time, history, and the round Stop and Send (Queue is the chevron after them).
+        // Inside the box, at the right of the input: the working time, and the round Stop and Send (Queue is the chevron after them).
         // One height for all of them, so none sets the row's height and all are centred in it.
-        foreach (var control in new Button[] { history, stop, send, sendMore })
+        foreach (var control in new Button[] { stop, send, sendMore })
         {
             control.Height = SendSize; control.VerticalAlignment = VerticalAlignment.Center; control.VerticalContentAlignment = VerticalAlignment.Center; control.HorizontalContentAlignment = HorizontalAlignment.Center;
             control.Padding = new Thickness(control.Padding.Left, 0);
@@ -171,11 +176,9 @@ internal sealed partial class ChatView
             round.Width = SendSize; round.MinWidth = 0; round.Padding = new Thickness(0); round.CornerRadius = new CornerRadius(SendSize / 2); round.BorderThickness = new Thickness(0);
         }
         stop.Background = Ui.Hover;
-        foreach (var plain in new Button[] { history, sendMore }) { plain.Background = Brushes.Transparent; plain.BorderThickness = new Thickness(0); plain.CornerRadius = new CornerRadius(SendSize / 2); }
-        history.Width = SendSize; history.MinWidth = 0; history.Padding = new Thickness(0);
+        foreach (var plain in new Button[] { sendMore }) { plain.Background = Brushes.Transparent; plain.BorderThickness = new Thickness(0); plain.CornerRadius = new CornerRadius(SendSize / 2); }
         var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Space.Gap, VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Right };
         right.Children.Add(working);
-        right.Children.Add(history);
         right.Children.Add(sendMore);
         right.Children.Add(stop);
         right.Children.Add(send);
@@ -471,7 +474,7 @@ internal sealed partial class ChatView
     private DateTime workingSince;
 
     internal Button StopButton => stop;
-    private Button pie = null!, history = null!;
+    private Button pie = null!;
     private Button? plus;
     private WrapPanel contextRow = null!;
 
@@ -1386,6 +1389,7 @@ internal sealed partial class ChatView
         MenuItem Row(string name, string icon, string label, string? detail, Action run, string? tip = null) =>
             ChatPopup.Item(name, label, () => Dispatcher.UIThread.Post(run, DispatcherPriority.Background), detail, tip ?? (detail is { Length: > 0 } ? label + "\n" + detail : label), Ui.Icon(icon, Ui.Muted, 12));
         menu.Items.Add(Row("ChatSessions", "list", "Past conversations", "Resume a session", () => _ = ShowSessions()));
+        menu.Items.Add(Row("ChatHistory", "search", "Search history", "Prompts and conversation", ShowHistory));
         menu.Items.Add(Row("ChatSkills", "sparkling", "Skills", null, ShowSkills));
         menu.Items.Add(Row("ChatCommandMenu", "terminal", "Command menu", "Slash commands", () =>
         {
@@ -1407,7 +1411,7 @@ internal sealed partial class ChatView
     }
 
     // The levels, in the order things give way as the measured width shrinks: 1 the usage line goes, 2 the values shorten ("default effort" is
-    // "default", "Accept edits" is "edits"), 3 the working time goes, 4 history goes. Send, Stop and the model stay; the facts wrap into a second row instead of going.
+    // "default", "Accept edits" is "edits"), 3 the working time goes, 4 nothing more. Send, Stop and the model stay; the facts wrap into a second row instead of going.
     private const int LastDensity = 4;
 
     private void SetDensity(int level)
@@ -1417,7 +1421,6 @@ internal sealed partial class ChatView
         compact = level >= 2;
         hint.IsVisible = level < 1 && hint.Text is { Length: > 0 } && ChipShown("usage");
         working.IsVisible = workingActive && level < 3;
-        history.IsVisible = level < 4;
         if (transcript.Header is { } header) { chipSignature = ""; RebuildChips(header); }
         UpdateSend();
     }

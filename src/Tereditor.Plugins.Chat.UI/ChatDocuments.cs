@@ -20,6 +20,8 @@ internal static class ChatDocuments
             Icon = agent.Icon,
             // A chat tab hosts the same embedded companion panes as a terminal (the visualize view, for one).
             HostsCompanions = true,
+            // Beside another document the chat keeps a width its text and composer can use.
+            MinWidth = ChatView.MinDocumentWidth,
             // Closing the tab ends the child process; the transcript stays on disk and reopening the chat resumes it.
             Closed = props => { ChatView.ForgetChat(props.WorkspaceId, props.Id); _ = CloseAsync(context, client, props); },
             Rename = (props, title) => _ = RenameAsync(context, client, props, title)

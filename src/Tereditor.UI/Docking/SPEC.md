@@ -411,6 +411,7 @@ Close Tab or group-navigation commands. Rows use an active marker, top/bottom in
 start actions below their tabs.
 Ambiguous basenames show their folder on a dimmed second line.
 
+- Minimum widths: a plugin document may name a least width (`PluginDocumentRegistration.MinWidth`; a chat names 360px). Beside another document, in the columns of a pane (and in a center split), its column keeps that width: the grid column carries it as a minimum, the separator cannot drag it lower and the neighbor yields, so the group may overflow in a narrow window. Phone layouts show one member at a time and ignore it.
 - Panes: `DockPane` is metadata on a center group in the workspace view (`WorkspaceView.Panes`), never a
   center-tree node: two to four tabs of one group shown together, in columns or rows, with one weight each.
   `LayoutSession` re-derives panes after every mutation: a member closed or moved away leaves no membership,

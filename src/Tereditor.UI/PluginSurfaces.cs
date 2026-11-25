@@ -40,6 +40,7 @@ public sealed partial class WorkbenchWindow
         surface.TabMenuItems = tab => TabMenuItems(tab);
         surface.CanRenameDocument = tab => PluginDocumentOwner(tab)?.Value.Rename is not null;
         surface.RenameDocument = RenamePluginDocument;
+        surface.DocumentMinWidth = tab => PluginDocumentOwner(tab)?.Value.MinWidth ?? 0;
         surface.TabOverlay = tab => workbench.Signals.Strip(Layout.State.ActiveWorkspace, tab);
         Plugins.Changed += PluginsChanged;
         state.Changed += HostStateChanged;

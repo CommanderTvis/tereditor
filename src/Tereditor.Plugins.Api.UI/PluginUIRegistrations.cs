@@ -64,6 +64,12 @@ public sealed record PluginDocumentRegistration(string Scheme, Func<PluginDocume
     public bool HostsCompanions { get; init; }
 
     /// <summary>
+    /// The least width in device-independent pixels the document keeps when it shares the editor area with another document, side by side
+    /// or in a pane; the splitter stops there and the neighbor yields. Zero (the default) leaves the document as narrow as the layout allows.
+    /// </summary>
+    public double MinWidth { get; init; }
+
+    /// <summary>
     /// Entries the tab's context menu offers for this plugin's documents only, in one group after the built-in entries Close and
     /// Rename and before the path entries, in this order. No submenus, no checkable items.
     /// </summary>

@@ -858,6 +858,8 @@ Tereditor.Plugins.Api.UI.PluginDocumentRegistration.Icon.get -> string?
 Tereditor.Plugins.Api.UI.PluginDocumentRegistration.Rename.get -> System.Action<Tereditor.Plugins.Api.UI.PluginDocumentProps!, string!>?
 Tereditor.Plugins.Api.UI.PluginDocumentRegistration.Rename.init -> void
 Tereditor.Plugins.Api.UI.PluginDocumentRegistration.Icon.init -> void
+Tereditor.Plugins.Api.UI.PluginDocumentRegistration.MinWidth.get -> double
+Tereditor.Plugins.Api.UI.PluginDocumentRegistration.MinWidth.init -> void
 Tereditor.Plugins.Api.UI.PluginDocumentRegistration.PluginDocumentRegistration(string! Scheme, System.Func<Tereditor.Plugins.Api.UI.PluginDocumentProps!, Avalonia.Controls.Control!>! Create) -> void
 Tereditor.Plugins.Api.UI.PluginDocumentRegistration.Scheme.get -> string!
 Tereditor.Plugins.Api.UI.PluginDocumentRegistration.Scheme.init -> void

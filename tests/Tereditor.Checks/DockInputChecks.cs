@@ -128,8 +128,47 @@ internal static class DockInputChecks
         Console.WriteLine("PASS edge rails mirror panes, fold/unfold focus, unplaced tools, Mod+1 and Project Home's Projects pane");
     }
 
+    // A document that names a least width keeps it beside another document in a pane: laid out narrow, and dragged by its separator.
+    private static void PaneMinimum()
+    {
+        var session = new LayoutSession();
+        session.SwitchWorkspace("minimum");
+        foreach (var id in new[] { "doc", "chat" }) session.Open(new(id, id, "plugin", "scheme:" + id), true);
+        var group = session.State.Center.Leaves().Single();
+        Require(session.GroupTabs(group, "chat", "doc", "horizontal") && session.PaneFor(group, "chat") is not null, "The two documents share a pane.");
+        var chatFirst = session.PaneFor(group, "chat")!.TabIds[0] == "chat";
+        session.SetPaneWeights(group, session.PaneFor(group, "chat")!.Id, chatFirst ? [.05, .95] : [.95, .05]);
+        var surface = new DockSurface(session, tab => new Border { Name = "Body_" + tab?.Id }, build: false) { DocumentMinWidth = tab => tab.Id == "chat" ? 360 : 0 };
+        surface.Rebuild();
+        var window = new Window { Content = surface, Width = 1000, Height = 700 };
+        window.Show();
+        try
+        {
+            double ChatWidth()
+            {
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                return window.GetLogicalDescendants().OfType<Border>().Single(border => border.Name == "PaneMember" && border.Tag is "chat").Bounds.Width;
+            }
+            foreach (var width in new[] { 1000.0, 800, 700 })
+            {
+                window.Width = width;
+                Require(ChatWidth() >= 359.5, $"A chat pane keeps 360 px at a window of {width} px, though its weight asks for less (it has {ChatWidth():0.#}).");
+            }
+            window.Width = 1000;
+            Require(ChatWidth() >= 359.5, "The chat pane starts at its minimum.");
+            var handle = window.GetLogicalDescendants().OfType<ResizeHandle>().Single(item => item.Name == "PaneResize_" + group);
+            var start = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+            var toward = new Vector(chatFirst ? -500 : 500, 0);
+            window.MouseMove(start); window.MouseDown(start, MouseButton.Left); window.MouseMove(start + toward); window.MouseUp(start + toward, MouseButton.Left);
+            Require(ChatWidth() >= 359.5, $"Dragging the separator cannot shrink the chat pane below 360 px (it has {ChatWidth():0.#}).");
+        }
+        finally { window.Close(); }
+        Console.WriteLine("PASS dock: a chat document keeps its least width beside another document");
+    }
+
     internal static void Run(string root)
     {
+        PaneMinimum();
         root = E2E.IsolatedGit.Repository(Path.Combine(root, "dock-input-project"),
             ("README.md", File.ReadAllText(Path.Combine(root, "README.md"))),
             ("SPEC.md", File.ReadAllText(Path.Combine(root, "SPEC.md"))),

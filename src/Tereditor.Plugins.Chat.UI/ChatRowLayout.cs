@@ -26,6 +26,12 @@ internal sealed class ChatRowLayout : IDisposable
     internal const double EdgePad = Pad - 4;
     /// <summary>A human prompt's bubble padding, the same on all four sides.</summary>
     internal const double BubblePad = 12;
+    /// <summary>The corner radius of the prompt bubble and of the selection frame around a row: one card radius.</summary>
+    internal const double CardRadius = 8;
+    /// <summary>The gap between a row's content and its selection frame, the same on all four sides.</summary>
+    internal const double SelectionPad = 3;
+    /// <summary>The narrowest a row's text column gets, so a narrow view cuts the row off instead of wrapping it letter by letter.</summary>
+    internal const double MinTextWidth = 120;
     private const int PreviewLines = 12;
 
     private readonly record struct Fill(Rect Bounds, IBrush Brush, double Radius, IPen? Pen);
@@ -64,6 +70,14 @@ internal sealed class ChatRowLayout : IDisposable
     }
 
     public double Height => y;
+    private double trimmed;
+    private Rect content;
+
+    /// <summary>What the row shows, bubble and action strip included, without the row's own vertical room or a reply's trailing block gap.</summary>
+    internal Rect Content => content;
+
+    /// <summary>The selection frame: the content inflated by <see cref="SelectionPad"/> on every side; empty for a row that draws nothing.</summary>
+    internal Rect SelectionFrame => content.Width <= 0 || content.Height <= 0 ? default : content.Inflate(SelectionPad);
     private double blocksBottom;
 
     /// <summary>The y where a reply's text ends and its action strip begins; zero for rows that have none.</summary>
@@ -234,7 +248,7 @@ internal sealed class ChatRowLayout : IDisposable
     {
         this.known = known;
         this.left = left;
-        inner = Math.Max(40, width - left - Pad);
+        inner = Math.Max(MinTextWidth, width - left - Pad);
     }
 
     public static ChatRowLayout Build(ChatRow row, double width, bool expandable, Func<string, bool>? known = null)
@@ -258,6 +272,7 @@ internal sealed class ChatRowLayout : IDisposable
             case ChatNoticeItem notice: layout.Notice(notice, row.Expanded); break;
             case ChatQuestionItem question: layout.Question(question); break;
         }
+        layout.content = new Rect(layout.left, 4, layout.inner, Math.Max(0, layout.y - layout.trimmed - 4));
         layout.y += 4;
         Interlocked.Increment(ref live);
         Interlocked.Increment(ref built);
@@ -486,7 +501,7 @@ internal sealed class ChatRowLayout : IDisposable
         var extra = (chips.Count > 0 ? 18 : 0) + (user.Queued ? 16 : 0) + (large ? 20 : 0);
         var box = new Rect(left, boxTop, inner, shown + 2 * BubblePad + extra);
         // The prompt wears the accent: a calm accent wash over the raised surface inside an accent-tinted outline.
-        fills.Add(new(box, Ui.PromptFill, 8, new Pen(Ui.PromptBorder)));
+        fills.Add(new(box, Ui.PromptFill, CardRadius, new Pen(Ui.PromptBorder)));
         var cursor = start + shown;
         if (chips.Count > 0)
         {
@@ -554,6 +569,7 @@ internal sealed class ChatRowLayout : IDisposable
         }
         // A reply has no hover action: Copy is in the right-click menu.
         if (!assistant.Streaming) blocksBottom = y;
+        if (pieces.Count > 0) trimmed = TrailingGap(pieces[^1]);
     }
 
     private IReadOnlyList<Markdown.Piece> Blocks(string text, bool streaming)

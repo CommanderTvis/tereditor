@@ -214,6 +214,14 @@ workspace, never by the view.
 - Authentication (`authenticate`, agent auth methods) has no contract method; a host half would surface it as a Failure notice.
 - A chat tab registers its document with `HostsCompanions`, so the app embeds companion panes (the `visualize` live view, for one) beside the conversation as it does for a terminal; the chat view itself knows nothing of them.
 
+## Narrow layouts and selection
+
+A chat document asks the dock for 360px beside another document (`ChatView.MinDocumentWidth`, the dock's minimum widths). Below that (phone, narrow window) the composer keeps its placeholder on one line cut with an ellipsis, Send stays inside the view, the footer chips wrap or give way by density level, and rows keep a text column of at least `ChatRowLayout.MinTextWidth` (120px) so text wraps between words.
+
+A selected, focused row wears an accent frame around its content: for a prompt the bubble plus its Rewind and Fork strip, for a reply its text. The frame sits `SelectionPad` (3px) outside that content on all four sides and uses the card radius of the prompt bubble.
+
+Search history is a row of the composer's "+" menu, not a button in the prompt box; it opens the same prompt and conversation search. It has no keyboard shortcut.
+
 ## Checks
 
 The view is covered by `--claude-chat-ui` and `--claude-chat-e2e` (two views of one host for the shared draft), the records and the Claude Code host by `--claude-chat-host`, and the

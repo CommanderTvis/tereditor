@@ -209,8 +209,8 @@ internal static class ClaudeChatE2E
         E2eWorkspace.Settle(300);
         var zoomed = View(app)!;
         var shown = zoomed.GetVisualDescendants().OfType<Control>().Where(control => control.IsEffectivelyVisible).Select(control => control.Name).ToHashSet();
-        Require(shown.Contains("ChatHistory") && shown.Contains("ChatSend") && shown.Contains("TerminalAgentFact_model"),
-            $"At 150% the footer keeps the model chip, history and Send (density {zoomed.DensityLevel}).");
+        Require(!shown.Contains("ChatHistory") && shown.Contains("ChatSend") && shown.Contains("TerminalAgentFact_model"),
+            $"At 150% the footer keeps the model chip and Send, and no search button (density {zoomed.DensityLevel}).");
         app.Window.KeyPress(Avalonia.Input.Key.D0, E2eWorkspace.Command, Avalonia.Input.PhysicalKey.Digit0, null);
         E2eWorkspace.Until(() => Math.Abs(InterfaceZoom.Current - 1) < 1e-9);
 

@@ -489,8 +489,8 @@ internal sealed class ChatList : ScrollViewer
                 if (hoverHit is { } over && over.RowId == row.Id) DrawHover(context, over.Hit);
                 if (focusStop is { } stop && row.Id == selectedId && surface.IsFocused)
                     context.DrawRectangle(null, new Pen(Ui.Accent, 1.5), stop.Bounds.Inflate(2), 3, 3);
-                if (row.Id == selectedId && surface.IsFocused)
-                    context.DrawRectangle(null, new Pen(Ui.Accent, 1), new Rect(1, 1, Math.Max(0, width - 2), Math.Max(0, layout.Height - 2)), 4, 4);
+                if (row.Id == selectedId && surface.IsFocused && layout.SelectionFrame is { Width: > 0 } frame)
+                    context.DrawRectangle(null, new Pen(Ui.Accent, 1), frame, ChatRowLayout.CardRadius, ChatRowLayout.CardRadius);
             }
         }
         Trim(used);

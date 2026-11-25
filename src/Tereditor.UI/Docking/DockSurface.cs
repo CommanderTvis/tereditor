@@ -51,6 +51,26 @@ public sealed partial class DockSurface : Grid
     /// <summary>Renames a plugin document's tab; the menu offers it only where <see cref="CanRenameDocument"/> allows.</summary>
     public Action<string, DockTab>? RenameDocument { get; set; }
     public Func<DockTab, bool>? CanRenameDocument { get; set; }
+    /// <summary>The least width a document keeps beside another one (zero for none): a split or a pane stops there and the neighbor yields.</summary>
+    public Func<DockTab, double>? DocumentMinWidth { get; set; }
+
+    private double TabMinimum(DockTab? tab) => tab is null || Drawers ? 0 : Math.Max(0, DocumentMinWidth?.Invoke(tab) ?? 0);
+
+    // A group shows its selected tab, or that tab's whole pane: side by side the members add up, stacked the widest counts.
+    private double GroupMinimum(string groupId)
+    {
+        if (Session.Selected(groupId) is not { } selected) return 0;
+        if (Session.PaneFor(groupId, selected.Id) is { } pane && pane.TabIds.Count >= DockPane.MinMembers)
+        {
+            var tabs = Session.Tabs(groupId);
+            var minimums = pane.TabIds.Select(id => TabMinimum(tabs.FirstOrDefault(tab => tab.Id == id))).ToArray();
+            return pane.Direction == "horizontal" ? minimums.Sum() : minimums.Max();
+        }
+        return TabMinimum(selected);
+    }
+
+    private double SideMinimum(CenterNode node) =>
+        node.IsLeaf ? GroupMinimum(node.GroupId) : node.Axis == "horizontal" ? SideMinimum(node.First!) + SideMinimum(node.Second!) : Math.Max(SideMinimum(node.First!), SideMinimum(node.Second!));
     /// <summary>The active workspace's root on the host, which the tab menu's path copies resolve against.</summary>
     public Func<string>? WorkspaceRoot { get; set; }
     /// <summary>Shows a workspace-relative file in the Files tree; the tab menu offers it for files inside the workspace.</summary>
@@ -388,14 +408,17 @@ public sealed partial class DockSurface : Grid
             grid.RowDefinitions.Add(new(new GridLength(1 - node.Ratio, GridUnitType.Star)));
         }
         var first = BuildCenter(node.First!); var second = BuildCenter(node.Second!);
+        // Side by side, a document that names a least width (a chat) keeps it: the splitter stops there and the neighbor yields.
+        var firstMinimum = horizontal ? Math.Max(320, SideMinimum(node.First!)) : 180;
+        var secondMinimum = horizontal ? Math.Max(320, SideMinimum(node.Second!)) : 180;
+        if (horizontal) { grid.ColumnDefinitions[0].MinWidth = SideMinimum(node.First!); grid.ColumnDefinitions[2].MinWidth = SideMinimum(node.Second!); }
         Ui.Place(grid, first); Ui.Place(grid, second, horizontal ? 0 : 2, horizontal ? 2 : 0);
         var signature = node.First!.Leaves().First();
         var ratio = node.Ratio;
         double Value(double delta)
         {
             var extent = horizontal ? grid.Bounds.Width : grid.Bounds.Height;
-            var minimum = horizontal ? 320 : 180;
-            return extent < minimum * 2 ? ratio : Math.Clamp(ratio + delta / extent, minimum / extent, 1 - minimum / extent);
+            return extent < firstMinimum + secondMinimum ? ratio : Math.Clamp(ratio + delta / extent, firstMinimum / extent, 1 - secondMinimum / extent);
         }
         void Preview(double value)
         {
@@ -408,11 +431,10 @@ public sealed partial class DockSurface : Grid
         splitter.ConfigureRange(() =>
         {
             var extent = horizontal ? grid.Bounds.Width : grid.Bounds.Height;
-            var minimum = horizontal ? 320 : 180;
             var current = FindSplit(Session.State.Center, signature, node.Axis)!.Ratio;
-            return extent < minimum * 2 ? (current, current, current) : (current, minimum / extent, 1 - minimum / extent);
+            return extent < firstMinimum + secondMinimum ? (current, current, current) : (current, firstMinimum / extent, 1 - secondMinimum / extent);
         }, value => Session.Geometry(state => FindSplit(state.Center, signature, node.Axis)!.Ratio = value));
-        grid.SizeChanged += (_, _) => splitter.IsEnabled = (horizontal ? grid.Bounds.Width : grid.Bounds.Height) >= (horizontal ? 640 : 360);
+        grid.SizeChanged += (_, _) => splitter.IsEnabled = (horizontal ? grid.Bounds.Width : grid.Bounds.Height) >= firstMinimum + secondMinimum;
         Ui.Place(grid, splitter, horizontal ? 0 : 1, horizontal ? 1 : 0);
         return grid;
     }

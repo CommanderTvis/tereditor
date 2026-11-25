@@ -293,6 +293,8 @@ internal static class ClaudeChatUiChecks
         InlineStylesCompose();
         UserBubbleDrawsText();
         SelectedThoughtRow();
+        SelectionFrameInsets();
+        NarrowChat();
         AttachmentChipsContained();
         StructuredContextChips();
         PasteImages();
@@ -595,7 +597,7 @@ internal static class ClaudeChatUiChecks
                     window.Width = width; Frame(window); Frame(window); Frame(window);
                     levels.Add(view.DensityLevel);
                     if (width < 260) continue;
-                    var shown = new[] { "ChatStop", "ChatSend", "ChatSendMenu", "ChatHistory", "ChatWorking", "TerminalAgentFact_model" }
+                    var shown = new[] { "ChatStop", "ChatSend", "ChatSendMenu", "ChatWorking", "TerminalAgentFact_model" }
                         .Select(name => view.GetVisualDescendants().OfType<Control>().FirstOrDefault(control => control.Name == name)).Where(control => control is { IsEffectivelyVisible: true }).Cast<Control>().ToList();
                     foreach (var control in shown)
                     {
@@ -1798,25 +1800,81 @@ internal static class ClaudeChatUiChecks
 
             window.MouseDown(At("tool", 30, 10), MouseButton.Left); window.MouseUp(At("tool", 30, 10), MouseButton.Left); Frame(window);
             window.MouseMove(new Point(origin.X + 5, origin.Y - 4)); Frame(window);
-            var toolRing = PixelAt(window, At("tool", 1, 12));
+            var toolRing = PixelAt(window, At("tool", ChatRowLayout.Pad - ChatRowLayout.SelectionPad, 12));
             Require(toolRing != plain.Body, "A selected tool row wears the accent ring.");
-            var toolCorner = PixelAt(window, At("tool", 2, 2)) == PixelAt(window, At("tool", 12, 12));
+            var toolCorner = PixelAt(window, At("tool", ChatRowLayout.Pad - ChatRowLayout.SelectionPad + 1, 2)) == PixelAt(window, At("tool", 30, 12));
 
             foreach (var expanded in new[] { true, false })
             {
                 window.MouseDown(At("t1", 30, 10), MouseButton.Left); window.MouseUp(At("t1", 30, 10), MouseButton.Left); Frame(window);
                 // The pointer stays on the header: its hover wash must not stack on the ring.
                 window.MouseMove(At("t1", 40, 11)); Frame(window);
-                var ring = PixelAt(window, At("t1", 1, 12));
+                var ring = PixelAt(window, At("t1", ChatRowLayout.Pad - ChatRowLayout.SelectionPad, 12));
                 var body = PixelAt(window, At("t1", far, 10));
                 Require(ring == toolRing, $"A selected Thought row ({(expanded ? "opened" : "folded")}) draws the same ring as a selected tool row: {ring:X8} against {toolRing:X8}.");
                 Require(body == plain.Body, $"A selected Thought row ({(expanded ? "opened" : "folded")}) has no fill besides the ring: {body:X8} against {plain.Body:X8}.");
-                Require(PixelAt(window, At("t1", 2, 2)) == PixelAt(window, At("t1", 12, 12)) == toolCorner, "The ring's rounded corner matches the tool row's.");
+                Require(PixelAt(window, At("t1", ChatRowLayout.Pad - ChatRowLayout.SelectionPad + 1, 2)) == PixelAt(window, At("t1", 30, 12)) == toolCorner, "The ring's rounded corner matches the tool row's.");
                 Require(Height("t1") > 0, "The Thought row is still laid out.");
             }
         }
         catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
         finally { window.Close(); }
+    }
+
+    // The selection frame sits the same distance from the message on all four sides: from the prompt's bubble and its Rewind and Fork strip, and from a reply's text.
+    private static void SelectionFrameInsets()
+    {
+        const double width = 420;
+        var text = string.Join(" ", Enumerable.Repeat("install the fresh build to the phone over USB debugging and check it", 4));
+        using var prompt = ChatRowLayout.Build(new ChatRow(new ChatUserItem("u", 1, text) { Uuid = "uuid-1" }, 0, 1, false, null), width, true);
+        using var reply = ChatRowLayout.Build(new ChatRow(new ChatAssistantItem("a", 2, text), 0, 1, false, null), width, true);
+        var pad = ChatRowLayout.SelectionPad;
+        var column = width - ChatRowLayout.Pad;
+        void Equal(string what, params double[] gaps) =>
+            Require(gaps.All(gap => Math.Abs(gap - pad) <= 1) && gaps.Max() - gaps.Min() <= 1, $"The selection frame around {what} has equal gaps on all four sides (left, top, right, bottom: {string.Join(", ", gaps.Select(gap => gap.ToString("0.#")))}).");
+        var frame = prompt.SelectionFrame;
+        var rewind = prompt.OwnHits.Single(hit => hit.Kind == ChatHitKind.Rewind).Bounds.Deflate(3);
+        // A row has 4px above its content and the content column starts at Pad; the bubble fills that column.
+        Equal("a user message", ChatRowLayout.Pad - frame.Left, 4 - frame.Top, frame.Right - column, frame.Bottom - rewind.Bottom);
+        frame = reply.SelectionFrame;
+        Equal("an assistant message", ChatRowLayout.Pad - frame.Left, 4 - frame.Top, frame.Right - column, frame.Bottom - (reply.BlocksBottom - ChatRowLayout.Gap));
+        Require(prompt.SelectionFrame.Bottom <= prompt.Height && prompt.SelectionFrame.Top >= 0 && reply.SelectionFrame.Bottom <= reply.Height, "The selection frame stays inside its row.");
+        Console.WriteLine("PASS chat: the selection frame has equal gaps around a prompt and a reply");
+    }
+
+    // Down to a phone's width the chat keeps its text, composer and Send usable: the placeholder stays on one line, Send and the chips stay inside the view, and prompt text wraps between words.
+    private static void NarrowChat()
+    {
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) { Model = "opus", Effort = "high", PermissionMode = "default", Cwd = "/work/some/long/project/directory-name" } };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        chat.Snapshot.Add(Item(new ChatUserItem("u1", 1, string.Join(" ", Enumerable.Repeat("слово", 6)))));
+        chat.Snapshot.Add(Item(new ChatAssistantItem("a1", 2, "Разделение окон не даёт чату стать уже трёхсот шестидесяти пикселей.")));
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
+        view.Input.Text = "";
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Frame(window); Frame(window);
+            foreach (var width in new[] { 480, 360, 300, 240 })
+            {
+                window.Width = width; Frame(window); Frame(window); Frame(window);
+                Require(view.Input.Text is null or "" && view.Input.TextWrapping == TextWrapping.NoWrap && view.Input.Bounds.Height < view.Input.FontSize * 3,
+                    $"The placeholder stays on one line at {width}px (height {view.Input.Bounds.Height:0.#}, wrapping {view.Input.TextWrapping}, text '{view.Input.Text}').");
+                double Right(Control control) => control.TranslatePoint(new Point(control.Bounds.Width, 0), view)!.Value.X;
+                var send = view.GetVisualDescendants().OfType<Button>().First(button => button.Name == "ChatSend");
+                Require(send.IsVisible && send.Bounds.Width > 0 && Right(send) <= view.Bounds.Width + 0.5 && send.TranslatePoint(new Point(0, 0), view)!.Value.X >= 0,
+                    $"Send stays visible inside the view at {width}px.");
+                var panel = view.GetVisualDescendants().OfType<WrapPanel>().First(candidate => candidate.Name == "ChatChips");
+                Require(panel.Children.OfType<Control>().Where(chip => chip.IsVisible && chip.Bounds.Width > 0).All(chip => Right(chip) <= view.Bounds.Width + 0.5),
+                    $"The chips stay inside the view at {width}px.");
+                using var prompt = ChatRowLayout.Build(new ChatRow(new ChatUserItem("u1", 1, string.Join(" ", Enumerable.Repeat("слово", 6))), 0, 1, false, null), width, true);
+                Require(prompt.Height < 6 * 24 + 2 * ChatRowLayout.BubblePad + 16, $"A prompt wraps between words at {width}px, not inside them (row height {prompt.Height:0.#}).");
+            }
+        }
+        catch (Exception error) { Console.WriteLine("FAILED " + error); throw; }
+        finally { window.Close(); }
+        Console.WriteLine("PASS chat: the view stays usable at 240 to 480 px");
     }
 
     // A fenced block gets a copy button at its top-right corner: a hand over it, the exact code on the clipboard, a check that resets; inline code and other rows get none.
@@ -4102,8 +4160,13 @@ internal static class ClaudeChatUiChecks
                 "The pickers sit in a footer row below the box and the list; there is no separate chip line.");
             var plusMenu = view.BuildPlusMenu().Items.OfType<MenuItem>().Select(item => item.Name).ToHashSet();
             Require(plusMenu.IsSupersetOf(["ChatSkills", "ChatCommandMenu"]) && !plusMenu.Contains("TerminalAttachFile") && ChipText(view, "ChatChips").Contains("IDE context") && view.GetVisualDescendants().OfType<Button>().Any(button => button.Name == "TerminalAttachFile") && view.GetVisualDescendants().OfType<Control>().Any(control => control.Name == "ChatPlus") &&
-                view.GetVisualDescendants().OfType<Control>().Any(control => control.Name == "ChatHistory"),
-                "The \"+\" popup carries Skills, the command menu and the MCP servers; attach and the IDE switch are footer chips; history stays by Send.");
+                view.BuildPlusMenu().Items.OfType<MenuItem>().Any(item => item.Name == "ChatHistory") && !view.GetVisualDescendants().OfType<Control>().Any(control => control.Name == "ChatHistory"),
+                "The \"+\" popup carries Skills, the command menu, Search history and the MCP servers; attach and the IDE switch are footer chips; the prompt box has no search button.");
+            var historyRow = view.BuildPlusMenu().Items.OfType<MenuItem>().First(item => item.Name == "ChatHistory");
+            Require(!view.GetVisualDescendants().OfType<Control>().Any(control => control.Name == "ChatHistoryOverlay" && control.IsVisible), "History is closed before the row runs.");
+            historyRow.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            E2eWorkspace.Until(() => view.GetVisualDescendants().OfType<Control>().Any(control => control.Name == "ChatHistoryOverlay" && control.IsVisible));
+            Require(true, "The Search history row opens the history search.");
 
             // The model button's menu lists a flagship per family, then Effort and More models.
             var menuModels = new ChatModel[] { new("o1", "Opus 5.5") { Family = "opus" }, new("o0", "Opus 4.8") { Family = "opus" }, new("s1", "Sonnet 5.5") { Family = "sonnet" } };
@@ -4328,7 +4391,7 @@ internal static class ClaudeChatUiChecks
                 levels.Add(view.DensityLevel);
                 if (width < 320) continue;
                 var names = view.GetVisualDescendants().OfType<Control>().Where(control => control.IsVisible).Select(control => control.Name).ToHashSet();
-                Require(names.Contains("ChatHistory") && names.Contains("ChatSend") && view.Bounds.Width <= width, $"History and Send stay at {width}px.");
+                Require(!names.Contains("ChatHistory") && names.Contains("ChatSend") && view.Bounds.Width <= width, $"Send stays and the prompt box has no search button at {width}px.");
             }
             Require(levels[0] <= 2 && levels.Zip(levels.Skip(1), (x, y) => y >= x).All(ok => ok) && levels[^1] >= 2, $"The footer collapses monotonically as width shrinks ({string.Join(",", levels)}).");
             window.Width = 900; Frame(window); Frame(window);
