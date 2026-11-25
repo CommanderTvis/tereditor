@@ -107,8 +107,15 @@ public sealed class ClaudeCodeUI : PluginUIModule
             pair.Value.Where(tab => tab.Agent?.Kind == "claude").Select(tab => pair.Key + "\t" + tab.TabKey))), (_, _) => context.Invalidate());
         context.FileAction(new("mention", target => ClaudeMention.Label(context, target), target => _ = ClaudeMention.SendAsync(context, target))
         { Icon = "asset:claude.svg" });
+        var chatActivity = new ClaudeChatActivity(store);
         context.TabDecoration(tab =>
         {
+            // A chat reports on the same status channel as a terminal, under its chat id; it wears the shared chat mark.
+            if (tab is PluginDocumentTabRef { Scheme: ClaudeChat.DocumentScheme } document)
+            {
+                Hydrate(document.WorkspaceId);
+                return new TabDecoration { Adornment = () => new ChatActivityMark(chatActivity, document.WorkspaceId, document.Id) };
+            }
             if (tab is not TerminalTabRef terminal ||
                 context.Host().Terminals.GetValueOrDefault(tab.WorkspaceId)?.FirstOrDefault(candidate => candidate.TabKey == terminal.TabKey)?.Agent?.Kind != "claude")
                 return null;

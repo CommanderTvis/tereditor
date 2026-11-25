@@ -179,7 +179,7 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   error" (up to three agent/tab pairs, then "and N more"; "An agent hit an error" when only the host mark is known),
   and each failing agent terminal's own tab row (Projects tab list and tab strip) carries a danger dot in the tab's
   adornment slot with the same wording for that agent. Both come from in-memory state: the terminal signal board's
-  failed set (tab) plus the host's agent records and tab titles (name). A failed mark clears when the agent reports
+  failed set (tab) plus the host's agent records and tab titles (name). A chat tab (Claude Code, Pi, ACP) wears the same spinner while a turn runs and a warning dot while it waits for the user, from the host's chat activity push, with its chat view closed too (Chat SPEC "Tab activity"). A failed mark clears when the agent reports
   another result for that tab, when the agent record goes (closed or reset terminal), and when the workspace is read
   (seen in a focused window, or Mark as read).
 - A terminal tab's context menu (the Projects tab list, including terminals of other workspaces, and the tab strip) lists Close (with its icon) first, then Rename,

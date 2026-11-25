@@ -1157,6 +1157,7 @@ internal static class Program
             ClaudeChatUiChecks.Run();
             ClaudeChatUiChecks.ResumeOfferDismiss();
             ClaudeChatUiChecks.Launcher(root);
+            ClaudeChatUiChecks.ActivityMark();
             Console.WriteLine("PASS Claude chat UI checks");
             return;
         }
@@ -1780,7 +1781,7 @@ internal static class Program
         Gate.Case("claude-code-ui", () => ClaudeCodeChecks.RunUi(root));
         Gate.Case("workspace-emigrate", () => { if (!OperatingSystem.IsWindows()) ClaudeCodeChecks.Emigrate(root); });
         Gate.Case("chat-input-history", ClaudeChatUiChecks.InputHistoryMachine);
-        Gate.Case("claude-chat-ui", () => { ClaudeChatUiChecks.Run(); ClaudeChatUiChecks.ResumeOfferDismiss(); ClaudeChatUiChecks.Launcher(root); ClaudeChatUiChecks.PlusMenuAlignment(); });
+        Gate.Case("claude-chat-ui", () => { ClaudeChatUiChecks.Run(); ClaudeChatUiChecks.ResumeOfferDismiss(); ClaudeChatUiChecks.Launcher(root); ClaudeChatUiChecks.PlusMenuAlignment(); ClaudeChatUiChecks.ActivityMark(); });
         Gate.Case("DiscordChecks-RunUi", () => DiscordChecks.RunUi(root));
         Gate.Case("PdfPreviewChecks-Run", () => PdfPreviewChecks.Run(root));
         Gate.Case("ui-errors", () => UiErrorChecks.Run(root));

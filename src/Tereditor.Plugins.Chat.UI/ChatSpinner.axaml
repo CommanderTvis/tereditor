@@ -1,0 +1,18 @@
+<Border xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:kit="using:Tereditor.Plugins.UI.Kit"
+        x:Class="Tereditor.Plugins.Chat.UI.ChatSpinner" x:ClassModifier="internal"
+        Name="ChatSpinner" Width="8" Height="8">
+  <!-- The same turning arc as an agent terminal's tab: a style animation the composition thread runs while the arc is attached, with nothing ticking otherwise. -->
+  <Border.Styles>
+    <Style Selector="Arc.turning">
+      <Style.Animations>
+        <Animation Duration="0:0:1" IterationCount="Infinite">
+          <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0" /></KeyFrame>
+          <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360" /></KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+  </Border.Styles>
+  <Arc Classes="turning" StartAngle="0" SweepAngle="270" StrokeThickness="2" Stroke="{x:Static kit:Ui.Muted}" />
+</Border>

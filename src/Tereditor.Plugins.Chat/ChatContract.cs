@@ -15,6 +15,9 @@ public sealed record Ack(bool Ok = true);
 /// <summary>Where a chat is in its turn cycle.</summary>
 public enum ChatStatus { Starting, Idle, Running, AwaitingPermission, Failed, Exited }
 
+/// <summary>What a chat's tab shows beside its name: a spinner while a turn runs, a quiet mark while the chat waits for the user, nothing otherwise.</summary>
+public enum ChatActivity { Idle, Working, Attention }
+
 public enum ChatToolState { Pending, Running, Done, Failed, Denied }
 
 public enum ChatNoticeLevel { Info, Warning, Error }
@@ -627,6 +630,50 @@ public sealed record ChatPathEntry(string Name, bool IsDirectory);
 /// <summary>The entries (directories first) of the directory a <see cref="ChatPathParams.Prefix"/> names; empty when it is missing or unreadable.</summary>
 public sealed record ChatPathList(IReadOnlyList<ChatPathEntry> Entries);
 
+/// <summary>Scopes the activity of one workspace's chats.</summary>
+public sealed record ChatActivityParams(string WorkspaceId);
+
+/// <summary>What one chat is doing now.</summary>
+public sealed record ChatActivityPush(string WorkspaceId, string ChatId, ChatActivity Activity);
+
+/// <summary>
+/// The host half's record of what each chat is doing, fed with the pushes the host sends anyway. A header push that changes the
+/// activity yields one <see cref="ChatActivityPush"/> to publish on <see cref="ChatContract.Activity"/>.
+/// </summary>
+public sealed class ChatActivityBoard
+{
+    private readonly Lock gate = new();
+    private readonly Dictionary<(string, string), ChatActivity> held = [];
+
+    /// <summary>What a header means for a tab: a running turn or other work counts as working, a pending permission or question as attention.</summary>
+    public static ChatActivity Of(ChatHeader header) => header.Status switch
+    {
+        ChatStatus.AwaitingPermission => ChatActivity.Attention,
+        ChatStatus.Running => ChatActivity.Working,
+        ChatStatus.Starting or ChatStatus.Idle => header.Activity is { Length: > 0 } ? ChatActivity.Working : ChatActivity.Idle,
+        _ => ChatActivity.Idle
+    };
+
+    /// <summary>The push to publish when this push moved a chat's activity; null for anything else.</summary>
+    public ChatActivityPush? Observe(ChatPush push) => push is ChatHeaderPush header ? Set(push.WorkspaceId, push.ChatId, Of(header.Header)) : null;
+
+    /// <summary>Records a chat's activity; the push to publish when it changed.</summary>
+    public ChatActivityPush? Set(string workspaceId, string chatId, ChatActivity activity)
+    {
+        lock (gate)
+        {
+            if (held.TryGetValue((workspaceId, chatId), out var before) ? before == activity : activity == ChatActivity.Idle) return null;
+            held[(workspaceId, chatId)] = activity;
+        }
+        return new ChatActivityPush(workspaceId, chatId, activity);
+    }
+
+    public IReadOnlyList<ChatActivityPush> Snapshot(string workspaceId)
+    {
+        lock (gate) return [.. held.Where(pair => pair.Key.Item1 == workspaceId).Select(pair => new ChatActivityPush(workspaceId, pair.Key.Item2, pair.Value))];
+    }
+}
+
 /// <summary>The chat wire contract. It is declared apart from any plugin's contract; each agent plugin merges it into its own (Claude Code's is <c>ClaudeCodeContract</c>).</summary>
 public static class ChatContract
 {
@@ -672,6 +719,11 @@ public static class ChatContract
     /// <summary>Lists one host directory for <c>@</c> path completion, resolved against the chat's working directory (<c>~</c> against the host user's home).</summary>
     public static readonly PluginMethod<ChatPathParams, ChatPathList> CompletePath = new("chatCompletePath");
 
+    /// <summary>The chats of a workspace and what each is doing, for tabs whose chat view is not open. Not in <see cref="Methods"/>: a host lists it next to <see cref="Activity"/>.</summary>
+    public static readonly PluginMethod<ChatActivityParams, IReadOnlyList<ChatActivityPush>> ActivitySnapshot = new("chatActivitySnapshot");
+    /// <summary>A workspace's chat activity, scoped by workspace: one small push whenever a chat starts, stops or waits for the user. The snapshot lists every chat the host has seen, idle ones included, so a stale state is replaced.</summary>
+    public static readonly PluginChannel<ChatActivityPush> Activity = PluginChannel<ChatActivityPush>.State("chatActivity", ActivitySnapshot, "workspaceId");
+
     /// <summary>The chat's debug log. Not in <see cref="Methods"/>: only a host that keeps one (Claude Code, with Debug mode on) serves it.</summary>
     public static readonly PluginMethod<ChatKey, ChatDebugLogResult> DebugLog = new("chatDebugLog");
     /// <summary>Empties the chat's debug log on the host. Not in <see cref="Methods"/>, like <see cref="DebugLog"/>.</summary>
@@ -706,7 +758,7 @@ public static class ChatContract
     public static IJsonTypeInfoResolver Json => ChatJson.Default;
 }
 
-[JsonSourceGenerationOptions(Converters = [typeof(PluginJson.EnumConverter<ChatStatus>), typeof(PluginJson.EnumConverter<ChatToolState>), typeof(PluginJson.EnumConverter<ChatNoticeLevel>), typeof(PluginJson.EnumConverter<ChatTaskKind>), typeof(PluginJson.EnumConverter<ChatTaskStatus>), typeof(PluginJson.EnumConverter<ChatPermissionDecision>), typeof(PluginJson.EnumConverter<ChatAgentState>), typeof(PluginJson.EnumConverter<ChatDebugDirection>)])]
+[JsonSourceGenerationOptions(Converters = [typeof(PluginJson.EnumConverter<ChatStatus>), typeof(PluginJson.EnumConverter<ChatToolState>), typeof(PluginJson.EnumConverter<ChatNoticeLevel>), typeof(PluginJson.EnumConverter<ChatTaskKind>), typeof(PluginJson.EnumConverter<ChatTaskStatus>), typeof(PluginJson.EnumConverter<ChatPermissionDecision>), typeof(PluginJson.EnumConverter<ChatAgentState>), typeof(PluginJson.EnumConverter<ChatDebugDirection>), typeof(PluginJson.EnumConverter<ChatActivity>)])]
 [JsonSerializable(typeof(ChatOpenParams))]
 [JsonSerializable(typeof(ChatHeader))]
 [JsonSerializable(typeof(ChatKey))]
@@ -737,6 +789,9 @@ public static class ChatContract
 [JsonSerializable(typeof(ChatSetDraftParams))]
 [JsonSerializable(typeof(ChatDraft))]
 [JsonSerializable(typeof(ChatDebugLogResult))]
+[JsonSerializable(typeof(ChatActivityParams))]
+[JsonSerializable(typeof(ChatActivityPush))]
+[JsonSerializable(typeof(IReadOnlyList<ChatActivityPush>))]
 [JsonSerializable(typeof(ChatSnapshot))]
 [JsonSerializable(typeof(ChatItem))]
 internal sealed partial class ChatJson : JsonSerializerContext;

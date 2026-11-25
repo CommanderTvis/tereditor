@@ -19,6 +19,8 @@ public sealed class PiUI : PluginUIModule
         var client = new PluginChatClient(context);
         // Pi edits files itself and proposes nothing to diff, so there is no file to read for a proposal.
         var selections = ChatDocuments.Register(context, client, PiChat.Agent, (_, _) => Task.FromResult(""));
+        var activity = new ChatActivityTracker(context);
+        context.TabDecoration(tab => activity.Decorate(tab, PiContract.DocumentScheme));
         _ = Task.Run(async () =>
         {
             try { status = await context.RequestAsync(PiContract.Status, new PiNoParams()); }
@@ -71,6 +73,6 @@ public sealed class PiUI : PluginUIModule
             };
             return button;
         }));
-        return () => selections.Dispose();
+        return () => { selections.Dispose(); activity.Dispose(); };
     }
 }

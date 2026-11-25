@@ -22,6 +22,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
     private const string AgentsState = "agents";
 
     private readonly ConcurrentDictionary<(string, string), AcpChatSession> sessions = new();
+    private readonly ChatActivityBoard activity = new();
     private readonly Lock recordsGate = new();
     private readonly AcpBuffers buffers = new(context);
 
@@ -257,7 +258,11 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
 
     private void Publish(ChatPush push)
     {
-        try { context.Publish(ChatContract.Updates, push); }
+        try
+        {
+            context.Publish(ChatContract.Updates, push);
+            if (activity.Observe(push) is { } changed) context.Publish(ChatContract.Activity, changed);
+        }
         catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException)
         {
             context.Log.Warn($"could not publish a chat {push.GetType().Name}: {error.Message}");
@@ -297,6 +302,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
             buffers.Settle(p);
             return ValueTask.FromResult(new Ack());
         });
+        context.Method(ChatContract.ActivitySnapshot, (p, _, _) => ValueTask.FromResult(activity.Snapshot(p.WorkspaceId)));
         context.Method(ChatContract.Snapshot, (p, _, _) => ValueTask.FromResult(sessions.TryGetValue((p.WorkspaceId, p.ChatId), out var session) ? session.Snapshot() : []));
         context.Method(ChatContract.Send, async (p, _, _) =>
         {
@@ -311,6 +317,7 @@ internal sealed class AcpChatHost(IPluginHostContext context, Func<AcpAgentEntry
         context.Method(ChatContract.Close, async (p, _, _) =>
         {
             if (sessions.TryRemove((p.WorkspaceId, p.ChatId), out var session)) await session.DisposeAsync();
+            if (activity.Set(p.WorkspaceId, p.ChatId, ChatActivity.Idle) is { } closed) context.Publish(ChatContract.Activity, closed);
             return new Ack();
         });
         context.Method(ChatContract.SetModel, async (p, _, _) => await Session(p.WorkspaceId, p.ChatId).SetModelAsync(p.Value));

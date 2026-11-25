@@ -2958,6 +2958,45 @@ internal static class ClaudeChatUiChecks
     }
 
     // The "+" menu: icon rows, check rows (on and off) and rows with a hint share one grid, so heights, label x, icon slots and hints line up.
+    private sealed class FakeActivity : IChatActivitySource
+    {
+        public ChatActivity Value;
+        public event Action<string, string>? Changed;
+        public ChatActivity Of(string workspaceId, string chatId) => workspaceId == Workspace && chatId == Chat ? Value : ChatActivity.Idle;
+        public void Set(ChatActivity value) { Value = value; Changed?.Invoke(Workspace, Chat); }
+    }
+
+    // A chat's tab mark: a spinner while a turn runs, a warning dot while it waits for the user, nothing when quiet, and the host's board
+    // turns the headers it already pushes into one small activity push per change.
+    internal static void ActivityMark()
+    {
+        var board = new ChatActivityBoard();
+        Require(board.Observe(new ChatHeaderPush(Workspace, Chat, new ChatHeader(ChatStatus.Idle))) is null, "A quiet chat that was never seen pushes no activity.");
+        Require(board.Observe(new ChatHeaderPush(Workspace, Chat, new ChatHeader(ChatStatus.Running))) is { Activity: ChatActivity.Working }, "A running turn is working.");
+        Require(board.Observe(new ChatHeaderPush(Workspace, Chat, new ChatHeader(ChatStatus.Running) { Model = "x" })) is null, "A header that changes nothing about the activity pushes nothing.");
+        Require(board.Observe(new ChatHeaderPush(Workspace, Chat, new ChatHeader(ChatStatus.AwaitingPermission))) is { Activity: ChatActivity.Attention }, "A pending permission needs attention.");
+        Require(board.Observe(new ChatHeaderPush(Workspace, Chat, new ChatHeader(ChatStatus.Idle) { Activity = "Compacting" })) is { Activity: ChatActivity.Working }, "Compacting is working.");
+        Require(board.Observe(new ChatHeaderPush(Workspace, Chat, new ChatHeader(ChatStatus.Idle))) is { Activity: ChatActivity.Idle }, "A finished turn settles to idle.");
+        Require(board.Snapshot(Workspace) is [{ Activity: ChatActivity.Idle }] && board.Snapshot("other").Count == 0, "The snapshot keeps the idle chat so a client replaces a stale state, and lists one workspace only.");
+
+        var source = new FakeActivity();
+        var mark = new ChatActivityMark(source, Workspace, Chat);
+        var window = new Window { Width = 200, Height = 60, Content = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { new TextBlock { Text = "Chat" }, mark } } };
+        window.Show();
+        try
+        {
+            Frame(window);
+            Require(!mark.IsVisible && mark.Content is null, "An idle chat shows no mark.");
+            source.Set(ChatActivity.Working); Frame(window);
+            Require(mark.IsVisible && mark.Content is ChatSpinner { Width: 8, Height: 8 }, "A working chat shows the spinner an agent terminal's tab shows.");
+            source.Set(ChatActivity.Attention); Frame(window);
+            Require(mark.IsVisible && mark.Content is Avalonia.Controls.Shapes.Ellipse { Width: 8, Height: 8 } dot && Equals(dot.Fill, Ui.Warning), "A chat that waits for the user shows a warning dot.");
+            source.Set(ChatActivity.Idle); Frame(window);
+            Require(!mark.IsVisible && mark.Content is null, "A chat that went quiet shows nothing again.");
+        }
+        finally { window.Close(); }
+    }
+
     internal static void PlusMenuAlignment()
     {
         var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) { DebugLog = true } };

@@ -104,7 +104,7 @@ public sealed record PiPackageResult(bool Ok, string Output);
 
 public static class PiContract
 {
-    public const int WireVersion = 1;
+    public const int WireVersion = 2;
 
     public const string DocumentScheme = "pi-chat";
 
@@ -130,7 +130,7 @@ public static class PiContract
 
     /// <summary>The chat contract is shared with the other chat plugins: Pi serves its methods and its updates channel.</summary>
     public static readonly PluginContract Contract = PluginContract.Create<PiSettings>(PiManifest.Id, WireVersion,
-        [.. ChatContract.Methods, Status, Install, CancelInstall, Remove, Config, PackageInstall, PackageRemove], [ChatContract.Updates], PiJson.Default, ChatContract.Json);
+        [.. ChatContract.Methods, ChatContract.ActivitySnapshot, Status, Install, CancelInstall, Remove, Config, PackageInstall, PackageRemove], [ChatContract.Updates, ChatContract.Activity], PiJson.Default, ChatContract.Json);
 }
 
 [JsonSerializable(typeof(PiSettings))]

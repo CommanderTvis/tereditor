@@ -87,7 +87,7 @@ public sealed record AcpBufferReply(string Id, string? Text);
 
 public static class AcpContract
 {
-    public const int WireVersion = 1;
+    public const int WireVersion = 2;
 
     public const string DocumentScheme = "acp-chat";
 
@@ -116,7 +116,7 @@ public static class AcpContract
 
     /// <summary>The chat contract is shared with the other chat plugins: ACP serves its methods and its updates channel.</summary>
     public static readonly PluginContract Contract = PluginContract.Create<AcpSettings>(AcpManifest.Id, WireVersion,
-        [.. ChatContract.Methods, ChatContract.SetOption, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, AgentIcon, ChatAgents, SignIn, Authenticate, BufferReply], [ChatContract.Updates, Buffer],
+        [.. ChatContract.Methods, ChatContract.SetOption, ChatContract.ActivitySnapshot, Agents, AddAgent, Choose, Registry, InstallPlan, Install, RemoveAgent, Icons, AgentIcon, ChatAgents, SignIn, Authenticate, BufferReply], [ChatContract.Updates, ChatContract.Activity, Buffer],
         AcpJson.Default, ChatContract.Json);
 }
 

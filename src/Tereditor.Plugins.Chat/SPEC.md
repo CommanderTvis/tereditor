@@ -37,6 +37,19 @@ an error and never produces the items that would make the view offer it: without
 with no permission or question items there is nothing to approve. The view's wording is neutral where it cannot know the agent
 ("Assistant"); anything else comes from the `ChatAgent`.
 
+## Tab activity
+
+A chat tab wears the mark an agent terminal's tab wears, whether or not its chat view is open: a turning spinner (the terminal's, 8 by 8) while a turn
+runs or the agent works on something else (compacting), a warning dot ("Needs your input") while a permission or question waits, and nothing
+otherwise (a finished turn, a failure or an idle chat leave no dot; the transcript says it). The mark is the tab decoration's adornment, always
+returned for a chat tab and hiding itself, so a change never rebuilds the rail. The chat view subscribes only while its tab is open, so the host
+publishes the state on its own small channel: `chatActivity` (state, scoped by `workspaceId`; snapshot `chatActivitySnapshot`, which lists every chat
+the host has seen, idle ones included, so a client replaces a stale state after a reconnect). The host half feeds a `ChatActivityBoard` with the header
+pushes it sends anyway and publishes one `ChatActivityPush` when a chat's activity changes; the UI half's `ChatActivityTracker` keeps one subscription
+per workspace a chat tab was seen in, and nothing polls. ACP and Pi serve the channel; Claude Code reports a chat on its own status channel under the
+chat id, as a terminal, and maps Running to working and Blocked to attention. Pi has no permission status, so it only shows the spinner. Codex and omp
+have no chat. These tabs do not count in the quit confirmation of agents in a turn.
+
 ## Bash mode
 
 A host that can run a user's shell command sets the header flag `CanRunShell` and serves `chatRunShell` and `chatStopShell`; the composer offers

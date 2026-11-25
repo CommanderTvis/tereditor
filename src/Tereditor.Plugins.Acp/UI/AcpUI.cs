@@ -22,7 +22,10 @@ public sealed class AcpUI : PluginUIModule
         var selections = ChatDocuments.Register(context, client, AcpChat.Agent, (_, _) => Task.FromResult(""), request => AcpSignInSection.AuthenticateAsync(context, request));
         AcpTabIcons tabIcons = null!;
         tabIcons = new AcpTabIcons { AskAgents = workspace => _ = LoadTabIconsAsync(context, tabIcons, workspace) };
-        context.TabDecoration(tabIcons.Decorate);
+        var activity = new ChatActivityTracker(context);
+        context.TabDecoration(tab => tabIcons.Decorate(tab) is { } icon
+            ? activity.Decorate(tab, AcpContract.DocumentScheme) is { } mark ? icon with { Adornment = mark.Adornment } : icon
+            : activity.Decorate(tab, AcpContract.DocumentScheme));
         _ = LoadTabIconsAsync(context, tabIcons, null);
         context.SettingsSection(new("ACP", AcpManifest.Manifest.Icon, () => new AcpSettingsView(context)));
         var agents = new AcpAgents();
@@ -66,7 +69,7 @@ public sealed class AcpUI : PluginUIModule
             return button;
         }));
         var buffers = context.Subscribe(AcpContract.Buffer, request => _ = AnswerBufferAsync(context, request));
-        return () => { selections.Dispose(); buffers.Dispose(); };
+        return () => { selections.Dispose(); buffers.Dispose(); activity.Dispose(); };
     }
 
     /// <summary>Answers the host's read of a file: the unsaved text of the editor that holds it, or nothing. Always replies.</summary>

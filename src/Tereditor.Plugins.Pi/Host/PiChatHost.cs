@@ -20,6 +20,7 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
     private const string RecordsState = "chats";
 
     private readonly ConcurrentDictionary<(string, string), PiChatSession> sessions = new();
+    private readonly ChatActivityBoard activity = new();
     private readonly Lock recordsGate = new();
     private readonly Func<string> sessionsRoot = sessionsRoot ?? (() => ContributedEnvironment(context).GetValueOrDefault("PI_CODING_AGENT_DIR") is { } agent ? Path.Combine(agent, "sessions") : DefaultSessionsRoot());
 
@@ -66,7 +67,11 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
 
     private void Publish(ChatPush push)
     {
-        try { context.Publish(ChatContract.Updates, push); }
+        try
+        {
+            context.Publish(ChatContract.Updates, push);
+            if (activity.Observe(push) is { } changed) context.Publish(ChatContract.Activity, changed);
+        }
         catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException)
         {
             context.Log.Warn($"could not publish a chat {push.GetType().Name}: {error.Message}");
@@ -76,6 +81,7 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
     public void Register()
     {
         context.Method(ChatContract.Open, (p, _, _) => OpenAsync(p));
+        context.Method(ChatContract.ActivitySnapshot, (p, _, _) => ValueTask.FromResult(activity.Snapshot(p.WorkspaceId)));
         context.Method(ChatContract.Snapshot, (p, _, _) => ValueTask.FromResult(sessions.TryGetValue((p.WorkspaceId, p.ChatId), out var session) ? session.Snapshot() : []));
         context.Method(ChatContract.Send, async (p, _, _) =>
         {
@@ -90,6 +96,7 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         context.Method(ChatContract.Close, async (p, _, _) =>
         {
             if (sessions.TryRemove((p.WorkspaceId, p.ChatId), out var session)) await session.DisposeAsync();
+            if (activity.Set(p.WorkspaceId, p.ChatId, ChatActivity.Idle) is { } closed) context.Publish(ChatContract.Activity, closed);
             return new Ack();
         });
         context.Method(ChatContract.SetModel, async (p, _, _) => await Session(p.WorkspaceId, p.ChatId).SetModelAsync(p.Value));

@@ -3,6 +3,27 @@ using Tereditor.Plugins.Chat.UI;
 
 namespace Tereditor.Plugins.ClaudeCode.UI.Chat;
 
+/// <summary>What a Claude chat is doing, read from the status the host reports for it (the status channel a terminal's agent uses, keyed by the chat id).</summary>
+internal sealed class ClaudeChatActivity : IChatActivitySource
+{
+    private readonly ClaudeCodeStore store;
+
+    public ClaudeChatActivity(ClaudeCodeStore store)
+    {
+        this.store = store;
+        store.Changed += (workspace, chat) => Changed?.Invoke(workspace, chat);
+    }
+
+    public event Action<string, string>? Changed;
+
+    public ChatActivity Of(string workspaceId, string chatId) => store.Session(workspaceId, chatId)?.Status switch
+    {
+        ClaudeCodeStatus.Running => ChatActivity.Working,
+        ClaudeCodeStatus.Blocked => ChatActivity.Attention,
+        _ => ChatActivity.Idle
+    };
+}
+
 /// <summary>What the shared chat view needs to know about Claude Code: its words, document and permission modes.</summary>
 internal static class ClaudeChat
 {
