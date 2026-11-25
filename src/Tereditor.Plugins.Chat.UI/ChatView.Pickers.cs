@@ -164,12 +164,12 @@ internal sealed partial class ChatView
             foreach (var model in header.Models.Take(MenuModelLimit))
                 menu.Items.Add(ChatPopup.Choice("ChatModel_" + model.Id, model.Label, ModelPicks.Matches(model, header.Model), () => _ = SetModel(model.Id), model.Description));
             if (header.Models.Count > MenuModelLimit)
-                menu.Items.Add(ChatPopup.Item("ChatModelMore", "More models\u2026", () => Dispatcher.UIThread.Post(() =>
+                menu.Items.Add(ChatPopup.Item("ChatModelMore", "More models", () => Dispatcher.UIThread.Post(() =>
                 {
                     var flyout = new Flyout { Placement = PlacementMode.TopEdgeAlignedLeft };
                     flyout.Content = ModelPanel(header, flyout);
                     ChatPopup.Show(flyout, anchor);
-                }, DispatcherPriority.Background)));
+                }, DispatcherPriority.Background), submenu: true));
             return menu;
         }
         foreach (var model in header.Models.Where(model => !ModelPicks.IsDefault(model) && model.Family is { Length: > 0 }).GroupBy(model => model.Family).Select(group => group.First()))
@@ -180,12 +180,12 @@ internal sealed partial class ChatView
         foreach (var level in EffortItems(header)) effort.Items.Add(level);
         menu.Items.Add(effort);
         // The searchable list needs a text box, which a menu cannot hold (its keys move through the rows): it is its own popup, opened once the menu has closed.
-        menu.Items.Add(ChatPopup.Item("ChatModelMore", "More models\u2026", () => Dispatcher.UIThread.Post(() =>
+        menu.Items.Add(ChatPopup.Item("ChatModelMore", "More models", () => Dispatcher.UIThread.Post(() =>
         {
             var flyout = new Flyout { Placement = PlacementMode.TopEdgeAlignedLeft };
             flyout.Content = ModelPanel(header, flyout);
             ChatPopup.Show(flyout, anchor);
-        }, DispatcherPriority.Background)));
+        }, DispatcherPriority.Background), submenu: true));
         return menu;
     }
 

@@ -193,11 +193,14 @@ internal static class ChatPopup
     }
 
     /// <summary>A menu row: its label, an optional muted detail after it, an optional icon, the label as its accessible name.</summary>
-    internal static MenuItem Item(string name, string label, Action run, string? detail = null, string? tip = null, Control? icon = null)
+    internal static MenuItem Item(string name, string label, Action run, string? detail = null, string? tip = null, Control? icon = null, bool submenu = false, bool chevronSlot = false)
     {
         var item = Ui.Menu(label, run);
         item.Name = name;
-        if (detail is { Length: > 0 }) item.Header = Labelled(label, detail);
+        object header = detail is { Length: > 0 } ? Labelled(label, detail) : label;
+        // A row that opens a further list draws a chevron at its right edge like Effort's, which the theme draws only for a row that holds items; a menu whose
+        // other rows show a hint reserves the slot on them too, so every hint ends at one edge.
+        item.Header = submenu || chevronSlot ? WithChevron(header, submenu) : header;
         item.MinHeight = RowHeight;
         if (icon is not null) item.Icon = Slot(icon);
         // A row's tip opens beside the menu, not below the row where it would cover the composer under the menu.
@@ -209,6 +212,16 @@ internal static class ChatPopup
         }
         Avalonia.Automation.AutomationProperties.SetName(item, label);
         return item;
+    }
+
+    private static Control WithChevron(object? header, bool shown)
+    {
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
+        row.Children.Add(header as Control ?? new TextBlock { Text = header as string, VerticalAlignment = VerticalAlignment.Center });
+        var slot = new Border { Name = shown ? "ChatMenuChevron" : "ChatMenuChevronSlot", Width = 10, VerticalAlignment = VerticalAlignment.Center, Child = shown ? Ui.Icon("arrowRight", Ui.Muted, 10) : null };
+        Grid.SetColumn(slot, 1);
+        row.Children.Add(slot);
+        return row;
     }
 
     /// <summary>The icon slot every icon row shares: the width of the check column, the icon centered in it.</summary>

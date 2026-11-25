@@ -468,6 +468,17 @@ internal sealed partial class ChatFolder
         return [.. list.EnumerateArray().Select(entry => new ChatMcpServer(Str(entry, "name") ?? "?", Str(entry, "status") ?? "unknown"))];
     }
 
+    /// <summary>
+    /// The family of a model value the CLI reports: the alias itself (<c>opus</c>, <c>fable</c>) or the word after <c>claude-</c> (<c>claude-fable-5-1</c>), so a new family shows
+    /// without a code change. <c>default</c> and ids that name no family have none.
+    /// </summary>
+    internal static string? FamilyOf(string id)
+    {
+        var parts = id.ToLowerInvariant().Split('-');
+        var word = parts[0] == "claude" ? parts.ElementAtOrDefault(1) : parts.Length == 1 ? parts[0] : null;
+        return word is { Length: > 0 } && word != "default" && word.All(char.IsLetter) ? word : null;
+    }
+
     /// <summary>The answer to the <c>initialize</c> control request: the models, commands and agents the session offers.</summary>
     public void ApplyInitialize(JsonElement response)
     {
@@ -478,8 +489,8 @@ internal sealed partial class ChatFolder
                     models.Add(new ChatModel(id, Str(entry, "displayName") ?? Str(entry, "label") ?? id)
                     {
                         Description = Str(entry, "description"),
-                        Family = new[] { "opus", "sonnet", "haiku" }.FirstOrDefault(family => id.Contains(family, StringComparison.OrdinalIgnoreCase)),
-                        Provider = id.Contains("claude", StringComparison.OrdinalIgnoreCase) || new[] { "opus", "sonnet", "haiku" }.Any(family => id.Contains(family, StringComparison.OrdinalIgnoreCase)) ? "Anthropic" : null,
+                        Family = FamilyOf(id),
+                        Provider = id.Contains("claude", StringComparison.OrdinalIgnoreCase) || FamilyOf(id) is not null ? "Anthropic" : null,
                         Efforts = Strings(entry, "supportedEffortLevels")
                     });
         SetHeader(header =>

@@ -75,8 +75,8 @@ internal static class ClaudeChatChecks
             *'"type":"control_cancel_request"'*)
               echo "$line" >> "$D/cancel.log"
               emit "{\"type\":\"control_response\",\"response\":{\"subtype\":\"error\",\"request_id\":\"$(rid "$line")\",\"error\":\"Side question cancelled\"}}" ;;
-            *'"subtype":"initialize"'*) ok "$(rid "$line")" '{"models":[{"value":"fake-model","displayName":"Fake","description":"d","supportedEffortLevels":["low","high"]},{"value":"new-model","displayName":"New"}],"commands":[{"name":"compact","description":"Compact"},{"name":"fix","description":"Fix","argumentHint":"<x>"}]}' ;;
-            *'"subtype":"set_model"'*) sleep 0.5; ok "$(rid "$line")" ;;
+            *'"subtype":"initialize"'*) ok "$(rid "$line")" '{"models":[{"value":"fake-model","displayName":"Fake","description":"d","supportedEffortLevels":["low","high"]},{"value":"new-model","displayName":"New"},{"value":"fable","displayName":"Fable 5.2","description":"For your toughest challenges","supportedEffortLevels":["low","medium","max"]},{"value":"claude-sonnet-5-5","displayName":"Sonnet 5.5"}],"commands":[{"name":"compact","description":"Compact"},{"name":"fix","description":"Fix","argumentHint":"<x>"}]}' ;;
+            *'"subtype":"set_model"'*) echo "$line" >> "$D/setmodel.log"; sleep 0.5; ok "$(rid "$line")" ;;
             *'"subtype":"set_permission_mode"'*) ok "$(rid "$line")" ;;
             *'"subtype":"apply_flag_settings"'*)
               E=$(echo "$line" | sed 's/.*"effortLevel":"\([^"]*\)".*/\1/')
@@ -687,7 +687,7 @@ internal static class ClaudeChatChecks
             var clock = Stopwatch.StartNew();
             var opened = await fixture.Call(ChatContract.Open, new ChatOpenParams(project, chat) { PermissionMode = "acceptEdits" });
             Require(clock.Elapsed < TimeSpan.FromSeconds(2) && opened.Status is ChatStatus.Starting or ChatStatus.Idle, "Open returns at once with a header; the child starts in the background.");
-            var ready = await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle && view.Header.Models.Count == 2, "the chat to be ready");
+            var ready = await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle && view.Header.Models.Count == 4, "the chat to be ready");
             Require(ready.Header is { Model: "fake-model", Version: "9.9", SessionId: { } } &&
                 ready.Header.Commands.Any(command => command is { Name: "fix", Source: "skill", ArgumentHint: "<x>" }) &&
                 ready.Header.Models.Any(model => model.Id == "new-model") && ready.Header.McpServers is [{ Name: "m", Status: "connected" }] && ready.Header.Agents.SequenceEqual(["Explore"]),
@@ -767,6 +767,14 @@ internal static class ClaudeChatChecks
             await Task.Delay(150);
             Require(!switching.IsCompleted && (await fixture.View(chat)).Header.Model == "fake-model", "The header keeps the old model while the CLI has not confirmed the switch.");
             Require((await switching).Model == "new-model" && (await fixture.View(chat)).Header.Model == "new-model", "The confirmed switch reaches the header.");
+            // A family the CLI reports that tereditor has never heard of (Fable) is listed with its own family, description and efforts, and selecting it sends its value.
+            var reported = (await fixture.View(chat)).Header.Models;
+            Require(reported.Select(model => model.Id).SequenceEqual(["fake-model", "new-model", "fable", "claude-sonnet-5-5"]) && reported.Select(model => model.Family).SequenceEqual([null, null, "fable", "sonnet"]) &&
+                reported.Single(model => model.Id == "fable") is { Label: "Fable 5.2", Description: "For your toughest challenges", Provider: "Anthropic", Efforts: ["low", "medium", "max"] },
+                "Every model the CLI reports is listed, an unknown family such as Fable with its own family, description and efforts.");
+            Require((await fixture.Call(ChatContract.SetModel, new ChatSetParams(project, chat, "fable"))).Model == "fable" &&
+                File.ReadAllText(Path.Combine(directory, "fake", "setmodel.log")).Contains("\"model\":\"fable\"", StringComparison.Ordinal), "Selecting Fable sends its value to the CLI.");
+            await fixture.Call(ChatContract.SetModel, new ChatSetParams(project, chat, "new-model"));
             Require((await fixture.Call(ChatContract.SetPermissionMode, new ChatSetParams(project, chat, "plan"))).PermissionMode == "plan", "A confirmed permission mode reaches the header.");
 
             // Questions, compaction and failures.

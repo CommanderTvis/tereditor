@@ -1386,11 +1386,11 @@ internal sealed partial class ChatView
         var header = transcript.Header;
         var menu = ChatPopup.Menu("ChatPlusMenu");
         // A row runs once the menu has closed and handed focus back, so the popup it opens or the focus it moves to the input stays.
-        MenuItem Row(string name, string icon, string label, string? detail, Action run, string? tip = null) =>
-            ChatPopup.Item(name, label, () => Dispatcher.UIThread.Post(run, DispatcherPriority.Background), detail, tip ?? (detail is { Length: > 0 } ? label + "\n" + detail : label), Ui.Icon(icon, Ui.Muted, 12));
-        menu.Items.Add(Row("ChatSessions", "list", "Past conversations", "Resume a session", () => _ = ShowSessions()));
-        menu.Items.Add(Row("ChatHistory", "search", "Search history", "Prompts and conversation", ShowHistory));
-        menu.Items.Add(Row("ChatSkills", "sparkling", "Skills", null, ShowSkills));
+        MenuItem Row(string name, string icon, string label, string? detail, Action run, string? tip = null, bool submenu = false) =>
+            ChatPopup.Item(name, label, () => Dispatcher.UIThread.Post(run, DispatcherPriority.Background), detail, tip ?? (detail is { Length: > 0 } ? label + "\n" + detail : label), Ui.Icon(icon, Ui.Muted, 12), submenu, chevronSlot: true);
+        menu.Items.Add(Row("ChatSessions", "list", "Past conversations", "Resume a session", () => _ = ShowSessions(), submenu: true));
+        menu.Items.Add(Row("ChatHistory", "search", "Search history", "Prompts and conversation", ShowHistory, submenu: true));
+        menu.Items.Add(Row("ChatSkills", "sparkling", "Skills", null, ShowSkills, submenu: true));
         menu.Items.Add(Row("ChatCommandMenu", "terminal", "Command menu", "Slash commands", () =>
         {
             var text = input.Text ?? "";

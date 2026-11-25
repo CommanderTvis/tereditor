@@ -267,6 +267,7 @@ internal static class ClaudeChatUiChecks
         AcpCopilot();
         Pickers();
         PopupFamily();
+        FableMenu();
         PopupLook();
         ComposerLook();
         SelectionChip();
@@ -3015,6 +3016,41 @@ internal static class ClaudeChatUiChecks
         finally { window.Close(); }
     }
 
+    // A family the CLI reports that tereditor has no code for (Fable) leads its own row of the model menu, reads in the chip like the others, and offers the efforts the CLI lists for it.
+    // Rows that open a further list (Effort, More models) draw the submenu chevron; plain rows do not.
+    private static void FableMenu()
+    {
+        ChatModel[] models = [new("default", "Default (recommended)"), new("opus", "Opus 5.5") { Family = "opus" }, new("fable", "Fable 5.2") { Family = "fable", Efforts = ["low", "medium", "max"], Description = "For your toughest challenges" }, new("sonnet", "Sonnet 5.5") { Family = "sonnet" }];
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) { Model = "fable", Models = models, Effort = "medium" } };
+        chat.Snapshot.Add(new ChatHeaderPush(Workspace, Chat, chat.Header));
+        var view = new ChatView(new ChatEnvironment(chat, TestAgent), Workspace, Chat);
+        var window = new Window { Width = 900, Height = 700, Content = view, Background = Ui.Surface };
+        window.Show();
+        try
+        {
+            Frame(window); Frame(window);
+            var button = view.GetVisualDescendants().OfType<Button>().First(candidate => candidate.Name == "TerminalAgentFact_model");
+            var chip = string.Join(" ", button.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text));
+            Require(chip.Contains("Fable 5.2", StringComparison.Ordinal), "The chip names the chosen model: Fable 5.2 (got '" + chip + "').");
+            Require(view.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text?.Contains("medium", StringComparison.Ordinal) == true && button.Parent is { } footerRow && text.GetVisualAncestors().Contains(footerRow)), "The effort sits beside the model in the footer.");
+            button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            E2eWorkspace.Until(() => button.ContextMenu is { IsOpen: true });
+            var menu = button.ContextMenu!;
+            MenuPopupChecks.Settle(menu);
+            var rows = menu.Items.OfType<MenuItem>().ToList();
+            Require(rows.Select(item => item.Name).SequenceEqual(["ChatModel_opus", "ChatModel_fable", "ChatModel_sonnet", "ChatModelEffort", "ChatModelMore"]) && rows.Single(item => item.IsChecked).Name == "ChatModel_fable",
+                "The model menu lists every family the CLI reports, Fable included, and checks the one in force: " + string.Join(",", rows.Select(item => item.Name)));
+            Require(rows.Single(item => item.Name == "ChatModel_fable").Header is Panel { } fableHeader && fableHeader.Children.OfType<TextBlock>().Any(text => text.Text == "For your toughest challenges"), "Fable's row carries the CLI's description.");
+            Require(rows.Single(item => item.Name == "ChatModelEffort").Items.OfType<MenuItem>().Select(item => item.Name).SequenceEqual(["ChatEffort_low", "ChatEffort_medium", "ChatEffort_max"]), "The efforts offered are the ones the CLI lists for Fable.");
+            static bool Chevron(MenuItem row) => row.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Any(path => path.Name == "PART_ChevronPath" && path.IsVisible) || row.GetVisualDescendants().OfType<Border>().Any(slot => slot.Name == "ChatMenuChevron");
+            Require(Chevron(rows.Single(item => item.Name == "ChatModelEffort")) && Chevron(rows.Single(item => item.Name == "ChatModelMore")) && rows.Where(item => item.Name?.StartsWith("ChatModel_", StringComparison.Ordinal) == true).All(item => !Chevron(item)),
+                "Effort and More models draw the submenu chevron; the model rows do not.");
+            Require(Avalonia.Automation.AutomationProperties.GetName(rows.Single(item => item.Name == "ChatModelMore")) == "More models", "More models is written like Effort, with no trailing dots.");
+            menu.Close();
+        }
+        finally { window.Close(); }
+    }
+
     // The "+" menu: icon rows, check rows (on and off) and rows with a hint share one grid, so heights, label x, icon slots and hints line up.
     private sealed class FakeActivity : IChatActivitySource
     {
@@ -3082,6 +3118,9 @@ internal static class ClaudeChatUiChecks
             var hints = rows.SelectMany(row => row.GetVisualDescendants().OfType<TextBlock>()).Where(text => text.Name == "ChatMenuDetail").Select(text => Math.Round(text.TranslatePoint(new Point(text.Bounds.Width, 0), menu)!.Value.X, 1)).Distinct().ToList();
             Require(hints.Count == 1, "The hints of the + menu end at one x.");
             Require(rows.All(row => ToolTip.GetPlacement(row) == PlacementMode.RightEdgeAlignedTop), "A row's tip opens beside the menu, off the composer.");
+            bool Chevron(string name) => rows.Single(row => row.Name == name) is { } row && (row.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Any(path => path.Name == "PART_ChevronPath" && path.IsVisible) || row.GetVisualDescendants().OfType<Border>().Any(slot => slot.Name == "ChatMenuChevron"));
+            Require(Chevron("ChatSessions") && Chevron("ChatSkills") && !Chevron("ChatCommandMenu") && !Chevron("TerminalIdeContextToggle") && !Chevron("ChatDebugToggle"),
+                "Rows that open a further list (Past conversations, Skills) draw the submenu chevron; rows that act, toggle or open a dialog do not.");
             menu.Close();
         }
         finally { window.Close(); }
