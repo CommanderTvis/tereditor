@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 
@@ -16,15 +17,30 @@ internal sealed partial class PiSettingsView : StackPanel
         this.FindControl<StackPanel>("ModelSourceHost")!.Children.Add(UiSlots.ModelSourceView(context, PiManifest.Id));
         var applying = false;
         var command = this.FindControl<TextBox>("PiCommandInput")!;
-        var model = this.FindControl<TextBox>("PiModel")!;
-        var thinking = this.FindControl<TextBox>("PiThinking")!;
+        var model = this.FindControl<AutoCompleteBox>("PiModel")!;
+        var thinking = this.FindControl<OptionCards>("PiThinking")!;
+        string[] ModelChoices() => [.. PiSources.ModelSuggestions.Select(suggestion => suggestion.Id).Concat(status()?.Models ?? []).Distinct()];
+        model.ItemsSource = ModelChoices();
+        model.GotFocus += (_, _) => model.IsDropDownOpen = true;
+        model.AddHandler(InputElement.PointerPressedEvent, (_, _) => model.IsDropDownOpen = true, handledEventsToo: true);
+        model.ItemTemplate = new FuncDataTemplate<string>((id, _) => id is null ? null : new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                new TextBlock { Text = id, FontFamily = Ui.CodeFont },
+                new TextBlock { Text = PiSources.ModelSuggestions.FirstOrDefault(suggestion => suggestion.Id == id).Description ?? "Listed by an open chat", Foreground = Ui.Muted }
+            }
+        });
+        thinking.SetOptions(ThinkingOptions(""), null);
         var codemode = this.FindControl<CheckBox>("PiCodemode")!;
         var version = this.FindControl<TextBlock>("PiVersion")!;
         var source = this.FindControl<OptionCards>("PiSource")!;
         source.SetOptions(
         [
-            new(PiSources.System, "System command", "Run the command below, found on your PATH by default."),
-            new(PiSources.Managed, "Managed, pinned", "Run the pinned Pi that tereditor downloads, on Bun from Runtimes. Never the Pi on your PATH.")
+            new(PiSources.System, "System command", "Run the Pi on your PATH."),
+            new(PiSources.Managed, "Managed, pinned", "Run the pinned Pi that tereditor downloads.")
         ], null);
         var managedPanel = this.FindControl<StackPanel>("PiManagedPanel")!;
         var commandPanel = this.FindControl<StackPanel>("PiCommandPanel")!;
@@ -44,19 +60,23 @@ internal sealed partial class PiSettingsView : StackPanel
             try { await context.UpdateSettingsAsync(change(context.Settings<PiSettings>())); }
             catch (Exception) { context.Notify(PluginNotificationKind.Error, "Couldn't change the Pi setting"); }
         }
-        void Text(TextBox input, Func<PiSettings, string> current, Func<PiSettings, string, PiSettings> write, string fallback = "")
+        void Text(Control input, Func<string?> read, Func<PiSettings, string> current, Func<PiSettings, string, PiSettings> write, string fallback = "")
         {
             void Save()
             {
-                var value = input.Text?.Trim() is { Length: > 0 } typed ? typed : fallback;
+                var value = read()?.Trim() is { Length: > 0 } typed ? typed : fallback;
                 if (!applying && value != current(context.Settings<PiSettings>())) Update(settings => write(settings, value));
             }
             input.LostFocus += (_, _) => Save();
             input.KeyDown += (_, e) => { if (e.Key == Key.Enter) { Save(); e.Handled = true; } };
+            if (input is AutoCompleteBox box) box.DropDownClosed += (_, _) => Save();
         }
-        Text(command, settings => settings.Command, (settings, value) => settings with { Command = value }, "pi");
-        Text(model, settings => settings.Model, (settings, value) => settings with { Model = value });
-        Text(thinking, settings => settings.Thinking, (settings, value) => settings with { Thinking = value });
+        Text(command, () => command.Text, settings => settings.Command, (settings, value) => settings with { Command = value }, "pi");
+        Text(model, () => model.Text, settings => settings.Model, (settings, value) => settings with { Model = value });
+        thinking.Chosen += level =>
+        {
+            if (level != context.Settings<PiSettings>().Thinking) Update(settings => settings with { Thinking = level });
+        };
         codemode.Click += (_, _) => Update(settings => settings with { Codemode = codemode.IsChecked == true });
 
         // The host does the download; the page asks for its state while one runs, so it also shows a download a chat started.
@@ -98,12 +118,14 @@ internal sealed partial class PiSettingsView : StackPanel
             applying = true;
             var managed = settings.Source == PiSources.Managed;
             source.Show(managed ? PiSources.Managed : PiSources.System);
+            model.ItemsSource = ModelChoices();
             managedPanel.IsVisible = managed;
             commandPanel.IsVisible = !managed;
             RenderManaged(status());
             if (!command.IsFocused) command.Text = settings.Command;
-            if (!model.IsFocused) model.Text = settings.Model;
-            if (!thinking.IsFocused) thinking.Text = settings.Thinking;
+            if (!model.IsKeyboardFocusWithin) model.Text = settings.Model;
+            if (thinking.Options.Count != ThinkingOptions(settings.Thinking).Count) thinking.SetOptions(ThinkingOptions(settings.Thinking), null);
+            thinking.Show(settings.Thinking);
             codemode.IsChecked = settings.Codemode;
             version.Text = status() switch
             {
@@ -164,5 +186,14 @@ internal sealed partial class PiSettingsView : StackPanel
             subscription?.Dispose();
             subscription = null;
         };
+    }
+
+    /// <summary>The thinking cards: Pi's own default first, then each level; a saved value Pi's docs do not list gets a card of its own.</summary>
+    private static List<OptionCard> ThinkingOptions(string saved)
+    {
+        var options = new List<OptionCard> { new("", "Default", "Use Pi's own setting.") };
+        options.AddRange(PiSources.ThinkingLevels.Select(level => new OptionCard(level.Id, level.Id, level.Description)));
+        if (saved.Length > 0 && options.All(option => option.Id != saved)) options.Add(new(saved, saved, "Set earlier."));
+        return options;
     }
 }

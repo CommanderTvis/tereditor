@@ -22,12 +22,16 @@ public sealed class OptionCard(string id, string label, string? description = nu
 public sealed class OptionCards : StackPanel
 {
     private string? selected;
+    private readonly List<Button> cards = [];
 
     public OptionCards()
     {
         Spacing = 4;
         AutomationProperties.SetControlTypeOverride(this, Avalonia.Automation.Peers.AutomationControlType.Group);
     }
+
+    /// <summary>How many cards sit side by side; 1 is the stacked list, 2 a compact grid for many short options. Set it before <see cref="SetOptions"/>.</summary>
+    public int Columns { get; set; } = 1;
 
     /// <summary>The cards, in order.</summary>
     public IReadOnlyList<OptionCard> Options { get; private set; } = [];
@@ -47,16 +51,31 @@ public sealed class OptionCards : StackPanel
         Options = [.. options];
         selected = selectedId;
         Children.Clear();
+        cards.Clear();
         foreach (var option in Options)
-            Children.Add(Card(CardName(option.Id), option.Label, option.Description, option.Id == selected, () => Pick(option.Id), this));
+            cards.Add(Card(CardName(option.Id), option.Label, option.Description, option.Id == selected, () => Pick(option.Id), this));
+        if (Columns <= 1)
+        {
+            foreach (var card in cards) Children.Add(card);
+            return;
+        }
+        for (var start = 0; start < cards.Count; start += Columns)
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", Columns))), ColumnSpacing = 4 };
+            for (var i = start; i < Math.Min(start + Columns, cards.Count); i++)
+            {
+                Grid.SetColumn(cards[i], i - start);
+                row.Children.Add(cards[i]);
+            }
+            Children.Add(row);
+        }
     }
 
     /// <summary>Selects the card for an id, as a settings broadcast does; it raises nothing.</summary>
     public void Show(string? id)
     {
         selected = id;
-        for (var i = 0; i < Options.Count && i < Children.Count; i++)
-            if (Children[i] is Button card) Mark(card, Options[i].Id == id);
+        for (var i = 0; i < Options.Count && i < cards.Count; i++) Mark(cards[i], Options[i].Id == id);
     }
 
     private void Pick(string id)
@@ -71,7 +90,7 @@ public sealed class OptionCards : StackPanel
         var index = Options.ToList().FindIndex(option => option.Id == from) + direction;
         if (index < 0 || index >= Options.Count) return;
         Pick(Options[index].Id);
-        Children[index].Focus();
+        cards[index].Focus();
     }
 
     /// <summary>

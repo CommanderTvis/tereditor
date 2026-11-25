@@ -24,6 +24,10 @@ the project is created empty with this spec, and the controls move into it as li
 
 `ApiKeyRow` is one provider in a key list: a title row with Add key or Replace key and Remove key, hints under it, and a masked key form. The form is one line (field, Save, Cancel) and the field takes the remaining width; when the row is too narrow to keep the field at least 200 px, Save and Cancel wrap under it. Model providers and the plugins that fill it share it.
 
+## Option cards
+
+`OptionCards` is the shared choice control for a setting with a few fixed values: a vertical group of bordered cards, each a title and a one-line description, the selected one with the accent wash, accent border and a check at the right (the Appearance theme choices). Each card is a radio item for assistive technology (its name is the title, its help text the description); Up/Left and Down/Right pick the previous and next card and move focus, Space and Enter pick the focused one. `Chosen` is raised only by the user, `Show` moves the selection without raising it, so a host broadcast never loops. `Columns` = 2 lays the cards out as a compact grid for many short options. Settings pages use it instead of a drop-down when every option can carry a description; long or dynamic lists (models, fonts, languages, servers) stay drop-downs. `OptionCards.Card` builds one card for pages that rebuild their list.
+
 ## Core file icons
 
 [File-type icons](FileIcons/SPEC.md) are bundled here for every app client; the host holds only their shared enabled setting. They require no builtin plugin or asset RPC.

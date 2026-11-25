@@ -5,6 +5,8 @@ Tereditor.Plugins.UI.Kit.OptionCard.Id.get -> string!
 Tereditor.Plugins.UI.Kit.OptionCard.Label.get -> string!
 Tereditor.Plugins.UI.Kit.OptionCard.OptionCard(string! id, string! label, string? description = null) -> void
 Tereditor.Plugins.UI.Kit.OptionCards
+Tereditor.Plugins.UI.Kit.OptionCards.Columns.get -> int
+Tereditor.Plugins.UI.Kit.OptionCards.Columns.set -> void
 Tereditor.Plugins.UI.Kit.OptionCards.CardName(string! id) -> string!
 Tereditor.Plugins.UI.Kit.OptionCards.Chosen -> System.Action<string!>?
 Tereditor.Plugins.UI.Kit.OptionCards.OptionCards() -> void
