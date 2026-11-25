@@ -78,6 +78,7 @@ public static class CodexPanel
         var errorText = root.FindControl<TextBlock>("CodexConfigError")!;
         var body = root.FindControl<ScrollViewer>("Body")!;
         var scope = root.FindControl<StackPanel>("CodexConfigScope")!;
+        var header = root.FindControl<DockPanel>("CodexConfigHeader")!;
         var scopeHeading = root.FindControl<TextBlock>("CodexConfigScopeHeading")!;
         var scopeDetail = root.FindControl<TextBlock>("CodexConfigScopeDetail")!;
         var scopeFolder = root.FindControl<ContentControl>("CodexConfigScopeFolder")!;
@@ -162,6 +163,13 @@ public static class CodexPanel
             Avalonia.Automation.AutomationProperties.SetName(refresh, tip);
 
             scope.IsVisible = surface == Surface.Context;
+            // Without the title block the button would sit alone on a row: the row takes no height, so the button floats over
+            // the first row of the surface, which leaves room for it at its right end.
+            header.Margin = new Thickness(0, 4, 8, scope.IsVisible ? 0 : -24);
+            var reserve = new Thickness(0, 0, scope.IsVisible ? 0 : 32, 0);
+            notices.Margin = reserve;
+            errorText.Margin = reserve;
+            body.Padding = reserve;
             scope.Tag = session is not null ? "session" : "workspace";
             if (session is not null)
             {

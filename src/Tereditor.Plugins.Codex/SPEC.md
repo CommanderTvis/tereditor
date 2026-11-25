@@ -92,7 +92,7 @@ invitation is excluded by the tereditor product contract; a Codex chat component
   the visible Codex tab's CWD, with `project_doc_fallback_filenames` appended; without a repository
   only the CWD counts. The pane describes the first shown Codex terminal (its process CWD, then its last
   hook-reported CWD, then the worktree), including a terminal visible beside the focused editor, under
-  "Context of Codex in tab …" (the title wraps; the refresh button sits at the right end of that row, never on a row of its own) with the directory, or "No
+  "Context of Codex in tab …" (the title wraps; the refresh button sits at the right end of that row, never on a row of its own; on the other tabs it floats at the right end of the tab's first row) with the directory, or "No
   Codex in tab …" / "No terminal open" with "Showing what a new session here would load". Files inside
   the worktree keep relative editor paths; others open by their registered absolute paths, and the
   external-file registry covers every live Codex tab's chain. Edits and creation offers stay

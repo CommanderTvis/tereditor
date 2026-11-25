@@ -40,6 +40,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private string workspaceId;
     private readonly StackPanel scopeBlock = new() { Name = "ClaudeConfigScope", Margin = new Thickness(8, 0, 8, 4) };
     private readonly StackPanel notices = new();
+    private readonly DockPanel headerRow = new() { Margin = new Thickness(0, 4, 8, 0), ZIndex = 1 };
     private readonly ContentControl body = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private Surface surface = Surface.Context;
     private ClaudeConfigSnapshot? snapshot;
@@ -64,7 +65,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         usageView.RetryRequested += () => LoadUsage(refresh: true);
         Name = "ClaudeConfigPanel";
         Background = Ui.Sidebar;
-        var header = new DockPanel { Margin = new Thickness(0, 4, 8, 0) };
+        var header = headerRow;
         auto = new ClaudeAutoRefresh(() => DateTimeOffset.UtcNow, () => TopLevel.GetTopLevel(this) is Window { IsActive: true, WindowState: not WindowState.Minimized } && IsEffectivelyVisible,
             () => usagePending || contextUsage?.Running == true || account?.Busy == true, LastRead, Refresh);
         var refresh = Ui.IconButton("refresh", "Refresh usage and context (also runs hourly)", Refresh);
@@ -301,6 +302,12 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         renderedScope = key;
         scopeBlock.Children.Clear();
         scopeBlock.IsVisible = surface == Surface.Context;
+        // Without the title block the button would sit alone on a row: the row takes no height, so the button floats over
+        // the first row of the surface, which leaves room for it at its right end.
+        headerRow.Margin = new Thickness(0, 4, 8, scopeBlock.IsVisible ? 0 : -24);
+        var reserve = new Thickness(0, 0, scopeBlock.IsVisible ? 0 : 32, 0);
+        notices.Margin = reserve;
+        body.Padding = reserve;
         scopeBlock.Tag = session is not null ? "session" : "workspace";
         if (session is not null)
         {

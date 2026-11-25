@@ -15,7 +15,7 @@
       <Setter Property="Foreground" Value="{x:Static kit:Ui.Muted}" />
     </Style>
   </DockPanel.Styles>
-  <DockPanel DockPanel.Dock="Top" Margin="0,4,8,0">
+  <DockPanel x:Name="CodexConfigHeader" DockPanel.Dock="Top" Margin="0,4,8,0" ZIndex="1">
     <Button x:Name="CodexConfigRefresh" DockPanel.Dock="Right" VerticalAlignment="Top" Width="24" Height="24" Padding="5"
             Background="Transparent" BorderThickness="0" CornerRadius="0"
             ToolTip.Tip="Re-read configuration" AutomationProperties.Name="Re-read configuration" />

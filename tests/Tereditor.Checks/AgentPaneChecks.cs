@@ -267,6 +267,28 @@ internal static class AgentPaneChecks
         Dispatcher.UIThread.RunJobs();
     }
 
+    /// <summary>
+    /// On a tab with no title block of its own the refresh button floats on the first row of the tab, at its right end: it shares
+    /// the vertical range of that row's heading, to its right, so no row holds the button alone.
+    /// </summary>
+    internal static void RefreshSharesHeading(Control panel, string refreshName, string headingText)
+    {
+        var button = panel.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == refreshName);
+        var heading = panel.GetLogicalDescendants().OfType<TextBlock>().First(control => control.Text == headingText && control.IsEffectivelyVisible);
+        foreach (var width in new double[] { 260, 420 })
+        {
+            panel.Measure(new Avalonia.Size(width, 600));
+            panel.Arrange(new Avalonia.Rect(0, 0, width, 600));
+            var origin = new Avalonia.Point(0, 0);
+            var buttonBox = new Avalonia.Rect(button.TranslatePoint(origin, panel)!.Value, button.Bounds.Size);
+            var headingBox = new Avalonia.Rect(heading.TranslatePoint(origin, panel)!.Value, heading.Bounds.Size);
+            Require(buttonBox.Top < headingBox.Bottom && buttonBox.Bottom > headingBox.Top, $"At {width}px {refreshName} sits in the row of '{headingText}' (button {buttonBox}, heading {headingBox}).");
+            Require(headingBox.Right <= buttonBox.Left + 0.5 && buttonBox.Right <= width, $"At {width}px {refreshName} does not overlap '{headingText}' (button {buttonBox}, heading {headingBox}).");
+        }
+        panel.InvalidateMeasure();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     /// <summary>The state machine alone: follow, manual choice, keeping the chip on a non-agent tab.</summary>
     internal static void State()
     {

@@ -177,6 +177,7 @@ internal static class ClaudeCodeChecks
         var lspText = string.Join(" ", lsp.GetLogicalDescendants().OfType<TextBlock>().Select(text => text.Text));
         Require(new[] { "lsp_navigate", "lsp_diagnostics", "lsp_status" }.All(name => lspText.Contains(name, StringComparison.Ordinal)),
             "Claude capabilities must name all three LSP MCP tools.");
+        AgentPaneChecks.RefreshSharesHeading(app.Window.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "ClaudeConfigPanel"), "ClaudeConfigRefresh", "WHAT CLAUDE CAN REACH");
         app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_context"));
         var contextButton = app.Window.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "AgentTab_context");
         var tabStrip = contextButton.GetVisualAncestors().OfType<ScrollViewer>().First();
