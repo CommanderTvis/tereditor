@@ -242,6 +242,10 @@ internal sealed class ProvidersPage : StackPanel
         var provider = row.Provider;
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(new TextBlock { Text = provider.Name, FontSize = 16, FontWeight = FontWeight.SemiBold, Foreground = Ui.TextBrush });
+        var stored = row.Ready && provider.NeedsKey;
+        var links = new WrapPanel { Name = "ModelProviderLinks" };
+        foreach (var (label, url) in LinksOf(provider, stored)) links.Children.Add(Link(label, url));
+        if (links.Children.Count > 0) panel.Children.Add(links);
         var works = Ui.Text(WorksWith(provider), Ui.Muted, 12);
         works.Name = "ModelProviderWorksWith";
         panel.Children.Add(works);
@@ -260,7 +264,7 @@ internal sealed class ProvidersPage : StackPanel
         if (provider.Custom && provider.Contributor is null) column.ExtraActions.Add(("Remove provider", () => Load(() => context.RequestAsync(ProvidersContract.RemoveCustomProvider, new ModelProviderParams(provider.Id)).AsTask())));
         if (provider.Note is { } note) column.Hints.Add(note);
         if (provider.OAuth is { Allowed: false, ReasonIfNot: { } reason }) column.Hints.Add(reason);
-        var stored = row.Ready && provider.NeedsKey;
+        if (!stored && provider.Links?.KeyUrl is { } keyUrl && IsHttps(keyUrl, out _)) column.KeyHelp = Link(KeyLabel, keyUrl, quiet: true);
         column.Show(row.Ready ? provider.NeedsKey ? "Key stored" : "Ready" : provider.NeedsKey ? "No key yet" : "Not ready", stored);
         column.Open = adding == provider.Id;
         column.OpenChanged = open => adding = open ? provider.Id : null;
@@ -268,6 +272,33 @@ internal sealed class ProvidersPage : StackPanel
         if (provider.Id == "anthropic") panel.Children.Add(Credits(ProviderCatalog.AnthropicCredits, ProviderCatalog.AnthropicCreditsUrl, "About API credits for subscribers"));
         else if (provider.Id == "google") panel.Children.Add(Credits(ProviderCatalog.GoogleCredits, ProviderCatalog.GoogleCreditsUrl, "About Google credits"));
         return panel;
+    }
+
+    private const string KeyLabel = "Get an API key";
+
+    /// <summary>How a link opens: the system browser through the window's launcher. A check swaps it to see which address a click opens.</summary>
+    internal static Action<Control, Uri> OpenLink { get; set; } = (from, uri) => _ = TopLevel.GetTopLevel(from)?.Launcher.LaunchUriAsync(uri);
+
+    private static bool IsHttps(string url, out Uri uri) => Uri.TryCreate(url, UriKind.Absolute, out uri!) && uri.Scheme == Uri.UriSchemeHttps;
+
+    /// <summary>
+    /// The links a provider's pane shows, as label and https address: Website and Docs from the catalog, and Get an API key once a key is stored (before that it sits beside Add key).
+    /// A custom provider has only its first base URL. Anything that is not https is dropped.
+    /// </summary>
+    internal static IReadOnlyList<(string Label, string Url)> LinksOf(ProviderDefinition provider, bool keyStored)
+    {
+        List<(string, string?)> all = [];
+        if (provider.Links is { } links) all = [("Website", links.Website), ("Docs", links.Docs), (KeyLabel, keyStored ? links.KeyUrl : null)];
+        else if (provider.Custom && provider.Contributor is null && provider.Apis.FirstOrDefault(api => api.Kind is not (ModelApiKinds.Bedrock or ModelApiKinds.Vertex)) is { } first) all = [("Base URL", first.BaseUrl)];
+        return [.. all.Where(link => link.Item2 is { } url && IsHttps(url, out _)).Select(link => (link.Item1, link.Item2!))];
+    }
+
+    private static Button Link(string label, string url, bool quiet = false)
+    {
+        var button = new Button { Content = label + " ↗", Classes = { "link" }, Margin = quiet ? default : new Thickness(0, 0, 16, 0), Name = "ModelProviderLink_" + label.Replace(' ', '_') };
+        ToolTip.SetTip(button, url);
+        button.Click += (_, _) => { if (IsHttps(url, out var uri)) OpenLink(button, uri); };
+        return button;
     }
 
     // One address per API, each with its own label. A custom provider's addresses can be edited here (Enter or leaving the field saves); others are shown as read-only text.
@@ -308,7 +339,7 @@ internal sealed class ProvidersPage : StackPanel
         var text = Ui.Text(note, Ui.Muted, 12);
         text.TextWrapping = TextWrapping.Wrap;
         var link = Ui.Button(label, () => { });
-        link.Click += (_, _) => _ = TopLevel.GetTopLevel(link)?.Launcher.LaunchUriAsync(new Uri(url));
+        link.Click += (_, _) => OpenLink(link, new Uri(url));
         link.HorizontalAlignment = HorizontalAlignment.Left;
         return new StackPanel { Name = "ModelProviderCredits", Spacing = 4, Children = { text, link } };
     }

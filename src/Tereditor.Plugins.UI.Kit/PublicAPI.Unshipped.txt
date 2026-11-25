@@ -31,6 +31,8 @@ Tereditor.Plugins.UI.Kit.ApiKeyRow
 Tereditor.Plugins.UI.Kit.ApiKeyRow.ApiKeyRow(string! providerName, System.Action<string!>! save, System.Action! remove) -> void
 Tereditor.Plugins.UI.Kit.ApiKeyRow.ExtraActions.get -> System.Collections.Generic.IList<(string! Label, System.Action! Action)>!
 Tereditor.Plugins.UI.Kit.ApiKeyRow.Hints.get -> System.Collections.Generic.IList<string!>!
+Tereditor.Plugins.UI.Kit.ApiKeyRow.KeyHelp.get -> Avalonia.Controls.Control?
+Tereditor.Plugins.UI.Kit.ApiKeyRow.KeyHelp.set -> void
 Tereditor.Plugins.UI.Kit.ApiKeyRow.Open.get -> bool
 Tereditor.Plugins.UI.Kit.ApiKeyRow.Open.set -> void
 Tereditor.Plugins.UI.Kit.ApiKeyRow.OpenChanged.get -> System.Action<bool>?

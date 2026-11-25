@@ -70,6 +70,12 @@ public static class ProviderOAuthPolicy
     };
 }
 
+/// <summary>Pages of a provider's own site, shown as links in its pane. All https; a missing page is null, never a guess.</summary>
+/// <param name="Website">The provider's landing page.</param>
+/// <param name="KeyUrl">Where a user creates an API key.</param>
+/// <param name="Docs">The API reference.</param>
+public sealed record ProviderLinks(string Website, string? KeyUrl = null, string? Docs = null);
+
 /// <summary>A model provider: the APIs it offers and how a credential reaches them.</summary>
 /// <param name="Id">The provider's id, also the name of its key in the key store.</param>
 /// <param name="Name">The name shown to the user.</param>
@@ -82,6 +88,9 @@ public sealed record ProviderDefinition(string Id, string Name, ProviderGroup Gr
 
     /// <summary>A plain sentence the page shows with the provider.</summary>
     public string? Note { get; init; }
+
+    /// <summary>The provider's site, key page and API reference; null when none is known (a custom provider shows its base URL instead).</summary>
+    public ProviderLinks? Links { get; init; }
 
     /// <summary>The sign-in policy; null when the provider takes keys only.</summary>
     public ProviderOAuth? OAuth { get; init; }
@@ -202,19 +211,47 @@ public static class BundledProviders
     [
         Other("anthropic", "Anthropic API", Api(ModelApiKinds.AnthropicMessages, "https://api.anthropic.com")) with
         {
+            Links = new("https://claude.com/platform/api", "https://platform.claude.com/settings/keys", "https://platform.claude.com/docs/en/api/overview"),
             Note = ProviderCatalog.AnthropicNote,
             OAuth = ProviderOAuthPolicy.For(ProviderOAuthPolicy.Anthropic)
         },
-        Other("openai", "OpenAI API", Api(ModelApiKinds.OpenAiResponses, "https://api.openai.com/v1"), Api(ModelApiKinds.OpenAiChat, "https://api.openai.com/v1")),
+        Other("openai", "OpenAI API", Api(ModelApiKinds.OpenAiResponses, "https://api.openai.com/v1"), Api(ModelApiKinds.OpenAiChat, "https://api.openai.com/v1")) with
+        {
+            Links = new("https://openai.com/api/", "https://platform.openai.com/api-keys", "https://developers.openai.com/api/reference/overview")
+        },
         Other("openrouter", "OpenRouter", Api(ModelApiKinds.OpenAiChat, "https://openrouter.ai/api/v1"), Api(ModelApiKinds.OpenAiResponses, "https://openrouter.ai/api/v1"),
-            Api(ModelApiKinds.AnthropicMessages, "https://openrouter.ai/api")),
-        Other("deepseek", "DeepSeek", Api(ModelApiKinds.OpenAiChat, "https://api.deepseek.com"), Api(ModelApiKinds.AnthropicMessages, "https://api.deepseek.com/anthropic")),
-        Other("mistral", "Mistral", Api(ModelApiKinds.OpenAiChat, "https://api.mistral.ai/v1")),
-        Other("groq", "Groq", Api(ModelApiKinds.OpenAiChat, "https://api.groq.com/openai/v1"), Api(ModelApiKinds.OpenAiResponses, "https://api.groq.com/openai/v1")),
-        Other("together", "Together", Api(ModelApiKinds.OpenAiChat, "https://api.together.xyz/v1")),
-        Other("fireworks", "Fireworks", Api(ModelApiKinds.OpenAiChat, "https://api.fireworks.ai/inference/v1")),
+            Api(ModelApiKinds.AnthropicMessages, "https://openrouter.ai/api")) with
+        {
+            Links = new("https://openrouter.ai/", "https://openrouter.ai/settings/keys", "https://openrouter.ai/docs/api_reference/overview")
+        },
+        Other("deepseek", "DeepSeek", Api(ModelApiKinds.OpenAiChat, "https://api.deepseek.com"), Api(ModelApiKinds.AnthropicMessages, "https://api.deepseek.com/anthropic")) with
+        {
+            Links = new("https://www.deepseek.com/", "https://platform.deepseek.com/api_keys", "https://api-docs.deepseek.com/")
+        },
+        Other("mistral", "Mistral", Api(ModelApiKinds.OpenAiChat, "https://api.mistral.ai/v1")) with
+        {
+            Links = new("https://mistral.ai/", "https://console.mistral.ai/api-keys", "https://docs.mistral.ai/api/")
+        },
+        Other("groq", "Groq", Api(ModelApiKinds.OpenAiChat, "https://api.groq.com/openai/v1"), Api(ModelApiKinds.OpenAiResponses, "https://api.groq.com/openai/v1")) with
+        {
+            Links = new("https://groq.com/", "https://console.groq.com/keys", "https://console.groq.com/docs/api-reference")
+        },
+        Other("together", "Together", Api(ModelApiKinds.OpenAiChat, "https://api.together.xyz/v1")) with
+        {
+            Links = new("https://www.together.ai/", "https://api.together.ai/settings/api-keys", "https://docs.together.ai/reference/chat-completions")
+        },
+        Other("fireworks", "Fireworks", Api(ModelApiKinds.OpenAiChat, "https://api.fireworks.ai/inference/v1")) with
+        {
+            Links = new("https://fireworks.ai/", "https://app.fireworks.ai/settings/users/api-keys", "https://docs.fireworks.ai/api-reference/introduction")
+        },
         Other("xai", "xAI", Api(ModelApiKinds.OpenAiChat, "https://api.x.ai/v1"), Api(ModelApiKinds.OpenAiResponses, "https://api.x.ai/v1"),
-            Api(ModelApiKinds.AnthropicMessages, "https://api.x.ai")),
-        Other("cerebras", "Cerebras", Api(ModelApiKinds.OpenAiChat, "https://api.cerebras.ai/v1"))
+            Api(ModelApiKinds.AnthropicMessages, "https://api.x.ai")) with
+        {
+            Links = new("https://x.ai/api", "https://console.x.ai/", "https://docs.x.ai/overview")
+        },
+        Other("cerebras", "Cerebras", Api(ModelApiKinds.OpenAiChat, "https://api.cerebras.ai/v1")) with
+        {
+            Links = new("https://www.cerebras.ai/", "https://cloud.cerebras.ai/", "https://inference-docs.cerebras.ai/")
+        }
     ];
 }

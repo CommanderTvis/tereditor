@@ -30,6 +30,9 @@ public sealed class ApiKeyRow : StackPanel
     /// <summary>Buttons placed after the key buttons, for example Remove provider, as a label and what it does.</summary>
     public IList<(string Label, Action Action)> ExtraActions { get; } = [];
 
+    /// <summary>A quiet control shown left of Add key while no key is stored, such as a link to the page that creates one.</summary>
+    public Control? KeyHelp { get; set; }
+
     /// <summary>Hints shown under the title row, in muted text.</summary>
     public IList<string> Hints { get; } = [];
 
@@ -58,6 +61,11 @@ public sealed class ApiKeyRow : StackPanel
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         DockPanel.SetDock(actions, Dock.Right);
         if (stored) actions.Children.Add(Ui.Button("Remove key", remove));
+        if (!stored && KeyHelp is not null)
+        {
+            (KeyHelp.Parent as Panel)?.Children.Remove(KeyHelp);
+            actions.Children.Add(KeyHelp);
+        }
         actions.Children.Add(Ui.Button(stored ? "Replace key" : "Add key", () => { open = !open; Rebuild(); OpenChanged?.Invoke(open); }));
         foreach (var (label, action) in ExtraActions) actions.Children.Add(Ui.Button(label, action));
         line.Children.Add(actions);

@@ -36,8 +36,21 @@ internal static class ProvidersChecks
     {
         var manifest = ProvidersManifest.Manifest;
         Require(manifest.UnavailableOn.Count == 0, "The keys are files of the host's disk, which a browser tab has too.");
+        Links();
         Model(root);
         Launch(root);
+    }
+
+    // Every bundled provider links to its site; every address is plain https, with no query, fragment or tracking part, and no credentials.
+    private static void Links()
+    {
+        foreach (var provider in BundledProviders.All)
+        {
+            Require(provider.Links is { Website.Length: > 0 }, provider.Id + " has a Website link.");
+            foreach (var url in new[] { provider.Links!.Website, provider.Links.KeyUrl, provider.Links.Docs }.OfType<string>())
+                Require(Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && uri.Query.Length == 0 && uri.Fragment.Length == 0 && uri.UserInfo.Length == 0 &&
+                    !url.Contains("utm_", StringComparison.OrdinalIgnoreCase) && !url.Contains("ref=", StringComparison.OrdinalIgnoreCase), provider.Id + " link " + url + " is plain https with no tracking.");
+        }
     }
 
     private static AgentRouting Routing(string pluginId) => pluginId switch

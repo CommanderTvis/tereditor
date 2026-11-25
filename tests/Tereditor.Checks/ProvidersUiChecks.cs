@@ -95,6 +95,24 @@ internal static class ProvidersUiChecks
 
             Require(Find<StackPanel>(page, "ModelProviderCredits").Single() is var credits && Texts(credits).Contains(ProviderCatalog.AnthropicCredits) && Buttons(credits).Contains("About API credits for subscribers"), "the Anthropic pane tells Max and Team subscribers where their API credits are");
 
+            // Links: Website and Docs under the name, Get an API key beside Add key while there is no key, and a click opens exactly that https address.
+            var opened = new List<Uri>();
+            var openLink = ProvidersPage.OpenLink;
+            ProvidersPage.OpenLink = (_, uri) => opened.Add(uri);
+            try
+            {
+                var anthropic = Find<WrapPanel>(page, "ModelProviderLinks").Single();
+                Require(Buttons(anthropic).SequenceEqual(["Website ↗", "Docs ↗"]), "a provider with no key shows Website and Docs in one wrapping row");
+                Require(Buttons(page).Contains("Get an API key ↗") && Find<Button>(page, "ModelProviderLink_Get_an_API_key").Single().Parent is not WrapPanel, "Get an API key sits beside Add key while no key is stored");
+                void Press(string name) { Find<Button>(page, name).Single().RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Settle(); }
+                Press("ModelProviderLink_Website");
+                Press("ModelProviderLink_Get_an_API_key");
+                Press("ModelProviderLink_Docs");
+                Require(opened.Select(uri => uri.AbsoluteUri).SequenceEqual(["https://claude.com/platform/api", "https://platform.claude.com/settings/keys", "https://platform.claude.com/docs/en/api/overview"]), "a click opens the catalog address: " + string.Join(", ", opened));
+                Require(ProvidersPage.LinksOf(new("x", "X", ProviderGroup.Other, []) { Links = new("http://insecure.example", "javascript:alert(1)", "https://ok.example/docs") }, true).Select(link => link.Url).SequenceEqual(["https://ok.example/docs"]), "a link that is not https is dropped");
+            }
+            finally { ProvidersPage.OpenLink = openLink; }
+
             // A contributed component takes its place in the list: JetBrains AI after Anthropic, before the routers.
             registry.SetActive("air-gateway", true);
             registry.AddSlotSection("air-gateway", new(ProvidersSlots.JetBrainsAi, _ => new TextBlock { Name = "ModelProvider-jetbrains-ai", Text = "Central sign-in" }));
@@ -172,6 +190,7 @@ internal static class ProvidersUiChecks
             Settle();
             Require(rail.SelectedItem is Control { Tag: "custom-test-gateway" } && Find<TextBox>(page, "CustomProviderName").Count == 0, "the new custom provider is selected and the form is gone");
             var row = Find<Border>(page, "ModelProviderDetail_custom-test-gateway").Single();
+            Require(Buttons(Find<WrapPanel>(row, "ModelProviderLinks").Single()).SequenceEqual(["Base URL ↗"]) && !Buttons(row).Contains("Get an API key ↗"), "a custom provider links only its https base URL");
             Require(Texts(row).Any(text => text.Contains("Works with Claude Code", StringComparison.Ordinal) && !text.Contains("Anthropic Messages", StringComparison.Ordinal)) && Buttons(row).Contains("Remove provider"), "the custom provider is listed with the agents it works with, not its API kinds, and can be removed");
 
             var apiUrls = (ModelProviderRow r) => r.Provider.Apis.ToDictionary(api => api.Kind, api => api.BaseUrl);

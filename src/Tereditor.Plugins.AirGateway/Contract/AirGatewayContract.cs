@@ -64,6 +64,7 @@ public static class AirLaunch
     public static ProviderDefinition Provider { get; } = new(ProviderCatalog.JetBrainsAi, "JetBrains (Air Gateway)", ProviderGroup.JetBrainsAi, [])
     {
         NeedsKey = false,
+        Links = new("https://www.jetbrains.com/air/"),
         Note = "Starts the agent through JetBrains Central with your JetBrains AI access. It applies to terminals and chats you start afterwards.",
         WiredAgents = [.. Agents.Select(agent => agent.AgentId)]
     };
