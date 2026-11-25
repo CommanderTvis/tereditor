@@ -34,6 +34,8 @@ The plugin owns everything an agent or the user can reach:
 
 ## Memory guard
 
+Settings text stays short and plain; the internals live here and in the Terminals spec. The page says only what the guard stops, that the shell stays, that every client shares it and that it follows the plugin. It samples every few seconds, warns at 80% of a limit, asks the largest process to stop, kills it after the grace and, if the terminal is still over, everything below the shell; it also steps in after several samples of system memory pressure, and a program that allocates faster than the sampling can overshoot. Protected names only get a warning; the built-in protected list (dotnet, csc, VBCSCompiler, MSBuild, cl, link, ld, clang, rustc, cargo, go, javac, kotlinc, gradle and java below gradle) is stopped only when it runs away, over twice the limit or over it for 15 minutes; names in the setting add to that list.
+
 The plugin owns the terminals' memory guard (the Terminals spec, "Memory guard", describes what it does). Settings › Processes has a "Stop programs that use too much memory" switch (`MemoryGuard`,
 on by default), the per-terminal and total limit (`PerTerminalMb`, `TotalMb`: automatic or a fixed size; the limits hide while the switch is off), the protected processes (`Protect`, additive to the default build tools the guard spares unless they run away; the settings page lists those, read-only) and
 `GraceSeconds` (10, set in the file only). Activation hands the host the limits as a function (`IProcessHost.ManageMemoryGuard`), which the host reads at every sample, so a change applies at once;
