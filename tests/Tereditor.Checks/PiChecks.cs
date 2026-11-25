@@ -444,10 +444,14 @@ internal static class PiChecks
         var install = Path.Combine(directory, "installs");
         var workspace = Path.Combine(directory, "workspace");
         Directory.CreateDirectory(workspace);
-        var managed = new PiManaged(install, (_, _) => Task.FromResult(resolution));
+        var managed = new PiManaged(install, (_, _) => Task.FromResult(resolution), (_, _) => Task.FromResult(resolution));
         var empty = () => !Directory.Exists(install) || Directory.GetFileSystemEntries(install).Length == 0;
 
         Require(managed.Status(PiSources.Managed) is { Installed: false, Source: PiSources.Managed, PinnedVersion: PiManaged.Version, ManagedVersion: "", Installing: false }, "Before a download the managed Pi is pinned and not installed.");
+        // A launch never downloads: with nothing downloaded, starting Pi fails with the sentence that points to Download, and Bun is never run.
+        var notYet = await Throws<InvalidOperationException>(() => managed.PrepareAsync(new PiSpawn("pi", workspace), (_, _) => { }));
+        Require(notYet.Message == "Pi is not downloaded yet. Open Settings, choose Pi and press Download." && calls().Length == 0 && empty() && !managed.Running && managed.LastError.Length == 0,
+            "Starting Pi with nothing downloaded starts no download and says to press Download: " + notYet.Message);
         Require(new PiSettings().Source == PiSources.System, "A fresh setup runs the system command.");
         Require(new PiSettings().Codemode, "A fresh Pi setting turns codemode on.");
 
@@ -496,11 +500,11 @@ internal static class PiChecks
         var blocked = new PiSpawn("pi", workspace) { Blocked = "Central is not signed in." };
         Require(await managed.PrepareAsync(blocked, (_, _) => throw new InvalidOperationException("tracked")) == blocked, "A blocked launch is passed on unchanged, so it fails with its reason and starts no Bun.");
 
-        var noBun = new PiManaged(install, (_, _) => Task.FromResult(RuntimeResolution.Unavailable(RuntimeKind.Bun, "Needs Bun.", offerEnable: true)));
+        var noBun = new PiManaged(install, (_, _) => throw new InvalidOperationException("A launch must not download Bun."), (_, _) => Task.FromResult(RuntimeResolution.Unavailable(RuntimeKind.Bun, PiManaged.NoBun)));
+        var missing = await Throws<InvalidOperationException>(() => noBun.PrepareAsync(new PiSpawn("pi", workspace), (_, _) => { }));
+        Require(missing.Message == PiManaged.NoBun && missing.Message.Contains("Runtimes", StringComparison.Ordinal), "Without Bun the chat fails with the sentence that points to Runtimes and never falls back to the system Pi.");
         managed.Remove();
         Require(!Directory.Exists(install) && managed.InstalledVersion().Length == 0, "Remove deletes the downloaded Pi.");
-        var missing = await Throws<InvalidOperationException>(() => noBun.PrepareAsync(new PiSpawn("pi", workspace), (_, _) => { }));
-        Require(missing.Message == "Needs Bun." && noBun.LastError.Contains("Needs Bun.", StringComparison.Ordinal), "Without Bun the chat fails with Runtimes' own sentence and never falls back to the system Pi.");
 
         // The system source is unchanged.
         Require((await PiHost.ReadStatusAsync(new PiSettings { Command = FakePiPath(directory) }, managed)) is { Installed: true, Version: "0.99.1", Source: PiSources.System, PinnedVersion: PiManaged.Version }, "The system source still reads pi --version, and also reports the pin.");

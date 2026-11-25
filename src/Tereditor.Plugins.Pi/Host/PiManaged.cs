@@ -10,13 +10,15 @@ namespace Tereditor.Plugins.Pi.Host;
 /// <c>&lt;root&gt;/&lt;version&gt;</c> and run as <c>bun --bun &lt;cli.js&gt;</c> (the way <c>bunx --bun</c> would), never the Pi on PATH.
 /// Bun's lock file must record the pinned integrity of the package before the copy counts as installed.
 /// </summary>
-internal sealed class PiManaged(string root, Func<string, CancellationToken, Task<RuntimeResolution>> resolveBun)
+internal sealed class PiManaged(string root, Func<string, CancellationToken, Task<RuntimeResolution>> resolveBun, Func<string, CancellationToken, Task<RuntimeResolution>> findBun)
 {
     public const string Package = "@earendil-works/pi-coding-agent";
     public const string Version = "1.6.0";
     /// <summary>The npm registry's <c>dist.integrity</c> of <see cref="Package"/> at <see cref="Version"/>; change both together.</summary>
     public const string Integrity = "sha512-zX1BVEsshx7A2MRuQ6jfr3RJGWw4Wn+vLq5ZfmlvS1RskhRmByaSZVXH/zcwRrWHO7qPgs98pNCbPOEti/t0fQ==";
     private const string Registry = "https://registry.npmjs.org/";
+    public const string NotDownloaded = "Pi is not downloaded yet. Open Settings, choose Pi and press Download.";
+    public const string NoBun = "Pi needs Bun. Open Settings, choose Runtimes and press Download, or install Bun yourself.";
     private const string Marker = ".tereditor-verified";
 
     private readonly Lock gate = new();
@@ -100,15 +102,15 @@ internal sealed class PiManaged(string root, Func<string, CancellationToken, Tas
     }
 
     /// <summary>
-    /// Downloads the pinned Pi when it is not there yet, then returns <paramref name="spawn"/> as the command that runs it on Bun
-    /// (<c>bun --bun cli.js --mode rpc …</c>). A blocked spawn is returned as it is, so it fails with its reason.
+    /// Returns <paramref name="spawn"/> as the command that runs the pinned Pi on Bun (<c>bun --bun cli.js --mode rpc …</c>). It never downloads Pi or Bun:
+    /// a missing copy or a missing Bun fails with a sentence that points to Settings. A blocked spawn is returned as it is, so it fails with its reason.
     /// </summary>
     /// <param name="track">Told which process started from which Bun, so turning Runtimes for tooling off stops it.</param>
     public async Task<PiSpawn> PrepareAsync(PiSpawn spawn, Action<RuntimeResolution, int> track)
     {
         if (spawn.Blocked is not null) return spawn;
-        await EnsureAsync(spawn.Cwd, CancellationToken.None);
-        var bun = await resolveBun(spawn.Cwd, CancellationToken.None);
+        if (InstalledVersion().Length == 0) throw new InvalidOperationException(NotDownloaded);
+        var bun = await findBun(spawn.Cwd, CancellationToken.None);
         if (!bun.Available) throw new InvalidOperationException(bun.Message);
         var environment = new Dictionary<string, string>(spawn.Environment);
         foreach (var (name, value) in bun.Env) environment[name] = value;

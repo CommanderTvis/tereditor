@@ -90,7 +90,13 @@ public sealed class PiHost : PluginHostModule
 
     public override ValueTask<PluginDisposer?> ActivateAsync(IPluginHostContext context)
     {
-        var managed = new PiManaged(PiManaged.DefaultRoot(), (workspace, token) => context.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, token).AsTask());
+        // A launch uses Bun only when it is already there; only the Download button may fetch Pi, and with it Bun.
+        async Task<RuntimeResolution> FindBunAsync(string workspace, CancellationToken token)
+        {
+            var present = (await context.RuntimeStatusAsync(token)).Any(status => status.Kind == RuntimeKind.Bun && status.Source is not null);
+            return present ? await context.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, token) : RuntimeResolution.Unavailable(RuntimeKind.Bun, PiManaged.NoBun);
+        }
+        var managed = new PiManaged(PiManaged.DefaultRoot(), (workspace, token) => context.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, token).AsTask(), FindBunAsync);
         var chats = new PiChatHost(context, managed: managed);
         async Task<PiStatus> StatusAsync() => (await ReadStatusAsync(context.Settings<PiSettings>(), managed, context.AgentLaunchContributions(PiManifest.Id))) with { Models = chats.ReportedModels() };
         context.Method(PiContract.Status, async (_, _, _) => await Task.Run(() => StatusAsync()));

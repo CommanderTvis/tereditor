@@ -27,8 +27,8 @@ No real omp run backs them; the checks use a fixture `omp`.
   19.1.1 (integrity `sha512-x/7xQXQ5…` checked against Bun's lock file; its `omp` binary is `dist/cli.js`; engines `bun >=1.4.4`, the Bun
   Runtimes pins), installed with `bun install --ignore-scripts --registry=https://registry.npmjs.org/` into `~/.tereditor/omp/managed/<version>`
   (never the user's global Bun packages), one download at a time with progress, cancel and a plain failure message, and run as `bun --bun cli.js`.
-  It downloads the first time a start needs it (the start action and Core's Create-workspace and Project Home starts wait for it with a toast;
-  the page's Download button does it on request) and never blocks the chip: a managed omp counts as usable once downloaded or while Bun is available. A
+  It downloads only when the user presses Download on the page (`OmpContract.Install`); a start (the start action, Core's Create-workspace and Project Home starts) never downloads: it shows a toast
+  that omp is not downloaded yet and points to Settings. It never blocks the chip: a managed omp counts as usable once downloaded or while Bun is available. A
   launch line starts the host's `omp` program (`~/.tereditor/omp/shim/omp`, `omp.cmd` on Windows), which runs the copy with Bun's environment, or prints
   that omp is not downloaded or Bun is missing and exits 1. It keeps the word `omp`, so other plugins' launch contributions (a Model source's
   environment and `--profile` signal) still apply; a contribution that replaces the executable runs its own omp instead. The version probe, the setup

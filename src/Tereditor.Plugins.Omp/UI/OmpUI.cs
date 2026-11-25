@@ -60,21 +60,14 @@ public sealed class OmpUI : PluginUIModule
             }
             catch (Exception) { return null; }
         }
-        // A managed omp that is not downloaded yet downloads before its first start (the page shows the progress); a failure says why and the start is skipped.
+        // A managed omp that is not downloaded yet is never downloaded by a start: the start is skipped and the toast points to the Download button.
         async Task<OmpStatus?> Prepare()
         {
             var current = await Probe();
-            if (current is { Source: OmpSources.Managed, Installed: false, Usable: true })
+            if (current is { Source: OmpSources.Managed, Installed: false })
             {
-                context.Notify(PluginNotificationKind.Info, $"Downloading omp {current.PinnedVersion}…");
-                try { current = await context.RequestAsync(OmpContract.Install, new OmpNoParams()); }
-                catch (Exception) { current = null; }
-                if (current is not null) Apply(current);
-                if (current is not { Installed: true })
-                {
-                    context.Notify(PluginNotificationKind.Error, current is { Error.Length: > 0 } ? current.Error : "omp could not be downloaded");
-                    return null;
-                }
+                context.Notify(PluginNotificationKind.Error, "omp is not downloaded yet. Open Settings, choose omp and press Download.");
+                return null;
             }
             return current;
         }
