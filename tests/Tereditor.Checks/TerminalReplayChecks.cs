@@ -8,8 +8,9 @@ using Tereditor.Host.Client;
 using Tereditor.Host.Core;
 using Tereditor.Host.Protocol;
 using Tereditor.Host.Remote;
-using Kit = Tereditor.Plugins.UI.Kit;
 using Tereditor.UI.Panels;
+
+using Kit = Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Checks;
 
