@@ -426,6 +426,9 @@ public sealed partial class SettingsView : UserControl
         var page = ((IDataTemplate)Resources[key]!).Build(null)!;
         foreach (var label in page.GetLogicalDescendants().OfType<TextBlock>().Where(text => text.Classes.Contains("settings-label")))
             label.FontSize = Ui.FontSize;
+        // A row whose only content is hidden (the fixed theme list under Match system) hides too, so its hairline does not double the one above.
+        foreach (var row in page.GetLogicalDescendants().OfType<Border>().Where(border => border.Classes.Contains("settings-row") && border.Child is Control))
+            row.Bind(Visual.IsVisibleProperty, row.Child!.GetObservable(Visual.IsVisibleProperty));
         return page;
     }
 

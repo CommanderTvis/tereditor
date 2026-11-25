@@ -173,10 +173,10 @@
         </StackPanel>
         <Border Classes="settings-row">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-            <StackPanel Spacing="2">
+            <StackPanel Spacing="2" VerticalAlignment="Center">
               <TextBlock Text="Interface font size" Classes="settings-label" />
-                </StackPanel>
-            <NumericUpDown x:Name="InterfaceSize" Grid.Column="1" Minimum="10" Maximum="24" Increment="1" />
+            </StackPanel>
+            <NumericUpDown x:Name="InterfaceSize" Grid.Column="1" Minimum="10" Maximum="24" Increment="1" VerticalAlignment="Center" />
           </Grid>
         </Border>
         <Border Classes="settings-row">

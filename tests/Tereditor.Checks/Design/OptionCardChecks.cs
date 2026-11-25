@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+
 using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Checks.Design;
@@ -57,6 +58,21 @@ internal static class OptionCardChecks
 
         cards.SetOptions([new("a", "A"), new("b", "B")], "b");
         Require(Buttons().Count == 2 && Buttons().All(card => card.GetLogicalDescendants().OfType<TextBlock>().Count() == 1) && cards.SelectedId == "b", "SetOptions rebuilds the cards; a card without a description shows only its title.");
+        var grid = new OptionCards { Name = "Levels", Columns = 2, Width = 400 };
+        grid.SetOptions([new("", "Default", "Use Pi's own setting."), new("off", "off", "No extra thinking."), new("low", "low", "A little."), new("high", "high", "Plenty."), new("max", "max", "The most.")], "");
+        window.Content = grid;
+        Settle();
+        var cells = grid.GetLogicalDescendants().OfType<Button>().ToList();
+        Require(cells.Count == 5 && grid.Children.Count == 3, "Two columns put five cards in three rows.");
+        Require(Math.Abs(cells[0].Bounds.Width - cells[1].Bounds.Width) < 1 && cells[1].TranslatePoint(default, grid)!.Value.X > cells[0].Bounds.Width - 1 && cells[2].TranslatePoint(default, grid)!.Value.Y > cells[0].Bounds.Height - 1,
+            "The compact grid lays cards side by side in equal columns, then wraps to the next row.");
+        var picked2 = new List<string>();
+        grid.Chosen += picked2.Add;
+        cells[4].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        cells[4].Focus();
+        window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
+        Settle();
+        Require(grid.SelectedId == "high" && picked2.SequenceEqual(["max", "high"]) && cells[3].IsFocused, "Arrow keys step through the cards in order across rows.");
         window.Close();
         Console.WriteLine("PASS option cards: cards with descriptions, one check, pick by click and arrow keys, radio items");
     }

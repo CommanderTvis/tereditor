@@ -253,6 +253,29 @@ internal static partial class FileIconsChecks
         Pick("plain");
         Until(() => app.Workbench.State.Current.Settings.FileTypeIconStyle.Length == 0);
         Loaded(app.FileRow("server.py"), "python");
+        // No settings row draws its hairline around hidden content: the fixed theme list is gone under Match system, so no empty band sits between two rules.
+        void NoEmptyRows(string when)
+        {
+            var empty = settings.GetLogicalDescendants().OfType<Border>().Where(row => row.Classes.Contains("settings-row") && row.IsVisible && row.Child is { } child && (!child.IsVisible || child.Bounds.Height <= 0)).ToList();
+            Require(empty.Count == 0, $"The Appearance page ({when}) has {empty.Count} visible rows with nothing in them, which draw two hairlines with an empty band between.");
+            // A one-line row centers its label between the rules: the gap above equals the gap below, apart from the 1 px rule.
+            foreach (var row in settings.GetLogicalDescendants().OfType<Border>().Where(row => row.Classes.Contains("settings-row") && row.IsVisible && row.Bounds.Height > 0))
+                foreach (var label in row.GetLogicalDescendants().OfType<TextBlock>().Where(text => text.Classes.Contains("settings-label") && text.IsEffectivelyVisible && text.GetLogicalParent() is StackPanel { Children.Count: 1 }))
+                {
+                    var top = label.TranslatePoint(default, row)!.Value.Y;
+                    var bottom = row.Bounds.Height - 1 - (top + label.Bounds.Height);
+                    Require(Math.Abs(top - bottom) <= 1.5, $"The one-line row '{label.Text}' ({when}) sits {top:0} px under its top rule and {bottom:0} px above its bottom rule.");
+                }
+        }
+        void PickMode(string mode) => app.Click(settings.GetLogicalDescendants().OfType<Button>().Single(card => card.Name == "ThemeMode_" + mode));
+        PickMode("fixed");
+        Until(() => app.Workbench.State.Current.Settings.ThemeMode == "fixed");
+        Settle(50);
+        NoEmptyRows("fixed theme");
+        PickMode("system");
+        Until(() => app.Workbench.State.Current.Settings.ThemeMode == "system");
+        Settle(50);
+        NoEmptyRows("match system");
         settings.Close();
         Loaded(app.FileRow("README.md"), "readme");
         Loaded(app.Tab("README.md"), "readme");
