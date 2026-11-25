@@ -207,6 +207,9 @@ internal static class PluginSurfaceRemoteChecks
             PluginSurfaceChecks.Click(a.Window, boardA, shownA.Bounds["OutsiderClick"]);
             E2eWorkspace.Until(() => PluginSurfaceChecks.Clicks(a) == 6);
             shownA = PluginSurfaceChecks.Settle(boardA, "client A's side tool clicked after it resumed", before, Held);
+            // B's new session below starts from B's own copy of the settings and greets with a write of all of them, so B must hold A's
+            // click first: a copy one click behind would write that click away.
+            E2eWorkspace.Until(() => PluginSurfaceChecks.Clicks(b) == 6);
             Console.WriteLine($"PASS plugin surface remote resume: back within the grace client A resumes its session, repaints from a keyframe with its typed note and B's click shown, and its clicks reach the plugin again ({boardA.Keyframes - keyframes} keyframe)");
 
             // B's plugin floods B with one-way calls while the app's UI thread is blocked (nothing pumps it below): B's session
