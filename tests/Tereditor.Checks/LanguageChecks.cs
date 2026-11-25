@@ -140,6 +140,8 @@ internal static class LanguageChecks
             typescript = new { command = executable, arguments },
             java = new { command = executable, arguments },
             python = new { command = Path.Combine(root, "missing-server"), arguments = Array.Empty<string>() },
+            // The fixture's jvm/build.gradle.kts makes Kotlin a discovered language; without an override the check would download the real server.
+            kotlin = new { command = Path.Combine(root, "missing-server"), arguments = Array.Empty<string>() },
             clangd = new { command = executable, arguments = pushArguments }
         }));
         await File.WriteAllTextAsync(Path.Combine(root, "code.ts"), "😀 target");
@@ -286,7 +288,8 @@ internal static class LanguageChecks
             var scan = await host.LanguageAsync(new(root, Operation: "diagnostics", Scope: "workspace"));
             Require(scan.Diagnostics.Any(item => item.Path == "unopened.ts") && scan.Files.Any(file => file.Path == "unopened.ts" && file.State == "checked") &&
                 scan.Files.Any(file => file.Path == "bad.py" && file.State == "skipped") && scan.Files.All(file => file.Path != "ignored.ts") && scan.Freshness == "partial",
-                "Project diagnostics missed unopened files, included ignored files, or hid skipped coverage.");
+                "Project diagnostics missed unopened files, included ignored files, or hid skipped coverage: state=" + scan.State + " freshness=" + scan.Freshness + " detail=" + scan.Detail +
+                " diagnostics=[" + string.Join(", ", scan.Diagnostics.Select(item => item.Path)) + "] files=[" + string.Join(", ", scan.Files.Select(file => file.Path + ":" + file.State)) + "]");
             var isolated = await host.LanguageAsync(new(root, Operation: "diagnostics", Paths: ["code.ts"]));
             Require(isolated.Diagnostics.Count == 0 && isolated.Files.Count == 1 && isolated.Freshness == "current", "File selection leaked another open file’s diagnostics.");
             await File.WriteAllTextAsync(Path.Combine(root, "unopened.ts"), "😀 target");
@@ -529,12 +532,20 @@ internal static class LanguageChecks
     private static async Task<LanguageResult> Ready(IProjectServices host, LanguageRequest request)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        while (true)
+        LanguageResult? last = null;
+        try
         {
-            var result = await host.LanguageAsync(request, deadline.Token);
-            if (result.State is not ("installing" or "initializing")) return result;
-            if (request.Operation == "retry") request = request with { Operation = "status" };
-            await Task.Delay(30, deadline.Token);
+            while (true)
+            {
+                var result = last = await host.LanguageAsync(request, deadline.Token);
+                if (result.State is not ("installing" or "initializing")) return result;
+                if (request.Operation == "retry") request = request with { Operation = "status" };
+                await Task.Delay(30, deadline.Token);
+            }
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            throw new InvalidOperationException($"{request.Operation} {request.Query} {request.Path} stayed {last?.State} for 20 s: {last?.Detail}");
         }
     }
 
