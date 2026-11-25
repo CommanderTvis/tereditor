@@ -110,6 +110,13 @@ internal static class AboutChecks
         Require(Alpha(16, 16 - 8) == 0 && Alpha(16 + 8, 16) == 0, "The gear is an outline: the band between the hub ring and the teeth' roots is empty, not filled.");
         Require(Enumerable.Range(0, 32).Any(x => Alpha(x, 16) > 128), "The gear outline draws opaque strokes.");
         Require(OperatingSystem.IsMacOS() ? preferences.Icon is { Size: { Width: 16, Height: 16 } } : preferences.Icon is null, "Settings carries the gear on macOS only.");
+        var drawn = 0;
+        Require(ApplicationMenu.MenuIcon(false, () => throw new InvalidOperationException("no system symbol off macOS"), () => throw new InvalidOperationException("no fallback off macOS")) is null, "Off macOS a menu item has no icon and asks for none.");
+        Require(ApplicationMenu.MenuIcon(true, () => null, () => { drawn++; return gear; }) == gear && drawn == 1, "Without the system symbol the drawn gear stands in.");
+        Require(ApplicationMenu.MenuIcon(true, () => gear, () => { drawn++; return null!; }) == gear && drawn == 1, "With the system symbol the fallback is not drawn.");
+        Require(OperatingSystem.IsMacOS() || SystemSymbol.Render("gearshape", 16, 3) is null, "Off macOS the system symbol is unavailable.");
+        if (OperatingSystem.IsMacOS() && SystemSymbol.Render("gearshape", 16, 3) is { } symbol)
+            Require(symbol.PixelSize == new Avalonia.PixelSize(48, 48) && symbol.Size == new Avalonia.Size(16, 16), "The system gear is 16 pt at 3x.");
         Require(menu.Items.OfType<NativeMenuItem>().Where(item => item != preferences).All(item => item.Icon is null), "Only Settings has an icon.");
         ((INativeMenuItemExporterEventsImplBridge)preferences).RaiseClicked();
         Require(settings == 1, "Settings runs its command.");

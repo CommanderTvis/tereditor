@@ -48,10 +48,15 @@ public static class ApplicationMenu
         Follow(WithIcon(Item("Settings…", WindowShortcuts.Settings.Gesture, settings), SettingsIcon), WindowShortcuts.Settings, null),
     ];
 
-    private static readonly Lazy<Bitmap> SettingsGlyph = new(() => Gear(16, 2));
+    private static readonly Lazy<Bitmap?> SettingsGlyph = new(() => MenuIcon(OperatingSystem.IsMacOS(), () => SystemSymbol.Render("gearshape", 16, 3), () => Gear(16, 2)));
 
     /// <summary>The gear beside Settings, made once; macOS only, as the native menu is.</summary>
-    private static Bitmap? SettingsIcon => OperatingSystem.IsMacOS() ? SettingsGlyph.Value : null;
+    private static Bitmap? SettingsIcon => SettingsGlyph.Value;
+
+    /// <summary>
+    /// The icon source of a native menu item: nothing off macOS, the system symbol where macOS provides it, else the drawn fallback.
+    /// </summary>
+    public static Bitmap? MenuIcon(bool macOS, Func<Bitmap?> system, Func<Bitmap> fallback) => !macOS ? null : system() ?? fallback();
 
     private static NativeMenuItem WithIcon(NativeMenuItem item, Bitmap? icon)
     {

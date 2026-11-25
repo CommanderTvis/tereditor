@@ -632,6 +632,7 @@ repository copy. The version is the assembly informational version: the packagin
 (`YYYYMMDD-<short commit>`, as the nightly names its builds), giving `0.2.0+<stamp>`; a local build reads `dev`.
 On macOS the application menu's first item is "About tereditor", followed by Settings…, set from `App.Initialize` (`ApplicationMenu.SetApplicationMenu`):
 Avalonia fills an application menu that is still unset when the platform builds the menu bar with its own "About Avalonia".
+Settings… carries the system SF Symbol `gearshape` (`SystemSymbol.Render`: the Objective-C runtime asks AppKit at run time, macOS 11 and later, renders 16 pt at 3x as black on transparent so the menu tints it like the system rows; no symbol data ships and no native build is needed). Without the symbol (older macOS, a failure) the drawn outline gear is used (`ApplicationMenu.MenuIcon`); off macOS there is no icon.
 Elsewhere About is Settings › About. The dialog closes with Escape or the close chord. Checks: `--about`.
 
 ## Tailscale client entry
