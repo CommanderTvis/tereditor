@@ -8,6 +8,7 @@ using Tereditor.Host.Client;
 using Tereditor.Host.Core;
 using Tereditor.Host.Protocol;
 using Tereditor.Host.Remote;
+using Kit = Tereditor.Plugins.UI.Kit;
 using Tereditor.UI.Panels;
 
 namespace Tereditor.Checks;
@@ -95,11 +96,11 @@ internal static partial class TerminalHostChecks
         try
         {
             var sizes = new[] { 0, 16, 64, 256, 1024 };
-            // A changed value rebuilds the page, so the box is looked up each time.
-            ComboBox Replay() => settings.GetLogicalDescendants().OfType<ComboBox>().Single(box => box.Name == "TerminalReplayChoices");
-            bool Active(int kb) => Replay().SelectedIndex == Array.IndexOf(sizes, kb);
+            // A changed value rebuilds the page, so the cards are looked up each time.
+            Kit.OptionCards Replay() => settings.GetLogicalDescendants().OfType<Kit.OptionCards>().Single(box => box.Name == "TerminalReplayChoices");
+            bool Active(int kb) => Replay().SelectedId == kb.ToString(System.Globalization.CultureInfo.InvariantCulture);
             Require(sizes.All(kb => Active(kb) == (kb == 64)), "The replay choices must show the host's default.");
-            Replay().SelectedIndex = Array.IndexOf(sizes, 256);
+            app.Click(Replay().GetLogicalChildren().OfType<Button>().Single(card => card.Name == "TerminalReplayChoices_256"));
             E2E.E2eWorkspace.Until(() => app.State!.Current.Settings.TerminalReplayKb == 256 && Active(256) && !Active(64));
             // Another client's change moves the selection here too.
             app.State!.ChangeAsync([HostStateChange.Setting("terminal-replay", "0")]).AsTask().GetAwaiter().GetResult();

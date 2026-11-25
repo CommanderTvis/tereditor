@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 
+using Tereditor.Plugins.UI.Kit;
 using Tereditor.UI;
 
 using static Tereditor.Checks.E2E.E2eWorkspace;
@@ -141,8 +142,8 @@ internal static class RailEdgePillE2E
         app.Window.ShowSettings("Appearance");
         Until(() => app.Window.OpenSettingsViews.Any());
         var settings = app.Window.OpenSettingsViews.Single();
-        Until(() => settings.GetLogicalDescendants().OfType<ComboBox>().Any(box => box.Name == "FileTypeIconChoices"));
-        settings.GetLogicalDescendants().OfType<ComboBox>().Single(box => box.Name == "FileTypeIconChoices").SelectedIndex = Array.IndexOf(new[] { "plain", "colored", "material", "none", "hidden" }, "hidden");
+        Until(() => settings.GetLogicalDescendants().OfType<OptionCards>().Any(cards => cards.Name == "FileTypeIconChoices"));
+        settings.GetLogicalDescendants().OfType<OptionCards>().Single(cards => cards.Name == "FileTypeIconChoices").GetLogicalChildren().OfType<Button>().Single(card => card.Name == "FileTypeIconChoices_hidden").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         Until(() => app.Workbench.State.Current.Settings is { FileTypeIconsEnabled: false, FileTypeIconStyle: "hidden" });
         settings.Close();
         ScrollTo(0);

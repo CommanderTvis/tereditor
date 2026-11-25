@@ -485,73 +485,61 @@ public sealed partial class SettingsView : UserControl
         }
         AccentSettings(panel);
         // Host state: the selection follows the host's broadcast, never the pick.
-        var fileIcons = PageControl<ComboBox>(panel, "FileTypeIconChoices");
+        var fileIcons = PageControl<OptionCards>(panel, "FileTypeIconChoices");
         var fileIconStyles = new[]
         {
-            ("", "Plain: single-color icons that follow the text color"),
-            ("colored", "Colored: the same icons tinted by file kind with the theme’s colors"),
-            ("material", "Material: Material Icon Theme in its own colors"),
-            ("none", "None: generic file glyphs only"),
-            ("hidden", "Hidden: no icons beside file names")
+            ("plain", "Plain", "Single-color icons that follow the text color"),
+            ("colored", "Colored", "The same icons tinted by file kind with the theme’s colors"),
+            ("material", "Material", "Material Icon Theme in its own colors"),
+            ("none", "None", "Generic file glyphs only"),
+            ("hidden", "Hidden", "No icons beside file names")
         };
-        var syncingFileIcons = false;
         // Hidden is the toggle off with the hidden style, so an older client shows it as None.
         string CurrentFileIcons() => state.Current.Settings switch
         {
-            { FileTypeIconsEnabled: true } settings => settings.FileTypeIconStyle,
+            { FileTypeIconsEnabled: true } settings => settings.FileTypeIconStyle is "" ? "plain" : settings.FileTypeIconStyle,
             { FileTypeIconStyle: "hidden" } => "hidden",
             _ => "none"
         };
         void FileIconChoices()
         {
-            syncingFileIcons = true;
-            try
-            {
-                // A host below protocol 20 rejects the hidden style, so Hidden is offered only by one that keeps it.
-                var offered = state.Supports(HostProtocol.FileTypeIconsHidden) ? fileIconStyles.Length : fileIconStyles.Length - 1;
-                if (fileIcons.ItemCount != offered) fileIcons.ItemsSource = fileIconStyles.Take(offered).Select(style => style.Item2).ToArray();
-                fileIcons.SelectedIndex = Array.FindIndex(fileIconStyles, style => style.Item1 == CurrentFileIcons());
-            }
-            finally { syncingFileIcons = false; }
+            // A host below protocol 20 rejects the hidden style, so Hidden is offered only by one that keeps it.
+            var offered = state.Supports(HostProtocol.FileTypeIconsHidden) ? fileIconStyles.Length : fileIconStyles.Length - 1;
+            if (fileIcons.Options.Count != offered) fileIcons.SetOptions(fileIconStyles.Take(offered).Select(style => new OptionCard(style.Item1, style.Item2, style.Item3)), CurrentFileIcons());
+            else fileIcons.Show(CurrentFileIcons());
             fileIcons.IsEnabled = state.Supports(HostProtocol.FileTypeIconStyle);
         }
         FileIconChoices();
-        fileIcons.SelectionChanged += (_, _) =>
+        fileIcons.Chosen += value =>
         {
-            if (syncingFileIcons || fileIcons.SelectedIndex < 0) return;
-            var value = fileIconStyles[fileIcons.SelectedIndex].Item1;
             if (value != CurrentFileIcons())
             {
                 if (value == "hidden") Share(HostStateChange.Setting("file-type-icons", "false"), HostStateChange.Setting("file-type-icon-style", "hidden"));
                 else if (value == "none" && state.Current.Settings.FileTypeIconStyle == "hidden")
                     Share(HostStateChange.Setting("file-type-icons", "false"), HostStateChange.Setting("file-type-icon-style", "plain"));
                 else if (value == "none") Share(HostStateChange.Setting("file-type-icons", "false"));
-                else Share(HostStateChange.Setting("file-type-icons", "true"), HostStateChange.Setting("file-type-icon-style", value.Length == 0 ? "plain" : value));
+                else Share(HostStateChange.Setting("file-type-icons", "true"), HostStateChange.Setting("file-type-icon-style", value));
             }
             // The selection follows the host, not the pick: put it back until the broadcast moves it.
             FileIconChoices();
         };
         refreshers.Add(FileIconChoices);
         // Host state too: the choice follows the broadcast, and open agent icons redraw from it.
-        var agentIcons = PageControl<ComboBox>(panel, "AgentIconChoices");
-        var agentIconStyles = new[] { (false, "Plain: single-color icons that follow the text color"), (true, "Colored: Claude Code, Pi, ACP and registry agents in their own colors; the others stay plain") };
-        var syncingAgentIcons = false;
+        var agentIcons = PageControl<OptionCards>(panel, "AgentIconChoices");
+        agentIcons.SetOptions(
+        [
+            new("plain", "Plain", "Single-color icons that follow the text color"),
+            new("colored", "Colored", "Claude Code, Pi, ACP and registry agents in their own colors; the others stay plain")
+        ], null);
         void AgentIconChoices()
         {
-            syncingAgentIcons = true;
-            try
-            {
-                if (agentIcons.ItemCount != agentIconStyles.Length) agentIcons.ItemsSource = agentIconStyles.Select(style => style.Item2).ToArray();
-                agentIcons.SelectedIndex = state.Current.Settings.AgentIconsColored ? 1 : 0;
-            }
-            finally { syncingAgentIcons = false; }
+            agentIcons.Show(state.Current.Settings.AgentIconsColored ? "colored" : "plain");
             agentIcons.IsEnabled = state.Supports(HostProtocol.AgentIconColors);
         }
         AgentIconChoices();
-        agentIcons.SelectionChanged += (_, _) =>
+        agentIcons.Chosen += id =>
         {
-            if (syncingAgentIcons || agentIcons.SelectedIndex < 0) return;
-            var colored = agentIconStyles[agentIcons.SelectedIndex].Item1;
+            var colored = id == "colored";
             if (colored != state.Current.Settings.AgentIconsColored) Share(HostStateChange.Setting("agent-icons-colored", Setting(colored)));
             AgentIconChoices();
         };
@@ -657,23 +645,7 @@ public sealed partial class SettingsView : UserControl
         note.IsVisible = note.Text.Length > 0;
     }
 
-    private static Button Choice(string name, string label, string? description, bool active, Action select)
-    {
-        var button = Ui.Button(label, select);
-        button.Name = name;
-        button.Padding = new(12, 8); button.MinHeight = 36;
-        button.HorizontalAlignment = HorizontalAlignment.Stretch;
-        button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
-        Ui.Place(row, Ui.Text(label, active || description is not null ? Ui.TextBrush : Ui.Muted));
-        if (description is not null) Ui.Place(row, Ui.Text(description, Ui.Muted, 12), 1);
-        if (active) { var check = Ui.Icon("check", Ui.Accent); Grid.SetRowSpan(check, 2); Ui.Place(row, check, 0, 1); }
-        button.Content = row;
-        button.Background = active ? Ui.PrimarySubtle : Ui.Elevated;
-        button.BorderBrush = active ? Ui.PrimaryMuted : Ui.BorderBrush;
-        AutomationProperties.SetName(button, label);
-        return button;
-    }
+    private static Button Choice(string name, string label, string? description, bool active, Action select) => OptionCards.Card(name, label, description, active, select);
 
     private static void SystemThemeSelector(Control panel, string appearance, ThemeResolution resolution, Action<string> select)
     {
@@ -1170,29 +1142,21 @@ public sealed partial class SettingsView : UserControl
                 ShowSection(section);
             }));
         // Host state: the selection follows the host's broadcast, never the click.
-        var replay = PageControl<ComboBox>(panel, "TerminalReplayChoices");
+        var replay = PageControl<OptionCards>(panel, "TerminalReplayChoices");
         var replaySizes = new[]
         {
-            (0, "Off: reattaching shows an empty screen over the live shell"),
-            (16, "16 KB: about a screenful"),
-            (HostSettings.DefaultTerminalReplayKb, "64 KB: a screenful plus scrollback (default)"),
-            (256, "256 KB: long scrollback; more memory per terminal"),
-            (HostSettings.MaxTerminalReplayKb, "1 MB: maximum")
+            (0, "Off", "Reattaching shows an empty screen over the live shell"),
+            (16, "16 KB", "About a screenful"),
+            (HostSettings.DefaultTerminalReplayKb, "64 KB", "A screenful plus scrollback (default)"),
+            (256, "256 KB", "Long scrollback; more memory per terminal"),
+            (HostSettings.MaxTerminalReplayKb, "1 MB", "Maximum")
         };
-        replay.ItemsSource = replaySizes.Select(size => size.Item2).ToArray();
-        AutomationProperties.SetName(replay, "Replayed output");
-        var syncingReplay = false;
-        void ShowReplay()
-        {
-            syncingReplay = true;
-            try { replay.SelectedIndex = Array.FindIndex(replaySizes, size => size.Item1 == state.Current.Settings.TerminalReplayKb); }
-            finally { syncingReplay = false; }
-        }
+        replay.SetOptions(replaySizes.Select(size => new OptionCard(size.Item1.ToString(CultureInfo.InvariantCulture), size.Item2, size.Item3)), null);
+        void ShowReplay() => replay.Show(state.Current.Settings.TerminalReplayKb.ToString(CultureInfo.InvariantCulture));
         ShowReplay();
-        replay.SelectionChanged += (_, _) =>
+        replay.Chosen += id =>
         {
-            if (syncingReplay || replay.SelectedIndex < 0) return;
-            var kb = replaySizes[replay.SelectedIndex].Item1;
+            var kb = int.Parse(id, CultureInfo.InvariantCulture);
             if (state.Current.Settings.TerminalReplayKb != kb) Share(HostStateChange.Setting("terminal-replay", kb.ToString(CultureInfo.InvariantCulture)));
             // The selection follows the host, not the pick: put it back until the broadcast moves it.
             ShowReplay();

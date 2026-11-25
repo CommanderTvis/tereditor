@@ -210,9 +210,9 @@ internal static partial class FileIconsChecks
         app.Window.ShowSettings("Appearance");
         Until(() => app.Window.OpenSettingsViews.Any());
         var settings = app.Window.OpenSettingsViews.Single();
-        // Every host settings change rebuilds the Appearance page, so the dropdown is looked up afresh for each pick.
-        ComboBox Styles() => settings.GetLogicalDescendants().OfType<ComboBox>().Single(control => control.Name == "FileTypeIconChoices");
-        void Pick(string name) => Styles().SelectedIndex = Array.IndexOf(new[] { "plain", "colored", "material", "none", "hidden" }, name);
+        // Every host settings change rebuilds the Appearance page, so the cards are looked up afresh for each pick.
+        OptionCards Styles() => settings.GetLogicalDescendants().OfType<OptionCards>().Single(control => control.Name == "FileTypeIconChoices");
+        void Pick(string name) => app.Click(Styles().GetLogicalChildren().OfType<Button>().Single(card => card.Name == "FileTypeIconChoices_" + name));
         Until(() => Styles().IsEnabled);
         Require(app.Workbench.State.Current.Settings is { FileTypeIconsEnabled: true, FileTypeIconStyle: "" }, "Core file-type icons are on and plain by default.");
         Pick("none");
@@ -220,7 +220,7 @@ internal static partial class FileIconsChecks
         Until(() => !app.FileRow("README.md").GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "FileTypeIcon"));
         Require(app.FileRow("README.md").GetLogicalDescendants().OfType<Control>().Any(control => Equals(control.Tag, "file") && control.IsEffectivelyVisible),
             "Disabling File Icons restores core's plain file glyph.");
-        Require(Styles().ItemCount == 5, "The dropdown offers Hidden beside the four icon styles.");
+        Require(Styles().Options.Count == 5, "The cards offer Hidden beside the four icon styles.");
         Hidden(app, Pick);
         Pick("plain");
         Until(() => app.Workbench.State.Current.Settings.FileTypeIconsEnabled);
@@ -337,10 +337,11 @@ internal static partial class FileIconsChecks
             app.Window.ShowSettings("Appearance");
             Until(() => app.Window.OpenSettingsViews.Any());
             var settings = app.Window.OpenSettingsViews.Single();
-            ComboBox Choices() => settings.GetLogicalDescendants().OfType<ComboBox>().Single(control => control.Name == "AgentIconChoices");
+            OptionCards Choices() => settings.GetLogicalDescendants().OfType<OptionCards>().Single(control => control.Name == "AgentIconChoices");
+            void PickIcons(string id) => app.Click(Choices().GetLogicalChildren().OfType<Button>().Single(card => card.Name == "AgentIconChoices_" + id));
             Until(() => Choices().IsEnabled);
-            Require(Choices().ItemCount == 2 && Choices().SelectedIndex == 0, "The dropdown offers Plain and Colored, Plain first and selected.");
-            Choices().SelectedIndex = 1;
+            Require(Choices().Options.Count == 2 && Choices().SelectedId == "plain", "The cards offer Plain and Colored, Plain first and selected.");
+            PickIcons("colored");
             Until(() => app.Workbench.State.Current.Settings.AgentIconsColored && Ui.ColoredAgentIcons);
             Until(() => !Raster(window, mark).SequenceEqual(plain));
             Require(Raster(window, other).SequenceEqual(plainOther), "Colored leaves an agent without a brand color plain.");
@@ -348,8 +349,8 @@ internal static partial class FileIconsChecks
             Require(Has(Raster(window, registryMark), Colors.Red) && Has(Raster(window, registryMark), Color.Parse("#00FF00")) && Has(Raster(window, registryMark), Colors.White), "Colored keeps a registry icon's own fills and still tints its currentColor.");
             Require(Ui.Theme.IsLight ? Has(Raster(window, acpMark), Color.Parse("#808080")) : Has(Raster(window, acpMark), Colors.White) && !Has(Raster(window, acpMark), Color.Parse("#808080")),
                 "Colored, the ACP mark is white on a dark theme and keeps the text color on a light one.");
-            Until(() => Choices().SelectedIndex == 1);
-            Choices().SelectedIndex = 0;
+            Until(() => Choices().SelectedId == "colored");
+            PickIcons("plain");
             Until(() => !app.Workbench.State.Current.Settings.AgentIconsColored && !Ui.ColoredAgentIcons);
             Until(() => Raster(window, mark).SequenceEqual(plain));
             Until(() => colors.All(color => !Has(Raster(window, piMark), color)) && !Has(Raster(window, registryMark), Colors.Red));

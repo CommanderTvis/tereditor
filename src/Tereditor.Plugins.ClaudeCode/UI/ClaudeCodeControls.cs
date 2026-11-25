@@ -19,7 +19,7 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
     private readonly TextBox command;
     private readonly AutoCompleteBox model;
     private readonly ComboBox effort;
-    private readonly ComboBox mode;
+    private readonly OptionCards mode;
     private readonly ComboBox permissionMode;
     private readonly TextBlock permissionNote;
     private readonly ComboBox advisor;
@@ -49,12 +49,15 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
                 new TextBlock { Text = ClaudeLaunch.ModelSuggestions.FirstOrDefault(suggestion => suggestion.Id == id)?.Description, Foreground = Ui.Muted }
             }
         });
-        mode = this.FindControl<ComboBox>("ClaudeMode")!;
-        mode.Items.Add(new ComboBoxItem { Content = "Terminal", Tag = ClaudeCodeMode.Terminal });
-        mode.Items.Add(new ComboBoxItem { Content = "Chat", Tag = ClaudeCodeMode.Chat });
-        mode.SelectionChanged += (_, _) =>
+        mode = this.FindControl<OptionCards>("ClaudeMode")!;
+        mode.SetOptions(
+        [
+            new(nameof(ClaudeCodeMode.Terminal), "Terminal", "Run the agent in a terminal tab."),
+            new(nameof(ClaudeCodeMode.Chat), "Chat", "Use the chat view with history, attachments and review.")
+        ], null);
+        mode.Chosen += id =>
         {
-            if (mode.SelectedItem is ComboBoxItem { Tag: ClaudeCodeMode value })
+            if (Enum.TryParse<ClaudeCodeMode>(id, out var value))
                 Update(settings => settings with { Mode = value }, "Couldn't change how Claude Code is presented");
         };
         effort = this.FindControl<ComboBox>("ClaudeDefaultEffort")!;
@@ -121,7 +124,7 @@ internal sealed partial class ClaudeCodeSettingsSection : UserControl
         applying = true;
         command.Text = settings.Command;
         if (!model.IsKeyboardFocusWithin) model.Text = settings.Model;
-        mode.SelectedItem = mode.Items.OfType<ComboBoxItem>().FirstOrDefault(item => Equals(item.Tag, settings.Mode));
+        mode.Show(settings.Mode.ToString());
         effort.SelectedItem = effort.Items.OfType<ComboBoxItem>().FirstOrDefault(item => Equals(item.Tag, settings.Effort ?? ""));
         if (!permissionMode.Items.OfType<ComboBoxItem>().Any(item => Equals(item.Tag, settings.PermissionMode)))
             FillPermissionModes(PermissionModeSource.Current, settings.PermissionMode);

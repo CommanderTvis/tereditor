@@ -157,12 +157,12 @@
           <TextBlock Text="File type icons" Classes="settings-label" />
           <TextBlock Text="How Files, tabs and Changes draw file types. Shared by every client of this host." Classes="settings-description" />
           <Border Classes="settings-row">
-            <ComboBox x:Name="FileTypeIconChoices" HorizontalAlignment="Stretch" AutomationProperties.Name="File type icons" />
+            <rendering:OptionCards x:Name="FileTypeIconChoices" AutomationProperties.Name="File type icons" />
           </Border>
           <TextBlock Text="Agent icons" Classes="settings-label" />
           <TextBlock Text="How chat tabs, menus and agent pages draw Claude Code, Codex and other agents. Claude Code, Pi and Agent Client Protocol have brand colors, and ACP agents from the registry keep the colors of their own icons. The other icons stay plain. Shared by every client of this host." Classes="settings-description" />
           <Border Classes="settings-row">
-            <ComboBox x:Name="AgentIconChoices" HorizontalAlignment="Stretch" AutomationProperties.Name="Agent icons" />
+            <rendering:OptionCards x:Name="AgentIconChoices" AutomationProperties.Name="Agent icons" />
           </Border>
         </StackPanel>
         <StackPanel x:Name="WindowDecorationsSection" Spacing="8" IsVisible="False">
@@ -353,7 +353,7 @@
         <TextBlock Text="Replayed output" Classes="settings-heading" />
         <TextBlock Text="A terminal keeps running when you leave it, but its view is rebuilt when you come back. This is how much of its recent output the host keeps so the screen is restored too. Shared by every client of this host; applies to terminals opened from now on." Classes="settings-description" TextWrapping="Wrap" />
         <Border Classes="settings-row">
-          <ComboBox x:Name="TerminalReplayChoices" HorizontalAlignment="Stretch" />
+          <rendering:OptionCards x:Name="TerminalReplayChoices" AutomationProperties.Name="Replayed output" />
         </Border>
         <TextBlock Text="Programs" Classes="settings-heading" Margin="0,16,0,0" />
         <TextBlock Text="What programs in a terminal may ask for, as in Ghostty. A progress report (OSC 9;4) always shows as a bar on its tab. Agent terminals keep their own notifications. Shared by every client of this host." Classes="settings-description" TextWrapping="Wrap" />

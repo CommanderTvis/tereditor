@@ -20,8 +20,12 @@ internal sealed partial class PiSettingsView : StackPanel
         var thinking = this.FindControl<TextBox>("PiThinking")!;
         var codemode = this.FindControl<CheckBox>("PiCodemode")!;
         var version = this.FindControl<TextBlock>("PiVersion")!;
-        var source = this.FindControl<ComboBox>("PiSource")!;
-        var sourceHint = this.FindControl<TextBlock>("PiSourceHint")!;
+        var source = this.FindControl<OptionCards>("PiSource")!;
+        source.SetOptions(
+        [
+            new(PiSources.System, "System command", "Run the command below, found on your PATH by default."),
+            new(PiSources.Managed, "Managed, pinned", "Run the pinned Pi that tereditor downloads, on Bun from Runtimes. Never the Pi on your PATH.")
+        ], null);
         var managedPanel = this.FindControl<StackPanel>("PiManagedPanel")!;
         var commandPanel = this.FindControl<StackPanel>("PiCommandPanel")!;
         var managedLine = this.FindControl<TextBlock>("PiManagedLine")!;
@@ -76,10 +80,9 @@ internal sealed partial class PiSettingsView : StackPanel
             }
             finally { polling = false; }
         }
-        source.SelectionChanged += (_, _) =>
+        source.Chosen += chosen =>
         {
-            var chosen = source.SelectedIndex == 1 ? PiSources.Managed : PiSources.System;
-            if (!applying && chosen != context.Settings<PiSettings>().Source) Update(settings => settings with { Source = chosen });
+            if (chosen != context.Settings<PiSettings>().Source) Update(settings => settings with { Source = chosen });
         };
         download.Click += (_, _) =>
         {
@@ -94,12 +97,9 @@ internal sealed partial class PiSettingsView : StackPanel
         {
             applying = true;
             var managed = settings.Source == PiSources.Managed;
-            source.SelectedIndex = managed ? 1 : 0;
+            source.Show(managed ? PiSources.Managed : PiSources.System);
             managedPanel.IsVisible = managed;
             commandPanel.IsVisible = !managed;
-            sourceHint.Text = managed
-                ? "Runs the pinned Pi that tereditor downloads, on Bun from Runtimes for tooling. It never runs the Pi on your PATH."
-                : "Runs the command below, found on your PATH by default.";
             RenderManaged(status());
             if (!command.IsFocused) command.Text = settings.Command;
             if (!model.IsFocused) model.Text = settings.Model;

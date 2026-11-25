@@ -876,6 +876,7 @@ internal static class Program
             if (args.Contains("--write")) return;
             SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Normal));
             Design.RoleChecks.Run();
+            Design.OptionCardChecks.Run();
             E2E.ThemeE2E.Run(Path.Combine(root, "upstream-e2e"));
             Console.WriteLine("PASS design-system checks");
             return;
@@ -1751,7 +1752,7 @@ internal static class Program
         Gate.Case("markdown-html-tables", MarkdownHtmlTableChecks.Run);
         Gate.Case("drawn-rendering", DrawnRenderingChecks.Run);
         Gate.Case("design", () => Design.DesignChecks.Run(write: false));
-        Gate.Case("design-roles", Design.RoleChecks.Run);
+        Gate.Case("design-roles", () => { Design.RoleChecks.Run(); Design.OptionCardChecks.Run(); });
         Gate.Case("tailscale-ui", () => TailscaleChecks.RunUi(root));
         Gate.Case("button-centering", ButtonCenteringChecks.RunUi);
         Gate.Case("host-launch", HostLaunchChecks.RunUi);

@@ -26,11 +26,7 @@
   <StackPanel x:Name="ModelSourceHost" />
   <StackPanel Spacing="4">
     <TextBlock Text="Pi source" />
-    <ComboBox x:Name="PiSource" HorizontalAlignment="Stretch" AutomationProperties.Name="Pi source">
-      <ComboBoxItem Content="System command" />
-      <ComboBoxItem Content="Managed, pinned" />
-    </ComboBox>
-    <TextBlock x:Name="PiSourceHint" Classes="detail" />
+    <kit:OptionCards x:Name="PiSource" AutomationProperties.Name="Pi source" />
   </StackPanel>
   <StackPanel x:Name="PiManagedPanel" Spacing="8" IsVisible="False">
     <TextBlock x:Name="PiManagedLine" />

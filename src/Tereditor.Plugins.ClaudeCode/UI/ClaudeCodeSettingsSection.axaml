@@ -15,7 +15,7 @@
     <StackPanel x:Name="ModelSourceHost" />
     <StackPanel Spacing="4">
       <TextBlock Classes="heading" Text="Launch command" />
-      <TextBlock Text="The command the launcher runs in a new terminal, flags included. It may start with NAME=value settings, such as CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 claude." />
+      <TextBlock Text="The command the launcher runs in a new terminal, flags included. It may start with NAME=value settings, such as DEBUG=1 claude." />
       <DockPanel>
         <Button x:Name="ClaudeCommandBrowse" DockPanel.Dock="Right" Margin="4,0,0,0" Content="Browse…" />
         <TextBox x:Name="ClaudeCommandInput" PlaceholderText="claude" FontFamily="{x:Static kit:Ui.CodeFont}" AutomationProperties.Name="Claude Code launch command" />
@@ -23,8 +23,7 @@
     </StackPanel>
     <StackPanel Spacing="4">
       <TextBlock Classes="heading" Text="Presentation" />
-      <ComboBox x:Name="ClaudeMode" HorizontalAlignment="Stretch" AutomationProperties.Name="Claude Code presentation" />
-      <TextBlock Text="Chat shows the conversation in an editor tab." />
+      <kit:OptionCards x:Name="ClaudeMode" AutomationProperties.Name="Claude Code presentation" />
     </StackPanel>
     <StackPanel Spacing="4">
       <TextBlock Classes="heading" Text="Default model" />
