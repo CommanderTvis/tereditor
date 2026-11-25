@@ -10,8 +10,12 @@ namespace Tereditor.Checks.E2E;
 
 internal static class PreviewTabsE2E
 {
+    private static int runs;
+
     internal static void Run(string root)
     {
+        // The gate runs this class from several cases in one process; a project folder of an earlier run keeps its open tabs, which a new run would restore.
+        root = Path.Combine(root, "preview-run-" + Interlocked.Increment(ref runs));
         var index = 0;
         void Case(string title, Action<E2eWorkspace> test)
         {
