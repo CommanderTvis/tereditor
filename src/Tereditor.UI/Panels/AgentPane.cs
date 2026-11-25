@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
@@ -63,10 +65,10 @@ internal sealed class AgentPane : DockPanel
     private readonly Dictionary<string, TabRef> subjects = [];
     private TabRef? focusTab;
     private readonly WrapPanel chips = new() { Name = "AgentChips", Margin = new Thickness(8, 4, 8, 0) };
-    private readonly StackPanel tabs = new() { Name = "AgentTabs", Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4) };
+    private readonly StackPanel tabs = new() { Name = "AgentTabs", Orientation = Orientation.Horizontal, Spacing = 0, Margin = new Thickness(8, 0) };
     private readonly WrapPanel subChips = new() { Name = "AgentSubAgents", Margin = new Thickness(8, 4, 8, 0), IsVisible = false };
     private readonly ContentControl body = new() { Name = "AgentBody", HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
-    private readonly ScrollViewer strip;
+    private readonly Border strip;
     private string chipsKey = "";
     private string? shownChip;
     private string? appliedSub;
@@ -79,11 +81,13 @@ internal sealed class AgentPane : DockPanel
         Background = Ui.Sidebar;
         SetDock(chips, Dock.Top); Children.Add(chips);
         SetDock(subChips, Dock.Top); Children.Add(subChips);
-        strip = new ScrollViewer { Content = tabs, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        var scroller = new ScrollViewer { Content = tabs, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        // The divider runs across the whole strip; the selected tab's underline sits on it.
+        strip = new Border { Name = "AgentTabStrip", Child = scroller, BorderBrush = Ui.BorderBrush, BorderThickness = new Thickness(0, 0, 0, 1), Margin = new Thickness(0, 4, 0, 4) };
         SetDock(strip, Dock.Top); Children.Add(strip);
         foreach (var tab in Enum.GetValues<AgentPaneTab>())
         {
-            var segment = Ui.Segment("AgentTab_" + tab.ToString().ToLowerInvariant(), tab.ToString());
+            var segment = UnderlineTab("AgentTab_" + tab.ToString().ToLowerInvariant(), tab.ToString());
             segment.Tag = tab;
             segment.Click += (_, _) => { State.Tab = tab; Render(); };
             tabs.Children.Add(segment);
@@ -214,6 +218,40 @@ internal sealed class AgentPane : DockPanel
     {
         try { return read(); }
         catch (Exception error) { Console.Error.WriteLine("Agent pane retarget failed: " + error.Message); return false; }
+    }
+
+    /// <summary>
+    /// A view tab: plain text, no fill and no box. The selected one is in the text color with an accent underline; the underline's row is
+    /// always there, so selecting a tab moves nothing. Chips (<see cref="Chip"/>) keep the filled segment look.
+    /// </summary>
+    private static ToggleButton UnderlineTab(string name, string label)
+    {
+        var button = Ui.Segment(name, label);
+        button.Height = 28;
+        button.Padding = new Thickness(8, 0);
+        button.CornerRadius = new CornerRadius(0);
+        button.BorderBrush = Brushes.Transparent;
+        button.VerticalContentAlignment = VerticalAlignment.Stretch;
+        // The theme fills a checked or hovered toggle button; this class takes the fill and border away in every state.
+        button.Classes.Add("underline-tab");
+        var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+        var underline = new Border { Name = "AgentTabUnderline", Height = 2, Background = Ui.Accent };
+        var content = new Grid { RowDefinitions = { new RowDefinition(GridLength.Star), new RowDefinition(GridLength.Auto) } };
+        Grid.SetRow(underline, 1);
+        content.Children.Add(text);
+        content.Children.Add(underline);
+        button.Content = content;
+        void Refresh()
+        {
+            underline.IsVisible = button.IsChecked == true;
+            text.Foreground = button.IsChecked == true || button.IsPointerOver ? Ui.TextBrush : Ui.Muted;
+        }
+        button.PropertyChanged += (_, change) =>
+        {
+            if (change.Property == ToggleButton.IsCheckedProperty || change.Property == InputElement.IsPointerOverProperty) Refresh();
+        };
+        Refresh();
+        return button;
     }
 
     private static ToggleButton Chip(string name, string label, Control icon, double height)

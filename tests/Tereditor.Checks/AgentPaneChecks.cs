@@ -117,6 +117,7 @@ internal static class AgentPaneChecks
         Require(pane.GetLogicalDescendants().OfType<ToggleButton>().Count(control => control.Name?.StartsWith("AgentTab_", StringComparison.Ordinal) == true) == 4, "The four tabs are always there.");
         Click(pane, "AgentTab_account");
         Require(shownTabs.Last() == "claude:Account", "Choosing a tab shows it in the agent's content.");
+        ViewTabs(pane);
         codexUsable = false;
         registry.Invalidate("codex");
         pane.Sync();
@@ -168,6 +169,27 @@ internal static class AgentPaneChecks
         Require(!Chips(pane).Contains("claude"), "Disabling a plugin removes its chip.");
         window.Close();
         Console.WriteLine("PASS agent pane: fixed chip order, usable agents only, follow focus, manual choice kept until an agent tab, sub-agent chips follow the chat");
+    }
+
+    // The agent chips are filled pills; the view tabs are plain text with an accent underline under the selected one: no fill, no box.
+    private static void ViewTabs(Control pane)
+    {
+        Dispatcher.UIThread.RunJobs();
+        static Avalonia.Media.IBrush? Fill(ToggleButton button) =>
+            button.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First(part => part.Name == "PART_ContentPresenter").Background;
+        static bool Clear(Avalonia.Media.IBrush? brush) => brush is null || brush is Avalonia.Media.ISolidColorBrush { Color.A: 0 };
+        var tabs = pane.GetLogicalDescendants().OfType<ToggleButton>().Where(control => control.Name?.StartsWith("AgentTab_", StringComparison.Ordinal) == true).ToArray();
+        var chips = pane.GetLogicalDescendants().OfType<ToggleButton>().Where(control => control.Name?.StartsWith("AgentChip_", StringComparison.Ordinal) == true).ToArray();
+        var selected = tabs.Single(tab => tab.IsChecked == true);
+        var chip = chips.Single(control => control.IsChecked == true);
+        static Border Underline(ToggleButton tab) => tab.GetLogicalDescendants().OfType<Border>().Single(part => part.Name == "AgentTabUnderline");
+        Require(tabs.All(tab => Clear(Fill(tab)) && Clear(tab.Background) && Clear(tab.BorderBrush) && tab.BorderThickness == default),
+            "A view tab has no fill and no border, selected or not: " + string.Join(";", tabs.Select(tab => $"{tab.Name} fill={Fill(tab)} ({(Fill(tab) as Avalonia.Media.ISolidColorBrush)?.Color}) bg={tab.Background} border={tab.BorderBrush}/{tab.BorderThickness}")));
+        Require(Underline(selected).IsVisible && tabs.Where(tab => tab != selected).All(tab => !Underline(tab).IsVisible), "Only the selected view tab has the underline.");
+        Require(tabs.All(tab => Underline(tab).Height == 2 && tab.Height == selected.Height), "Every tab reserves the underline's row, so selecting moves nothing.");
+        Require(!Clear(Fill(chip)), "The selected agent chip keeps its fill.");
+        Require(tabs.All(tab => !Equals(Fill(tab), Fill(chip)) && !Equals(tab.Background, Fill(chip))), "No view tab shares the selected chip's fill.");
+        Require(chips.Where(other => other != chip).All(other => Clear(Fill(other))), "Chips that are not selected have no fill.");
     }
 
     internal static void Run(string root)
