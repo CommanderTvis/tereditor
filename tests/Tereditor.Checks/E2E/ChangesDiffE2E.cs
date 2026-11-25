@@ -16,8 +16,12 @@ internal static class ChangesDiffE2E
 {
     private const string LongPath = "packages/server/src/git/diffScopeResolverImplementationForTheChangesPanel.ts";
 
+    private static int runs;
+
     internal static void Run(string root)
     {
+        // The gate runs this class from several cases in one process; a project folder of an earlier run keeps its tabs and Git state, which a new run would meet.
+        root = Path.Combine(root, "diff-run-" + Interlocked.Increment(ref runs));
         if (Source is not { } source)
         {
             Console.WriteLine("SKIP upstream Changes diff viewer: set TEREDITOR_TEST_GIT_SOURCE.");

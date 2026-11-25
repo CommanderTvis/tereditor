@@ -9,8 +9,12 @@ namespace Tereditor.Checks.E2E;
 
 internal static class MarkdownAlertsE2E
 {
+    private static int runs;
+
     internal static void Run(string root)
     {
+        // The gate runs this class from several cases in one process; a project folder of an earlier run keeps its tabs and Git state, which a new run would meet.
+        root = Path.Combine(root, "alerts-run-" + Interlocked.Increment(ref runs));
         using var app = new E2eWorkspace(Path.Combine(root, "markdown-alerts"));
         app.Open("ALERTS.md", true);
         var preview = app.Find<MarkdownPreview>("MarkdownPreview");

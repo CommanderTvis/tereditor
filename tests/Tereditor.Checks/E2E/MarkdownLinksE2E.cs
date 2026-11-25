@@ -16,8 +16,12 @@ internal static class MarkdownLinksE2E
         .Select(inline => inline.Child).OfType<Button>()
         .Single(button => button.Content is TextBlock label && label.Text == title);
 
+    private static int runs;
+
     internal static void Run(string root)
     {
+        // The gate runs this class from several cases in one process; a project folder of an earlier run keeps its tabs and Git state, which a new run would meet.
+        root = Path.Combine(root, "links-run-" + Interlocked.Increment(ref runs));
         using (var app = new E2eWorkspace(Path.Combine(root, "markdown-parent-link")))
         {
             app.ExpandFolder("styles"); app.Open("styles/COLOR.md", true);

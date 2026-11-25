@@ -20,8 +20,12 @@ namespace Tereditor.Checks.E2E;
 /// </summary>
 internal static class RenderedDiffE2E
 {
+    private static int runs;
+
     internal static void Run(string root)
     {
+        // The gate runs this class from several cases in one process; a project folder of an earlier run keeps its tabs and Git state, which a new run would meet.
+        root = Path.Combine(root, "rendered-run-" + Interlocked.Increment(ref runs));
         if (Source is not { } source)
         {
             Console.WriteLine("SKIP upstream rendered Markdown diff: set TEREDITOR_TEST_GIT_SOURCE.");
