@@ -147,5 +147,12 @@
     <Style Selector="TreeViewItem">
       <Setter Property="MinHeight" Value="{x:Static rendering:LayoutRoles.PanelRow}" />
     </Style>
+    <!-- Every icon-only button (Ui.AsIconButton) highlights a chip-radius rectangle inset Ui.IconButtonInset (2) from its edges, so hover, pressed and keyboard focus never touch an edge or divider. -->
+    <Style Selector="Button.icon-button /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Margin" Value="2" />
+    </Style>
+    <Style Selector="Button.icon-button:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{x:Static rendering:Ui.Hover}" />
+    </Style>
   </Application.Styles>
 </Application>

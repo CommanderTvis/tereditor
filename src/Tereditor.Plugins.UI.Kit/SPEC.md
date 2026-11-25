@@ -286,7 +286,7 @@ Themes that replace the selected foreground keep Avalonia's existing styled-sele
 
 | fork `@thinkrail/plugin-ui` | tereditor |
 | --- | --- |
-| shadcn primitives: `button`, `dialog`, `dropdown-menu`, `context-menu`, `tooltip`/`IconTooltip` | `Ui.Button`/`Ui.IconButton` (tooltip and automation name from one string), `DialogWindow`, `Ui.Menu` items in Avalonia `ContextMenu`s |
+| shadcn primitives: `button`, `dialog`, `dropdown-menu`, `context-menu`, `tooltip`/`IconTooltip` | `Ui.Button`/`Ui.IconButton` (tooltip and automation name from one string; an icon button's highlight is a `Ui.ChipRadius` rectangle inset `Ui.IconButtonInset` from its edges, see `Ui.AsIconButton`), `DialogWindow`, `Ui.Menu` items in Avalonia `ContextMenu`s |
 | `popover`, `resizable`, `command`, `textarea` | absent: Avalonia's own `Popup`, `GridSplitter`, `TextBox`; the command palette is the app's `SearchDialog` |
 | `toast` | absent: the app reports through the window's notification line (`IPluginUIContext.Notify`) |
 | `cn`, `menu-styles`, `tokens.css` | the brush tokens on `Ui`; there are no class names to merge |

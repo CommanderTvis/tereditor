@@ -50,9 +50,9 @@ public sealed class AcpUI : PluginUIModule
                 Height = 32,
                 Padding = new Avalonia.Thickness(8),
                 Background = Brushes.Transparent,
-                BorderThickness = new Avalonia.Thickness(0),
-                CornerRadius = new Avalonia.CornerRadius(0)
+                BorderThickness = new Avalonia.Thickness(0)
             };
+            Tereditor.Plugins.UI.Kit.Ui.AsIconButton(button);
             AutomationProperties.SetName(button, Label);
             ToolTip.SetTip(button, Label);
             var menu = new ContextMenu { Name = "AcpLaunchMenu", Placement = PlacementMode.BottomEdgeAlignedLeft };

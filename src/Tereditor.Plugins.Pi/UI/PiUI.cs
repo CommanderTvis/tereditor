@@ -61,9 +61,9 @@ public sealed class PiUI : PluginUIModule
                 Height = 32,
                 Padding = new Avalonia.Thickness(8),
                 Background = Brushes.Transparent,
-                BorderThickness = new Avalonia.Thickness(0),
-                CornerRadius = new Avalonia.CornerRadius(0)
+                BorderThickness = new Avalonia.Thickness(0)
             };
+            Ui.AsIconButton(button);
             AutomationProperties.SetName(button, "New Pi chat");
             ToolTip.SetTip(button, "New Pi chat");
             button.Click += (_, _) =>

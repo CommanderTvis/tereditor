@@ -422,6 +422,8 @@ internal static class UnifiedChromeChecks
             var gear = all.OfType<Button>().SingleOrDefault(button => button.Name == "RailSettingsButton");
             Require(!all.OfType<Button>().Any(button => button.Name == "AppMenuButton"), "There is no three-dots button in the header.");
             double X(Control control) => control.TranslatePoint(default, app.Window)!.Value.X;
+            HoverHighlight(add);
+            if (gear is not null) HoverHighlight(gear);
             if (atLeft)
             {
                 Require(gear is null && Math.Abs(header.Bounds.Width - (X(add) + add.Bounds.Width)) <= 1, "With the window's controls at the left the add button ends the row and there is no gear.");
@@ -434,6 +436,32 @@ internal static class UnifiedChromeChecks
             Console.WriteLine("PASS unified chrome: the first row puts + and the gear at the left when the window controls are not");
         }
         finally { UnifiedChrome.Override = false; UnifiedChrome.ControlsAtLeftOverride = null; }
+    }
+
+    /// <summary>
+    /// An icon button's hover, pressed and focus highlight is the content presenter's rectangle: chip radius, the hover brush, and inset
+    /// from the button's parent edges by at least the icon-button inset, so it never touches the window edge or a divider.
+    /// </summary>
+    private static void HoverHighlight(Button button)
+    {
+        var name = button.Name;
+        var presenter = button.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First(part => part.Name == "PART_ContentPresenter");
+        var parent = (Control)button.Parent!;
+        foreach (var state in new[] { ":pointerover", ":pressed" })
+        {
+            ((Avalonia.Controls.IPseudoClasses)button.Classes).Set(state, true);
+            Dispatcher.UIThread.RunJobs(); button.UpdateLayout();
+            var shown = presenter.Background as Avalonia.Media.ISolidColorBrush;
+            Require(shown is not null && shown.Color == Tereditor.Plugins.UI.Kit.Ui.Hover.Color, $"{name}: the {state} highlight paints the shared hover brush, not {presenter.Background}.");
+            ((Avalonia.Controls.IPseudoClasses)button.Classes).Set(state, false);
+        }
+        Require(presenter.CornerRadius == Tereditor.Plugins.UI.Kit.Ui.ChipRadius, $"{name}: the highlight has radius {presenter.CornerRadius}, not the chip radius.");
+        var origin = presenter.TranslatePoint(default, parent)!.Value;
+        var inset = Tereditor.Plugins.UI.Kit.Ui.IconButtonInset;
+        Require(origin.X >= inset && origin.Y >= inset && parent.Bounds.Width - (origin.X + presenter.Bounds.Width) >= inset && parent.Bounds.Height - (origin.Y + presenter.Bounds.Height) >= inset,
+            $"{name}: the highlight {origin.X:0.#},{origin.Y:0.#} {presenter.Bounds.Width:0.#}x{presenter.Bounds.Height:0.#} sits closer than {inset} px to its parent's {parent.Bounds.Width:0.#}x{parent.Bounds.Height:0.#} edges.");
+        Require(button.FocusAdorner is null, $"{name}: the theme's square focus rectangle is off.");
+        Console.WriteLine($"PASS unified chrome: {name}'s highlight is rounded, inset and uses the hover brush");
     }
 
     private static void Window(string directory)

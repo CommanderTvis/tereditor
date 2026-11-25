@@ -644,6 +644,8 @@ Tereditor.Plugins.UI.Kit.ActionIcons
 static Tereditor.Plugins.UI.Kit.ActionIcons.All.get -> System.Collections.Generic.IReadOnlyList<(Tereditor.Plugins.UI.Kit.ActionIcon Icon, string! Asset)>!
 static Tereditor.Plugins.UI.Kit.ActionIcons.Asset(Tereditor.Plugins.UI.Kit.ActionIcon icon) -> string!
 static Tereditor.Plugins.UI.Kit.ActionIcons.Create(Tereditor.Plugins.UI.Kit.ActionIcon icon, Avalonia.Media.IBrush? color = null, double size = 14) -> Avalonia.Controls.Control!
+static Tereditor.Plugins.UI.Kit.Ui.AsIconButton(Avalonia.Controls.Button! button) -> void
+const Tereditor.Plugins.UI.Kit.Ui.IconButtonInset = 2 -> double
 static Tereditor.Plugins.UI.Kit.Ui.IconMenu(string! label, System.Action! action, Tereditor.Plugins.UI.Kit.ActionIcon icon, bool enabled = true) -> Avalonia.Controls.MenuItem!
 Tereditor.Plugins.UI.Kit.Markdown.FrontmatterEditor
 Tereditor.Plugins.UI.Kit.Markdown.FrontmatterEditor.FrontmatterEditor(Tereditor.Plugins.UI.Kit.Markdown.FrontmatterBlock! block, System.Action<System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.UI.Kit.Markdown.FrontmatterProperty!>!>! commit, System.Func<string!, System.Collections.Generic.IEnumerable<string!>?>? suggestions = null) -> void

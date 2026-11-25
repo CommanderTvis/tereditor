@@ -290,6 +290,21 @@ public static partial class Ui
         };
     }
 
+    /// <summary>
+    /// Gives an icon-only button the app's one highlight: hover, pressed and keyboard focus paint a <see cref="ChipRadius"/> rounded rectangle
+    /// inset <see cref="IconButtonInset"/> from the button's edges (the "icon-button" style in App.axaml), so it never touches an edge or divider.
+    /// </summary>
+    public static void AsIconButton(Button button)
+    {
+        button.Classes.Add("icon-button");
+        button.CornerRadius = ChipRadius;
+        // The focus highlight is the rounded one the style paints; the theme's square focus rectangle would touch the edges.
+        button.FocusAdorner = null;
+    }
+
+    /// <summary>The gap between an icon button's highlight and the button's own edges.</summary>
+    public const double IconButtonInset = 2;
+
     public static Button IconButton(string icon, string tooltip, Action action)
     {
         var button = new Button
@@ -299,9 +314,9 @@ public static partial class Ui
             Height = 32,
             Padding = new Thickness(0),
             Background = Brushes.Transparent,
-            BorderThickness = new(0),
-            CornerRadius = new(0)
+            BorderThickness = new(0)
         };
+        AsIconButton(button);
         ((Border)button.Content!).Bind(Border.BackgroundProperty, button.GetObservable(TemplatedControl.ForegroundProperty));
         ToolTip.SetTip(button, tooltip);
         AutomationProperties.SetName(button, tooltip);

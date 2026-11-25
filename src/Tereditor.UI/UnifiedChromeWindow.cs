@@ -42,9 +42,9 @@ public sealed partial class WorkbenchWindow
                 Padding = new Thickness(0),
                 Background = Avalonia.Media.Brushes.Transparent,
                 BorderThickness = new Thickness(0),
-                CornerRadius = new CornerRadius(0),
                 VerticalAlignment = VerticalAlignment.Center
             };
+            Ui.AsIconButton(gear);
             ((Border)gear.Content!).Bind(Border.BackgroundProperty, gear.GetObservable(Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty));
             ToolTip.SetTip(gear, "Settings"); AutomationProperties.SetName(gear, "Settings");
             gear.Click += (_, _) => ShowSettings();

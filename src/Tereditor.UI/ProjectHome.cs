@@ -225,7 +225,7 @@ public sealed partial class WorkbenchWindow
         create.Name = "CreateProjectMenu";
         menu.Items.Add(create);
         menu.Items.Add(Ui.IconMenu("Open project", () => _ = PickProjectAsync(), ActionIcon.OpenFolder));
-        menu.Items.Add(Ui.IconMenu(remote ? "Enter host path…" : "Enter path…", () => _ = EnterHostPathAsync(null), ActionIcon.EnterPath));
+        menu.Items.Add(Ui.Menu(remote ? "Enter host path…" : "Enter path…", () => _ = EnterHostPathAsync(null)));
         var clone = Ui.IconMenu("Clone repository…", CloneProject, ActionIcon.Clone);
         clone.Name = "CloneProjectMenu";
         menu.Items.Add(clone);

@@ -239,9 +239,9 @@ internal static class ClaudeLauncherAction
             Height = 32,
             Padding = new Thickness(8),
             Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(0)
+            BorderThickness = new Thickness(0)
         };
+        Ui.AsIconButton(button);
         anchor = button;
         Avalonia.Automation.AutomationProperties.SetName(button, "Start Claude Code");
         var menu = new ContextMenu { Name = "ClaudeLaunchMenu", Placement = PlacementMode.BottomEdgeAlignedLeft };
