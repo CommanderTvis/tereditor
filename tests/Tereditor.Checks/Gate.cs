@@ -41,10 +41,10 @@ internal readonly record struct Unfinished(int Ordinal, Shard Shard, string Name
 }
 
 /// <summary>Which cases one process runs: its shard, narrowed by named cases or by what the last run left unfinished.</summary>
-internal sealed record Selection(Shard Shard, IReadOnlyList<Unfinished>? Repair = null, IReadOnlySet<string>? Only = null)
+internal sealed record Selection(Shard Shard, IReadOnlyList<Unfinished>? Repair = null, IReadOnlySet<string>? Only = null, CaseLane? Lane = null)
 {
-    internal bool Selects(string name, int ordinal)
-        => Shard.Owns(ordinal) && Only?.Contains(name) != false && Repair?.Any(entry => (entry.Exact ? ordinal == entry.Ordinal : ordinal >= entry.Ordinal) && entry.Shard.Owns(ordinal)) != false;
+    internal bool Selects(string name, int ordinal, bool slow = false)
+        => Shard.Owns(ordinal) && Lane switch { CaseLane.Merge => !slow, CaseLane.Slow => slow, _ => true } && Only?.Contains(name) != false && Repair?.Any(entry => (entry.Exact ? ordinal == entry.Ordinal : ordinal >= entry.Ordinal) && entry.Shard.Owns(ordinal)) != false;
 
     /// <summary>
     /// What a later repair run must cover after this one stopped at <paramref name="failed"/>: that case and
@@ -58,6 +58,9 @@ internal sealed record Selection(Shard Shard, IReadOnlyList<Unfinished>? Repair 
             : [.. Repair.Select(entry => entry.Ordinal >= at.Ordinal ? entry : entry with { Ordinal = at.Ordinal, Name = at.Name })];
     }
 }
+
+/// <summary>Which cases a run takes: the fast ones that gate a merge, or the slow ones that run on a schedule or by dispatch. No lane means every case.</summary>
+internal enum CaseLane { Merge, Slow }
 
 /// <summary>
 /// Names the gate's cases and decides which of them this process runs. Code outside a case is shared
@@ -103,13 +106,14 @@ internal static class Gate
         selection = cases; listing = list; keepGoing = continueAfterFailure; orderSeed = seed;
     }
 
-    internal static void Case(string name, Action body)
+    /// <summary>Registers a case. A <paramref name="slow"/> case still takes its ordinal, so no shard changes; only the Slow lane (nightly.yml, slow.yml) and a run without a lane take it.</summary>
+    internal static void Case(string name, Action body, bool slow = false)
     {
         if (!seen.Add(name)) throw new InvalidOperationException("Duplicate gate case: " + name);
         var index = ordinal++;
         if (selection.Repair?.FirstOrDefault(entry => entry.Ordinal == index) is { Name: { } expected } && expected != Unfinished.Setup && expected != name)
             throw new InvalidOperationException($"The case list changed since the failed run ({expected} is now {name}); run the whole gate.");
-        if (!selection.Selects(name, index)) { skipped++; return; }
+        if (!selection.Selects(name, index, slow)) { skipped++; return; }
         if (listing) { Console.WriteLine("CASE " + name); return; }
         // With a seed the cases are only collected here (shared setup between them has run by then) and RunDeferred runs them shuffled.
         if (orderSeed is not null) { deferred.Add((index, name, body)); return; }

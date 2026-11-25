@@ -136,6 +136,9 @@ internal static class RunnerChecks
         Require(Chosen(new(Shard.Whole, both.Remaining((6, "c6")))).SequenceEqual([6, 7, 9]), "A failed repair must keep every lane's remainder.");
         Require(Chosen(new(Shard.Whole, second.Remaining(null))).SequenceEqual([1, 4, 7]), "A lane that failed in setup owes its whole shard.");
         Require(Chosen(new(Shard.Whole, Only: new HashSet<string> { "c2", "c9" })).SequenceEqual([2, 9]), "Named cases must select only themselves.");
+        int[] Lane(CaseLane? lane) => [.. Enumerable.Range(0, 6).Where(ordinal => new Selection(Shard.Whole, Lane: lane).Selects("c" + ordinal, ordinal, slow: ordinal % 3 == 2))];
+        Require(Lane(CaseLane.Merge).SequenceEqual([0, 1, 3, 4]) && Lane(CaseLane.Slow).SequenceEqual([2, 5]) && Lane(null).Length == 6, "The merge lane must take the fast cases, the slow lane the slow ones, and no lane every case.");
+        Require(new Selection(Shard.Whole, Lane: CaseLane.Merge).Selects("c2", 2, slow: false) && Chosen(new(new(2, 3), Lane: CaseLane.Merge)).SequenceEqual([1, 4, 7]), "A lane must not change which shard owns a case.");
         Require(Unfinished.Parse(afterFour[0].ToString()) == afterFour[0], "The last-run record must round-trip.");
     }
 
@@ -153,9 +156,13 @@ internal static class RunnerChecks
         Rejects(null, "--lanes", "17");
         Rejects(null, "--lanes");
         Rejects(null, "--lanes", "2", "--terminals");
+        Rejects(null, "--lane", "fast");
+        Rejects(null, "--lane");
+        Rejects(null, "--lane", "slow", "--terminals");
         Rejects(null, "--last-failed", "--lanes", "2");
         Rejects("2/3", "--last-failed");
         Rejects("3/2");
+        Require(RunnerOptions.Parse(["--lane", "slow", "--lanes", "2"], null) is { Lane: CaseLane.Slow, Lanes: 2 }, "A case lane must compose with process lanes.");
         var plain = RunnerOptions.Parse(["--terminals"], null);
         Require(plain is { Lanes: 1, Shard: null, Job: null, LastFailed: false, Cases: null } && plain.Rest.SequenceEqual(["--terminals"]),
             "A focused mode must reach the gate untouched.");

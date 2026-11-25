@@ -1678,10 +1678,10 @@ internal static class Program
         Gate.Case("intellij-maven", () => IntelliJMavenChecks.Run(root));
         Gate.Case("language-stall", LanguageStallChecks.Run);
         Gate.Case("language-catalog", () => LanguageCatalogChecks.Run(root).GetAwaiter().GetResult());
-        Gate.Case("language-on-demand", () => { LanguageOnDemandChecks.Run(root).GetAwaiter().GetResult(); LanguageOnDemandChecks.Lifetime(root).GetAwaiter().GetResult(); LanguageFreshnessChecks.Run(root).GetAwaiter().GetResult(); LanguageOnDemandChecks.CloneWait(root).GetAwaiter().GetResult(); EditDiagnosticsChecks.Run(root).GetAwaiter().GetResult(); });
-        Gate.Case("language-refactoring", () => LanguageRefactoringChecks.Run(root).GetAwaiter().GetResult());
-        Gate.Case("language-exit", () => LanguageExitChecks.Run(root).GetAwaiter().GetResult());
-        Gate.Case("language-limits", () => LanguageLimitChecks.Run(root).GetAwaiter().GetResult());
+        Gate.Case("language-on-demand", () => { LanguageOnDemandChecks.Run(root).GetAwaiter().GetResult(); LanguageOnDemandChecks.Lifetime(root).GetAwaiter().GetResult(); LanguageFreshnessChecks.Run(root).GetAwaiter().GetResult(); LanguageOnDemandChecks.CloneWait(root).GetAwaiter().GetResult(); EditDiagnosticsChecks.Run(root).GetAwaiter().GetResult(); }, slow: true);
+        Gate.Case("language-refactoring", () => LanguageRefactoringChecks.Run(root).GetAwaiter().GetResult(), slow: true);
+        Gate.Case("language-exit", () => LanguageExitChecks.Run(root).GetAwaiter().GetResult(), slow: true);
+        Gate.Case("language-limits", () => LanguageLimitChecks.Run(root).GetAwaiter().GetResult(), slow: true);
         Gate.Case("hosts", () => CheckHosts(root).GetAwaiter().GetResult());
         Gate.Case("terminal-commit-links", () => TerminalCommitLinkChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("terminal-links", () => TerminalFileLinkChecks.Run(root).GetAwaiter().GetResult());
@@ -1801,7 +1801,7 @@ internal static class Program
         // Placed in triples (shard 3, 1, 2) by the cost the CI timings show: shard 1 already carries claude-chat-ui (20 minutes), so it gets the cheap ones; the heavy ones go to shard 2.
         // These run after UiChecks.Run has started the headless Avalonia app on this thread, so an async host check runs through RunPumped: blocking on it here would deadlock whatever it posts to the dispatcher.
         // The Metal renderers of --terminal-links open a real window (see --native-terminal-links), so terminal-links-ui leaves them out.
-        Gate.Case("lsp-settings", () => LanguageChecks.SettingsChecks(root));
+        Gate.Case("lsp-settings", () => LanguageChecks.SettingsChecks(root), slow: true);
         Gate.Case("agent-session-ownership", () => RunPumped(() => AgentSessionOwnershipChecks.Run(root)));
         Gate.Case("documents", () => ResourceChecks.RunDocuments(root));
         Gate.Case("claude-code-launcher", () => ClaudeCodeChecks.Launcher(root));

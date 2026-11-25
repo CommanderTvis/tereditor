@@ -330,6 +330,11 @@ internal static partial class CiCoverageChecks
             var path = Path.Combine(checkout, ".github", "workflows", name);
             return File.Exists(path) ? File.ReadAllText(path) : null;
         });
+        // A slow case leaves the merge gate, never the suite: a scheduled run and a dispatchable one must take the Slow lane, and the gate must take the Merge lane.
+        if (File.ReadAllText(Path.Combine(checks, "UiChecks.cs")).Contains("slow: true", StringComparison.Ordinal) || program.Contains("slow: true", StringComparison.Ordinal))
+            foreach (var (name, lane) in new[] { ("nightly.yml", "--lane slow"), ("slow.yml", "--lane slow"), ("ci.yml", "--lane merge") })
+                if (!File.Exists(Path.Combine(checkout, ".github", "workflows", name)) || !File.ReadAllText(Path.Combine(checkout, ".github", "workflows", name)).Contains(lane, StringComparison.Ordinal))
+                    problems.Add($"Gate cases are marked slow, but {name} has no \"{lane}\" run: they would never run.");
         if (problems.Count > 0) throw new InvalidOperationException("Check modes and CI disagree:\n" + string.Join('\n', problems));
         Console.WriteLine($"PASS ci coverage: {modes.Count} modes, {Modes.Values.OfType<Gated>().Count()} in the gate, {Modes.Values.OfType<Job>().Count() + Modes.Values.OfType<Matrix>().Count()} in a CI job, {Modes.Values.OfType<Exempt>().Count()} exempt");
     }

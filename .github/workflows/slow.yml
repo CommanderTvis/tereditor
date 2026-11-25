@@ -8,7 +8,7 @@ on:
       suite:
         description: Which suite to run
         type: choice
-        options: [browser, native-macos, all]
+        options: [browser, native-macos, slow-cases, all]
         default: browser
 
 permissions:
@@ -23,6 +23,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The gate cases marked slow (Gate.Case(..., slow: true)): the language server cases beyond the host contract that ci.yml's gate keeps
+  # (docs/develop/agent-reference.md, Gate options). ci.yml runs --lane merge; this runs the rest, so nothing is left unrun.
+  slow-cases:
+    if: inputs.suite == 'slow-cases' || inputs.suite == 'all'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.local/share/mise
+            ~/.cache/tereditor
+            !~/.cache/tereditor/ghostty-avalonia
+            !~/.cache/tereditor/zig
+          key: tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/tereditor/ghostty-avalonia
+            ~/.cache/tereditor/zig
+          key: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('src/Ghostty.Avalonia/Native/**', 'scripts/build-ghostty-*.cs', 'scripts/lib/Native.cs', 'scripts/lib/Tasks.cs', 'mise.toml') }}
+          restore-keys: ghostty-v1-${{ runner.os }}-${{ runner.arch }}-
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/packages.lock.json', 'Directory.Packages.props') }}
+      - run: |
+          git config --global user.name CI
+          git config --global user.email ci@example.invalid
+          git config --global init.defaultBranch main
+      - env:
+          TEREDITOR_CHECKS_KEEP_GOING: "1"
+          TEREDITOR_CHECKS_RESULTS: ${{ runner.temp }}/checks-results
+          TEREDITOR_CHECKS_ROOT: ${{ runner.temp }}/checks-fixtures
+        run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Slow gate cases" sh scripts/mise run check -- --lane slow
+      - if: failure()
+        uses: ./.github/actions/diagnostics
+        with:
+          name: slow-cases
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: check-fixtures-slow
+          path: ${{ runner.temp }}/checks-fixtures
+          if-no-files-found: ignore
+          retention-days: 7
   # The WASM client in Chromium through Playwright: native selection, browser acceptance (Settings overlay, prose, Mermaid,
   # PDF), local approval and terminal hover (`scripts/mise run browser check`, see scripts/README.md). Not part of CI.
   browser:

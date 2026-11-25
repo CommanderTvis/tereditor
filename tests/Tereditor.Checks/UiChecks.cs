@@ -85,7 +85,7 @@ internal static class UiChecks
     {
         Gate.Case("context-consent-ui", () => AirContextChecks.Ui(root));
         Gate.Case("tereditor-exclude-ui", () => TereditorExcludeChecks.Ui(root));
-        Gate.Case("language-editor", () => LanguageChecks.UiChecks(root));
+        Gate.Case("language-editor", () => LanguageChecks.UiChecks(root), slow: true);
         Gate.Case("ProjectsE2E", () => E2E.ProjectsE2E.Run(root));
         Gate.Case("windows-ui", () => WindowsChecks.RunUi(root));
         Gate.Case("gitless-panes", () => GitlessPaneChecks.Run(root));

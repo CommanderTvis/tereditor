@@ -92,7 +92,7 @@ jobs:
           # A TRX per process, and the fixtures of a failed run, are uploaded below.
           TEREDITOR_CHECKS_RESULTS: ${{ runner.temp }}/checks-results
           TEREDITOR_CHECKS_ROOT: ${{ runner.temp }}/checks-fixtures
-        run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Checks ${{ matrix.mode }} ${{ matrix.shard }}" sh scripts/mise run check ${{ matrix.mode != 'full' && format('-- --{0}', matrix.mode) || '' }}
+        run: sh scripts/mise x -- dotnet run --file scripts/ci-run.cs -- "Checks ${{ matrix.mode }} ${{ matrix.shard }}" sh scripts/mise run check ${{ matrix.mode != 'full' && format('-- --{0}', matrix.mode) || '-- --lane merge' }}
       - if: failure()
         uses: ./.github/actions/diagnostics
         with:
