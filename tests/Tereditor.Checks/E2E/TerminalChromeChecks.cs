@@ -163,24 +163,29 @@ internal static class TerminalChromeChecks
     private static void TabTooltip(string root)
     {
         using var app = new E2eWorkspace(Path.Combine(root, "tab-tooltip"));
-        // Projects tabs form a vertical list; their tooltips open beside the tab bounds.
+        // A tab's tooltip opens below its row, never over the row's own close button, and never shows an internal id.
         app.Open("README.md", true);
         var tab = app.Tab("README.md");
         var tip = (ToolTip)ToolTip.GetTip(tab)!;
+        Require(DockSurface.TabTip(new DockTab("plugin:pi-chat:chat-3eec1ba04a77", "Pi", "plugin", "pi-chat:chat-3eec1ba04a77"), "Pi") == "Pi" &&
+            !((string)tip.Content!).Contains("pi-chat:", StringComparison.Ordinal), "A plugin tab's tooltip must be its title, not an internal id.");
         var bottom = tab.TranslatePoint(new Point(tab.Bounds.Width / 2, tab.Bounds.Height), app.Window)!.Value;
         app.Window.MouseMove(bottom - new Vector(0, 2));
         Until(() => ToolTip.GetIsOpen(tab)); Settle();
         var tooltipRoot = TopLevel.GetTopLevel(tip)!;
-        var position = tip.TranslatePoint(default, tooltipRoot)!.Value;
-        var screen = tooltipRoot.PointToScreen(position);
-        var tabRight = app.Window.PointToScreen(tab.TranslatePoint(new Point(tab.Bounds.Width, 0), app.Window)!.Value);
-        Require(ToolTip.GetPlacement(tab) == PlacementMode.Right && screen.X >= tabRight.X && screen.X <= tabRight.X + 8,
-            "The tooltip must sit immediately beside the Projects tab, independently of the pointer position.");
-        var expectedX = screen.X;
-        app.Window.MouseMove(tab.TranslatePoint(new Point(6, 2), app.Window)!.Value); Settle();
-        Require(tooltipRoot.PointToScreen(tip.TranslatePoint(default, tooltipRoot)!.Value).X == expectedX,
-            "Moving across a tab must not move its tooltip horizontally with the pointer.");
-        Console.WriteLine("PASS tab tooltip follows the tab bounds rather than the pointer");
+        var screen = tooltipRoot.PointToScreen(tip.TranslatePoint(default, tooltipRoot)!.Value);
+        var row = tab.GetVisualAncestors().OfType<Grid>().First(grid => grid.GetLogicalDescendants().OfType<Button>().Any(item => item.Name == "CloseTab"));
+        var close = row.GetLogicalDescendants().OfType<Button>().Single(item => item.Name == "CloseTab");
+        var closeTopLeft = app.Window.PointToScreen(close.TranslatePoint(default, app.Window)!.Value);
+        var closeBottomRight = app.Window.PointToScreen(close.TranslatePoint(new Point(close.Bounds.Width, close.Bounds.Height), app.Window)!.Value);
+        var tipBottomRight = new PixelPoint(screen.X + (int)Math.Ceiling(tip.Bounds.Width), screen.Y + (int)Math.Ceiling(tip.Bounds.Height));
+        var overlaps = screen.X < closeBottomRight.X && tipBottomRight.X > closeTopLeft.X && screen.Y < closeBottomRight.Y && tipBottomRight.Y > closeTopLeft.Y;
+        Require(ToolTip.GetPlacement(tab) == PlacementMode.BottomEdgeAlignedLeft && !overlaps,
+            "The tab tooltip must open below the row and never cover its close button.");
+        app.Window.MouseMove(close.TranslatePoint(new Point(close.Bounds.Width / 2, close.Bounds.Height / 2), app.Window)!.Value);
+        Until(() => !ToolTip.GetIsOpen(tab)); Settle();
+        Require(!ToolTip.GetIsOpen(tab) && Equals(ToolTip.GetTip(close), "Close"), "Over the close button the row tooltip must give way to the button's own Close tip.");
+        Console.WriteLine("PASS tab tooltip describes the tab and stays clear of its close button");
     }
 
     private static void TabHover(string root)

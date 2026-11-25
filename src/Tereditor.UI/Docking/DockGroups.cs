@@ -323,9 +323,8 @@ public sealed partial class DockSurface
                 modifiedUpdates.Add(() => ShowClose(close.Opacity == 1));
                 ShowClose(false);
             }
-            ToolTip.SetTip(button, new ToolTip { Content = tab.Path.Length > 0 ? tab.Path : Session.ToolTitle(tab) });
-            ToolTip.SetPlacement(button, vertical ? PlacementMode.Right : PlacementMode.Bottom);
-            ToolTip.SetVerticalOffset(button, 4);
+            // The shared placement opens it below the row, so it never covers the row's close button; the close button has its own tip.
+            ToolTip.SetTip(button, new ToolTip { Content = TabTip(tab, Session.ToolTitle(tab)) });
             AutomationProperties.SetName(button, Session.ToolTitle(tab));
             button.IsTabStop = tab.Id == selected?.Id;
             button.Click += (_, _) =>
@@ -630,6 +629,9 @@ public sealed partial class DockSurface
         empty.VerticalAlignment = VerticalAlignment.Center;
         return empty;
     }
+
+    /// <summary>What a tab's tooltip says: a file's path, otherwise its title. A plugin document's path is an internal id, so it never shows.</summary>
+    internal static string TabTip(DockTab tab, string title) => tab.Kind != "plugin" && tab.Path.Length > 0 ? tab.Path : title;
 
     private string ToolIcon(DockTab tab) => tab.Kind == "terminal" ? "terminal" : tab.Kind is "diff" or "changes" ? "fileDiff" :
         tab.IsTool ? Session.Tool(tab.Id)?.Icon ?? "puzzle" : "fileText";

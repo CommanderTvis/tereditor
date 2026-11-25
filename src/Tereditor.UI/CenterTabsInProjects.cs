@@ -298,7 +298,7 @@ public sealed partial class WorkbenchWindow
         }
         button.Click += (_, _) => OpenTab();
         AutomationProperties.SetName(button, tab.Title);
-        ToolTip.SetTip(button, (external ? "Outside workspace\n" : "") + (tab.Path.Length > 0 ? tab.Path : tab.Title));
+        ToolTip.SetTip(button, (external ? "Outside workspace\n" : "") + DockSurface.TabTip(tab, tab.Title));
         if (workbench.Touch)
         {
             button.IsHitTestVisible = false;
