@@ -42,7 +42,7 @@ internal sealed class PiConfigPanel : DockPanel
         // Early support covers all of Pi, so the badge sits beside the title above every tab, as on omp's pane.
         var heading = new StackPanel { Name = "PiHeading", Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4, 8, 0) };
         heading.Children.Add(Ui.Text("Pi", Ui.TextBrush, 13));
-        heading.Children.Add(new Border { Name = "PiEarlyBadge", Background = Ui.WarningWash, CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 0), Child = Ui.Text("Early support", Ui.Warning, 11) });
+        heading.Children.Add(new Border { Name = "PiEarlyBadge", Background = Ui.WarningWash, CornerRadius = new CornerRadius(4), Padding = new Thickness(4, 0), Child = Ui.Text("Early support", Ui.Warning, 10) });
         SetDock(heading, Dock.Top);
         Children.Add(heading);
         var hint = Ui.Text("Click a row to open its file", Ui.Hint, 12);
