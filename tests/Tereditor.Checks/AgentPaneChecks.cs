@@ -129,6 +129,11 @@ internal static class AgentPaneChecks
         Require(Checked(pane) == "codex", "Focusing a file keeps the last chip.");
         Click(pane, "AgentChip_claude");
         Require(Checked(pane) == "claude", "A chip click shows that agent even while a Codex tab was last focused.");
+        var selected = pane.GetLogicalDescendants().OfType<ToggleButton>().Single(control => control.Name == "AgentChip_claude");
+        selected.IsChecked = false; // a real click toggles the button before Click is raised
+        Click(pane, "AgentChip_claude");
+        Require(Checked(pane) == "claude" && selected.IsChecked == true, "Clicking the selected chip keeps it selected.");
+        Require(pane.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "AgentTab_context"), "Clicking the selected chip keeps its content shown.");
         focus = ("w|3", new FileTabRef("/w", EditorKind.File, "b.cs")); pane.Sync();
         Require(Checked(pane) == "claude", "A manual choice survives focus moving to a non-agent tab.");
         focus = ("w|1", new TerminalTabRef("/w", "codex-tab")); pane.Sync();

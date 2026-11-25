@@ -171,6 +171,8 @@ internal sealed class AgentPane : DockPanel
                 chips.Children.Add(chip);
             }
         }
+        // A click toggles the button before this runs; the shown chip stays checked, so clicking it again changes nothing.
+        foreach (var chip in chips.Children.OfType<ToggleButton>()) chip.IsChecked = Equals(chip.Tag, shownChip);
         chips.IsVisible = offered.Count > 0;
         strip.IsVisible = offered.Count > 0;
         foreach (var segment in tabs.Children.OfType<ToggleButton>()) segment.IsChecked = Equals(segment.Tag, state.Tab);
