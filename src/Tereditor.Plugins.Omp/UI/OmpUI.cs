@@ -16,11 +16,13 @@ namespace Tereditor.Plugins.Omp.UI;
 public sealed class OmpUI : PluginUIModule
 {
     /// <summary>The launch line with this host's settings; every new launch gets its own session folder.</summary>
-    public static string LaunchLine(IPluginUIContext context, LauncherCommandOptions options)
+    public static string LaunchLine(IPluginUIContext context, LauncherCommandOptions options, OmpStatus? status = null)
     {
         var settings = context.Settings<OmpSettings>();
         var resume = options.ResumeSessionId;
-        return OmpLaunch.Line(settings.Command, new()
+        // The managed omp starts through the program the host wrote for it, which keeps the word "omp" other plugins' launch contributions look for.
+        var executable = status is { Source: OmpSources.Managed, LaunchCommand: { Length: > 0 } program } ? OmpLaunch.ManagedExecutable(program) : settings.Command;
+        return OmpLaunch.Line(executable, new()
         {
             Mcp = settings.Mcp,
             Windows = context.Host().HostPlatform == HostPlatform.Windows,
@@ -42,18 +44,63 @@ public sealed class OmpUI : PluginUIModule
     {
         OmpStatus? status = null;
         OmpGlyph.Reset();
-        context.SettingsSection(new("omp", OmpManifest.Icon, () => new OmpSettingsView(context)));
+        // The state is read on the UI thread, where launches and the availability read it.
+        void Apply(OmpStatus read)
+        {
+            if (Dispatcher.UIThread.CheckAccess()) { status = read; context.Invalidate(); }
+            else Dispatcher.UIThread.Post(() => { status = read; context.Invalidate(); });
+        }
+        async Task<OmpStatus?> Probe()
+        {
+            try
+            {
+                var read = await context.RequestAsync(OmpContract.Status, new OmpNoParams());
+                Apply(read);
+                return read;
+            }
+            catch (Exception) { return null; }
+        }
+        // A managed omp that is not downloaded yet downloads before its first start (the page shows the progress); a failure says why and the start is skipped.
+        async Task<OmpStatus?> Prepare()
+        {
+            var current = await Probe();
+            if (current is { Source: OmpSources.Managed, Installed: false, Usable: true })
+            {
+                context.Notify(PluginNotificationKind.Info, $"Downloading omp {current.PinnedVersion}…");
+                try { current = await context.RequestAsync(OmpContract.Install, new OmpNoParams()); }
+                catch (Exception) { current = null; }
+                if (current is not null) Apply(current);
+                if (current is not { Installed: true })
+                {
+                    context.Notify(PluginNotificationKind.Error, current is { Error.Length: > 0 } ? current.Error : "omp could not be downloaded");
+                    return null;
+                }
+            }
+            return current;
+        }
+        context.SettingsSection(new("omp", OmpManifest.Icon, () => new OmpSettingsView(context, () => status, Apply)));
+        // The source, the command and the profile all change what a launch runs, so the state is read again.
+        var settingsWatch = context.OnSettings<OmpSettings>(changed => _ = Probe());
         context.AgentPane(new(OmpManifest.Id, "omp", OmpManifest.Icon, workspace => OmpPanel.Create(context, workspace))
         {
-            Usable = () => status is not { Installed: false },
+            Usable = () => status is not { Usable: false },
             Owns = tab => tab is TerminalTabRef terminal && context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
                 .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == OmpManifest.Id,
             Retarget = OmpPanel.Retarget,
             ShowTab = OmpPanel.ShowTab
         });
-        context.Launcher(new AgentLauncher(OmpManifest.Id, "omp", OmpManifest.Icon, options => LaunchLine(context, options),
-            () => LauncherAvailability.Of(context.AgentLaunchContributions(OmpManifest.Id), status is { Installed: false } ? "omp is not installed; see " + OmpLaunch.InstallUrl : null, status?.Installed))
+        context.Launcher(new AgentLauncher(OmpManifest.Id, "omp", OmpManifest.Icon, options => LaunchLine(context, options, status),
+            () => status is null && context.Settings<OmpSettings>().Source != OmpSources.System
+                ? new LauncherAvailability(false, "omp is still being checked.")
+                : LauncherAvailability.Of(context.AgentLaunchContributions(OmpManifest.Id),
+                    status is { Usable: false } ? status.Source == OmpSources.Managed ? status.Detail : "omp is not installed; see " + OmpLaunch.InstallUrl : null, status?.Usable))
         {
+            // Core's Create-workspace and Project Home starts call this first: the download finishes before the terminal line is built.
+            Open = async (workspace, options) =>
+            {
+                await Prepare();
+                return false;
+            },
             CreateIcon = (size, color) => new OmpGlyph(context, size, color as ISolidColorBrush),
             Models = () => [.. OmpLaunch.ModelSuggestions.Select(model => new LauncherModel(model, model))]
         });
@@ -71,7 +118,11 @@ public sealed class OmpUI : PluginUIModule
             };
             AutomationProperties.SetName(button, "Start omp");
             ToolTip.SetTip(button, "Start omp (early support)");
-            button.Click += (_, _) => _ = context.OpenTerminalAsync(workspace, new() { Command = LaunchLine(context, new()), GroupId = group }).AsTask();
+            button.Click += async (_, _) =>
+            {
+                if (await Prepare() is not { } ready) return;
+                await context.OpenTerminalAsync(workspace, new() { Command = LaunchLine(context, new(), ready), GroupId = group });
+            };
             return button;
         }));
         context.WatchHost(host => string.Join("\n", host.Terminals.SelectMany(pair =>
@@ -83,16 +134,6 @@ public sealed class OmpUI : PluginUIModule
             _ => null
         });
         _ = Probe();
-        return null;
-
-        async Task Probe()
-        {
-            try
-            {
-                var read = await context.RequestAsync(OmpContract.Status, new OmpNoParams());
-                Dispatcher.UIThread.Post(() => { status = read; context.Invalidate(); });
-            }
-            catch (Exception) { }
-        }
+        return () => settingsWatch.Dispose();
     }
 }

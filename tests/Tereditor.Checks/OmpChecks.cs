@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 
@@ -15,6 +16,7 @@ using Tereditor.Host.Client;
 using Tereditor.Host.Protocol;
 using Tereditor.Host.Remote;
 using Tereditor.Plugins.Api;
+using Tereditor.Plugins.Api.Host;
 using Tereditor.Plugins.Omp;
 using Tereditor.Plugins.Omp.Host;
 using Tereditor.Plugins.UI.Kit;
@@ -60,9 +62,10 @@ internal static class OmpChecks
         Profile(Path.Combine(root, "omp-profile"));
         await SetupWizard(Path.Combine(root, "omp-wizard"));
         await Version(Path.Combine(root, "omp-version"));
+        await Managed(Path.Combine(root, "omp-managed"));
         Processes();
         Sessions(Path.Combine(root, "omp-sessions"));
-        Console.WriteLine("PASS omp host: launch line, context files and imports, profile MCP file, setup wizard switch, version and missing binary, detection, sessions");
+        Console.WriteLine("PASS omp host: launch line, context files and imports, profile MCP file, setup wizard switch, version and missing binary, managed omp on Bun, detection, sessions");
     }
 
     private static void Launch()
@@ -192,6 +195,170 @@ internal static class OmpChecks
         Require(missing is { Installed: false, Version: null } && missing.Detail!.Contains("not found", StringComparison.Ordinal), "a missing binary is reported: " + missing);
     }
 
+
+    // A fixture bun: `install` writes a package whose lock file names the pinned integrity (mode good), another one (bad) or waits (hang);
+    // `--bun <script> …` hands over to the fixture omp next to it. It records its arguments, working directory and BUN_INSTALL.
+    private static string FakeBun(string directory)
+    {
+        var path = Path.Combine(directory, "bun");
+        File.WriteAllText(path, $$"""
+            #!/bin/sh
+            here="$(dirname "$0")"
+            printf '%s\n' "$*" >> "$here/bun-calls.txt"
+            if [ "$1" = "install" ]; then
+              printf '%s|%s\n' "$PWD" "$BUN_INSTALL" >> "$here/bun-install.txt"
+              mode=$(cat "$here/bun-mode.txt")
+              [ "$mode" = "hang" ] && sleep 30
+              pkg=node_modules/@oh-my-pi/pi-coding-agent
+              mkdir -p "$pkg/dist"
+              printf '{"name":"x","version":"{{OmpManaged.Version}}"}' > "$pkg/package.json"
+              echo "// cli" > "$pkg/dist/cli.js"
+              if [ "$mode" = "bad" ]; then echo '"{{OmpManaged.Package}}": ["x", "sha512-other"]' > bun.lock; else echo '"{{OmpManaged.Package}}": ["x", "{{OmpManaged.Integrity}}"]' > bun.lock; fi
+              exit 0
+            fi
+            if [ "$1" = "--bun" ]; then shift 2; exec "$here/omp" "$@"; fi
+            exit 3
+            """.Replace("\r\n", "\n"));
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return path;
+    }
+
+    private static async Task<(int Code, string Output, string Errors)> RunProgram(string program, params string[] arguments)
+    {
+        using var process = Process.Start(new ProcessStartInfo(program, arguments) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false }) ?? throw new InvalidOperationException("not started");
+        var output = process.StandardOutput.ReadToEndAsync();
+        var errors = process.StandardError.ReadToEndAsync();
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        await process.WaitForExitAsync(limit.Token);
+        return (process.ExitCode, await output, await errors);
+    }
+
+    private static async Task<T> Throws<T>(Func<Task> action) where T : Exception
+    {
+        try { await action(); }
+        catch (T error) { return error; }
+        throw new InvalidOperationException("omp: expected " + typeof(T).Name);
+    }
+
+    // The pinned omp: downloaded once with Bun and checked against the pinned integrity, then run as `bun --bun cli.js` through the program the launch line
+    // starts, never the system omp. A fake Bun and a fake package stand in; nothing here touches the network.
+    private static async Task Managed(string root)
+    {
+        // The folder has a space: the launch word has to be quoted and still be recognized as omp.
+        var directory = Path.Combine(root, "with space");
+        Directory.CreateDirectory(directory);
+        FakeOmp(directory);
+        var bun = FakeBun(directory);
+        var mode = (string value) => File.WriteAllText(Path.Combine(directory, "bun-mode.txt"), value);
+        var calls = () => File.Exists(Path.Combine(directory, "bun-calls.txt")) ? File.ReadAllLines(Path.Combine(directory, "bun-calls.txt")) : [];
+        var resolution = new RuntimeResolution(RuntimeKind.Bun, true, bun, ["x"], new Dictionary<string, string> { ["BUN_INSTALL"] = Path.Combine(directory, "bun-home") }, RuntimeSource.Downloaded, "", false);
+        var install = Path.Combine(directory, "state", "omp", "managed");
+        var workspace = Path.Combine(directory, "workspace");
+        Directory.CreateDirectory(workspace);
+        var managed = new OmpManaged(install, (_, _) => Task.FromResult(resolution));
+        var empty = () => !Directory.Exists(install) || Directory.GetFileSystemEntries(install).Length == 0;
+        var unavailable = RuntimeResolution.Unavailable(RuntimeKind.Bun, "Needs Bun.", offerEnable: true);
+
+        // The package is the real one, pinned exactly.
+        Require(OmpManaged.Package == "@oh-my-pi/pi-coding-agent" && OmpManaged.Version == "19.1.1" && OmpManaged.Integrity.StartsWith("sha512-", StringComparison.Ordinal), "omp is pinned to one exact version of its package.");
+        Require(managed.EntryPoint == Path.Combine(install, "19.1.1", "node_modules", "@oh-my-pi", "pi-coding-agent", "dist", "cli.js"), "The script Bun runs is the package's omp binary, dist/cli.js.");
+
+        // The default: managed while Bun is there or can be downloaded, the system command only when it is not; a choice stands.
+        Require(new OmpSettings().Source == "" && new OmpSettings().Command == "omp", "A fresh setup has no source chosen and the system command omp.");
+        Require(OmpSources.Effective("", true) == OmpSources.Managed && OmpSources.Effective("", false) == OmpSources.System, "Without a choice omp is managed while Bun is available and system without it.");
+        Require(OmpSources.Effective(OmpSources.Managed, false) == OmpSources.Managed && OmpSources.Effective(OmpSources.System, true) == OmpSources.System, "A choice of the user stands whether or not Bun is available.");
+        var missingCommand = Path.Combine(root, "nowhere", "omp");
+        var before = await OmpHost.ComposeStatusAsync(new OmpSettings { Command = missingCommand }, root, managed, bunAvailable: true);
+        Require(before is { Source: OmpSources.Managed, Installed: false, Usable: true, PinnedVersion: OmpManaged.Version, ManagedVersion: "", Installing: false } && before.LaunchCommand == managed.ShimPath && before.Detail!.Contains("not downloaded", StringComparison.Ordinal),
+            "Before a download the managed omp is pinned, not installed and usable, so the chip is not blocked on a download: " + before);
+        var withoutBun = await OmpHost.ComposeStatusAsync(new OmpSettings { Command = missingCommand }, root, managed, bunAvailable: false);
+        Require(withoutBun is { Source: OmpSources.System, Usable: false, LaunchCommand: "" } && withoutBun.SourceNote.Contains("Bun", StringComparison.Ordinal), "Without Bun the default falls back to the system command and says so: " + withoutBun);
+        var pinnedNoBun = await OmpHost.ComposeStatusAsync(new OmpSettings { Source = OmpSources.Managed }, root, managed, bunAvailable: false);
+        Require(pinnedNoBun is { Source: OmpSources.Managed, Installed: false, Usable: false } && pinnedNoBun.Detail!.Contains("Bun is not available", StringComparison.Ordinal), "A chosen managed omp without Bun is not usable and names Bun: " + pinnedNoBun);
+        var chosenSystem = await OmpHost.ComposeStatusAsync(new OmpSettings { Source = OmpSources.System, Command = FakeOmp(Path.Combine(root, "system")) }, root, managed, bunAvailable: true);
+        Require(chosenSystem is { Source: OmpSources.System, Installed: true, Usable: true, Version: "9.8.7", SourceNote: "" } && chosenSystem.LaunchCommand.Length == 0, "A chosen system command runs its own --version and never the managed copy: " + chosenSystem);
+
+        // The program a launch starts, before anything is downloaded: it says what is missing and exits 1.
+        var noBunShim = managed.WriteShim(null);
+        if (!OperatingSystem.IsWindows())
+        {
+            var noBun = await RunProgram(noBunShim, "--version");
+            Require(noBun.Code == 1 && noBun.Errors.Contains("needs Bun", StringComparison.Ordinal), "With no Bun the program says so and exits 1: " + noBun.Errors);
+            managed.WriteShim(resolution);
+            var notYet = await RunProgram(managed.ShimPath, "--version");
+            Require(notYet.Code == 1 && notYet.Errors.Contains("not downloaded yet", StringComparison.Ordinal) && calls().Length == 0, "Before the download the program says so, exits 1 and starts no Bun: " + notYet.Errors);
+        }
+
+        mode("bad");
+        var refused = await Throws<InvalidOperationException>(() => managed.EnsureAsync(workspace, CancellationToken.None));
+        Require(refused.Message.Contains("checksum", StringComparison.Ordinal) && managed.LastError.Contains("omp could not be downloaded", StringComparison.Ordinal), "A download whose lock file does not name the pinned integrity is refused with a reason.");
+        Require(managed.InstalledVersion().Length == 0 && Directory.GetFileSystemEntries(install).All(entry => Path.GetFileName(entry) != OmpManaged.Version), "A refused download leaves no installed copy behind.");
+        var failed = managed.Status(before);
+        Require(failed.Error.Length > 0 && failed.Installing == false, "The failure reaches the status with its message.");
+
+        mode("hang");
+        var hanging = managed.EnsureAsync(workspace, CancellationToken.None);
+        for (var wait = 0; wait < 200 && !managed.Running; wait++) await Task.Delay(25);
+        var running = managed.Status(before);
+        Require(running is { Installing: true, Progress.Length: > 0, Error: "" }, "A running download reports that it runs, with a progress line: " + running);
+        managed.Cancel();
+        await Throws<OperationCanceledException>(() => hanging);
+        Require(managed.LastError.Contains("canceled", StringComparison.Ordinal) && !managed.Running && Directory.GetFileSystemEntries(install).All(entry => Path.GetFileName(entry) != OmpManaged.Version),
+            "Cancel stops Bun, leaves no partial copy and says so.");
+
+        // An older pin's copy is shown as such and replaced by the update.
+        Directory.CreateDirectory(Path.Combine(install, "0.1.0"));
+        Require(managed.Status(before) is { ManagedVersion: "0.1.0" } && managed.InstalledVersion().Length == 0, "A copy from an earlier pin is not the pinned omp, so the page offers an update.");
+        File.Delete(Path.Combine(directory, "bun-calls.txt"));
+        mode("good");
+        await Task.WhenAll(managed.EnsureAsync(workspace, CancellationToken.None), managed.EnsureAsync(workspace, CancellationToken.None));
+        Require(calls().Count(line => line.StartsWith("install", StringComparison.Ordinal)) == 1, "Two requests for the pinned omp (the page and a launch) share one download.");
+        Require(calls()[0] == "install --ignore-scripts --no-progress --registry=https://registry.npmjs.org/", "Bun installs without the package's scripts, from the npm registry.");
+        var line = File.ReadAllLines(Path.Combine(directory, "bun-install.txt")).Last().Split('|');
+        Require(Path.GetFullPath(line[0]).StartsWith(Path.GetFullPath(install), StringComparison.Ordinal) && line[1] == Path.Combine(directory, "bun-home"), "Bun installs in the download folder, never the workspace, with the host's Bun environment and no global packages.");
+        Require(managed.InstalledVersion() == OmpManaged.Version && Directory.GetFileSystemEntries(install).Length == 1, "A checked download is the installed pinned omp, and the update removed the earlier copy.");
+        var after = await OmpHost.ComposeStatusAsync(new OmpSettings { Command = missingCommand }, root, managed, bunAvailable: true);
+        Require(after is { Source: OmpSources.Managed, Installed: true, Usable: true, Version: OmpManaged.Version, ManagedVersion: OmpManaged.Version, Error: "" }, "The account's version is the pinned one on disk: " + after);
+        File.Delete(Path.Combine(directory, "bun-calls.txt"));
+        await managed.EnsureAsync(workspace, CancellationToken.None);
+        Require(calls().Length == 0, "An installed pinned omp is not downloaded again.");
+
+        // The launch: the program runs bun --bun cli.js with the arguments of the line; a Model source's contribution still wraps it.
+        Require(File.Exists(managed.ShimPath) && File.ReadAllText(managed.ShimPath).Contains(managed.EntryPoint, StringComparison.Ordinal), "A finished download writes the program that runs it.");
+        var word = OmpLaunch.ManagedExecutable(managed.ShimPath);
+        var governed = OmpLaunch.Line(word, new()
+        {
+            Mcp = false,
+            Contributions = [new AgentLaunchContribution { Environment = new Dictionary<string, string> { ["MODEL_SOURCE"] = "mine" }, Arguments = ["--profile", "tereditor"], Wrapper = ["wrap"] }]
+        });
+        Require(word.StartsWith('\'') && governed == "MODEL_SOURCE=mine wrap " + word + " --profile tereditor --no-lsp", "A launch of the managed omp keeps its executable word, so a Model source's contribution still applies: " + governed);
+        Require(AgentLaunchComposition.Apply("\"C:/Users/x/.tereditor/omp/shim/omp.cmd\" --no-lsp", "omp", [new AgentLaunchContribution { Environment = new Dictionary<string, string> { ["K"] = "v" } }], windows: true).StartsWith("\"C:/Users", StringComparison.Ordinal) &&
+            AgentLaunchComposition.Apply("\"C:/Users/x/omp.cmd\"", "omp", [new AgentLaunchContribution { Wrapper = ["wrap"] }], windows: true).StartsWith("wrap ", StringComparison.Ordinal), "The Windows program omp.cmd is recognized as omp.");
+        if (!OperatingSystem.IsWindows())
+        {
+            var run = await RunProgram(managed.ShimPath, "--version");
+            Require(run.Code == 0 && run.Output.Contains("omp 9.8.7", StringComparison.Ordinal) && calls().Single() == $"--bun {managed.EntryPoint} --version", "The program runs Bun with the script first and omp's own arguments after it: " + string.Join(" | ", calls()));
+            Require(File.GetUnixFileMode(managed.ShimPath).HasFlag(UnixFileMode.UserExecute) && File.ReadAllText(managed.ShimPath).Contains("export BUN_INSTALL=", StringComparison.Ordinal), "The program is executable and carries Bun's environment.");
+
+            // The setup wizard switch and the sign-in import start the same program.
+            var home = Path.Combine(directory, "home");
+            Directory.CreateDirectory(home);
+            Require(await OmpHost.SkipSetupWizardAsync(managed.ShimPath, home) == "set" && File.ReadAllText(Path.Combine(home, ".omp", "profiles", "tereditor", "wizard")).Trim() == "false", "The setup wizard switch runs through the managed program.");
+            var signIn = await OmpHost.ImportSignInAsync(managed.ShimPath, home, CancellationToken.None);
+            Require(signIn.Success && File.ReadAllText(Path.Combine(home, ".omp", "profiles", "tereditor", "imported.json")).Trim() == SignInSecret, "The sign-in import runs through the managed program.");
+
+            // A Bun that moved is followed: the program is rewritten only when its text changes.
+            var written = File.GetLastWriteTimeUtc(managed.ShimPath);
+            managed.WriteShim(resolution);
+            Require(File.GetLastWriteTimeUtc(managed.ShimPath) == written, "An unchanged program is not rewritten.");
+            managed.WriteShim(resolution with { Command = Path.Combine(directory, "bun2") });
+            Require(File.ReadAllText(managed.ShimPath).Contains("bun2", StringComparison.Ordinal), "A program that no longer matches Bun is rewritten.");
+        }
+
+        managed.Remove();
+        Require(!Directory.Exists(install) && !Directory.Exists(managed.ShimDirectory) && managed.InstalledVersion().Length == 0, "Remove deletes the downloaded omp and its program.");
+    }
+
     private static void Processes()
     {
         var rows = ProcessSnapshot.ParseRows(ProcessSnapshot.Living("  10     1 Ss   zsh\n  11    10 Z    omp\n  12    10 S+   /usr/local/bin/omp\n"));
@@ -201,6 +368,14 @@ internal static class OmpChecks
         Require(zombie.FindDescendant(10, ["omp"]) is null, "an exited, unreaped omp keeps no agent");
         var nested = new ProcessSnapshot([new(10, 1, "zsh"), new(20, 10, "claude"), new(30, 20, "Tereditor.UI"), new(40, 30, "zsh"), new(50, 40, "omp")]);
         Require(nested.FindDescendant(10, ["omp"]) is null && nested.FindDescendant(30, ["omp"]) is { Pid: 50 }, "omp below an inner tereditor app is not the outer tab's agent");
+        // The managed omp is a Bun process; only the one that runs the managed copy counts, and another Bun beside it does not hide it.
+        var bunRows = new ProcessSnapshot([new(10, 1, "zsh"), new(20, 10, "bun"), new(30, 10, "bun")]);
+        Require(bunRows.FindDescendant(10, ["omp", "bun"], accepts: (pid, _) => pid == 30) is { Pid: 30, Name: "bun" } && bunRows.FindDescendant(10, ["omp", "bun"], accepts: (_, _) => false) is null && bunRows.FindDescendant(10, ["omp"]) is null,
+            "A Bun process counts as omp only when it is the managed copy's");
+        var found = new List<int>();
+        using var watch = new AgentWatch(() => [new("w", "t", 10)], (_, _, pid) => found.Add(pid), (_, _) => { }, () => bunRows, pid => pid == 30);
+        watch.Sweep();
+        Require(found.SequenceEqual([30]) && watch.AgentFor("w", "t") == "bun", "The watch records a tab running the managed omp");
     }
 
     private static void Sessions(string root)
@@ -244,7 +419,7 @@ internal static class OmpChecks
                 E2eWorkspace.Until(() => app.Workbench.State.Current.PluginSettings.GetValueOrDefault(OmpManifest.Id) is { ValueKind: JsonValueKind.Object } stored &&
                     JsonSerializer.SerializeToElement(settings).EnumerateObject().All(member => stored.TryGetProperty(member.Name, out var value) && value.GetRawText() == member.Value.GetRawText()));
             }
-            Settings(new { command = fake, model = "@smol", approvalMode = "write", advisor = true });
+            Settings(new { command = fake, source = "system", model = "@smol", approvalMode = "write", advisor = true });
             _ = app.Workbench.State.ChangeAsync(HostStateChange.PluginEnabled(OmpManifest.Id, true));
             E2eWorkspace.Until(() => app.Workbench.PluginLoader.Registry.Active.Contains(OmpManifest.Id));
             Require(app.Workbench.PluginLoader.Registry.Roster.Single(entry => entry.Id == OmpManifest.Id).Support == Tereditor.Plugins.Api.PluginSupportLevels.Early,
@@ -291,9 +466,9 @@ internal static class OmpChecks
             E2eWorkspace.Until(() => signInResult.Text?.Contains("exit 3", StringComparison.Ordinal) == true && signIn.IsEnabled);
             Require(!signInResult.Text!.Contains("sk-ABCDEFGHIJ", StringComparison.Ordinal) && signInResult.Text.Contains("***", StringComparison.Ordinal),
                 "a failure is reported with token-like text masked: " + signInResult.Text);
-            Settings(new { command = fake, model = "@smol", approvalMode = "write", advisor = true, mcp = false });
+            Settings(new { command = fake, source = "system", model = "@smol", approvalMode = "write", advisor = true, mcp = false });
             E2eWorkspace.Until(() => !Find<StackPanel>(panel, "OmpSignIn").Single().IsVisible);
-            Settings(new { command = fake, model = "@smol", approvalMode = "write", advisor = true, mcp = true });
+            Settings(new { command = fake, source = "system", model = "@smol", approvalMode = "write", advisor = true, mcp = true });
             E2eWorkspace.Until(() => Find<StackPanel>(panel, "OmpSignIn").Single().IsVisible);
 
             // The start action launches the fixture with the configured flags in its own session folder.
@@ -320,12 +495,21 @@ internal static class OmpChecks
                 chip.GetLogicalDescendants().OfType<Control>().Any(control => Equals(control.Tag, OmpManifest.Icon))));
 
             // A missing binary: the pane says so with the install link, and the launcher is unavailable.
-            Settings(new { command = Path.Combine(root, "nowhere", "omp"), model = "@smol", approvalMode = "write", advisor = true });
-            app.Click(Find<Button>(panel, "OmpRefresh").Single());
+            Settings(new { command = Path.Combine(root, "nowhere", "omp"), source = "system", model = "@smol", approvalMode = "write", advisor = true });
+            // The settings change re-reads the state, so the pane's chip goes away and the launcher says why it cannot start; the pane's own page still shows the missing state.
+            E2eWorkspace.Until(() => !app.Window.GetLogicalDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Any(chip => chip.Name == "AgentChip_omp"));
+            E2eWorkspace.Until(() => app.Workbench.PluginLoader!.Registry.LauncherList.Single(launcher => launcher.Id == OmpManifest.Id).Availability() is { Available: false, Reason: { } reason } && reason.Contains("not installed", StringComparison.Ordinal));
+            Find<Button>(panel, "OmpRefresh").Single().RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             E2eWorkspace.Until(() => Find<StackPanel>(panel, "OmpMissing").Single().IsVisible);
             Require(Find<Button>(panel, "OmpInstall").Single().IsEffectivelyVisible && Find<TextBlock>(panel, "OmpMissingText").Single().Text!.Contains("not installed", StringComparison.Ordinal),
                 "the missing state offers the install link");
-            Console.WriteLine("PASS omp UI: Early badge, version, code intelligence and profile notes, nested context rows, add offer, sign-in import, launch argv, omp mark on the start action and tab, missing binary");
+            // A chosen managed omp starts through the host's program under omp's home, never the configured command, and the page asks for a download first.
+            Settings(new { command = fake, source = "managed", model = "@smol", approvalMode = "write", advisor = true });
+            var managedProgram = Path.Combine(home, ".tereditor", "omp", "shim", "omp");
+            E2eWorkspace.Until(() => app.Workbench.PluginLoader!.Registry.LauncherList.Single(launcher => launcher.Id == OmpManifest.Id).TerminalCommand(new()) is { } managedLine &&
+                managedLine.Contains(managedProgram, StringComparison.Ordinal) && !managedLine.Contains(fake, StringComparison.Ordinal));
+            Require(File.Exists(managedProgram), "the host wrote the program the managed launch starts, under omp's home");
+            Console.WriteLine("PASS omp UI: Early badge, version, code intelligence and profile notes, nested context rows, add offer, sign-in import, launch argv, omp mark on the start action and tab, missing binary, managed launch program");
         }
         finally
         {

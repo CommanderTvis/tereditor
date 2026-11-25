@@ -221,6 +221,7 @@ internal sealed partial class LanguageServers
             DownloadedVersion = downloaded ? ManagedRuntimes.Choose(runtime.Id, platform, directory)?.Version ?? "" : "",
             OtherPath = other,
             OtherVersion = other.Length > 0 ? await VersionOf(other) : "",
+            Downloadable = RuntimesEnabled(),
             Downloading = active,
             ReceivedBytes = active ? progress.Received : 0,
             TotalBytes = active ? progress.Total : 0

@@ -20,10 +20,28 @@
         <TextBlock Text="Early support" FontSize="11" Foreground="{x:Static kit:Ui.Warning}" />
       </Border>
     </StackPanel>
-    <TextBlock Classes="detail" Text="Launch flags for omp sessions tereditor starts. omp itself comes from your system installation (https://omp.sh)." />
+    <TextBlock Classes="detail" Text="Launch flags for omp sessions tereditor starts. omp runs from a pinned copy that tereditor downloads and runs on Bun, or from your system installation (https://omp.sh)." />
   </StackPanel>
   <StackPanel x:Name="ModelSourceHost" />
   <StackPanel Spacing="4">
+    <TextBlock Text="omp source" />
+    <ComboBox x:Name="OmpSource" HorizontalAlignment="Stretch" AutomationProperties.Name="omp source">
+      <ComboBoxItem Content="Managed, pinned" />
+      <ComboBoxItem Content="System command" />
+    </ComboBox>
+    <TextBlock x:Name="OmpSourceHint" Classes="detail" />
+    <TextBlock x:Name="OmpSourceNote" Classes="detail" Foreground="{x:Static kit:Ui.Warning}" IsVisible="False" />
+  </StackPanel>
+  <StackPanel x:Name="OmpManagedPanel" Spacing="8" IsVisible="False">
+    <TextBlock x:Name="OmpManagedLine" />
+    <TextBlock x:Name="OmpManagedError" Classes="detail" Foreground="{x:Static kit:Ui.Danger}" IsVisible="False" />
+    <StackPanel x:Name="OmpManagedProgress" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button x:Name="OmpManagedDownload" Content="Download" AutomationProperties.Name="Download pinned omp" />
+      <Button x:Name="OmpManagedRemove" Content="Remove download" AutomationProperties.Name="Remove downloaded omp" />
+    </StackPanel>
+  </StackPanel>
+  <StackPanel x:Name="OmpCommandPanel" Spacing="4">
     <TextBlock Text="Launch command" />
     <TextBox x:Name="OmpCommandInput" PlaceholderText="omp" FontFamily="{x:Static kit:Ui.CodeFont}" FontSize="12" AutomationProperties.Name="omp launch command" />
   </StackPanel>

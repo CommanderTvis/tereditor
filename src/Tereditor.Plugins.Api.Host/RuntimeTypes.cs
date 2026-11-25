@@ -76,6 +76,9 @@ public sealed record RuntimeStatus(RuntimeKind Kind, string Name, RuntimeSource?
     /// <summary>The version of <see cref="OtherPath"/>; empty when unknown.</summary>
     public string OtherVersion { get; init; } = "";
 
+    /// <summary>Whether the host would download this runtime when a plugin asks for it and none is available: the Runtimes for tooling plugin is on.</summary>
+    public bool Downloadable { get; init; }
+
     /// <summary>Whether the pinned copy is downloading right now.</summary>
     public bool Downloading { get; init; }
 

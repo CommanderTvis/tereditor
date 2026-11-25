@@ -64,6 +64,9 @@ public static partial class OmpLaunch
 
     public static string ShellQuote(string word) => SafeWord().IsMatch(word) ? word : "'" + word.Replace("'", "'\\''") + "'";
 
+    /// <summary>The executable word of a launch line for the managed omp: the host's <c>omp</c> program (<see cref="OmpStatus.LaunchCommand"/>), quoted for the shell.</summary>
+    public static string ManagedExecutable(string launchCommand) => ShellQuote(launchCommand);
+
     public static string Executable(string command) => command.Trim() is { Length: > 0 } trimmed ? trimmed : "omp";
 
     public static string Line(string command, OmpLaunchOptions options)

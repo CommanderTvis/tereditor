@@ -29,6 +29,24 @@ public sealed record OmpStatus(bool Installed, string Command)
 {
     public string? Version { get; init; }
     public string? Detail { get; init; }
+    /// <summary>The source in use now (<see cref="OmpSources.System"/> or <see cref="OmpSources.Managed"/>), after <see cref="OmpSettings.Source"/> is resolved.</summary>
+    public string Source { get; set; } = OmpSources.System;
+    /// <summary>Whether omp can be started now: it is installed, or it is the managed one and Bun is there to download and run it. A managed omp that is not downloaded yet is usable.</summary>
+    public bool Usable { get; init; }
+    /// <summary>The executable word a launch line starts with: the host's <c>omp</c> program that runs the managed copy on Bun; empty when the system command is used.</summary>
+    public string LaunchCommand { get; set; } = "";
+    /// <summary>The version tereditor pins for the managed omp.</summary>
+    public string PinnedVersion { get; set; } = "";
+    /// <summary>The version of the downloaded copy, the pinned one or one from an earlier pin that an update replaces; empty when none is downloaded.</summary>
+    public string ManagedVersion { get; set; } = "";
+    /// <summary>Whether the pinned copy is downloading now.</summary>
+    public bool Installing { get; init; }
+    /// <summary>What the download is doing now, in plain words; empty when it is not running.</summary>
+    public string Progress { get; set; } = "";
+    /// <summary>Why the last download failed; empty when it did not.</summary>
+    public string Error { get; set; } = "";
+    /// <summary>A plain sentence about why the source in use is not the one chosen (Bun is missing, so the default fell back to the system command); empty otherwise.</summary>
+    public string SourceNote { get; set; } = "";
     /// <summary>The tereditor profile's MCP file, when launches use the profile.</summary>
     public string? ProfileMcpPath { get; init; }
 }
@@ -63,10 +81,35 @@ public sealed record OmpCreateParams(string WorkspaceId, OmpContextTarget Target
 /// <summary>The outcome of copying the default omp profile's sign-in into tereditor's profile; the message carries no credentials.</summary>
 public sealed record OmpSignInResult(bool Success, string Message);
 
+/// <summary>Where the omp that tereditor starts comes from.</summary>
+public static class OmpSources
+{
+    /// <summary>The <c>omp</c> command from the settings, found on PATH by default.</summary>
+    public const string System = "system";
+    /// <summary>The pinned omp that tereditor downloads and runs on Bun (Runtimes for tooling).</summary>
+    public const string Managed = "managed";
+
+    /// <summary>
+    /// The source a launch uses. A choice the user made stands; none (<c>""</c>) is managed while Bun is there or can be downloaded, and the system
+    /// command otherwise.
+    /// </summary>
+    public static string Effective(string chosen, bool bunAvailable) => chosen switch
+    {
+        Managed => Managed,
+        System => System,
+        _ => bunAvailable ? Managed : System
+    };
+}
+
 public sealed record OmpSettings
 {
-    /// <summary>The executable; the system installation on PATH by default.</summary>
+    /// <summary>The executable the system source runs; the installation on PATH by default.</summary>
     public string Command { get; set; } = "omp";
+    /// <summary>
+    /// <see cref="OmpSources.Managed"/> runs the pinned omp tereditor downloads on Bun, <see cref="OmpSources.System"/> runs <see cref="Command"/>.
+    /// Blank (the default) is the managed one while Bun from Runtimes for tooling is available, the system command otherwise.
+    /// </summary>
+    public string Source { get; set; } = "";
     /// <summary><c>--model</c>: a model id, <c>provider/model</c> or <c>@role</c>; blank uses omp's default.</summary>
     public string Model { get; set; } = "";
     /// <summary><c>--approval-mode</c>: <c>always-ask</c>, <c>always-ask-cached</c>, <c>write</c> or <c>yolo</c>; blank uses omp's configuration.</summary>
@@ -89,8 +132,17 @@ public static class OmpContract
     /// <summary>Pipes <c>omp auth export</c> (default profile) into <c>omp --profile tereditor auth import -</c> on the host.</summary>
     public static readonly PluginMethod<OmpNoParams, OmpSignInResult> ImportSignIn = new("importSignIn");
 
+    /// <summary>Downloads the pinned omp now and answers when it is done, failed or canceled. One download runs at a time.</summary>
+    public static readonly PluginMethod<OmpNoParams, OmpStatus> Install = new("install");
+
+    /// <summary>Cancels the running download.</summary>
+    public static readonly PluginMethod<OmpNoParams, OmpStatus> CancelInstall = new("cancelInstall");
+
+    /// <summary>Deletes the downloaded omp.</summary>
+    public static readonly PluginMethod<OmpNoParams, OmpStatus> Remove = new("remove");
+
     public static readonly PluginContract Contract = PluginContract.Create<OmpSettings>(OmpManifest.Id, WireVersion,
-        [Status, Context, CreateContextFile, ImportSignIn], [], OmpJson.Default);
+        [Status, Context, CreateContextFile, ImportSignIn, Install, CancelInstall, Remove], [], OmpJson.Default);
 }
 
 [JsonSourceGenerationOptions(Converters = [typeof(PluginJson.EnumConverter<OmpContextScope>), typeof(PluginJson.EnumConverter<OmpContextTarget>)])]

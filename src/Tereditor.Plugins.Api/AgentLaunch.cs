@@ -132,7 +132,7 @@ public static partial class AgentLaunchComposition
     /// the result is <see cref="BlockedCommand"/> (<see cref="BlockedWindowsCommand"/> on Windows) and the rest of the line is dropped.
     /// </summary>
     /// <param name="commandLine">The command line, starting with the executable word.</param>
-    /// <param name="executable">The agent's executable name without directory or <c>.exe</c>.</param>
+    /// <param name="executable">The agent's executable name without directory or <c>.exe</c> or <c>.cmd</c>.</param>
     /// <param name="contributions">The contributions, outermost first.</param>
     /// <param name="windows">Whether the line is read by a Windows shell.</param>
     /// <returns>The rewritten command line.</returns>
@@ -191,6 +191,6 @@ public static partial class AgentLaunchComposition
     {
         var bare = word.Trim('\'', '"');
         var name = bare[(bare.LastIndexOfAny(['/', '\\']) + 1)..];
-        return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
+        return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
     }
 }

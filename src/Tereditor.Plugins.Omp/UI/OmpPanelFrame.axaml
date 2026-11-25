@@ -40,7 +40,7 @@
       <TextBlock x:Name="OmpVersion" FontSize="12" Foreground="{x:Static kit:Ui.Hint}" />
       <StackPanel x:Name="OmpMissing" Spacing="4" IsVisible="False">
         <TextBlock x:Name="OmpMissingText" FontSize="13" Foreground="{x:Static kit:Ui.Danger}" />
-        <TextBlock FontSize="12" Foreground="{x:Static kit:Ui.Muted}" Text="tereditor uses the omp on your PATH and does not install it." />
+        <TextBlock x:Name="OmpMissingNote" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" Text="tereditor uses the omp on your PATH and does not install it." />
         <ContentControl x:Name="OmpInstallLink" />
       </StackPanel>
       <StackPanel x:Name="OmpSignIn" Spacing="4" IsVisible="False">

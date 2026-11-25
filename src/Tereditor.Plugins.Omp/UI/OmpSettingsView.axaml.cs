@@ -3,13 +3,14 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 
 using Tereditor.Plugins.Api.UI;
+using Tereditor.Plugins.UI.Kit;
 
 namespace Tereditor.Plugins.Omp.UI;
 
-/// <summary>Settings › omp: the command, the documented launch flags with their suggested values, the MCP profile and code intelligence.</summary>
+/// <summary>Settings › omp: where omp comes from (the pinned copy tereditor downloads, or the command), the documented launch flags with their suggested values, the MCP profile and code intelligence.</summary>
 internal sealed partial class OmpSettingsView : StackPanel
 {
-    internal OmpSettingsView(IPluginUIContext context)
+    internal OmpSettingsView(IPluginUIContext context, Func<OmpStatus?> status, Action<OmpStatus> update)
     {
         AvaloniaXamlLoader.Load(this);
         this.FindControl<StackPanel>("ModelSourceHost")!.Children.Add(UiSlots.ModelSourceView(context, OmpManifest.Id));
@@ -27,6 +28,19 @@ internal sealed partial class OmpSettingsView : StackPanel
         var advisor = this.FindControl<CheckBox>("OmpAdvisor")!;
         var mcp = this.FindControl<CheckBox>("OmpMcp")!;
         var ownLsp = this.FindControl<CheckBox>("OmpOwnLsp")!;
+        var source = this.FindControl<ComboBox>("OmpSource")!;
+        var sourceHint = this.FindControl<TextBlock>("OmpSourceHint")!;
+        var sourceNote = this.FindControl<TextBlock>("OmpSourceNote")!;
+        var managedPanel = this.FindControl<StackPanel>("OmpManagedPanel")!;
+        var commandPanel = this.FindControl<StackPanel>("OmpCommandPanel")!;
+        var managedLine = this.FindControl<TextBlock>("OmpManagedLine")!;
+        var managedError = this.FindControl<TextBlock>("OmpManagedError")!;
+        var managedProgress = this.FindControl<StackPanel>("OmpManagedProgress")!;
+        var download = this.FindControl<Button>("OmpManagedDownload")!;
+        var remove = this.FindControl<Button>("OmpManagedRemove")!;
+        DownloadStrip? strip = null;
+        var polling = false;
+        var attached = false;
         model.ItemsSource = OmpLaunch.ModelSuggestions;
         approval.ItemsSource = OmpLaunch.ApprovalModes;
 
@@ -49,9 +63,84 @@ internal sealed partial class OmpSettingsView : StackPanel
         mcp.Click += (_, _) => Update(settings => settings with { Mcp = mcp.IsChecked == true });
         ownLsp.Click += (_, _) => Update(settings => settings with { OwnCodeIntelligence = ownLsp.IsChecked == true });
 
+        // The host does the download; the page asks for its state while one runs, so it also shows a download a launch started.
+        async Task RefreshAsync(Func<Task<OmpStatus>>? request = null)
+        {
+            try { update(await (request?.Invoke() ?? context.RequestAsync(OmpContract.Status, new OmpNoParams()).AsTask())); }
+            catch (Exception error) when (error is not OperationCanceledException) { }
+            Render(context.Settings<OmpSettings>());
+            if (status() is { Installing: true } && !polling) _ = PollAsync();
+        }
+        async Task PollAsync()
+        {
+            polling = true;
+            try
+            {
+                while (attached && status() is { Installing: true })
+                {
+                    await Task.Delay(500);
+                    await RefreshAsync();
+                }
+            }
+            finally { polling = false; }
+        }
+        source.SelectionChanged += (_, _) =>
+        {
+            var chosen = source.SelectedIndex == 1 ? OmpSources.System : OmpSources.Managed;
+            if (!applying && chosen != Shown(context.Settings<OmpSettings>())) Update(settings => settings with { Source = chosen });
+        };
+        download.Click += (_, _) =>
+        {
+            update((status() ?? new OmpStatus(false, "omp") { Source = OmpSources.Managed }) with { Installing = true, Progress = "Looking for Bun…", Error = "" });
+            Render(context.Settings<OmpSettings>());
+            _ = RefreshAsync(() => context.RequestAsync(OmpContract.Install, new OmpNoParams()).AsTask());
+            if (!polling) _ = PollAsync();
+        };
+        remove.Click += (_, _) => _ = RefreshAsync(() => context.RequestAsync(OmpContract.Remove, new OmpNoParams()).AsTask());
+
+        // What the page shows as chosen: the user's choice, else what the host settled on (managed while Bun is there), managed before it answers.
+        string Shown(OmpSettings settings) => settings.Source.Length > 0 ? settings.Source : status()?.Source ?? OmpSources.Managed;
+
+        void RenderManaged(OmpStatus? state)
+        {
+            var installing = state is { Installing: true };
+            var found = state?.ManagedVersion ?? "";
+            var pinned = state?.PinnedVersion ?? "";
+            managedLine.Text = installing ? state!.Progress
+                : found.Length > 0 && found == pinned ? $"omp {found} is downloaded. It is the pinned version."
+                : found.Length > 0 ? $"omp {found} is downloaded, but omp {pinned} is pinned. Update to use it."
+                : pinned.Length > 0 ? $"omp {pinned} is pinned and not downloaded yet. It downloads when you first start omp."
+                : "";
+            managedError.Text = state?.Error ?? "";
+            managedError.IsVisible = managedError.Text.Length > 0;
+            if (installing && strip is null)
+            {
+                strip = new DownloadStrip(state!.Progress, () => _ = RefreshAsync(() => context.RequestAsync(OmpContract.CancelInstall, new OmpNoParams()).AsTask()));
+                managedProgress.Children.Add(strip);
+            }
+            else if (!installing && strip is not null)
+            {
+                managedProgress.Children.Clear();
+                strip = null;
+            }
+            if (strip is not null) strip.Message = state!.Progress;
+            managedLine.IsVisible = !installing;
+            download.Content = found.Length > 0 && found != pinned ? "Update" : "Download";
+            download.IsEnabled = !installing && !(found.Length > 0 && found == pinned);
+            remove.IsEnabled = !installing && found.Length > 0;
+        }
+
         void Render(OmpSettings settings)
         {
             applying = true;
+            var managed = Shown(settings) == OmpSources.Managed;
+            source.SelectedIndex = managed ? 0 : 1;
+            managedPanel.IsVisible = managed;
+            commandPanel.IsVisible = !managed;
+            sourceHint.Text = managed ? "Run the omp that tereditor downloads, on Bun from Runtimes" : "Run the omp on your PATH";
+            sourceNote.Text = status()?.SourceNote ?? "";
+            sourceNote.IsVisible = sourceNote.Text.Length > 0;
+            RenderManaged(status());
             if (!command.IsFocused) command.Text = settings.Command;
             if (!model.IsKeyboardFocusWithin) model.Text = settings.Model;
             if (!approval.IsKeyboardFocusWithin) approval.Text = settings.ApprovalMode;
@@ -63,13 +152,22 @@ internal sealed partial class OmpSettingsView : StackPanel
 
         Render(context.Settings<OmpSettings>());
         IDisposable? subscription = null;
+        var shownSource = "";
         AttachedToVisualTree += (_, _) =>
         {
+            attached = true;
             Render(context.Settings<OmpSettings>());
-            subscription ??= context.OnSettings<OmpSettings>(Render);
+            _ = RefreshAsync();
+            subscription ??= context.OnSettings<OmpSettings>(settings =>
+            {
+                Render(settings);
+                if (settings.Source != shownSource) _ = RefreshAsync();
+                shownSource = settings.Source;
+            });
         };
         DetachedFromVisualTree += (_, _) =>
         {
+            attached = false;
             subscription?.Dispose();
             subscription = null;
         };

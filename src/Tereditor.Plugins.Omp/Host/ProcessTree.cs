@@ -112,7 +112,7 @@ public sealed partial class ProcessSnapshot
         name.Equals("Tereditor.UI", StringComparison.OrdinalIgnoreCase) || name.Equals("tereditor", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The nearest descendant of <paramref name="rootPid"/> named one of <paramref name="wanted"/>, breadth first.</summary>
-    public (int Pid, string Name)? FindDescendant(int rootPid, IReadOnlyCollection<string> wanted, int maxDepth = MaxDescendantDepth)
+    public (int Pid, string Name)? FindDescendant(int rootPid, IReadOnlyCollection<string> wanted, int maxDepth = MaxDescendantDepth, Func<int, string, bool>? accepts = null)
     {
         var seen = new HashSet<int> { rootPid };
         var frontier = new List<int> { rootPid };
@@ -124,7 +124,7 @@ public sealed partial class ProcessSnapshot
                 {
                     if (!seen.Add(child)) continue;
                     var name = NameOf(child);
-                    if (name is not null && wanted.Contains(name)) return (child, name);
+                    if (name is not null && wanted.Contains(name) && (accepts is null || accepts(child, name))) return (child, name);
                     if (name is null || !IsTereditorHost(name)) next.Add(child);
                 }
             frontier = next;
@@ -166,10 +166,12 @@ public sealed record AgentWatchTarget(string WorkspaceId, string TabKey, int Pid
 /// descendant. Arming never sweeps inline, which would block an attach.
 /// </summary>
 public sealed class AgentWatch(Func<IReadOnlyList<AgentWatchTarget>> listTargets, Action<string, string, int> detected, Action<string, string> cleared,
-    Func<ProcessSnapshot?>? capture = null) : IDisposable
+    Func<ProcessSnapshot?>? capture = null, Func<int, bool>? isManaged = null) : IDisposable
 {
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(2500);
     private static readonly string[] DetectedAgents = ["omp"];
+    // The managed omp runs as a Bun process (bun --bun cli.js …), which only counts when isManaged says its command line is the managed copy's.
+    private static readonly string[] DetectedWithManaged = ["omp", "bun"];
 
     private readonly Lock gate = new();
     private readonly Dictionary<(string, string), (int Pid, string Name)> agents = [];
@@ -230,7 +232,8 @@ public sealed class AgentWatch(Func<IReadOnlyList<AgentWatchTarget>> listTargets
                 var index = (target.WorkspaceId, target.TabKey);
                 live.Add(index);
                 var previous = agents.GetValueOrDefault(index);
-                var found = snapshot.FindDescendant(target.Pid, DetectedAgents);
+                var found = isManaged is null ? snapshot.FindDescendant(target.Pid, DetectedAgents)
+                    : snapshot.FindDescendant(target.Pid, DetectedWithManaged, accepts: (pid, name) => name == "omp" || isManaged(pid));
                 var next = found ?? default;
                 if (previous == next) continue;
                 if (found is null)

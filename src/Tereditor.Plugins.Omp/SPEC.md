@@ -10,8 +10,8 @@ parent: group-plugins-agents
 
 Basic ("Early support") integration of the omp coding agent (https://omp.sh). Disabled by default. The manifest
 declares `Support = early`, which Settings › Plugins shows as an "Early support" badge on the card; the Agent pane content and
-Settings › omp wear the same badge. omp fills Context (context files and offers), Account (version, install link, sign-in import) and Settings (the code-intelligence and profile notes); Capabilities says omp has nothing there. Host and UI talk only through the plugin contract (wire version 1). tereditor never
-installs omp: it runs the `omp` the host finds on PATH (or the configured command).
+Settings › omp wear the same badge. omp fills Context (context files and offers), Account (version, install link, sign-in import) and Settings (the code-intelligence and profile notes); Capabilities says omp has nothing there. Host and UI talk only through the plugin contract (wire version 1). omp comes from one of two
+sources (below): a pinned copy tereditor downloads and runs on Bun, or the `omp` the host finds on PATH (or the configured command).
 
 Facts below come from omp's docs: CLI https://omp.sh/docs/cli, context files https://omp.sh/docs/context-files,
 MCP https://omp.sh/docs/mcp, settings and profiles https://omp.sh/docs/settings and https://omp.sh/docs/env, sessions
@@ -20,6 +20,21 @@ No real omp run backs them; the checks use a fixture `omp`.
 
 ## Acceptance contract
 
+- Source: Settings › omp has an "omp source" choice, "Managed, pinned" (run the omp that tereditor downloads, on Bun from Runtimes) or "System command"
+  (run the omp on PATH, the Launch command box). The setting is blank by default: the managed omp while Bun is available (a pinned path, one on PATH or the
+  Runtimes for tooling plugin, which is on by default and would download it; the host asks without starting a download) and the system command
+  when it is not, which the page says. A choice of the user stands. The managed omp is the npm package `@oh-my-pi/pi-coding-agent` at the exact version
+  19.1.1 (integrity `sha512-x/7xQXQ5…` checked against Bun's lock file; its `omp` binary is `dist/cli.js`; engines `bun >=1.4.4`, the Bun
+  Runtimes pins), installed with `bun install --ignore-scripts --registry=https://registry.npmjs.org/` into `~/.tereditor/omp/managed/<version>`
+  (never the user's global Bun packages), one download at a time with progress, cancel and a plain failure message, and run as `bun --bun cli.js`.
+  It downloads the first time a start needs it (the start action and Core's Create-workspace and Project Home starts wait for it with a toast;
+  the page's Download button does it on request) and never blocks the chip: a managed omp counts as usable once downloaded or while Bun is available. A
+  launch line starts the host's `omp` program (`~/.tereditor/omp/shim/omp`, `omp.cmd` on Windows), which runs the copy with Bun's environment, or prints
+  that omp is not downloaded or Bun is missing and exits 1. It keeps the word `omp`, so other plugins' launch contributions (a Model source's
+  environment and `--profile` signal) still apply; a contribution that replaces the executable runs its own omp instead. The version probe, the setup
+  wizard switch, the sign-in import, the revive line and the Agent pane's usability all follow the source. The wizard switch waits for the download, and
+  detection also counts a `bun` process whose command line holds the managed script. Turning the plugin off deletes the download and the program.
+  Windows quotes the program with forward slashes and is not verified.
 - Launch line (`OmpLaunch.Line`, shared by the launcher, the start action and the revive prefill):
   `[TEREDITOR_UI_LAUNCH=omp] omp [--profile tereditor] [--session-dir <dir>] [-r <file> | -c] [--model <m>]
   [--approval-mode <mode>] [--advisor] [--no-lsp] [--append-system-prompt <text>] [@image…] [prompt]`.
@@ -76,7 +91,8 @@ No real omp run backs them; the checks use a fixture `omp`.
   overwrites an existing file. This model follows the docs, not omp's code.
 - Version and missing binary: the host runs `<command> --version` on a pool thread with a 10 s bound. The pane shows
   `v<version>`, or "omp is not installed" with the reason and an "Install from omp.sh" button; the launcher reports
-  itself unavailable with the same hint.
+  itself unavailable with the same hint. The managed omp reports its pinned version from disk and, while it is not downloaded, "omp is not downloaded yet"
+  (or the download's progress or error) without the install link.
 - Agent detection: a 2.5 s process poll (a copy of the Codex plugin's) records an `omp` descendant of a tab's shell
   as an `omp` agent record and clears it when the process leaves; zombie (`Z`) rows are skipped. A record of another
   agent kind is left alone. The search does not descend through another tereditor app (process name `Tereditor.UI`/`tereditor`), so an agent in a nested tereditor's terminals never marks the outer tab; a tereditor run as `dotnet Tereditor.UI.dll` is not recognized by name. If an omp build runs under another process name (for example its runtime's), it is not
@@ -98,7 +114,8 @@ context, and a settings editor for omp's `config.yml` are out of this basic inte
 
 ## Checks
 
-`--omp` (gate cases `omp-host`, `omp-ui`): launch argv for profile (also with a model source's contribution), session folder, model, approval mode, advisor and
+`--omp` (gate cases `omp-host`, `omp-ui`): the managed omp against a fake Bun and a fake package (no network: source default, pinned package and entry, install in the download folder, checksum refusal,
+cancel, one shared download, earlier-pin replacement, version from disk, usability before the download, launch program output and arguments, the program kept as `omp` under a contribution, wizard switch and sign-in import through it, removal, detection of the managed Bun process); launch argv for profile (also with a model source's contribution), session folder, model, approval mode, advisor and
 `--no-lsp` (and its omission), resume lines and Windows; context resolution with nested, cycle-safe, depth-limited
 imports, shadowing, ignored code/e-mail tokens and offers; the profile MCP file; the setup wizard switch (set once, not again, skipped when setupVersion > 0, failures and hangs tolerated); the version probe against a fixture
 `omp` and a missing one; zombie-safe detection; newest-session lookup; a governed launch run by a real shell against fake `omp` and `central` (proxy started, wire

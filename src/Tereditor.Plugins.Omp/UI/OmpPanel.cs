@@ -48,6 +48,7 @@ public static class OmpPanel
         var missing = root.FindControl<StackPanel>("OmpMissing")!;
         var missingText = root.FindControl<TextBlock>("OmpMissingText")!;
         var install = root.FindControl<ContentControl>("OmpInstallLink")!;
+        var missingNote = root.FindControl<TextBlock>("OmpMissingNote")!;
         var codeIntelligence = root.FindControl<TextBlock>("OmpCodeIntelligence")!;
         var profileNote = root.FindControl<TextBlock>("OmpProfileNote")!;
         var error = root.FindControl<TextBlock>("OmpError")!;
@@ -182,9 +183,17 @@ public static class OmpPanel
                         if (current != generation) return;
                         installed = status.Installed;
                         Notes(context.Settings<OmpSettings>());
-                        version.Text = status.Installed ? "v" + status.Version : null;
+                        var managed = status.Source == OmpSources.Managed;
+                        version.Text = status.Installed ? "v" + status.Version + (managed ? " (pinned, managed by tereditor)" : "") : null;
                         missing.IsVisible = !status.Installed;
-                        missingText.Text = status.Installed ? null : "omp is not installed. " + status.Detail;
+                        missingText.Text = status.Installed ? null
+                            : status is { Installing: true } ? status.Progress
+                            : status is { Error.Length: > 0 } ? status.Error
+                            : managed && status.Usable ? "omp is not downloaded yet. It downloads when you first start omp, or press Download in Settings, omp."
+                            : managed ? status.Detail
+                            : "omp is not installed. " + status.Detail;
+                        missingNote.Text = managed ? "tereditor runs its own pinned copy of omp on Bun and never touches your global packages." : "tereditor uses the omp on your PATH and does not install it.";
+                        install.IsVisible = !managed;
                     });
                 }
                 catch (Exception) { }

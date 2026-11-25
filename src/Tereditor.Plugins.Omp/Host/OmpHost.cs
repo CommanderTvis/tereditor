@@ -70,13 +70,42 @@ public sealed partial class OmpHost : PluginHostModule
             await process.WaitForExitAsync(cancel.Token);
             var text = (await output).Trim();
             if (process.ExitCode != 0) return status with { Detail = (await errors).Trim() is { Length: > 0 } detail ? detail : $"omp --version exited {process.ExitCode}." };
-            return status with { Installed = true, Version = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() };
+            return status with { Installed = true, Usable = true, Version = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() };
         }
         catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
         {
             return status with { Detail = $"{executable} was not found on PATH." };
         }
         catch (OperationCanceledException) { return status with { Detail = "omp --version timed out." }; }
+    }
+
+    /// <summary>
+    /// The status of the omp a launch would run: the managed copy (downloaded, or downloadable while Bun is available) or the system command, whichever
+    /// <see cref="OmpSettings.Source"/> and <paramref name="bunAvailable"/> pick. The managed one runs no process: its version is the pinned one on disk.
+    /// </summary>
+    internal static async Task<OmpStatus> ComposeStatusAsync(OmpSettings settings, string home, OmpManaged managed, bool bunAvailable)
+    {
+        if (OmpSources.Effective(settings.Source, bunAvailable) == OmpSources.Managed)
+        {
+            var installed = managed.InstalledVersion();
+            return managed.Status(new OmpStatus(installed.Length > 0, managed.ShimPath)
+            {
+                Source = OmpSources.Managed,
+                Version = installed.Length > 0 ? installed : null,
+                Usable = installed.Length > 0 || bunAvailable,
+                LaunchCommand = managed.ShimPath,
+                ProfileMcpPath = settings.Mcp ? ProfileMcpPath(home) : null,
+                Detail = installed.Length > 0 ? null
+                    : bunAvailable ? "The pinned omp is not downloaded yet."
+                    : "Bun is not available. Turn on Runtimes for tooling in Settings, or choose the system command."
+            });
+        }
+        var system = await ReadStatusAsync(settings.Command, home, settings.Mcp);
+        return managed.Status(system) with
+        {
+            Source = OmpSources.System,
+            SourceNote = settings.Source.Length == 0 && !bunAvailable ? "Bun from Runtimes for tooling is not available, so omp runs from your system command." : ""
+        };
     }
 
     private static ProcessStartInfo OmpProcess(string executable, IEnumerable<string> arguments, string? home)
@@ -202,6 +231,10 @@ public sealed partial class OmpHost : PluginHostModule
     {
         var settings = () => context.Settings<OmpSettings>();
         var sessions = context.StateDirectory is { } state ? Path.Combine(state, "sessions") : Path.Combine(Path.GetTempPath(), "tereditor-omp-sessions");
+        var managed = new OmpManaged(OmpManaged.DefaultRoot(), (workspace, token) => context.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, token).AsTask());
+        // Whether launches run the managed copy: set by every status read and settings change; the system command until the first one.
+        var managedActive = false;
+        string Command() => managedActive ? managed.ShimPath : settings().Command;
 
         async ValueTask<string> RootOf(string workspaceId, CancellationToken cancellationToken) =>
             (await context.WorkspaceAsync(workspaceId, cancellationToken))?.Path ?? throw new InvalidOperationException($"Unknown workspace: {workspaceId}");
@@ -209,6 +242,40 @@ public sealed partial class OmpHost : PluginHostModule
         // omp starts in the tereditor profile when MCP is on, or when a model source contributes the profile to its launch.
         bool UsesSource() => context.AgentLaunchContributions(OmpManifest.Id).Any(contribution => contribution.Arguments.Contains("--profile"));
         bool UsesProfile() => settings().Mcp || UsesSource();
+
+        // Bun is there (a pinned path, one on PATH or the downloaded copy) or the Runtimes plugin would download it. Starts no download.
+        async Task<(bool Present, bool Available)> BunAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var bun = (await context.RuntimeStatusAsync(cancellationToken)).FirstOrDefault(status => status.Kind == RuntimeKind.Bun);
+                return (bun is { Source: not null }, bun is { Source: not null } or { Downloadable: true });
+            }
+            catch (Exception error) when (error is not OperationCanceledException) { return (false, false); }
+        }
+
+        // Settles which source launches use and keeps the program they start in step with Bun's current path; never downloads.
+        async Task<bool> RefreshAsync(CancellationToken cancellationToken)
+        {
+            var (present, available) = await BunAsync(cancellationToken);
+            managedActive = OmpSources.Effective(settings().Source, available) == OmpSources.Managed;
+            if (managedActive)
+            {
+                try
+                {
+                    var bun = present ? await context.ResolveRuntimeAsync(RuntimeKind.Bun, managed.Root, cancellationToken) : null;
+                    managed.WriteShim(bun is { Available: true } ? bun : null);
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { context.Log.Warn("omp program was not written: " + error.Message); }
+            }
+            return available;
+        }
+
+        async Task<OmpStatus> StatusAsync(CancellationToken cancellationToken)
+        {
+            var available = await RefreshAsync(cancellationToken);
+            return await ComposeStatusAsync(settings(), HomeDirectory, managed, available);
+        }
 
         string? wizardPrepared = null;
         void EnsureProfile()
@@ -220,16 +287,38 @@ public sealed partial class OmpHost : PluginHostModule
                 try { WriteProfileMcp(HomeDirectory); }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException) { context.Log.Warn("omp profile MCP file was not written: " + error.Message); }
             }
-            // Once per command per host run, in the background so a launch never waits on it.
-            if (Interlocked.Exchange(ref wizardPrepared, current.Command) == current.Command) return;
+            // Once per command per host run, in the background so a launch never waits on it. The managed omp waits until it is downloaded
+            // (a download calls this again), so the first try does not fail on a program that is not there yet.
+            var command = Command();
+            if (managedActive && managed.InstalledVersion().Length == 0) return;
+            if (Interlocked.Exchange(ref wizardPrepared, command) == command) return;
             var home = Environment.GetEnvironmentVariable(HomeVariable) is { Length: > 0 } overridden ? overridden : null;
-            _ = Task.Run(async () => context.Log.Info("omp setup wizard: " + await SkipSetupWizardAsync(current.Command, home)));
+            _ = Task.Run(async () => context.Log.Info("omp setup wizard: " + await SkipSetupWizardAsync(command, home)));
         }
 
-        context.Method(OmpContract.Status, async (_, _, _) =>
+        context.Method(OmpContract.Status, async (_, _, token) => await Task.Run(() => StatusAsync(token), token));
+        context.Method(OmpContract.Install, async (_, _, token) =>
         {
-            var current = settings();
-            return await Task.Run(() => ReadStatusAsync(current.Command, HomeDirectory, current.Mcp));
+            try { await managed.EnsureAsync("", token); }
+            catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException or OperationCanceledException) { context.Log.Debug("omp download: " + error.Message); }
+            await Task.Run(EnsureProfile, CancellationToken.None);
+            return await Task.Run(() => StatusAsync(CancellationToken.None), CancellationToken.None);
+        });
+        context.Method(OmpContract.CancelInstall, async (_, _, token) =>
+        {
+            managed.Cancel();
+            return await Task.Run(() => StatusAsync(token), token);
+        });
+        context.Method(OmpContract.Remove, async (_, _, token) =>
+        {
+            await Task.Run(managed.Remove, token);
+            return await Task.Run(() => StatusAsync(token), token);
+        });
+        // Turning the plugin off deletes what it downloaded.
+        context.OnUserDisabled(() =>
+        {
+            managed.Remove();
+            return ValueTask.CompletedTask;
         });
         context.Method(OmpContract.Context, async (p, _, ct) =>
         {
@@ -255,7 +344,9 @@ public sealed partial class OmpHost : PluginHostModule
             if (!await importing.WaitAsync(0, ct)) return new OmpSignInResult(false, "An import is already running.");
             try
             {
-                var command = settings().Command;
+                await RefreshAsync(ct);
+                if (managedActive && managed.InstalledVersion().Length == 0) return new OmpSignInResult(false, "omp is not downloaded yet. Download it in Settings, then try again.");
+                var command = Command();
                 var home = Environment.GetEnvironmentVariable(HomeVariable) is { Length: > 0 } overridden ? overridden : null;
                 return await Task.Run(() => ImportSignInAsync(command, home, ct), ct);
             }
@@ -267,8 +358,22 @@ public sealed partial class OmpHost : PluginHostModule
             EnsureProfile();
             return new Dictionary<string, string> { [OmpLaunch.SessionsVariable] = sessions };
         });
-        context.OnSettings<OmpSettings>(_ => EnsureProfile());
+        // A change of source settles which program launches use first, then the profile is prepared for it.
+        context.OnSettings<OmpSettings>(changed =>
+        {
+            EnsureProfile();
+            _ = Task.Run(async () =>
+            {
+                await RefreshAsync(CancellationToken.None);
+                EnsureProfile();
+            });
+        });
         await Task.Run(EnsureProfile);
+        _ = Task.Run(async () =>
+        {
+            await RefreshAsync(CancellationToken.None);
+            EnsureProfile();
+        });
 
         var watch = new AgentWatch(
             () => [.. context.Terminals().Where(item => item.Pid is not null).Select(item => new AgentWatchTarget(item.Terminal.WorkspaceId, item.Terminal.TabKey, item.Pid!.Value))],
@@ -289,7 +394,9 @@ public sealed partial class OmpHost : PluginHostModule
             {
                 var terminal = new TerminalRef(workspaceId, tabKey);
                 if (context.AgentRecord(terminal)?.Kind == OmpManifest.Id) context.SetAgentRecord(terminal, null);
-            });
+            },
+            // The managed omp is a Bun process running the managed copy's script.
+            isManaged: pid => managedActive && ProcessSnapshot.CaptureCommand(pid)?.Contains(managed.EntryPoint, StringComparison.Ordinal) == true);
         context.OnTerminal(change =>
         {
             switch (change)
@@ -307,7 +414,7 @@ public sealed partial class OmpHost : PluginHostModule
             var directory = record.SessionId is { Length: > 0 } id ? Path.Combine(sessions, id) : null;
             var newest = directory is null ? null : NewestSession(directory);
             // Start fresh keeps the tab's session directory but resumes nothing in it.
-            string Line(bool fresh) => OmpLaunch.Line(current.Command, new()
+            string Line(bool fresh) => OmpLaunch.Line(managedActive ? OmpLaunch.ManagedExecutable(managed.ShimPath) : current.Command, new()
             {
                 Mcp = current.Mcp,
                 Windows = OperatingSystem.IsWindows(),
