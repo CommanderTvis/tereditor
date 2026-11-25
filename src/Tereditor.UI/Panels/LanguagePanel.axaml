@@ -22,7 +22,6 @@
     <kit:PathLine x:Name="Workspace" />
     <StackPanel x:Name="LanguageServersSection" Spacing="8">
       <TextBlock Text="Language servers" FontSize="16" FontWeight="SemiBold" />
-      <TextBlock Text="Diagnostics, navigation and refactoring." FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" />
       <TextBlock x:Name="LifetimeNote" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" />
     <TextBlock x:Name="Status" Text="Reading language servers…" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" Margin="0,4" />
     <local:LanguageBlockedNotice x:Name="StartNotice" />
