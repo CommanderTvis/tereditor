@@ -34,7 +34,11 @@ public sealed record AirAgent(string Id, string Label, bool Chosen, string? Laun
 public sealed record AirCredits(double Remaining, double Total, double TopUp = 0, long? RefillNext = null, long? ReadAt = null);
 
 /// <param name="Credits">Only while Central governs an agent and is signed in, and only when the last check could read them; otherwise <see langword="null"/>.</param>
-public sealed record AirStatus(AirCentral Central, IReadOnlyList<AirAgent> Agents, bool Busy = false, string? Detail = null, AirCredits? Credits = null);
+/// <param name="Pi">connected or not-connected: whether Central's Pi extension is installed (<c>central add pi</c>); null when it was not read.</param>
+public sealed record AirStatus(AirCentral Central, IReadOnlyList<AirAgent> Agents, bool Busy = false, string? Detail = null, AirCredits? Credits = null, string? Pi = null);
+
+/// <summary>Where Central's Pi extension is: <c>global</c> (Pi loads <c>~/.pi/agent/extensions/jetbrains-central.ts</c> itself), <c>run</c> (the per-run file, passed with <c>-e</c>) or <c>none</c>.</summary>
+public sealed record AirPiConnection(string State, string? Extension = null);
 
 public sealed record AirOutcome(bool Ok, string Message, AirStatus Status);
 
@@ -85,14 +89,31 @@ public static class AirLaunch
     /// launcher is unknown. Once chosen it always governs, failing closed: the agent is wrapped with the bare name when Central has
     /// not been found, so a missing CLI fails the launch in the shell.
     /// </summary>
-    public static AgentLaunchContribution? Contribution(IReadOnlySet<string> chosen, string launcherId, string? centralPath) =>
-        Enabled(chosen, launcherId)
+    public static AgentLaunchContribution? Contribution(IReadOnlySet<string> chosen, string launcherId, string? centralPath, AirPiConnection? pi = null) =>
+        Enabled(chosen, launcherId) && launcherId == "pi" ? PiContribution(pi)
+        : Enabled(chosen, launcherId)
             ? new() { Wrapper = [centralPath is { Length: > 0 } ? centralPath : "central", "run", Agents.First(agent => agent.LauncherId == launcherId).CentralName, "--"], ReplacesExecutable = true }
             : null;
 
+    /// <summary>
+    /// Pi is not wrapped in <c>central run</c>: Pi runs as itself and Central's extension routes its providers through the local proxy
+    /// (the extension <c>central add pi</c> writes, as the JetBrains fork does). Not connected blocks the start with a plain reason; connected
+    /// through the per-run file adds <c>-e</c> for it; connected globally adds nothing, since Pi loads that file itself and a second load would register twice.
+    /// With no reading (the UI half does no file work) nothing is added.
+    /// </summary>
+    private static AgentLaunchContribution PiContribution(AirPiConnection? pi) => pi switch
+    {
+        null => new(),
+        { State: "none" } => new() { BlockedReason = "Pi is not connected to JetBrains AI. Connect it in Settings › Plugins › Model providers › JetBrains (Air Gateway)." },
+        { State: "run", Extension: { Length: > 0 } extension } => new() { Arguments = ["-e", extension] },
+        _ => new()
+    };
+
     /// <summary>The command shape shown to the user: the wrapper followed by the agent's usual arguments.</summary>
     public static string? Shape(IReadOnlySet<string> chosen, string launcherId, string? centralPath) =>
-        Contribution(chosen, launcherId, centralPath) is { } contribution ? string.Join(' ', contribution.Wrapper) + " <" + launcherId + " arguments>" : null;
+        !Enabled(chosen, launcherId) ? null
+        : launcherId == "pi" ? "pi <pi arguments>, with Central's extension"
+        : Contribution(chosen, launcherId, centralPath) is { } contribution ? string.Join(' ', contribution.Wrapper) + " <" + launcherId + " arguments>" : null;
 }
 
 public static class AirGatewayContract
@@ -104,12 +125,14 @@ public static class AirGatewayContract
     public static readonly PluginMethod<AirActionParams, AirOutcome> SignOut = new("sign-out");
     public static readonly PluginMethod<AirActionParams, AirOutcome> StartProxy = new("start-proxy");
     public static readonly PluginMethod<AirActionParams, AirOutcome> Update = new("update");
+    public static readonly PluginMethod<AirActionParams, AirOutcome> ConnectPi = new("connect-pi");
+    public static readonly PluginMethod<AirActionParams, AirOutcome> DisconnectPi = new("disconnect-pi");
     public static readonly PluginMethod<AirActionParams, AirAccessList> AccessSources = new("access-sources");
     public static readonly PluginMethod<AirSwitchParams, AirOutcome> SwitchAccess = new("switch-access");
     public static readonly PluginChannel<AirStatus> Changed = PluginChannel<AirStatus>.State("status", Status);
 
     public static readonly PluginContract Contract = PluginContract.Create<AirSettings>(Id, 1,
-        [Status, SignIn, SignOut, StartProxy, Update, AccessSources, SwitchAccess], [Changed], AirGatewayJson.Default);
+        [Status, SignIn, SignOut, StartProxy, Update, ConnectPi, DisconnectPi, AccessSources, SwitchAccess], [Changed], AirGatewayJson.Default);
 
     public static readonly PluginManifest Manifest = new(Id, "Air Gateway", "", "0.1.0", PluginApi.Generation, 1)
     {

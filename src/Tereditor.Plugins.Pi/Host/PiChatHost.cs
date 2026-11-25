@@ -126,18 +126,17 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
     }
 
     /// <summary>
-    /// The managed Pi under a Model source that starts Pi through another program: that program runs <c>pi</c> found on PATH (<c>central run pi --</c>),
-    /// so the managed Pi works through a shim that stands first on PATH. A wrapper of any other shape is not known to do that: the start is blocked
-    /// with a sentence naming the source. Null when nothing blocks.
+    /// The pinned Pi runs on Bun, so a Model source that replaces the executable with its own launcher (a wrapper such as `tool run pi --`) cannot start it:
+    /// the start is blocked with a sentence naming the source. JetBrains (Air Gateway) does not do this for Pi; it adds Central's extension instead.
     /// </summary>
     internal static string? ManagedBlock(IReadOnlyList<AgentLaunchContribution> contributions) =>
-        contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0) is { } replacer && !RunsPiFromPath(replacer.Wrapper)
-            ? $"{(replacer.Provider is { Length: > 0 } name ? name : "The chosen Model source")} starts Pi in a way the managed Pi cannot follow. Switch Pi source to System command, or choose another Model source."
+        contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0) is { } replacer
+            ? $"{(replacer.Provider is { Length: > 0 } name ? name : "The chosen Model source")} starts Pi itself, so the pinned Pi cannot run with it. Switch Pi source to System command, or choose another Model source."
             : null;
 
-    /// <summary>Whether the wrapper ends in <c>pi --</c>, the program name Pi is found by on PATH.</summary>
-    internal static bool RunsPiFromPath(IReadOnlyList<string> wrapper) =>
-        wrapper.Count >= 3 && wrapper[^1] == "--" && Path.GetFileNameWithoutExtension(wrapper[^2]) == "pi";
+    /// <summary>The ids of the models the open chats' Pi listed, for the Settings model suggestions.</summary>
+    internal IReadOnlyList<string> ReportedModels() =>
+        [.. sessions.Values.Where(session => session.Active).SelectMany(session => session.Header.Models ?? []).Select(model => model.Id).Distinct()];
 
     private async ValueTask<string> RootOf(string workspaceId, CancellationToken cancellationToken) =>
         (await context.WorkspaceAsync(workspaceId, cancellationToken))?.Path ?? workspaceId;
@@ -151,14 +150,16 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         var resume = p.ResumeSessionId ?? record?.SessionFile;
         var command = settings.Command.Trim() is { Length: > 0 } own ? own : "pi";
         // The pinned Pi runs on Bun and never falls back to the system one.
+        var all = context.AgentLaunchContributions(PiManifest.Id);
         var pinned = settings.Source == PiSources.Managed && PiLinks.InTab is null ? managed : null;
         // Like the other agents, a custom command is never rewritten: only the plain `pi` is wrapped or blocked by a launch contribution.
-        var contributions = pinned is not null || Path.GetFileNameWithoutExtension(command) == "pi" ? context.AgentLaunchContributions(PiManifest.Id) : [];
+        var contributions = pinned is not null || Path.GetFileNameWithoutExtension(command) == "pi" ? all : [];
         var replacing = contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0)?.Wrapper ?? [];
         var spawn = new PiSpawn(command, cwd)
         {
             Wrapper = replacing,
             Blocked = AgentLaunchComposition.Blocked(contributions) ?? (pinned is not null ? ManagedBlock(contributions) : null),
+            Extra = [.. contributions.SelectMany(contribution => contribution.Arguments)],
             Model = p.Model ?? (settings.Model.Length > 0 ? settings.Model : null),
             Thinking = p.Effort ?? (settings.Thinking.Length > 0 ? settings.Thinking : null),
             Codemode = settings.Codemode,

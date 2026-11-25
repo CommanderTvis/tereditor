@@ -112,46 +112,7 @@ internal sealed class PiManaged(string root, Func<string, CancellationToken, Tas
         if (!bun.Available) throw new InvalidOperationException(bun.Message);
         var environment = new Dictionary<string, string>(spawn.Environment);
         foreach (var (name, value) in bun.Env) environment[name] = value;
-        // A Model source that starts Pi through another program (central run pi --) finds it on PATH: a shim that runs the managed Pi stands first there.
-        if (spawn.Wrapper.Count > 0)
-        {
-            var shim = WriteShim(bun.Command);
-            environment["PATH"] = shim + Path.PathSeparator + (environment.GetValueOrDefault("PATH") ?? Environment.GetEnvironmentVariable("PATH") ?? "");
-            return spawn with { Environment = environment, Started = id => track(bun, id) };
-        }
         return spawn with { Command = bun.Command, Prefix = ["--bun", EntryPoint], Environment = environment, Started = id => track(bun, id) };
-    }
-
-    /// <summary>The folder of the shim <c>pi</c> next to the managed folder (<c>~/.tereditor/pi/shim</c>).</summary>
-    public string ShimDirectory => Path.Combine(Path.GetDirectoryName(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? root, "shim");
-
-    /// <summary>
-    /// Writes the <c>pi</c> program that runs the managed Pi on Bun (<c>bun --bun cli.js "$@"</c>), and a <c>pi.cmd</c> on Windows. Each file is written
-    /// atomically and only when its text changed, so a new pinned version or Bun path rewrites it. Returns the folder.
-    /// </summary>
-    public string WriteShim(string bun)
-    {
-        var directory = ShimDirectory;
-        Directory.CreateDirectory(directory);
-        if (OperatingSystem.IsWindows())
-        {
-            Place(Path.Combine(directory, "pi.cmd"), $"@echo off\r\n\"{bun}\" --bun \"{EntryPoint}\" %*\r\n");
-        }
-        else
-        {
-            static string Quote(string text) => "'" + text.Replace("'", "'\\''") + "'";
-            Place(Path.Combine(directory, "pi"), $"#!/bin/sh\nexec {Quote(bun)} --bun {Quote(EntryPoint)} \"$@\"\n");
-        }
-        return directory;
-
-        static void Place(string path, string text)
-        {
-            if (File.Exists(path) && File.ReadAllText(path) == text) return;
-            var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            File.WriteAllText(temporary, text);
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
-            File.Move(temporary, path, true);
-        }
     }
 
     public void Cancel()

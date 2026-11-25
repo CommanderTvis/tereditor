@@ -23,7 +23,9 @@ internal sealed partial class AirSettingsView : UserControl
     private readonly TextBlock centralLine, credits, launchNote, result, accessNote;
     private readonly StackPanel install, access;
     private readonly TextBox installCommand;
-    private readonly Button signIn, signOut, startProxy, update;
+    private readonly Button signIn, signOut, startProxy, update, piConnect, piDisconnect;
+    private readonly StackPanel piPanel;
+    private readonly TextBlock piLine;
     private readonly List<IDisposable> observers = [];
     private AirStatus? status;
     private bool busy;
@@ -59,6 +61,10 @@ internal sealed partial class AirSettingsView : UserControl
         signOut.Click += (_, _) => _ = RunAsync(AirGatewayContract.SignOut);
         startProxy.Click += (_, _) => _ = RunAsync(AirGatewayContract.StartProxy);
         update.Click += (_, _) => _ = RunAsync(AirGatewayContract.Update);
+        piPanel = Get<StackPanel>("AirPiPanel"); piLine = Get<TextBlock>("AirPiLine");
+        piConnect = Get<Button>("AirPiConnect"); piDisconnect = Get<Button>("AirPiDisconnect");
+        piConnect.Click += (_, _) => _ = RunAsync(AirGatewayContract.ConnectPi);
+        piDisconnect.Click += (_, _) => _ = RunAsync(AirGatewayContract.DisconnectPi);
         Render();
         AttachedToVisualTree += (_, _) =>
         {
@@ -277,6 +283,14 @@ internal sealed partial class AirSettingsView : UserControl
         installCommand.Text = current.Central.InstallCommand;
         startProxy.IsVisible = current.Central.Proxy == "stopped";
         update.IsVisible = current.Central.State == "outdated";
+        var piChosen = current.Agents.Any(agent => agent.Id == "pi" && agent.Chosen);
+        var centralUsable = current.Central.State is "supported" or "outdated";
+        piPanel.IsVisible = piChosen || current.Pi == "connected";
+        piLine.Text = !centralUsable ? "Install Central first, then connect Pi."
+            : current.Central.Auth == "signed-out" ? "Sign in to Central, then connect Pi."
+            : current.Central.Proxy == "stopped" ? (current.Pi == "connected" ? "Pi is connected, but the Central proxy is stopped. Start it to use Pi." : "Pi is not connected. The Central proxy is stopped.")
+            : current.Pi == "connected" ? "Pi is connected: its models go through JetBrains AI."
+            : "Pi is not connected. Connect it so Pi can use JetBrains AI.";
         launchNote.Text = !Governed ? "" :
             current.Central.State is "absent" or "malformed-version" or "probe-failed" ? "Central was not found or could not be verified: governed launches will fail in the terminal rather than start without governance." :
             current.Central.State == "outdated" ? "This Central is older than the minimum supported; update it before launching." :
@@ -291,5 +305,9 @@ internal sealed partial class AirSettingsView : UserControl
         signIn.IsEnabled = idle && central is { State: "supported" or "outdated" } && central.Auth != "connected";
         signOut.IsEnabled = idle && central is { State: "supported" or "outdated" } && central.Auth != "signed-out";
         startProxy.IsEnabled = update.IsEnabled = idle;
+        piConnect.IsVisible = status?.Pi != "connected";
+        piDisconnect.IsVisible = status?.Pi == "connected";
+        piConnect.IsEnabled = idle && central is { State: "supported" };
+        piDisconnect.IsEnabled = idle && central?.Path is not null;
     }
 }

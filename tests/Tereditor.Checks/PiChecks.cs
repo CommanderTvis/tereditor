@@ -257,13 +257,21 @@ internal static class PiChecks
         await blockedSession.StartAsync(blocked);
         Require(blockedSession.Header is { Status: ChatStatus.Failed, Error: "Central is not signed in." }, "A blocked launch contribution stops Pi from starting, with its reason.");
 
-        // The managed Pi under a Model source: `central run pi --` finds pi on PATH, so it is allowed (through a shim); another wrapper is blocked with the source named.
-        var air = new AgentLaunchContribution { Wrapper = ["central", "run", "pi", "--"], ReplacesExecutable = true, Provider = "JetBrains (Air Gateway)" };
-        Require(PiChatHost.ManagedBlock([air]) is null && PiChatHost.ManagedBlock([]) is null && PiChatHost.ManagedBlock([new AgentLaunchContribution { Provider = "Mine" }]) is null, "central run pi -- and a source with no wrapper do not block the managed Pi.");
-        var odd = air with { Wrapper = ["other", "start"] };
-        Require(PiChatHost.ManagedBlock([odd]) is { } why && why.StartsWith("JetBrains (Air Gateway) starts Pi in a way the managed Pi cannot follow", StringComparison.Ordinal) && why.Contains("System command", StringComparison.Ordinal),
-            "A wrapper that is not known to run pi from PATH blocks the managed Pi, naming the Model source.");
-        Require(PiChatHost.ManagedBlock([odd with { Provider = null }])!.StartsWith("The chosen Model source starts Pi", StringComparison.Ordinal), "A source with no name is called the chosen Model source.");
+        // The pinned Pi runs on Bun: a Model source that replaces the executable with its own launcher blocks it, naming the source; JetBrains (Air Gateway) adds an extension instead and never blocks.
+        var launcher = new AgentLaunchContribution { Wrapper = ["tool", "run", "pi", "--"], ReplacesExecutable = true, Provider = "Some launcher" };
+        Require(PiChatHost.ManagedBlock([launcher]) is { } why && why.StartsWith("Some launcher starts Pi itself", StringComparison.Ordinal) && why.Contains("System command", StringComparison.Ordinal)
+            && PiChatHost.ManagedBlock([launcher with { Provider = null }])!.StartsWith("The chosen Model source starts Pi itself", StringComparison.Ordinal)
+            && PiChatHost.ManagedBlock([new AgentLaunchContribution { Arguments = ["-e", "/x/jetbrains-central.run.ts"], Provider = "JetBrains (Air Gateway)" }]) is null && PiChatHost.ManagedBlock([]) is null,
+            "A launcher that replaces the executable blocks the pinned Pi, naming the source; an extension contribution does not.");
+        // A contribution's extension words reach Pi after --mode rpc, and the system Pi under such a contribution runs as itself.
+        var extended = new PiChatSession("ws", "chat5", _ => { }, _ => { }, (_, _) => { });
+        var withExtension = new PiSpawn(fake, directory) { Extra = ["-e", "/x/jetbrains-central.run.ts"] };
+        extended.Begin(withExtension);
+        await extended.StartAsync(withExtension);
+        await Until(() => extended.Header.Status == ChatStatus.Idle, "Pi starts with a contribution's extension.");
+        Require(File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(4).SequenceEqual(["--mode", "rpc", "-e", "/x/jetbrains-central.run.ts"]), "The extension words follow --mode rpc.");
+        await extended.CloseAsync();
+        Require(new[] { "off", "minimal", "low", "medium", "high", "xhigh", "max" }.SequenceEqual(PiSources.ThinkingLevels.Select(level => level.Id)), "The thinking cards list the levels Pi's docs accept.");
 
         // The picker leads with the first model of each family: Pi lists oldest first, so only the newest of a family keeps it.
         ChatModel Model(string id, string provider) => new(provider + "/" + id, id) { Provider = provider, Family = new[] { "opus", "sonnet" }.FirstOrDefault(family => id.Contains(family, StringComparison.Ordinal)) };
@@ -487,26 +495,6 @@ internal static class PiChecks
 
         var blocked = new PiSpawn("pi", workspace) { Blocked = "Central is not signed in." };
         Require(await managed.PrepareAsync(blocked, (_, _) => throw new InvalidOperationException("tracked")) == blocked, "A blocked launch is passed on unchanged, so it fails with its reason and starts no Bun.");
-
-        // Under a wrapper that runs pi from PATH (central run pi --) the shim stands first on PATH and forwards the arguments to the managed Pi.
-        var central = Path.Combine(directory, "central");
-        File.WriteAllText(central, "#!/bin/sh\nshift 3\nexec pi \"$@\"\n");
-        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(central, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        var wrapped = await managed.PrepareAsync(new PiSpawn("pi", workspace) { Wrapper = [central, "run", "pi", "--"], Model = "fake/m1" }, (_, _) => { });
-        Require(wrapped.Executable == central && wrapped.Prefix.Count == 0 && wrapped.Environment["PATH"].StartsWith(managed.ShimDirectory + Path.PathSeparator, StringComparison.Ordinal) && wrapped.Environment["BUN_INSTALL"] == Path.Combine(directory, "bun-home"),
-            "Under a wrapper the managed launch keeps the wrapper and puts the shim folder first on PATH.");
-        Require(File.ReadAllText(Path.Combine(managed.ShimDirectory, "pi")).Contains(managed.EntryPoint, StringComparison.Ordinal) && (OperatingSystem.IsWindows() || (File.GetUnixFileMode(Path.Combine(managed.ShimDirectory, "pi")) & UnixFileMode.UserExecute) != 0), "The shim runs the managed cli.js and is executable.");
-        await using var viaCentral = new PiChatSession("ws", "central", _ => { }, _ => { }, (_, _) => { });
-        viaCentral.Begin(wrapped);
-        await viaCentral.StartAsync(wrapped);
-        await Until(() => viaCentral.Header.Status == ChatStatus.Idle, "The managed Pi starts through the wrapper and the shim.");
-        Require(calls().Contains($"--bun {managed.EntryPoint} --mode rpc --model fake/m1") && File.ReadAllLines(Path.Combine(directory, "argv.txt")).Take(4).SequenceEqual(["--mode", "rpc", "--model", "fake/m1"]),
-            "The wrapper's pi is the shim: Bun runs the managed Pi with the arguments the wrapper passed on.");
-        await viaCentral.CloseAsync();
-        var shimFile = Path.Combine(managed.ShimDirectory, "pi");
-        File.WriteAllText(shimFile, "old");
-        managed.WriteShim(bun);
-        Require(File.ReadAllText(shimFile).Contains(bun, StringComparison.Ordinal), "A shim that no longer matches the managed Pi and Bun is rewritten.");
 
         var noBun = new PiManaged(install, (_, _) => Task.FromResult(RuntimeResolution.Unavailable(RuntimeKind.Bun, "Needs Bun.", offerEnable: true)));
         managed.Remove();

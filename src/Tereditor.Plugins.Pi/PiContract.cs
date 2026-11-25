@@ -24,6 +24,8 @@ public sealed record PiStatus(bool Installed, string Command)
     public string Progress { get; set; } = "";
     /// <summary>Why the last download failed; empty when it did not.</summary>
     public string Error { get; set; } = "";
+    /// <summary>The ids of the models the open Pi chats listed, offered as suggestions for the model setting.</summary>
+    public IReadOnlyList<string> Models { get; set; } = [];
 }
 
 /// <summary>Where the Pi that a chat runs comes from.</summary>
@@ -33,6 +35,29 @@ public static class PiSources
     public const string System = "system";
     /// <summary>The pinned Pi that tereditor downloads and runs on Bun (Runtimes for tooling).</summary>
     public const string Managed = "managed";
+
+    /// <summary>The values <c>--thinking</c> takes, from Pi's CLI and RPC docs; the first of the cards is Pi's own default (empty).</summary>
+    public static readonly IReadOnlyList<(string Id, string Description)> ThinkingLevels =
+    [
+        ("off", "No extra thinking."),
+        ("minimal", "A few tokens of thinking."),
+        ("low", "A little thinking."),
+        ("medium", "A fair amount of thinking."),
+        ("high", "Plenty of thinking."),
+        ("xhigh", "Even more, if the model supports it."),
+        ("max", "The most thinking, if the model supports it.")
+    ];
+
+    /// <summary>Suggestions for the model box, from Pi's docs: patterns, a thinking suffix and the provider/id form.</summary>
+    public static readonly IReadOnlyList<(string Id, string Description)> ModelSuggestions =
+    [
+        ("sonnet", "A pattern; the best match wins"),
+        ("opus", "A pattern; the best match wins"),
+        ("sonnet:high", "A pattern with a thinking level"),
+        ("opus:high", "A pattern with a thinking level"),
+        ("anthropic/claude-opus-5-5", "A provider and a model id"),
+        ("openai/gpt-5.6", "A provider and a model id")
+    ];
 }
 
 public sealed record PiSettings

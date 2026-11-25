@@ -14,7 +14,7 @@ public sealed class PiHost : PluginHostModule
     public override IJsonTypeInfoResolver Json => PiHostJson.Default;
 
     /// <summary>The status of the Pi the settings choose, with the state of the pinned download added.</summary>
-    internal static async Task<PiStatus> ReadStatusAsync(PiSettings settings, PiManaged managed) =>
+    internal static async Task<PiStatus> ReadStatusAsync(PiSettings settings, PiManaged managed, IReadOnlyList<AgentLaunchContribution>? contributions = null) =>
         settings.Source == PiSources.Managed && PiLinks.InTab is null
             ? await Task.Run(() => managed.Status(PiSources.Managed))
             : managed.Status(PiSources.System, await ReadStatusAsync(settings.Command));
@@ -67,8 +67,9 @@ public sealed class PiHost : PluginHostModule
         var settings = context.Settings<PiSettings>();
         var cwd = (await context.WorkspaceAsync(request.WorkspaceId, cancellationToken))?.Path ?? request.WorkspaceId;
         var command = settings.Command.Trim() is { Length: > 0 } own ? own : "pi";
+        var all = context.AgentLaunchContributions(PiManifest.Id);
         var pinned = settings.Source == PiSources.Managed;
-        var contributions = pinned || Path.GetFileNameWithoutExtension(command) == "pi" ? context.AgentLaunchContributions(PiManifest.Id) : [];
+        var contributions = pinned || Path.GetFileNameWithoutExtension(command) == "pi" ? all : [];
         var replacing = contributions.FirstOrDefault(contribution => contribution.ReplacesExecutable && contribution.Wrapper.Count > 0)?.Wrapper ?? [];
         var spawn = new PiSpawn(command, cwd)
         {
@@ -91,7 +92,8 @@ public sealed class PiHost : PluginHostModule
     {
         var managed = new PiManaged(PiManaged.DefaultRoot(), (workspace, token) => context.ResolveRuntimeAsync(RuntimeKind.Bun, workspace, token).AsTask());
         var chats = new PiChatHost(context, managed: managed);
-        context.Method(PiContract.Status, async (_, _, _) => await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed)));
+        async Task<PiStatus> StatusAsync() => (await ReadStatusAsync(context.Settings<PiSettings>(), managed, context.AgentLaunchContributions(PiManifest.Id))) with { Models = chats.ReportedModels() };
+        context.Method(PiContract.Status, async (_, _, _) => await Task.Run(() => StatusAsync()));
         context.Method(PiContract.Config, (request, _, token) => ConfigAsync(context, chats, request.WorkspaceId, token));
         context.Method(PiContract.PackageInstall, (request, _, token) => PackageAsync(context, managed, "install", request, token));
         context.Method(PiContract.PackageRemove, (request, _, token) => PackageAsync(context, managed, "remove", request, token));
@@ -99,17 +101,17 @@ public sealed class PiHost : PluginHostModule
         {
             try { await managed.EnsureAsync("", token); }
             catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException or OperationCanceledException) { context.Log.Debug("pi download: " + error.Message); }
-            return await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed), CancellationToken.None);
+            return await Task.Run(() => StatusAsync(), CancellationToken.None);
         });
         context.Method(PiContract.CancelInstall, async (_, _, _) =>
         {
             managed.Cancel();
-            return await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed));
+            return await Task.Run(() => StatusAsync());
         });
         context.Method(PiContract.Remove, async (_, _, _) =>
         {
             await Task.Run(managed.Remove);
-            return await Task.Run(() => ReadStatusAsync(context.Settings<PiSettings>(), managed));
+            return await Task.Run(() => StatusAsync());
         });
         // Turning the plugin off deletes what it downloaded.
         context.OnUserDisabled(() =>

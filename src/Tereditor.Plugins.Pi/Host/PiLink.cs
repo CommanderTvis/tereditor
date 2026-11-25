@@ -39,6 +39,7 @@ internal sealed class ProcessPiLink : IPiLink
         if (spawn.Blocked is { } reason) throw new InvalidOperationException(reason);
         // A wrapper replaces the executable word (`central run pi --`), so its remaining words come before Pi's own arguments.
         var arguments = new List<string>(spawn.Wrapper.Skip(1).Concat(spawn.Prefix)) { "--mode", "rpc" };
+        arguments.AddRange(spawn.Extra);
         if (spawn.Session is { Length: > 0 } session) arguments.AddRange(["--session", session]);
         if (spawn.Model is { Length: > 0 } model) arguments.AddRange(["--model", model]);
         if (spawn.Codemode) arguments.AddRange(["--tools", "+codemode"]);

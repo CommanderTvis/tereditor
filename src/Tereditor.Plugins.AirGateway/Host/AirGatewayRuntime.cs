@@ -102,14 +102,26 @@ internal sealed class AirGatewayRuntime : IDisposable
 
     /// <summary>The host-side contribution: <see cref="AirLaunch.Contribution"/> plus the account the governed launcher runs under.</summary>
     public AgentLaunchContribution? Contribution(string launcherId) =>
-        AirLaunch.Contribution(chosen(), launcherId, cli.Locate()) is { } contribution
+        AirLaunch.Contribution(chosen(), launcherId, cli.Locate(), PiConnection()) is { } contribution
             ? contribution with { Account = new("Central", AccountAsync), Provider = AirLaunch.Provider.Name } : null;
+
+    /// <summary>
+    /// Whether Central's Pi extension is installed, read from the file system only: the global file Pi loads itself
+    /// (<c>~/.pi/agent/extensions/jetbrains-central.ts</c>, written by <c>central add pi</c>) wins over the per-run file.
+    /// </summary>
+    public AirPiConnection PiConnection()
+    {
+        var home = cli.Environment.Home;
+        if (File.Exists(Path.Combine(home, ".pi", "agent", "extensions", "jetbrains-central.ts"))) return new("global");
+        var run = Path.Combine(home, ".jetbrains-central", "pi", "jetbrains-central.run.ts");
+        return File.Exists(run) ? new("run", run) : new("none");
+    }
 
     private AirStatus Build(AirCentral central)
     {
         var current = chosen();
         var agents = AirLaunch.Agents.Select(agent => new AirAgent(agent.AgentId, agent.Label, current.Contains(agent.AgentId), AirLaunch.Shape(current, agent.LauncherId, central.Path))).ToArray();
-        return new(central with { Auth = observed.Auth, Proxy = observed.Proxy }, agents, Volatile.Read(ref busy) > 0, detail, AirLaunch.Wired(current) && observed.Auth == "connected" ? credits : null);
+        return new(central with { Auth = observed.Auth, Proxy = observed.Proxy }, agents, Volatile.Read(ref busy) > 0, detail, AirLaunch.Wired(current) && observed.Auth == "connected" ? credits : null, PiConnection().State == "none" ? "not-connected" : "connected");
     }
 
     private async Task<AirOutcome> ExclusiveAsync(Func<CancellationToken, Task<(bool Ok, string Message)>> work)
@@ -158,6 +170,22 @@ internal sealed class AirGatewayRuntime : IDisposable
         var (ok, message) = await RunAsync(central, "Sign-out", ["logout"], AirCentralCli.ActionTimeout, cancellationToken);
         if (ok) { observed = ("signed-out", "unknown"); credits = null; }
         return (ok, ok ? "Signed out of Central." : message);
+    });
+
+    public Task<AirOutcome> ConnectPiAsync() => ExclusiveAsync(async cancellationToken =>
+    {
+        var central = await cli.InspectAsync(cancellationToken);
+        if (central.State != "supported") return (false, "Central is not available to connect Pi.");
+        var (ok, message) = await RunAsync(central, "Connecting Pi", ["add", "pi"], AirCentralCli.ActionTimeout, cancellationToken);
+        return ok && PiConnection().State == "none" ? (false, "Central did not write its Pi extension.") : (ok, ok ? "Pi is connected to JetBrains AI." : message);
+    });
+
+    public Task<AirOutcome> DisconnectPiAsync() => ExclusiveAsync(async cancellationToken =>
+    {
+        var central = await cli.InspectAsync(cancellationToken);
+        if (central.Path is null) return (false, "Central is not installed.");
+        var (ok, message) = await RunAsync(central, "Disconnecting Pi", ["remove", "pi"], AirCentralCli.ActionTimeout, cancellationToken);
+        return (ok, ok ? "Pi is disconnected from JetBrains AI." : message);
     });
 
     public Task<AirOutcome> StartProxyAsync() => ExclusiveAsync(async cancellationToken =>

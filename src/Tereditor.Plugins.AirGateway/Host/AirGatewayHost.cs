@@ -25,6 +25,8 @@ public sealed class AirGatewayHost : PluginHostModule
         context.Method(AirGatewayContract.SignOut, async (_, _, _) => await runtime.SignOutAsync());
         context.Method(AirGatewayContract.StartProxy, async (_, _, _) => await runtime.StartProxyAsync());
         context.Method(AirGatewayContract.Update, async (_, _, _) => await runtime.UpdateAsync());
+        context.Method(AirGatewayContract.ConnectPi, async (_, _, _) => await runtime.ConnectPiAsync());
+        context.Method(AirGatewayContract.DisconnectPi, async (_, _, _) => await runtime.DisconnectPiAsync());
         context.Method(AirGatewayContract.AccessSources, async (_, _, cancellationToken) => await runtime.AccessSourcesAsync(cancellationToken));
         context.Method(AirGatewayContract.SwitchAccess, async (parameters, _, _) => await runtime.SwitchAccessAsync(parameters.SourceId));
         // Revived terminals are rebuilt on the host, so the host half contributes too.

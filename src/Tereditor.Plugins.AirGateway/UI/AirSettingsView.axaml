@@ -25,6 +25,14 @@
       <Button x:Name="AirStartProxy" Content="Start proxy" Margin="0,0,8,8" IsVisible="False" />
       <Button x:Name="AirUpdate" Content="Update Central" Margin="0,0,8,8" IsVisible="False" />
     </WrapPanel>
+    <StackPanel x:Name="AirPiPanel" Spacing="4" IsVisible="False">
+      <TextBlock Text="Pi" Foreground="{x:Static kit:Ui.TextBrush}" />
+      <TextBlock x:Name="AirPiLine" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />
+      <WrapPanel Orientation="Horizontal">
+        <Button x:Name="AirPiConnect" Content="Connect Pi to JetBrains AI" Margin="0,0,8,8" />
+        <Button x:Name="AirPiDisconnect" Content="Disconnect Pi" Margin="0,0,8,8" />
+      </WrapPanel>
+    </StackPanel>
     <StackPanel Spacing="6">
       <TextBlock x:Name="AirLaunchNote" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />
       <TextBlock x:Name="AirResult" TextWrapping="Wrap" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" />

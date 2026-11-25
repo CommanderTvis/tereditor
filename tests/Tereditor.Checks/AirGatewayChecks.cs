@@ -94,6 +94,10 @@ internal static partial class AirGatewayChecks
           fi
           has login-error && exit 12; if has slow-login; then sleep 3; fi; drop needs-login ;;
         logout) add needs-login ;;
+        add)
+          if [ "${2:-}" = pi ]; then mkdir -p "$HOME/.pi/agent/extensions"; has add-error && exit 21; echo "// synthetic" > "$HOME/.pi/agent/extensions/jetbrains-central.ts"; fi ;;
+        remove)
+          [ "${2:-}" = pi ] && rm -f "$HOME/.pi/agent/extensions/jetbrains-central.ts" ;;
         update) has update-error && exit 13; drop outdated ;;
         run)
           shift
@@ -173,6 +177,7 @@ internal static partial class AirGatewayChecks
         await Untouched(Path.Combine(directory, "untouched"));
         await Launches(Path.Combine(directory, "launches"));
         await Failures(Path.Combine(directory, "failures"));
+        await PiExtension(Path.Combine(directory, "pi-extension"));
         await Access(Path.Combine(directory, "access"));
         await Transport(Path.Combine(directory, "transport"));
         await GovernedAccounts(Path.Combine(directory, "governed"));
@@ -227,8 +232,11 @@ internal static partial class AirGatewayChecks
             AirLaunch.Contribution(central, "codex", "/opt/c/central") is { ReplacesExecutable: true, Wrapper: ["/opt/c/central", "run", "codex", "--"] }, "Central wraps each agent in `central run <agent> --`.");
         Require(AirLaunch.Contribution(Chosen("claude-code"), "codex", "/c") is null && AirLaunch.Contribution(Chosen("claude-code"), "claude", "/c") is not null &&
             AirLaunch.Contribution(Chosen("codex"), "claude", "/c") is null, "Each agent follows its own Model source.");
-        Require(AirLaunch.Contribution(Chosen("pi"), "pi", "/opt/c/central") is { ReplacesExecutable: true, Wrapper: ["/opt/c/central", "run", "pi", "--"] } && AirLaunch.Contribution(Chosen("pi"), "claude", "/c") is null,
-            "Pi is wrapped in `central run pi --` when its own Model source is Central.");
+        Require(AirLaunch.Contribution(Chosen("pi"), "pi", "/opt/c/central") is { ReplacesExecutable: false, Wrapper.Count: 0, Arguments.Count: 0, BlockedReason: null } && AirLaunch.Contribution(Chosen("pi"), "claude", "/c") is null,
+            "Pi is not wrapped in `central run`; without a reading of its extension (the UI half) it adds nothing.");
+        Require(AirLaunch.Contribution(Chosen("pi"), "pi", "/c", new("none")) is { BlockedReason: { Length: > 0 }, Wrapper.Count: 0 } && AirLaunch.Contribution(Chosen("pi"), "pi", "/c", new("global")) is { BlockedReason: null, Arguments.Count: 0 }
+            && AirLaunch.Contribution(Chosen("pi"), "pi", "/c", new("run", "/h/run.ts")) is { BlockedReason: null, Arguments: ["-e", "/h/run.ts"] },
+            "Pi without Central's extension is blocked with a reason; with the global file it adds nothing (Pi loads it); with only the per-run file it adds -e for it.");
         Require(AirLaunch.Contribution(central, "gemini", "/c") is null && AirLaunch.Contribution(central, "codex", null)!.Wrapper[0] == "central", "Unknown launchers are untouched and a missing path fails closed with the bare name.");
         Require(AirLaunch.Shape(central, "claude", "/c") == "/c run claude-code -- <claude arguments>" && AirLaunch.Shape(none, "claude", "/c") is null, "The pane shows the exact command shape.");
         Require(AirLaunch.Contribution(central, "omp", "/c") is null && AirLaunch.Shape(central, "omp", "/c") is null, "omp is not governed through Central.");
@@ -326,6 +334,32 @@ internal static partial class AirGatewayChecks
         // Resume and flags keep their shape under the wrapper.
         Require(Tereditor.Plugins.Codex.Host.CodexResume.Command("codex --model x", "abc", false, false, null, contributions: [AirLaunch.Contribution(central, "codex", "/c")!]) is { } revived && revived.StartsWith("/c run codex -- --model x resume ", StringComparison.Ordinal),
             "A revived Codex terminal is governed too.");
+    }
+
+    // Pi is not wrapped in `central run`: it runs as itself with Central's extension, installed by `central add pi` and removed by `central remove pi`.
+    private static async Task PiExtension(string directory)
+    {
+        using var fixture = new Fixture(directory);
+        var published = new List<AirStatus>();
+        using var runtime = Runtime(fixture, Chosen("pi"), published);
+        var global = Path.Combine(fixture.Home, ".pi", "agent", "extensions", "jetbrains-central.ts");
+        Require(runtime.PiConnection().State == "none" && runtime.Contribution("pi") is { BlockedReason: { Length: > 0 }, Wrapper.Count: 0 } && (await runtime.StatusAsync(false, default)).Pi == "not-connected",
+            "Before `central add pi` Pi is not connected: its launch is blocked with a reason and the status says so.");
+        Require(fixture.Log.Count(line => line.StartsWith("run", StringComparison.Ordinal)) == 0, "Reading the state runs nothing: no hidden `central run` side effect.");
+        var connect = await runtime.ConnectPiAsync();
+        Require(connect.Ok && fixture.Log.Contains("add pi") && File.Exists(global) && runtime.PiConnection().State == "global" && connect.Status.Pi == "connected", "Connect runs `central add pi`, which writes the global extension.");
+        Require(runtime.Contribution("pi") is { BlockedReason: null, Arguments.Count: 0, Wrapper.Count: 0, ReplacesExecutable: false }, "With the global extension Pi adds no -e, so it is not registered twice.");
+        var run = Path.Combine(fixture.Home, ".jetbrains-central", "pi", "jetbrains-central.run.ts");
+        Directory.CreateDirectory(Path.GetDirectoryName(run)!); File.WriteAllText(run, "// synthetic");
+        Require(runtime.Contribution("pi") is { Arguments.Count: 0 }, "The global extension wins over the per-run file.");
+        var disconnect = await runtime.DisconnectPiAsync();
+        Require(disconnect.Ok && fixture.Log.Contains("remove pi") && !File.Exists(global), "Disconnect runs `central remove pi`.");
+        Require(runtime.PiConnection() == new AirPiConnection("run", run) && runtime.Contribution("pi") is { Arguments: ["-e", var passed] } && passed == run, "With only the per-run file Pi gets -e for it.");
+        File.Delete(run);
+        fixture.Tokens("add-error");
+        var failed = await runtime.ConnectPiAsync();
+        Require(!failed.Ok && failed.Message.Contains("failed", StringComparison.Ordinal) && runtime.PiConnection().State == "none", "A failed `central add pi` is reported and leaves Pi not connected.");
+        Require(!JsonSerializer.Serialize(published).Contains(".jetbrains-central", StringComparison.Ordinal) && !JsonSerializer.Serialize(published).Contains("127.0.0.1", StringComparison.Ordinal), "The status never carries the extension path or the proxy address.");
     }
 
     private static async Task Failures(string directory)
@@ -653,10 +687,10 @@ internal static partial class AirGatewayChecks
         await Providers("setModelSource", new SetModelSourceParams("claude-code", ProviderCatalog.JetBrainsAi));
         await Providers("setModelSource", new SetModelSourceParams("pi", ProviderCatalog.JetBrainsAi));
         await Settled("claude-code", "pi");
-        Require(status.Agents.Single(agent => agent.Id == "claude-code").Launch == fixture.Central + " run claude-code -- <claude arguments>" && status.Agents.Single(agent => agent.Id == "pi").Launch == fixture.Central + " run pi -- <pi arguments>" &&
+        Require(status.Agents.Single(agent => agent.Id == "claude-code").Launch == fixture.Central + " run claude-code -- <claude arguments>" && status.Agents.Single(agent => agent.Id == "pi").Launch == "pi <pi arguments>, with Central's extension" &&
             status.Agents.Single(agent => agent.Id == "codex").Launch is null, "The Model sources drive the launch shapes, per agent.");
         Require(agents.AgentLaunchContributions("claude").Single() is { ReplacesExecutable: true } contribution && contribution.Wrapper[0] == fixture.Central && agents.AgentLaunchContributions("codex").Count == 0 &&
-            agents.AgentLaunchContributions("pi").Single().Wrapper.SequenceEqual([fixture.Central, "run", "pi", "--"]), "The host half contributes to revived launches for the agents that chose Central only.");
+            agents.AgentLaunchContributions("pi").Single() is { Wrapper.Count: 0, ReplacesExecutable: false, BlockedReason: { Length: > 0 } }, "The host half contributes to revived launches for the agents that chose Central only; Pi without the extension is blocked.");
         Require(AgentLaunchComposition.Apply("claude --resume abc", "claude", agents.AgentLaunchContributions("claude")) == fixture.Central + " run claude-code -- --resume abc", "A revive offer is rewritten.");
         await Providers("setModelSource", new SetModelSourceParams("pi", null));
         await Settled("claude-code");
@@ -751,7 +785,7 @@ internal static partial class AirGatewayChecks
             Require(workbench.PluginRegistry.LaunchContributions("claude").Single().Wrapper.SequenceEqual(["/usr/local/bin/central", "run", "claude-code", "--"]), "The UI half contributes the wrapper with the detected path.");
             Choose("supported", "unknown", "claude-code", "pi");
             E2eWorkspace.Until(() => workbench.PluginRegistry.LaunchContributions("codex").Count == 0 && workbench.PluginRegistry.LaunchContributions("pi").Count == 1);
-            Require(workbench.PluginRegistry.LaunchContributions("claude").Count == 1 && workbench.PluginRegistry.LaunchContributions("pi").Single().Wrapper.SequenceEqual(["/usr/local/bin/central", "run", "pi", "--"]),
+            Require(workbench.PluginRegistry.LaunchContributions("claude").Count == 1 && workbench.PluginRegistry.LaunchContributions("pi").Single() is { Wrapper.Count: 0, ReplacesExecutable: false },
                 "Each agent follows its own Model source, Pi included.");
 
             fake.Replies["access-sources"] = new AirAccessList([new("workspace:o:w", "Team workspace", true), new("license:l", "Personal license", false)], null);

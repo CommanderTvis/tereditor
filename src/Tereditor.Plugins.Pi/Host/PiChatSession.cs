@@ -24,6 +24,8 @@ internal sealed record PiSpawn(string Command, string Cwd)
     public IReadOnlyDictionary<string, string> Environment { get; init; } = new Dictionary<string, string>();
     /// <summary>Words that start Pi in place of <see cref="Command"/> (another plugin's launch contribution, such as `central run pi --`); empty runs the command itself.</summary>
     public IReadOnlyList<string> Wrapper { get; init; } = [];
+    /// <summary>Words other plugins' launch contributions add (JetBrains Central's extension: <c>-e file</c>), placed after <c>--mode rpc</c>; empty adds none.</summary>
+    public IReadOnlyList<string> Extra { get; init; } = [];
     /// <summary>Why Pi must not start (a launch contribution is blocked); null when it may.</summary>
     public string? Blocked { get; init; }
     /// <summary>The program that is started: the first wrapper word, else the command.</summary>
