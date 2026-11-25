@@ -168,7 +168,7 @@ The agent is untrusted code. It is never sandboxed by tereditor; the rules below
 
 ## Agent pane
 
-ACP is one chip in the Agent pane (`AgentPaneRegistration` `acp`). It is owned by `acp-chat` documents; the sub-agent picker lists the enabled agents (`AcpAgents`, read from the host off the UI thread) and follows the agent the focused chat talks to (`AcpTabIcons.AgentOf`). Tabs: Context (the agent's name, version, command and folder; the chat itself reports the rest), Settings (the mode for new chats, read only, with a link to Settings, ACP), Capabilities (nothing yet) and Account (the "Signs in with" list and sign-in actions of the settings page). The registry, install, custom agents and every edit stay on Settings, ACP.
+ACP is one chip in the Agent pane (`AgentPaneRegistration` `acp`). It is owned by `acp-chat` documents; the sub-agent chips (a second row under the agent chips) list the enabled agents with their own icons (`AcpAgents`, read from the host off the UI thread) and follows the agent the focused chat talks to (`AcpTabIcons.AgentOf`). Tabs: Context (the agent's name, version, command and folder; the chat itself reports the rest), Settings (the mode for new chats, read only, with a link to Settings, ACP), Capabilities (nothing yet) and Account (the "Signs in with" list and sign-in actions of the settings page). The registry, install, custom agents and every edit stay on Settings, ACP.
 
 ## Not yet supported
 

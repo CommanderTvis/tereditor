@@ -66,6 +66,12 @@ internal sealed class AcpTabIcons
         }
     }
 
+    /// <summary>The agent's own icon as SVG, or null when the host has none.</summary>
+    public string? IconOf(string agent)
+    {
+        lock (gate) return icons.TryGetValue(agent, out var svg) && AcpGlyph.HasIcon(svg) ? svg : null;
+    }
+
     /// <summary>The agent a chat talks to, or null while the host has not said.</summary>
     public string? AgentOf(string workspace, string chat)
     {

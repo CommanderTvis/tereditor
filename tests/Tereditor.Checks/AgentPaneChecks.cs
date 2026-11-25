@@ -16,7 +16,7 @@ namespace Tereditor.Checks;
 
 /// <summary>
 /// The Agent pane: chips only for usable agents in a fixed order, four tabs, the chip following the focused document, a manual chip kept
-/// until an agent tab is focused again, and the sub-agent picker following the focused ACP chat.
+/// until an agent tab is focused again, and the sub-agent chips following the focused ACP chat.
 /// </summary>
 internal static class AgentPaneChecks
 {
@@ -80,7 +80,7 @@ internal static class AgentPaneChecks
         pane.GetLogicalDescendants().OfType<ToggleButton>().Where(control => control.Name?.StartsWith("AgentChip_", StringComparison.Ordinal) == true && control.IsChecked == true)
             .Select(control => control.Name!["AgentChip_".Length..]).SingleOrDefault();
 
-    /// <summary>The pane composed from fake agents: chips, order, usability, follow, manual choice and the sub-agent picker.</summary>
+    /// <summary>The pane composed from fake agents: chips, order, usability, follow, manual choice and the sub-agent chips.</summary>
     internal static void Compose()
     {
         var registry = new Tereditor.UI.Plugins.PluginRegistry();
@@ -136,10 +136,17 @@ internal static class AgentPaneChecks
         pane.Sync();
         Require(Checked(pane) == "claude", "Syncing the same focused tab does not undo a manual choice.");
         focus = ("w|4", new PluginDocumentTabRef("/w", "acp-chat", "junie")); pane.Sync();
-        var picker = pane.GetLogicalDescendants().OfType<ComboBox>().Single(control => control.Name == "AgentSubAgents");
-        Require(Checked(pane) == "acp" && picker.IsVisible && ((AgentSubAgent)picker.SelectedItem!).Id == "junie" && acpPicked.Last() == "junie", "A focused ACP chat shows the ACP chip and its agent in the picker.");
+        Require(!pane.GetLogicalDescendants().OfType<ComboBox>().Any(), "The pane has no dropdown.");
+        var picker = pane.GetLogicalDescendants().OfType<WrapPanel>().Single(control => control.Name == "AgentSubAgents");
+        string[] SubChips() => [.. picker.Children.OfType<ToggleButton>().Select(chip => ((string)chip.Tag!))];
+        string? SubChecked() => picker.Children.OfType<ToggleButton>().Where(chip => chip.IsChecked == true).Select(chip => (string)chip.Tag!).SingleOrDefault();
+        Require(Checked(pane) == "acp" && picker.IsVisible && SubChips().SequenceEqual(acpAgents) && SubChecked() == "junie" && acpPicked.Last() == "junie", "A focused ACP chat shows the ACP chip and one sub-chip per agent, its own checked.");
         focus = ("w|5", new PluginDocumentTabRef("/w", "acp-chat", "copilot")); pane.Sync();
-        Require(((AgentSubAgent)picker.SelectedItem!).Id == "copilot" && acpPicked.Last() == "copilot", "Another ACP chat moves the picker.");
+        Require(SubChecked() == "copilot" && acpPicked.Last() == "copilot", "Another ACP chat moves the sub-chip selection.");
+        Click(pane, "AgentSubAgent_junie");
+        Require(SubChecked() == "junie" && acpPicked.Last() == "junie", "A click on a sub-chip selects that agent.");
+        focus = ("w|5b", new PluginDocumentTabRef("/w", "acp-chat", "copilot")); pane.Sync();
+        Require(SubChecked() == "copilot", "Focusing an ACP chat takes the sub-chip back from a manual choice.");
         // Two sessions of one agent: the content is told which one is focused, once, and keeps it while focus is on anything else.
         focus = ("w|6", new TerminalTabRef("/w", "claude-tab")); pane.Sync();
         Require(subjects.Last() == "claude:claude-tab", "Focusing a Claude terminal tells the Claude content which session it is: " + string.Join(",", subjects));
@@ -155,12 +162,12 @@ internal static class AgentPaneChecks
         focus = ("w|10", new TerminalTabRef("/w", "codex-tab-2")); pane.Sync();
         Require(subjects.Last() == "codex:codex-tab-2" && !subjects.Skip(told + 2).Any(entry => entry.StartsWith("claude:", StringComparison.Ordinal)), "A Codex tab goes to the Codex content only.");
         Click(pane, "AgentChip_codex");
-        Require(!picker.IsVisible, "The picker shows only for an agent that has sub-agents.");
+        Require(!picker.IsVisible, "The sub-agent chips show only for an agent that has several sub-agents.");
         registry.RemovePlugin("claude-code");
         pane.Sync();
         Require(!Chips(pane).Contains("claude"), "Disabling a plugin removes its chip.");
         window.Close();
-        Console.WriteLine("PASS agent pane: fixed chip order, usable agents only, follow focus, manual choice kept until an agent tab, sub-agent picker follows the chat");
+        Console.WriteLine("PASS agent pane: fixed chip order, usable agents only, follow focus, manual choice kept until an agent tab, sub-agent chips follow the chat");
     }
 
     internal static void Run(string root)

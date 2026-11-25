@@ -20,8 +20,9 @@ public enum AgentPaneTab
 
 /// <summary>One agent an agent plugin hosts under a single chip, such as one ACP agent.</summary>
 /// <param name="Id">The sub-agent's id within the plugin.</param>
-/// <param name="Label">The name the picker shows.</param>
-public sealed record AgentSubAgent(string Id, string Label);
+/// <param name="Label">The name the sub-agent chip shows.</param>
+/// <param name="IconSvg">The sub-agent's own icon as SVG, or null to use the agent's chip icon.</param>
+public sealed record AgentSubAgent(string Id, string Label, string? IconSvg = null);
 
 /// <summary>
 /// Registers an agent's content for the Agent pane: one chip in the pane's chip row and the four tabs under it. The host draws the chips,

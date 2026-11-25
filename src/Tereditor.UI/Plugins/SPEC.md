@@ -222,7 +222,7 @@ and roster registration still precede reconciliation, preserving dormant tools a
   ones on Project Home.
 - The Agent pane (core tool `agent`, robot icon) is one control per window that composes agent plugins' `AgentPaneRegistration`s (Plugin API W5a):
   a chip row with one chip per enabled and usable agent in the fixed order Claude Code, Codex, Pi, omp, ACP, then others; an optional
-  sub-agent picker (ACP lists its configured agents); and the four tabs Context, Settings, Capabilities and Account, always present.
+  sub-agent chip row (ACP lists its configured agents; shown only when there are two or more); and the four tabs Context, Settings, Capabilities and Account, always present.
   A plugin supplies one control per workspace and shows the tab it is told to show; a tab it has nothing for says so in the control.
   The pane follows the focused document: when the selected tab of the last-focused document group is owned by an agent (`Owns`: a
   terminal running it or a chat document of it), its chip and sub-agent show and a manual choice ends. A click on another chip or on

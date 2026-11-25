@@ -32,7 +32,7 @@ public sealed class AcpUI : PluginUIModule
             Usable = () => !agents.Loaded || agents.Enabled.Count > 0,
             Owns = tab => tab is PluginDocumentTabRef { Scheme: AcpContract.DocumentScheme },
             SubAgentOf = tab => tab is PluginDocumentTabRef { Scheme: AcpContract.DocumentScheme } chat ? tabIcons.AgentOf(chat.WorkspaceId, chat.Id) : null,
-            SubAgents = _ => [.. agents.Enabled.Select(agent => new AgentSubAgent(agent.Id, agent.Name))],
+            SubAgents = _ => [.. agents.Enabled.Select(agent => new AgentSubAgent(agent.Id, agent.Name, tabIcons.IconOf(agent.Id)))],
             SelectSubAgent = (pane, id) => (pane as AcpAgentPane)?.Select(id),
             Retarget = (pane, workspace) => pane is AcpAgentPane acp && acp.Retarget(workspace),
             ShowTab = (pane, tab) => (pane as AcpAgentPane)?.ShowTab(tab)

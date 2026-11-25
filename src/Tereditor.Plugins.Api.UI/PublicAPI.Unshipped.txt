@@ -1217,8 +1217,10 @@ Tereditor.Plugins.Api.UI.AgentPaneTab.Context = 0 -> Tereditor.Plugins.Api.UI.Ag
 Tereditor.Plugins.Api.UI.AgentPaneTab.Settings = 1 -> Tereditor.Plugins.Api.UI.AgentPaneTab
 Tereditor.Plugins.Api.UI.AgentSubAgent
 Tereditor.Plugins.Api.UI.AgentSubAgent.<Clone>$() -> Tereditor.Plugins.Api.UI.AgentSubAgent!
-Tereditor.Plugins.Api.UI.AgentSubAgent.AgentSubAgent(string! Id, string! Label) -> void
-Tereditor.Plugins.Api.UI.AgentSubAgent.Deconstruct(out string! Id, out string! Label) -> void
+Tereditor.Plugins.Api.UI.AgentSubAgent.AgentSubAgent(string! Id, string! Label, string? IconSvg = null) -> void
+Tereditor.Plugins.Api.UI.AgentSubAgent.Deconstruct(out string! Id, out string! Label, out string? IconSvg) -> void
+Tereditor.Plugins.Api.UI.AgentSubAgent.IconSvg.get -> string?
+Tereditor.Plugins.Api.UI.AgentSubAgent.IconSvg.init -> void
 Tereditor.Plugins.Api.UI.AgentSubAgent.Equals(Tereditor.Plugins.Api.UI.AgentSubAgent? other) -> bool
 Tereditor.Plugins.Api.UI.AgentSubAgent.Id.get -> string!
 Tereditor.Plugins.Api.UI.AgentSubAgent.Id.init -> void

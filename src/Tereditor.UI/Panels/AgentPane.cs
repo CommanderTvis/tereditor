@@ -64,14 +64,13 @@ internal sealed class AgentPane : DockPanel
     private TabRef? focusTab;
     private readonly WrapPanel chips = new() { Name = "AgentChips", Margin = new Thickness(8, 4, 8, 0) };
     private readonly StackPanel tabs = new() { Name = "AgentTabs", Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4) };
-    private readonly ComboBox picker = new() { Name = "AgentSubAgents", Margin = new Thickness(8, 4, 8, 0), HorizontalAlignment = HorizontalAlignment.Stretch, IsVisible = false };
+    private readonly WrapPanel subChips = new() { Name = "AgentSubAgents", Margin = new Thickness(8, 4, 8, 0), IsVisible = false };
     private readonly ContentControl body = new() { Name = "AgentBody", HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private readonly ScrollViewer strip;
     private string chipsKey = "";
     private string? shownChip;
     private string? appliedSub;
     private string pickerKey = "";
-    private bool pickerUpdating;
 
     public AgentPane(PluginRegistry registry, Func<string> workspace, Func<(string Key, TabRef Tab)?> focused, Func<string, Func<Control>, Control> mount)
     {
@@ -79,7 +78,7 @@ internal sealed class AgentPane : DockPanel
         Name = "AgentPane";
         Background = Ui.Sidebar;
         SetDock(chips, Dock.Top); Children.Add(chips);
-        SetDock(picker, Dock.Top); Children.Add(picker);
+        SetDock(subChips, Dock.Top); Children.Add(subChips);
         strip = new ScrollViewer { Content = tabs, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
         SetDock(strip, Dock.Top); Children.Add(strip);
         foreach (var tab in Enum.GetValues<AgentPaneTab>())
@@ -89,12 +88,6 @@ internal sealed class AgentPane : DockPanel
             segment.Click += (_, _) => { State.Tab = tab; Render(); };
             tabs.Children.Add(segment);
         }
-        picker.SelectionChanged += (_, _) =>
-        {
-            if (pickerUpdating || picker.SelectedItem is not AgentSubAgent chosen) return;
-            State.ChooseSubAgent(chosen.Id);
-            Render();
-        };
         Children.Add(body);
         Sync();
     }
@@ -167,14 +160,7 @@ internal sealed class AgentPane : DockPanel
             chips.Children.Clear();
             foreach (var (key, row) in offered)
             {
-                var chip = Ui.Segment("AgentChip_" + row.Value.Id, row.Value.Label);
-                chip.Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 4,
-                    Children = { PluginIcons.Resolve(row.Value.Icon, registry.Entry(row.PluginId), Ui.Muted, 14), new TextBlock { Text = row.Value.Label, VerticalAlignment = VerticalAlignment.Center } }
-                };
-                chip.Height = 24;
+                var chip = Chip("AgentChip_" + row.Value.Id, row.Value.Label, PluginIcons.Resolve(row.Value.Icon, registry.Entry(row.PluginId), Ui.Muted, 14), 24);
                 chip.Tag = key;
                 chip.IsChecked = key == shownChip;
                 chip.Click += (_, _) => { State.Choose(key); Render(); };
@@ -186,7 +172,7 @@ internal sealed class AgentPane : DockPanel
         foreach (var segment in tabs.Children.OfType<ToggleButton>()) segment.IsChecked = Equals(segment.Tag, state.Tab);
         if (shownChip is null)
         {
-            picker.IsVisible = false;
+            subChips.IsVisible = false;
             var none = Ui.Text("No agent is enabled. Turn one on in Settings, Plugins.", Ui.Muted, 13);
             none.Name = "AgentNone"; none.Margin = new Thickness(8); none.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
             body.Content = none;
@@ -230,25 +216,46 @@ internal sealed class AgentPane : DockPanel
         catch (Exception error) { Console.Error.WriteLine("Agent pane retarget failed: " + error.Message); return false; }
     }
 
+    private static ToggleButton Chip(string name, string label, Control icon, double height)
+    {
+        var chip = Ui.Segment(name, label);
+        chip.Content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            Children = { icon, new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center } }
+        };
+        chip.Height = height;
+        return chip;
+    }
+
     private void ShowPicker(PluginRow<AgentPaneRegistration> row, AgentPaneState state, string current, Control content)
     {
         IReadOnlyList<AgentSubAgent> list = [];
         if (row.Value.SubAgents is { } subs) { try { list = subs(current); } catch (Exception error) { Console.Error.WriteLine("Agent pane sub-agents failed: " + error.Message); } }
-        picker.IsVisible = list.Count > 0;
+        // One sub-agent is used as is; the chip row appears only when there is a choice.
+        subChips.IsVisible = list.Count > 1;
         if (list.Count == 0) return;
-        var key = row.PluginId + "|" + string.Join('|', list.Select(item => item.Id + "=" + item.Label));
-        pickerUpdating = true;
-        try
+        var wanted = list.FirstOrDefault(item => item.Id == state.SubAgent) ?? list[0];
+        var key = row.PluginId + "|" + string.Join('|', list.Select(item => item.Id + "=" + item.Label + "=" + item.IconSvg?.GetHashCode()));
+        if (key != pickerKey)
         {
-            if (key != pickerKey) { pickerKey = key; picker.ItemsSource = list; picker.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<AgentSubAgent>((item, _) => new TextBlock { Text = item?.Label }); }
-            var wanted = list.FirstOrDefault(item => item.Id == state.SubAgent) ?? list[0];
-            if (!Equals(picker.SelectedItem, wanted)) picker.SelectedItem = wanted;
-            if (appliedSub != wanted.Id && row.Value.SelectSubAgent is { } select)
+            pickerKey = key;
+            subChips.Children.Clear();
+            foreach (var item in list)
             {
-                appliedSub = wanted.Id;
-                try { select(content, wanted.Id); } catch (Exception error) { Console.Error.WriteLine("Agent pane sub-agent failed: " + error.Message); }
+                var icon = item.IconSvg is { Length: > 0 } svg ? PluginIcons.ResolveSvg(svg, Ui.Muted, 12) : PluginIcons.Resolve(row.Value.Icon, registry.Entry(row.PluginId), Ui.Muted, 12);
+                var chip = Chip("AgentSubAgent_" + item.Id, item.Label, icon, 20);
+                chip.Tag = item.Id;
+                chip.Click += (_, _) => { State.ChooseSubAgent(item.Id); Render(); };
+                subChips.Children.Add(chip);
             }
         }
-        finally { pickerUpdating = false; }
+        foreach (var chip in subChips.Children.OfType<ToggleButton>()) chip.IsChecked = Equals(chip.Tag, wanted.Id);
+        if (appliedSub != wanted.Id && row.Value.SelectSubAgent is { } select)
+        {
+            appliedSub = wanted.Id;
+            try { select(content, wanted.Id); } catch (Exception error) { Console.Error.WriteLine("Agent pane sub-agent failed: " + error.Message); }
+        }
     }
 }
