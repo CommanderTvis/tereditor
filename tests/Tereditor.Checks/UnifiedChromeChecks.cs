@@ -54,7 +54,7 @@ internal static class UnifiedChromeChecks
             TooltipPlacement(app);
             Console.WriteLine("PASS shared chrome: tooltips and header pills take the chip radius and padding tokens");
         }
-        finally { UnifiedChrome.Override = null; }
+        finally { UnifiedChrome.Override = false; }
     }
 
     /// <summary>A tooltip opens below its target, left edges aligned, the shared gap away, and never over the target; its bubble takes the chip radius and tooltip padding.</summary>
