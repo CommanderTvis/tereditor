@@ -301,7 +301,7 @@ internal static class ClaudeChatE2E
                 app.Window.Layout.State.Workspaces.Values.Any(workspace => workspace.Documents.GetValueOrDefault(item.Id)?.Any(candidate => candidate.Id == tab.Id) == true)).Id;
 
             // Opening ends in an idle chat with a full header, so no chip is left on its placeholder.
-            E2eWorkspace.Until(() => view.Transcript.Header is { Status: ChatStatus.Idle, Model: "fake-model" } header && header.Commands.Count >= 2 && header.Models.Count == 2);
+            E2eWorkspace.Until(() => view.Transcript.Header is { Status: ChatStatus.Idle, Model: "fake-model" } header && header.Commands.Count >= 2 && header.Models.Count == 4);
             Require(Chip(view, "TerminalAgentFact_model") == "Fake" &&
                 Chip(view, "TerminalAgentFact_permission") is not ("permissions" or ""), "An idle chat shows its model, effort and permission chips filled in.");
             session = view.Transcript.Header!.SessionId!;
