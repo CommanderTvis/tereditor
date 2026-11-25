@@ -9,7 +9,11 @@ internal static class ClaudeChat
     public const string DocumentScheme = "claude-chat";
 
     /// <summary>The agent description; the plugin context asks the host for the CLI's permission modes.</summary>
-    public static ChatAgent Agent(IPluginUIContext context) => Agent(() => PermissionModeSource.RefreshAsync(context));
+    public static ChatAgent Agent(IPluginUIContext context) => Agent(() => PermissionModeSource.RefreshAsync(context)) with
+    {
+        DebugModeOn = () => context.Settings<ClaudeCodeSettings>().DebugMode,
+        WatchDebugMode = changed => context.OnSettings<ClaudeCodeSettings>(_ => changed())
+    };
 
     public static ChatAgent Agent(Func<Task<PermissionModesResult>> permissionModes) => new("Claude Code", "Claude", DocumentScheme, "asset:claude.svg")
     {

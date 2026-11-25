@@ -22,6 +22,10 @@ internal sealed record ChatAgent(string Name, string Short, string Scheme, strin
     public Func<Task<IReadOnlyList<ChatMode>>> Modes { get; init; } = () => Task.FromResult<IReadOnlyList<ChatMode>>([]);
     /// <summary>The words for one mode id; an unknown id keeps itself as its label.</summary>
     public Func<string, ChatMode> DescribeMode { get; init; } = id => new ChatMode(id, id, "");
+    /// <summary>Whether the agent's Debug mode setting is on now; the view offers the debug log and its chip only then.</summary>
+    public Func<bool> DebugModeOn { get; init; } = () => false;
+    /// <summary>Calls back (on the UI thread) when the Debug mode setting changes; dispose to stop.</summary>
+    public Func<Action, IDisposable> WatchDebugMode { get; init; } = _ => EmptyWatch.Instance;
     /// <summary>The label of a mode in a menu or on a chip.</summary>
     public string ModeLabel(ChatMode mode) => mode.Dangerous ? mode.Label + " (dangerous)" : mode.Label;
 }

@@ -264,6 +264,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         // Text kept from before this view existed (typed offline, or on a host that lost it) goes to the host once it can.
         if (draftSync && DraftText != baseText) ScheduleDraft();
         WatchEditorSelection();
+        WatchDebug();
         if (!started)
         {
             started = true;
@@ -279,6 +280,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         subscription = null;
         PauseWorking();
         UnwatchEditorSelection();
+        UnwatchDebug();
     }
 
     private async Task LoadModes()
@@ -374,7 +376,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         }
         for (var index = 0; index < batch.Length; index++)
             if (batch[index] is ChatDraftPush draft) OnDraft(draft.Draft);
-            else if (batch[index] is ChatDebugPush debug) debugPanel?.Add(debug.Entries);
+            else if (batch[index] is ChatDebugPush debug) { debugPanel?.Add(debug.Entries); ShowDebugCount(); }
             else if (!skip[index]) transcript.Apply(batch[index]);
         ShowQueue();
         UpdateRequests();
@@ -560,7 +562,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
 
     private void RebuildChips(ChatHeader header)
     {
-        var signature = string.Join("|", densityLevel, string.Join(",", Composer.HiddenChips ?? DefaultHiddenChips), header.Pending, header.Status, header.Model, header.Effort, header.PermissionMode, string.Join(",", header.PermissionModes.Select(mode => mode.Key)), header.Cwd, pendingModel, pendingEffort, pendingMode, ide, header.Advisor, header.Chrome,
+        var signature = string.Join("|", densityLevel, string.Join(",", Composer.HiddenChips ?? DefaultHiddenChips), header.Pending, header.Status, header.Model, header.Effort, header.PermissionMode, string.Join(",", header.PermissionModes.Select(mode => mode.Key)), header.Cwd, pendingModel, pendingEffort, pendingMode, ide, header.Advisor, header.Chrome, DebugChipState(header),
             string.Join(",", header.Models.Select(model => model.Id)), string.Join(",", header.Options.Select(option => option.Id + "=" + option.Current + pendingOptions.GetValueOrDefault(option.Id))), string.Join(",", header.McpServers.Select(server => server.Name + server.Status)), string.Join(",", header.Statuses.Select(status => status.Key + "=" + status.Text)));
         if (signature == chipSignature) return;
         chipSignature = signature;
@@ -612,6 +614,7 @@ internal sealed partial class ChatView : Grid, IChatRowActions
         if (ChipShown("ide")) AddFactButton(TerminalFacts.IdeContextChip(ide, () => _ = ToggleIde()));
         // Looks and sits as in the terminal: lowercase "chrome" with the Chrome mark, right after the IDE switch.
         if (ChipShown("chrome") && header.Chrome) Add(TerminalFacts.FactChip("chrome", "chrome", "Started with Claude in Chrome (--chrome)", Ui.Icon("chrome", Ui.Muted, 12)));
+        if (DebugChip(header) is { } debugChip) Add(debugChip);
         Button? attach = null;
         attach = TerminalFacts.AttachButton($"Put a file or folder in front of {env.Agent.Short}, as @path", () => PickFileOrFolder(attach!), AddAttachment,
             error => env.Notify(PluginNotificationKind.Error, "Couldn't open the file picker", ChatErrors.Text(error)));

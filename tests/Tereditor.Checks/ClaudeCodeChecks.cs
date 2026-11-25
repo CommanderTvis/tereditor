@@ -335,6 +335,15 @@ internal static class ClaudeCodeChecks
         E2eWorkspace.Until(() => !launcher.TerminalCommand(new()).Contains("--append-system-prompt-file", StringComparison.Ordinal));
         Require(!window.GetLogicalDescendants().OfType<Button>().Any(control => control.Name is "ClaudeSystemPromptEdit" or "ClaudeSystemPromptReset"),
             "Settings offer no way to edit tereditor's instructions.");
+        var boxes = window.GetLogicalDescendants().OfType<CheckBox>().ToArray();
+        var debug = boxes[^1];
+        Require(debug.Name == "ClaudeDebugMode" && boxes.Length > 1, "Debug mode is the last row of the Claude Code page.");
+        Require(debug.GetLogicalDescendants().OfType<TextBlock>().All(text => Equals(text.Foreground, Tereditor.Plugins.UI.Kit.Ui.Muted)), "Debug mode is drawn in the muted color, title and description.");
+        Require(debug.IsEnabled && debug.Focusable, "Debug mode stays enabled and reachable by keyboard.");
+        debug.IsChecked = true;
+        E2eWorkspace.Until(() => app.State.Current.PluginSettings["claude-code"].GetProperty("debugMode").GetBoolean());
+        debug.IsChecked = false;
+        E2eWorkspace.Until(() => !app.State.Current.PluginSettings["claude-code"].GetProperty("debugMode").GetBoolean());
         window.Close();
         E2eWorkspace.Until(() => !app.Window.OpenSettingsViews.Any());
         var compose = SettingValueDialog.ShowAsync(app.Window, new("ClaudeCheck", "model", JsonSerializer.SerializeToElement("sonnet"), ["model"], "Review change"));

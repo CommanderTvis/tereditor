@@ -228,6 +228,8 @@ carry the rest) and `chatDebugClear` empties it. Both methods are served by this
 `ChatContract.Methods`. Pi, Codex and ACP chats keep no debug log. `--claude-chat-host` checks that off records nothing, that both
 directions are listed in order with their summaries, the hiding, Clear and both bounds.
 
+Debug mode is a developer setting: it is the last row of the Claude Code settings page, below a thin divider, drawn in the muted color (still enabled and keyboard reachable), and its text says where the panel is (the chat's "+" menu, Debug log). In the chat, with the setting on (`ChatAgent.DebugModeOn`, watched through `WatchDebugMode`), a quiet "Debug" chip with the line count sits in the composer chip row and toggles the panel. A chat that started before the setting was turned on has no log: its chip and its "+" menu row say "Restart this chat to start the log" (there is no restart method in the chat contract, so no button). With the setting off, neither the chip nor the hint shows; a chat that already has a log keeps its "+" menu row.
+
 ## Chat semantics (from the VS Code extension)
 
 The host folds stream-json the way the official extension's webview does, live and from a transcript through one path

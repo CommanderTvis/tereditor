@@ -304,6 +304,7 @@ internal static class ClaudeChatUiChecks
         DraftSurvivesHistory();
         DraftWithoutHost();
         DebugPanel();
+        DebugChip();
         TaskNoticeBounded();
         DurationFormat();
         OnlyRunningChips();
@@ -1110,6 +1111,56 @@ internal static class ClaudeChatUiChecks
     }
 
     // A host that does not share drafts answers the draft method with an error: the view stops asking and keeps the draft client-locally.
+    // Debug mode on: a quiet "Debug" chip with the line count toggles the panel; a chat without a log shows the restart hint on its chip and in the + menu; mode off shows neither.
+    private static void DebugChip()
+    {
+        var on = true;
+        Action? changed = null;
+        var agent = TestAgent with { DebugModeOn = () => on, WatchDebugMode = callback => { changed = callback; return new Tereditor.Plugins.Chat.UI.EmptyWatch(); } };
+        static Button? Chip(ChatView view) => view.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => button.Name == "TerminalAgentFact_debug");
+        static bool Hint(ChatView view) => view.GetVisualDescendants().OfType<Control>().Any(control => control.Name == "TerminalAgentFact_debug" && control is not Button);
+        var chat = new FakeChat { Header = new ChatHeader(ChatStatus.Idle) { DebugLog = true } };
+        chat.Debug.Add(new ChatDebugEntry(1, 1_700_000_001_000, ChatDebugDirection.ToAgent, 10, "user", "user", "{}"));
+        chat.Debug.Add(new ChatDebugEntry(2, 1_700_000_002_000, ChatDebugDirection.FromAgent, 10, "system", "system/init", "{}"));
+        var view = new ChatView(new ChatEnvironment(chat, agent), Workspace, Chat);
+        var window = new Window { Width = 900, Height = 600, Content = view };
+        window.Show();
+        try
+        {
+            for (var frame = 0; frame < 6; frame++) Frame(window);
+            var chip = Chip(view);
+            Require(chip is not null && view.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "2") && !Hint(view), "With Debug mode on and a log, the composer row has a Debug chip with the line count.");
+            Require(!view.DebugPanel!.IsVisible, "The panel starts closed.");
+            chip!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Require(view.DebugPanel.IsVisible, "The chip opens the panel.");
+            chip.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Require(!view.DebugPanel.IsVisible, "The chip closes it again.");
+            on = false;
+            changed!();
+            for (var frame = 0; frame < 4; frame++) Frame(window);
+            Require(Chip(view) is null && !Hint(view), "With Debug mode off the chip is gone.");
+        }
+        finally { window.Close(); }
+
+        on = true;
+        var bare = new FakeChat();
+        var bareView = new ChatView(new ChatEnvironment(bare, agent), Workspace, Chat);
+        var bareWindow = new Window { Width = 900, Height = 600, Content = bareView };
+        bareWindow.Show();
+        try
+        {
+            for (var frame = 0; frame < 6; frame++) Frame(bareWindow);
+            Require(Chip(bareView) is null && Hint(bareView), "A chat started before Debug mode was turned on shows the restart hint instead of the chip.");
+            var row = bareView.BuildPlusMenu().Items.OfType<MenuItem>().Single(item => item.Name == "ChatDebugHint");
+            Require(ToolTip.GetTip(row)?.ToString() == ChatView.DebugHint, "The + menu row names the hint.");
+            on = false;
+            changed!();
+            for (var frame = 0; frame < 4; frame++) Frame(bareWindow);
+            Require(!Hint(bareView) && bareView.BuildPlusMenu().Items.OfType<MenuItem>().All(item => item.Name != "ChatDebugHint"), "With Debug mode off the hint is gone from the row and the + menu.");
+        }
+        finally { bareWindow.Close(); }
+    }
+
     // The debug log panel: offered only when the host keeps a log; lines in order with direction and summary, stream events hidden until asked for,
     // a filter, expandable pretty JSON, Copy and Copy all, Clear, a bound, and a virtualized list.
     private static void DebugPanel()
