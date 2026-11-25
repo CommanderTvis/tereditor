@@ -87,6 +87,7 @@ specified in [Panels/SPEC.md](Panels/SPEC.md); shared controls and document rend
   that created it in the creator's workspace, whether that list is the open workspace's live one or a closed
   workspace's preview (a chat is recorded by its chat id, matched against its plugin tab's path after the scheme).
   When that tab is in a tab group, the nested row sits inside the group's box, under that tab and before the group's next tab.
+  The last row's guide line runs on beside that workspace's own open tab rows and ends at the bottom of the last one, like the earlier rows' lines that reach the next row.
   The rows sit in a slot the center tab row keeps right below it, at the same place in the live strip and in the preview,
   so their spacing, indent, width, guide line and gap to the tab stay the same whether the creator's workspace, its tab or a
   nested workspace is focused. A terminal this window only knows from the host's catalog (an agent running on the host, as a phone sees it) keeps its slot in a closed workspace's preview too. With it off, a created workspace stays in the flat list.

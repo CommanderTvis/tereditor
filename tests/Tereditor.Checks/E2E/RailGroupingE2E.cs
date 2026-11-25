@@ -190,6 +190,20 @@ internal static class RailGroupingE2E
         }
         Console.WriteLine("PASS rail grouping: sibling guide lines form one line from the icon, with the creator's workspace open or not");
 
+        // The last of three children (the earlier two from the creator's tab) has two open tabs: the line runs on beside them and ends at the last tab row.
+        var lastChild = Top(app, child) > Top(app, second) ? child : second;
+        app.Click(Select(app, lastChild));
+        Until(() => Active(app, lastChild));
+        app.Window.Layout.NewTerminal(app.Center);
+        app.Window.Layout.NewTerminal(app.Center);
+        foreach (var open in new[] { lastChild, creatorWorkspace })
+        {
+            app.Click(Select(app, open));
+            Until(() => Active(app, open));
+            Until(() => LastGuideEndsAtTabs(app, child, second, lastChild));
+        }
+        Console.WriteLine("PASS rail grouping: the last child's guide line covers its open tabs and stops at the last tab row");
+
         // Selection changes colours only: with the creator's terminal selected, a nested workspace selected or neither, every row keeps its columns.
         SteadyColumns(app, creatorWorkspace, terminal, [child, second], project);
         // The same for a terminal in the project's Default workspace that created two workspaces.
@@ -450,6 +464,26 @@ internal static class RailGroupingE2E
         if (tops.Length > 0) columns.Add(("gap under tab", tops[0] - ((row.TranslatePoint(default, app.Window) ?? default).Y + row.Bounds.Height)));
         for (var index = 1; index < tops.Length; index++) columns.Add(("pitch " + index, tops[index] - tops[index - 1]));
         return [.. columns];
+    }
+
+    private static double Top(E2eWorkspace app, string path) => Item(app, path).TranslatePoint(default, app.Window).GetValueOrDefault().Y;
+
+    /// <summary>Whether the lower child's guide spans its row and every open tab row below it and ends at the last tab row, with the upper child's line reaching it.</summary>
+    private static bool LastGuideEndsAtTabs(E2eWorkspace app, string first, string second, string last)
+    {
+        var guide = Named<Border>(Item(app, last), "WorkspaceNestGuide");
+        var tabs = Controls(app).FirstOrDefault(control => control.Name == "WorkspaceTabs" && (string?)control.Tag == last && control.IsEffectivelyVisible);
+        var rows = tabs?.GetVisualDescendants().OfType<MarkedRow>().Where(row => row.IsEffectivelyVisible).ToArray() ?? [];
+        if (tabs is null || rows.Length < 2 || !guide.IsEffectivelyVisible) return false;
+        var item = Item(app, last);
+        var itemTop = Top(app, last);
+        var guideTop = (guide.TranslatePoint(default, app.Window) ?? default).Y;
+        var guideBottom = guideTop + guide.Bounds.Height;
+        var lastRowBottom = (tabs.TranslatePoint(default, app.Window) ?? default).Y + tabs.Bounds.Height;
+        var upper = last == first ? second : first;
+        var upperGuide = Named<Border>(Item(app, upper), "WorkspaceNestGuide");
+        var upperBottom = (upperGuide.TranslatePoint(default, app.Window) ?? default).Y + upperGuide.Bounds.Height;
+        return Math.Abs(guideTop - itemTop) <= 0.5 && Math.Abs(guideBottom - lastRowBottom) <= 0.5 && upperBottom >= itemTop - 0.5 && item.IsEffectivelyVisible;
     }
 
     /// <summary>Whether two children of one tab have guides that start at the tab's icon and touch, with no gap between the rows.</summary>

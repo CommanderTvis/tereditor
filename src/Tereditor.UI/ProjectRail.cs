@@ -660,6 +660,9 @@ public sealed partial class WorkbenchWindow
                     if (marked.Children.FirstOrDefault(child => child.GetValue(MarkedRow.RoleProperty) == RowRole.Leading) is { } icon && icon.TranslatePoint(new Point(0, icon.Bounds.Height), item) is { } iconBottom) top = Math.Min(0, iconBottom.Y);
                 }
                 if (Sibling(panel.Children.Skip(index + 1)) is { } next && next.TranslatePoint(default, item) is { } nextAt) bottom = -Math.Max(0, nextAt.Y - item.Bounds.Height);
+                // The last child's line runs on beside its own open tabs and stops at the bottom of the last tab row.
+                else if (index + 1 < panel.Children.Count && panel.Children[index + 1] is { Name: "WorkspaceTabs", IsEffectivelyVisible: true } tabs && (string?)tabs.Tag == worktree.Path && tabs.TranslatePoint(default, item) is { } tabsAt)
+                    bottom = -Math.Max(0, tabsAt.Y + tabs.Bounds.Height - item.Bounds.Height);
             }
             var margin = new Thickness(left, top, 0, bottom);
             if (Math.Abs(margin.Left - nestGuide.Margin.Left) > 0.01 || Math.Abs(margin.Top - nestGuide.Margin.Top) > 0.01 || Math.Abs(margin.Bottom - nestGuide.Margin.Bottom) > 0.01) nestGuide.Margin = margin;
