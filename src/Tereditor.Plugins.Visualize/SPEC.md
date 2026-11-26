@@ -179,6 +179,8 @@ after close/reopen; a second terminal of the same workspace receiving only its o
 and disabling then re-enabling the plugin, which unmounts every button and pane and resubscribes from scratch.
 The UI activation owns its per-workspace subscriptions and releases them in its disposer, since a companion
 availability predicate has no unmount of its own.
+These companion checks run only on macOS, where Merman is available, so the Linux gate jobs in CI skip them. They
+widen the window so the terminal can give the companion more than 640 and still keep its own minimum.
 
 Remaining before marking the port complete: deterministic remount render cancellation (the view cancels its
 render on detach, but no check holds a render in flight), a terminal shown in two windows at once, native

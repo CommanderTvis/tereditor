@@ -60,6 +60,8 @@ internal static class VisualizeE2E
     private static void Scenario(E2eWorkspace app, PluginRuntime runtime, bool remote)
     {
         var window = app.Window;
+        // The terminal keeps its minimum beside a companion, so the 680 wide pane below needs a wider window than the fixture's.
+        window.Width = 2200;
         Until(() => app.Workbench.PluginLoader.Registry.Active.Contains("visualize"));
         var before = TerminalsE2E.TerminalTabs(app).Select(tab => tab.Id).ToHashSet();
         window.Layout.NewTerminal(window.Layout.View.FocusedCenter);
@@ -178,6 +180,8 @@ internal static class VisualizeE2E
         var initialCompanion = terminal.GetLogicalDescendants().OfType<ContentControl>().Single(control => control.Name == "TerminalCompanion").Bounds.Width;
         Require(Math.Abs(initialCompanion - (terminal.Bounds.Width - splitter.Bounds.Width) * 0.45) < 1,
             $"The companion first opens at the fork's 45% share of the terminal: {initialCompanion} of {terminal.Bounds.Width}.");
+        var widest = Tereditor.UI.Terminal.TerminalView.CompanionMaxWidth(terminal.Bounds.Width);
+        Require(widest >= 680, $"The terminal is too narrow for the drags below: at {terminal.Bounds.Width} wide its companion stops at {widest}.");
         var initialWidth = viewer.Bounds.Width;
         ResizeCompanion(-120);
         Require(Math.Abs(viewer.Bounds.Width - initialWidth - 120) < 1,
@@ -242,9 +246,7 @@ internal static class VisualizeE2E
         var width = companionColumn.Width;
         foreach (var size in new[] { 680.0, 400.0 })
         {
-            // At 680 the splitter sits on the terminal's left edge, under the dock's own resize handle, so the way back is the saved-width setter.
-            if (size > 640) ResizeCompanion(companion.Bounds.Width - size);
-            else { ((Tereditor.UI.Terminal.TerminalView)terminal).CompanionWidth = size; Settle(); }
+            ResizeCompanion(companion.Bounds.Width - size);
             Require(options.Columns == (options.Bounds.Width >= 640 ? 2 : 1) && (size > 640) == (options.Columns == 2),
                 $"Comparison columns follow the pane width: pane {size}, options {options.Bounds.Width}, columns {options.Columns}");
         }

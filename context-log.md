@@ -120,4 +120,10 @@ The Pi pane follows its chats through the `configChanged` event. Air Context sho
 pending, pins CLI 0.9.22.1774 and downloads it only on a click. A gate case that leaves a window open now fails; such
 windows had pushed a CI shard past 45 minutes. Checks: build, focused Pi and Air Context modes, format, and on macOS
 the merge shards for the guard. Not verified: the running app, the 0.9.22 binary (never run), its `SHA256SUMS.asc`.
-`visualize-ui` fails on macOS. Whether `jbcontext index` starts a daemon or updates itself is unchecked.
+Whether `jbcontext index` starts a daemon or updates itself is unchecked.
+
+## 2026-11-26 — visualize-ui passes on macOS again
+
+The check was stale since the terminal keeps its minimum width beside a companion (01226403): its drags needed a
+companion wider than the 686 wide fixture terminal allows. It now widens the window. Checks: `--visualize`, `--case visualize-ui`,
+format, all on macOS. No CI job runs it. Open: the companion splitter is 6 wide while `CompanionMaxWidth` counts 1.
