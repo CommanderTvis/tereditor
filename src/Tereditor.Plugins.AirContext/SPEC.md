@@ -75,7 +75,8 @@ the new state to the panes that showed them. The review shows each agreement who
 nested blocks (such as a notice about a coming version), and the block ends at its matching closing tag, not at the first one.
 The hash covers everything shown, so such a notice asks for a new review.
 
-Only the review window's button downloads. No operation, launch or startup fetches the CLI: an accepted but missing or
+In tereditor, only the review window's button downloads. No operation, launch or startup makes tereditor fetch the CLI
+(the CLI's own self-update is not covered: see Watch daemon and self-update): an accepted but missing or
 damaged executable reports `requiresDownload` with a **Download CLI…** button. A pin upgrade changes the artifact
 identity, so the earlier consent does not cover it: the sections report `requiresAcceptance`, and nothing is fetched until
 the user accepts. The executable of the earlier pin stays on disk, unused.
@@ -97,7 +98,7 @@ project once the host resolves it (in the background at activation, or at the ne
 The current CLI uses its existing JetBrains account, secret store and index cache.
 A private `-Duser.home` setting did not isolate its configuration and is not used in
 production. tereditor never changes HOME/CODEX_HOME, modifies vendor configuration,
-runs setup-agent/refresh-agents/remove-agent/upgrade/logout, or installs global Claude/
+runs setup-agent/refresh-agents/remove-agent/upgrade, or installs global Claude/
 Codex instructions/hooks/MCP entries. Interactive sign-in is an explicit user action
 in a tereditor-owned host terminal; credentials never pass through tereditor's state,
 MCP results or ordinary configuration. This is integration isolation, not a separate
@@ -114,7 +115,8 @@ without retriggering on model/status updates. Each workspace deduplicates in-fli
 index jobs. The native indexer receives the fixed absolute project path and JSON output;
 the CLI owns native/distributed indexing locks. Jobs have a 30-minute bound and stop
 through their owned cancellation/process tree. Other hosts' or users' processes are
-never killed or globally stopped. The native watch daemon is not started or controlled.
+never killed or globally stopped. tereditor runs no `watch` command and does not control the native watch daemon, but the CLI is
+expected to start it from `index` (see below).
 
 tereditor's terminal-authenticated namespace and explicit headless MCP route expose, while the plugin is enabled:
 
@@ -137,8 +139,8 @@ structured in tereditor tool replies. No user-control command field reaches agen
 Authentication failures are actionable states, not successful empty search results.
 Index command completion is not a proof of complete module coverage. Native search
 output/status remains authoritative for snapshot availability. Searches may lag working-
-tree edits: tereditor does not register roots with the vendor's global overlay watcher,
-and unsaved editor drafts remain an LSP/editor responsibility. Agent prompt appendices
+tree edits: tereditor does not register roots with the vendor's global overlay watcher itself (`index` is expected to, see Watch
+daemon and self-update), and unsaved editor drafts remain an LSP/editor responsibility. Agent prompt appendices
 advertise Context for unfamiliar code and LSP for known symbols, then targeted reads.
 Only tereditor-launched Codex commands receive Context tool approval overrides.
 
@@ -146,6 +148,30 @@ Logs are bounded, workspace-scoped and redacted before retention, including JSON
 fields, bearer headers and URL queries. Search text/results are not persisted as logs.
 UI teardown closes views, not host indexing; disabling the plugin or host shutdown ends the activation, which stops owned indexing and
 processes. Direct and remote clients use the same host-owned implementation through the generic plugin call.
+
+## Watch daemon and self-update
+
+tereditor does not turn off either. It runs `index`, `status`, `mcp` and `logout`, and types `login` into the sign-in terminal,
+with the host's inherited environment and no vendor switch, so the CLI's defaults and the user's CLI configuration decide.
+
+- Watch daemon. The publisher's 0.9.20 release notes say that `watch stop` now keeps `index` from starting the daemon again,
+  that `watch remove` keeps `index` from putting the repository back on the watch list, and that `index --only-incremental`
+  no longer starts it for an unindexed repository. A plain signed-in `index`, as tereditor runs it, is therefore expected to
+  watch the workspace and start the daemon, a process meant to outlive the index job.
+- Self-update. The 0.9.12 and 0.9.22 notes describe automatic background updates. Text in 0.9.22.1774 describes a spawned
+  background downloader (`upgrade --download-only`) that stages builds under `~/.jbcontext/versions`, and an activation that
+  writes an active-version pointer and refreshes installed agent setups. Unknown: which commands trigger it, whether it is on
+  by default, and whether the pinned executable ever hands over to a staged build, which the digest check would not see.
+  The 0.9.22 notes also say that signing in with an organization account saves `release-track` as `beta` when unset.
+- Local inference. If the user's CLI setting selects `llamacpp` or `mlx`, the 0.9.21 notes and the local indexing page say
+  the CLI downloads a runtime and models on first use and runs background servers that start with indexing or search and stop
+  when idle. Whether it asks first when tereditor runs it was not observed.
+- Later launches. No LaunchAgent, launchd, systemd or crontab text was found in the binary. That does not prove it registers
+  nothing.
+- Switches. The binary names the settings `runtime.disable-local-overlay` and `updates.auto-update` and the variables
+  `JBCONTEXT_DISABLE_LOCAL_OVERLAY` and `JBCONTEXT_AUTO_UPDATE`; its daemon messages include "Not starting: the overlay is
+  disabled by". `JBCONTEXT_NO_DAEMON` concerns sign-in, not the watch daemon. The public CLI reference lists neither
+  variable, and their effect and accepted values were not observed, so tereditor sets neither. This is open.
 
 ## Verification limits
 
@@ -171,6 +197,8 @@ login, cloud upload, indexing or authenticated search has been executed by the a
 A signed-in smoke test and opaque vendor cache/watcher behavior remain unverified;
 fixture results do not establish those guarantees or completely private credentials.
 The 0.9.22.1774 checksums come from the publisher's sidecars and `SHA256SUMS` (they agree; the `SHA256SUMS.asc`
-signature was not checked). That binary was not downloaded or run: that the commands, flags and `code_search` schema
-tereditor uses still hold rests on the release notes of 0.9.17 to 0.9.22, which announce no change to them.
+signature was not checked). On 2026-11-26 the macOS ARM64 binary was downloaded, matched its pinned SHA-256 and had its
+printable strings read; it was not run, because the agent's permission system refused the sandboxed run. That the commands,
+flags and `code_search` schema tereditor uses still hold rests on the release notes of 0.9.17 to 0.9.22, which announce no
+change to them.
 The sign-in terminal tab opens under the plugin's tab key (the plugin cannot see when the typed command ends, hence the probe) without the "Air Context sign-in" title the core pane used to set.
