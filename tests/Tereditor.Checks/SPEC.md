@@ -203,6 +203,10 @@ no listing pass and is identical in every process of one build.
   and shards keep going independently. Focused modes ignore it. `-- --runner` proves it with a fixture of
   failing, throwing and passing cases.
 - `--case a,b` runs named cases alone and `--list-cases` prints the selection; neither touches the record.
+- A case fails when it leaves a window open that it opened (`OpenWindows.cs`); the gate then closes or hides
+  it, so later cases do not pay for it. A window left behind keeps its timers and animations, and every later
+  pump renders it. `E2eWorkspace.Dispose` therefore releases the exit question before it closes: a window with
+  a working agent or unsaved edits would otherwise stay open behind it.
 - These options apply to the argument-free gate only. A focused mode runs whole, in one lane, and is
   rejected with them.
 

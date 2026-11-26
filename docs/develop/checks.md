@@ -33,5 +33,8 @@ budgets that a shared runner stretches (`--switch-latency`, `--workspace-create-
 job provides (`--lsp-real`, `--lsp-real-csharp`, `--native-fsevents`, `--android-package`, `--headscale`), and the fixture
 children and flags that are not modes.
 
+A gate case must close every window it opens. One that stays open fails the case: it would keep rendering and slow
+every later case of the shard.
+
 New gate cases are appended after the last case, so no earlier case changes its shard (cases are dealt to shards by position,
 `ordinal % shards`). `--list-cases --shard k/3` shows where a case landed.

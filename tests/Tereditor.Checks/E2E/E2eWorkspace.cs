@@ -496,7 +496,12 @@ internal sealed class E2eWorkspace : IDisposable
     public void Dispose()
     {
         if (!peer)
+        {
+            // A window asks before it closes on a working agent or unsaved edits. Nobody answers a finished check, so the
+            // window would stay open behind the question, rendering for the rest of the process.
+            Workbench.ExitConfirmed = true;
             foreach (var other in Workbench.Windows.Where(window => window != Window).ToArray()) other.Close();
+        }
         Window.Close();
         if (peer) return;
         // The workbench owns the state, terminal and plugin watches; they must end before the channels they read from.

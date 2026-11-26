@@ -141,7 +141,7 @@ internal static class Gate
         var started = Stopwatch.GetTimestamp();
         if (!keepGoing)
         {
-            try { body(); }
+            try { Contained(body); }
             catch (Exception error)
             {
                 // The runner reports this one; the result file still needs it.
@@ -163,7 +163,7 @@ internal static class Gate
         var environment = Environment.GetEnvironmentVariables();
         try
         {
-            body();
+            Contained(body);
             CiReport.EndCase();
             var duration = Stopwatch.GetElapsedTime(started);
             timings.Add(new(name, duration, false));
@@ -187,6 +187,21 @@ internal static class Gate
             Restore(directory, environment);
             running = null;
         }
+    }
+
+    /// <summary>Runs a case and fails it for a window it leaves open (<see cref="OpenWindows"/>).</summary>
+    private static void Contained(Action body)
+    {
+        var before = OpenWindows.Snapshot();
+        try { body(); }
+        catch
+        {
+            OpenWindows.Discard(before);
+            throw;
+        }
+        if (OpenWindows.Discard(before) is { Count: > 0 } left)
+            throw new InvalidOperationException($"The case left {left.Count} window(s) open: {string.Join(", ", left)}. " +
+                "An open window keeps rendering and slows every later case in this process; close it in the case.");
     }
 
     private static void Restore(string directory, IDictionary environment)
