@@ -622,19 +622,27 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         line.Children.Add(named);
     }
 
-    /// <summary>A left click on a built-in tool's row, or a bundled skill's row (one with no file), opens its docs page; other rows get nothing. A turned-off row keeps its struck-through look.</summary>
+    /// <summary>A left click on the name of a built-in tool's row, or of a bundled skill's row (one with no file), opens its docs page; other rows get nothing.</summary>
     internal static void AttachToolLink(DockPanel line, BaselineEntry entry, bool denied, Action<string> open, bool hasFile = false)
     {
         var url = entry.Key.StartsWith("system-tools/", StringComparison.Ordinal) ? ClaudeToolDocs.Url(entry.Key["system-tools/".Length..])
             : entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && !hasFile ? ClaudeSkillDocs.Url(entry.Key["skills/".Length..]) : null;
         if (url is null) return;
+        AttachNameLink(line, denied, entry.Label + ": open its docs", () => open(url));
+    }
+
+    // Only the row's name is the link: the hand cursor, the hover look and the click stay on it, never on the space around it.
+    // A turned-off row keeps its struck-through look.
+    internal static void AttachNameLink(DockPanel line, bool denied, string tip, Action open)
+    {
         var name = line.GetLogicalDescendants().OfType<TextBlock>().First(block => block.Name == "ClaudeContextName");
-        if (denied) line.Cursor = new Cursor(StandardCursorType.Hand); else HoverLink.Apply(name, line);
-        ToolTip.SetTip(name, entry.Label + ": open its docs");
-        line.PointerPressed += (_, args) =>
+        name.Background = Brushes.Transparent;
+        if (denied) name.Cursor = new Cursor(StandardCursorType.Hand); else HoverLink.Apply(name);
+        ToolTip.SetTip(name, tip);
+        name.PointerPressed += (_, args) =>
         {
-            if (!args.GetCurrentPoint(line).Properties.IsLeftButtonPressed) return;
-            open(url);
+            if (!args.GetCurrentPoint(name).Properties.IsLeftButtonPressed) return;
+            open();
             args.Handled = true;
         };
     }
@@ -651,16 +659,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         var skillHasFile = entry.Key.StartsWith("skills/", StringComparison.Ordinal) && rowSkillFiles.ContainsKey(entry.Key["skills/".Length..]);
         AttachToolLink(line, entry, IsOff(actions), url => TopLevel.GetTopLevel(line)?.Launcher.LaunchUriAsync(new Uri(url)), skillHasFile);
         if (entry.Key.StartsWith("skills/", StringComparison.Ordinal) && entry.Children.Count == 0 && rowSkillFiles.TryGetValue(entry.Key["skills/".Length..], out var skillFile))
-        {
-            line.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
-            ToolTip.SetTip(line, skillFile);
-            line.PointerPressed += (_, args) =>
-            {
-                if (!args.GetCurrentPoint(line).Properties.IsLeftButtonPressed) return;
-                OpenSource(skillFile, null);
-                args.Handled = true;
-            };
-        }
+            AttachNameLink(line, IsOff(actions), entry.Label + "\n" + skillFile, () => OpenSource(skillFile, null));
         if (entry.Children.Count == 0) return;
         var parts = new StackPanel { Name = "ClaudeContextBaselineParts", Tag = entry.Key, IsVisible = open };
         foreach (var child in entry.Children) AddBaselineRow(parts, child, depth + 1);

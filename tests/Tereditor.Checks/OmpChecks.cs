@@ -441,6 +441,15 @@ internal static class OmpChecks
                 rows.Any(row => row.Margin.Left == 32 && Find<TextBlock>(row, "OmpContextTokens").Single().Text == "cycle"), "imports are nested rows and the cycle is marked");
             Require(rows.First(row => Equals(row.Tag, Path.Combine(workspace, "AGENTS.md"))) is var agents && Find<TextBlock>(agents, "OmpContextTokens").Single().Text!.EndsWith("tok", StringComparison.Ordinal),
                 "a file shows its token estimate");
+            // In the real pane only the path's text is the link. The fixture's temporary path fills the row, so a short label stands in.
+            var source = Find<Button>(agents, "OmpContextSource").Single();
+            var sourceText = (TextBlock)source.Content!;
+            var fullText = sourceText.Text;
+            var clicks = 0;
+            sourceText.Text = "AGENTS.md";
+            source.Click += (_, _) => clicks++;
+            LinkHitArea.Check(app.Window, source, () => clicks, "an omp context row");
+            sourceText.Text = fullText;
             E2eWorkspace.Until(() => Find<Button>(panel, "OmpOffer_rules").Any());
             Require(!Find<Button>(panel, "OmpOffer_agents").Any(), "an existing AGENTS.md is not offered");
             app.Click(Find<Button>(panel, "OmpOffer_rules").Single());

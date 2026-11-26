@@ -45,7 +45,7 @@ internal sealed class PiConfigPanel : DockPanel
         heading.Children.Add(new Border { Name = "PiEarlyBadge", Background = Ui.WarningWash, CornerRadius = new CornerRadius(4), Padding = new Thickness(4, 0), Child = Ui.Text("Early support", Ui.Warning, 10) });
         SetDock(heading, Dock.Top);
         Children.Add(heading);
-        var hint = Ui.Text("Click a row to open its file", Ui.Hint, 12);
+        var hint = Ui.Text("Click a file path to open it", Ui.Hint, 12);
         scopeBlock.Children.Add(Ui.Text("Showing what a new Pi session here would load", Ui.Muted, 13));
         scopeBlock.Children.Add(hint);
         SetDock(scopeBlock, Dock.Top);
@@ -261,8 +261,6 @@ internal sealed class PiConfigPanel : DockPanel
         column.Children.Add(ScopedSetting.SourcePath(item.Path, OpenFile));
         if (item.Detail.Length > 0) column.Children.Add(Ui.Text(item.Detail, Ui.Hint, 12));
         row.Children.Add(column);
-        ToolTip.SetTip(row, "Click to open the file");
-        row.PointerPressed += (_, pointer) => { if (pointer.GetCurrentPoint(row).Properties.IsLeftButtonPressed) OpenFile(item.Path); };
         return row;
     }
 

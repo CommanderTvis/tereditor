@@ -669,7 +669,7 @@ internal static class PiChecks
         Require(!blocked.Ok && blocked.Output == "Blocked by the model source.", "A blocked launch runs nothing and says why.");
     }
 
-    // A Context row opens its file on a left click; a right click opens nothing.
+    // A Context row opens its file from its path link only.
     internal static void ContextRows()
     {
         const string file = "/ws/AGENTS.md";
@@ -697,17 +697,16 @@ internal static class PiChecks
             }
             Pump(() => panel.GetLogicalDescendants().OfType<DockPanel>().Any(candidate => candidate.Name == "PiConfigItem"));
             var row = panel.GetLogicalDescendants().OfType<DockPanel>().Single(candidate => candidate.Name == "PiConfigItem");
-            Require(panel.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Text == "Click a row to open its file"),
-                "The Context hint reads \"Click a row to open its file\".");
-            var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, true);
-            void Press(RawInputModifiers button, PointerUpdateKind kind) => row.RaiseEvent(new PointerPressedEventArgs(row, pointer, host, default, 0,
-                new PointerPointProperties(button, kind), KeyModifiers.None));
-            Press(RawInputModifiers.RightMouseButton, PointerUpdateKind.RightButtonPressed);
-            Pump();
-            Require(opened.Count == 0, "A right click on a Context row opens nothing.");
-            Press(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed);
-            Pump();
-            Require(opened.SequenceEqual([file]), "A left click on a Context row opens its file.");
+            Require(panel.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Text == "Click a file path to open it"),
+                "The Context hint reads \"Click a file path to open it\".");
+            var title = row.GetVisualDescendants().OfType<TextBlock>().First(text => text.Text == "AGENTS.md");
+            var point = title.TranslatePoint(new Point(2, 2), host)!.Value;
+            host.MouseDown(point, MouseButton.Left);
+            host.MouseUp(point, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Require(opened.Count == 0, "A click on a Context row outside its path opens nothing.");
+            LinkHitArea.Check(host, row.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "SourcePath"), () => opened.Count, "A Pi Context row");
+            Require(opened.SequenceEqual([file]), "A click on a Context row's path opens its file.");
         }
         finally { host.Close(); }
     }

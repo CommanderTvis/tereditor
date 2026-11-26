@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 
@@ -458,7 +459,7 @@ internal static class ClaudeContextChecks
         finally { host.Close(); }
     }
 
-    // A built-in tool's row opens its docs page on a real left click; an unknown or MCP tool's row does nothing. Every mapped tool
+    // A built-in tool's name opens its docs page on a real left click, the space beside it does not; an unknown or MCP tool's row does nothing. Every mapped tool
     // links under the docs URL, and every built-in tool the Context table lists is mapped.
     private static void ToolDocsLinks()
     {
@@ -494,20 +495,26 @@ internal static class ClaudeContextChecks
         try
         {
             E2eWorkspace.Settle();
-            var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), Avalonia.Input.PointerType.Mouse, true);
-            void Click(Control line) => line.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(line, pointer, host, default, 0,
-                new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.LeftMouseButton, Avalonia.Input.PointerUpdateKind.LeftButtonPressed),
-                Avalonia.Input.KeyModifiers.None));
-            Click(unknownRow);
-            Require(opened.Count == 0, "A click on an unknown tool row opens nothing.");
-            Click(fileSkillRow);
-            Click(pluginSkillRow);
-            Require(opened.Count == 0, "A click on a skill with a file, or a plugin skill, opens no docs.");
-            Click(skillRow);
-            Require(opened.SequenceEqual([ClaudeSkillDocs.ListUrl]), "A click on a bundled skill row asks to open its docs.");
+            TextBlock Name(Control line) => line.GetLogicalDescendants().OfType<TextBlock>().Single(block => block.Name == "ClaudeContextName");
+            foreach (var (line, url) in new[] { (skillRow, ClaudeSkillDocs.ListUrl), (knownRow, ClaudeToolDocs.DocsUrl + "#edit-tool-behavior") })
+            {
+                opened.Clear();
+                LinkHitArea.Check(host, Name(line), () => opened.Count, $"The {line.Tag} row");
+                Require(opened.SequenceEqual([url]), $"A click on the name of {line.Tag} asks to open its docs section.");
+            }
             opened.Clear();
-            Click(knownRow);
-            Require(opened.SequenceEqual([ClaudeToolDocs.DocsUrl + "#edit-tool-behavior"]), "A click on the Edit row asks to open its docs section.");
+            foreach (var line in new[] { unknownRow, fileSkillRow, pluginSkillRow })
+            {
+                var point = Name(line).TranslatePoint(new Point(2, 2), host)!.Value;
+                host.MouseDown(point, Avalonia.Input.MouseButton.Left);
+                host.MouseUp(point, Avalonia.Input.MouseButton.Left);
+                Require(opened.Count == 0 && Name(line).Cursor is null, $"The {line.Tag} row has no docs link.");
+            }
+            var offRow = ClaudeConfigPanel.BaselineLine(known, 0, false, denied: true);
+            ClaudeConfigPanel.AttachToolLink(offRow, known, true, opened.Add);
+            stack.Children.Add(offRow);
+            LinkHitArea.Check(host, Name(offRow), () => opened.Count, "A turned-off row");
+            Require(Name(offRow).TextDecorations == Avalonia.Media.TextDecorations.Strikethrough, "A turned-off row's link keeps its strikethrough.");
         }
         finally { host.Close(); }
     }

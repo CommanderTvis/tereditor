@@ -84,7 +84,7 @@ Pi, the managed copy on Bun, or a Model source's wrapper), in the workspace dire
 - Settings › Pi › Model (--model) is a text box with a suggestion list like Claude Code's default model: Pi's documented forms (a pattern, `pattern:thinking`, `provider/id`) plus the models the open Pi chats listed through `get_available_models` (`PiStatus.Models`); any text is accepted. Settings › Pi › Thinking level is a two-column `OptionCards` group: Default (Pi's own setting) and the levels Pi's docs list (`off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; `PiSources.ThinkingLevels`); a saved value outside the list gets a card of its own. Pi source is two `OptionCards` (System command, Managed, pinned).
 - Pane header: the title "Pi" with the Early support badge beside it, above the tab content, so every tab shows it (the Account tab does not repeat it).
 - Account: a Provider row first, the chosen Model source's name or "Pi's own provider (built in)" when none is chosen (the name is the launch contribution's `Provider`, `AgentLaunchComposition.ProviderName`), then the Pi version and the project's trust state. The chat header shows the model and thinking level.
-- Scope chips read USER and PROJECT (`-l` maps to PROJECT). Click a row to open its file.
+- Scope chips read USER and PROJECT (`-l` maps to PROJECT). Click a row's file path to open the file; only the path is the link.
 - Not offered: turning single resources on or off, changing trust, and `/reload`.
 
 ## Not yet

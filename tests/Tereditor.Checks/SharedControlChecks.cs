@@ -55,6 +55,46 @@ internal static class SharedControlChecks
         finally { window.Close(); Ui.Apply(original); }
         Console.WriteLine("PASS shared checkbox glyphs, primary labels and selected toggles across every bundled theme");
         HoverStyles();
+        SourcePathHitArea();
+    }
+
+    /// <summary>
+    /// In a Context row (chip, path, count) only the path's text is the link: the space beside a short path is inert, and a
+    /// long path in a narrow pane trims before the count.
+    /// </summary>
+    private static void SourcePathHitArea()
+    {
+        var clicks = 0;
+        (DockPanel Row, Button Link, TextBlock Count) Build(string path)
+        {
+            var row = new DockPanel();
+            var count = Ui.Text("~2,969 tok", Ui.Hint, 12);
+            DockPanel.SetDock(count, Dock.Right);
+            row.Children.Add(count);
+            var chip = ScopedSetting.ScopeChip("project");
+            DockPanel.SetDock(chip, Dock.Left);
+            row.Children.Add(chip);
+            var link = ScopedSetting.SourcePath(path, _ => clicks++);
+            row.Children.Add(link);
+            return (row, link, count);
+        }
+        var small = Build("/ws/AGENTS.md");
+        var large = Build("/a/very/long/folder/name/that/does/not/fit/in/a/narrow/pane/AGENTS.md");
+        var window = new Window { Width = 520, Height = 100, Content = new StackPanel { Children = { small.Row, large.Row } } };
+        window.Show();
+        try
+        {
+            Settle(10);
+            LinkHitArea.Check(window, small.Link, () => clicks, "A source path in a context row");
+            window.Width = 240;
+            Settle(10);
+            var trimmed = (TextBlock)large.Link.Content!;
+            var right = large.Link.TranslatePoint(new Point(large.Link.Bounds.Width, 0), large.Row)!.Value.X;
+            Require(trimmed.TextLayout.TextLines.Any(line => line.HasCollapsed) && right <= large.Count.Bounds.X + 0.5 &&
+                large.Count.Bounds.Width >= large.Count.DesiredSize.Width - 0.5, "A long source path trims with an ellipsis before the count in a narrow pane.");
+        }
+        finally { window.Close(); }
+        Console.WriteLine("PASS a source path is clickable on its text only");
     }
 
     /// <summary>Hover colours of text buttons and the pane separator come from compiled styles and clear when the pointer leaves.</summary>
