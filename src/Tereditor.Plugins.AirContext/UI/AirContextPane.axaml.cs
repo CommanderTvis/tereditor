@@ -39,6 +39,9 @@ internal sealed partial class AirContextPane : UserControl
     private bool checkingConsent;
     private bool contextBusy;
     private ContextOutcome? contextFailure;
+    // What the account section last heard: the download's state, and whether the current terms still wait for the user.
+    private string installation = "";
+    private bool needsTerms;
 
     internal AirContextPane(IPluginUIContext context, string workspace, bool account)
     {
@@ -91,9 +94,13 @@ internal sealed partial class AirContextPane : UserControl
 
     private void ApplyAccount(ContextOutcome result)
     {
+        if (result.State == "requiresAcceptance") needsTerms = true;
+        else if (result.State is "idle" or "ready" or "requiresLogin") needsTerms = false;
         var state = this.FindControl<TextBlock>("AccountState")!;
-        state.Text = result.SignedIn switch { true => "Signed in to JetBrains.", false => "Not signed in. Sign in to index and search.", _ => result.State is "requiresAcceptance" ? "Review the terms and download the CLI first." : "Sign-in status not checked yet." };
-        state.Foreground = result.SignedIn == false ? Ui.Warning : Ui.Muted;
+        state.Text = needsTerms ? installation == "downloaded" ? "Review the current terms to continue." : "Review the terms and download the CLI first."
+            : result.SignedIn switch { true => "Signed in to JetBrains.", false => "Not signed in. Sign in to index and search.", _ => "Sign-in status not checked yet." };
+        state.Foreground = needsTerms || result.SignedIn == false ? Ui.Warning : Ui.Muted;
+        LabelSetup();
         this.FindControl<Button>("ContextLogin")!.IsVisible = result.SignedIn != true;
         this.FindControl<Button>("ContextLogin")!.IsEnabled = !contextBusy;
         this.FindControl<Button>("ContextLogout")!.IsVisible = result.SignedIn == true;
@@ -136,16 +143,24 @@ internal sealed partial class AirContextPane : UserControl
     private void Subscribe() =>
         subscription = context.Subscribe(AirContextContract.Changed, outcome =>
         {
-            if (outcome.WorkspaceId == workspace && !contextBusy) ApplyWorkspace(outcome);
+            if (outcome.WorkspaceId != workspace || contextBusy) return;
+            // A published state replaces a remembered refusal, such as terms the user accepted elsewhere.
+            if (outcome.State != "requiresAcceptance") contextFailure = null;
+            ApplyWorkspace(outcome);
         }, new ContextCall(workspace));
 
     private void ApplyConsent(ContextConsentResult result)
     {
+        installation = result.State;
+        LabelSetup();
         var button = this.FindControl<Button>("ContextSetup")!;
-        button.Content = result.State == "downloaded" ? "View installation…" : result.State == "repair" ? "Repair Context CLI…" : "Review terms and download…";
         ToolTip.SetTip(button, result.Detail);
         button.IsEnabled = consentWindow is null;
     }
+
+    private void LabelSetup() => this.FindControl<Button>("ContextSetup")!.Content =
+        installation == "downloaded" ? needsTerms ? "Review terms…" : "View installation…"
+        : installation == "repair" ? "Repair Context CLI…" : "Review terms and download…";
 
     private async Task RefreshConsentAsync()
     {
@@ -165,8 +180,10 @@ internal sealed partial class AirContextPane : UserControl
     {
         if (consentWindow is not null || TopLevel.GetTopLevel(this) is not Window owner) return;
         consentWindow = new ConsentWindow(context);
+        var blocked = needsTerms;
         consentWindow.Updated += result =>
         {
+            if (result.AcceptedAtUtc.Length > 0) needsTerms = false;
             ApplyConsent(result);
             if (result.State == "downloaded" && contextFailure?.State == "requiresAcceptance") contextFailure = null;
         };
@@ -177,6 +194,8 @@ internal sealed partial class AirContextPane : UserControl
             this.FindControl<Button>("ContextSetup")!.IsEnabled = true;
             await RefreshConsentAsync();
             await RefreshWorkspaceAsync();
+            // The terms stopped the last sign-in probe; ask again now that they are accepted.
+            if (account && blocked && !needsTerms) await CheckAccountAsync();
         };
         consentWindow.Show(owner);
     }
@@ -203,6 +222,7 @@ internal sealed partial class AirContextPane : UserControl
         state.Text = result.Detail.Length > 0 ? label + " · " + result.Detail : label;
         state.Foreground = result.State is "error" or "requiresAcceptance" ? Ui.Danger : result.State == "requiresLogin" ? Ui.Warning : Ui.Muted;
         state.IsVisible = result.Enabled || result.State is not "disabled";
+        this.FindControl<Button>("ContextReviewTerms")!.IsVisible = result.State == "requiresAcceptance";
         this.FindControl<CheckBox>("ContextEnabled")!.IsEnabled = !contextBusy;
     }
 
@@ -272,7 +292,7 @@ internal sealed partial class AirContextPane : UserControl
             var result = await Request(context, AirContextContract.Workspace, new(workspace, operation), current.Token);
             if (lifetime != current || current.IsCancellationRequested) return;
             contextFailure = result.State is "error" or "requiresAcceptance" or "unavailable" ? result : null;
-            if (account) { if (operation != "login") ApplyAccount(result); }
+            if (account) { if (result.State != "login") ApplyAccount(result); }
             else ApplyWorkspace(result);
             if (operation == "login" && result.State == "login" && result.Command.Length > 0)
             {

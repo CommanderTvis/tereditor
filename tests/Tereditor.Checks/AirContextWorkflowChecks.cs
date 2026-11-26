@@ -196,16 +196,42 @@ internal static partial class AirContextChecks
             Require(Equals(Find<Button>(terms, "ConsentAbout").Content, "What is Air Context? ↗") && AirContextContract.AboutUrl == "https://www.jetbrains.com/air/context/",
                 "The consent window lacks the What is Air Context? link to the exact URL.");
             terms.Close();
+            E2E.E2eWorkspace.Until(() => Find<Button>(window, "ContextReviewTerms").IsEffectivelyVisible);
+            // Accepting elsewhere clears the refusal this pane remembered.
             Await(Task.Run(async () =>
             {
                 var review = PluginJson.Convert<ContextConsentResult>(await plugins.CallAsync(new(AirContextContract.Id, "consent", new ContextConsentRequest(), "ui")));
                 await plugins.CallAsync(new(AirContextContract.Id, "consent", new ContextConsentRequest("acceptAndDownload", review.ArtifactId, review.TermsSha256), "ui"));
             }));
-            E2E.E2eWorkspace.Until(() => Find<CheckBox>(window, "ContextEnabled").IsEnabled);
+            E2E.E2eWorkspace.Until(() => !Find<Button>(window, "ContextReviewTerms").IsVisible);
             Toggle(); E2E.E2eWorkspace.Until(() => Dialogs().Count > 0);
             confirmation = Dialogs().Single(); Button(confirmation, "EnableContextConfirm");
             E2E.E2eWorkspace.Until(() => EnabledNow().Contains(workspace) && Find<CheckBox>(window, "ContextEnabled").IsChecked == true);
             Require(runtime is null, "Enabling started an index before a launch.");
+            // The terms change under an enabled project: the next index stops, and both sections offer the review.
+            handler.LegalText += " Changed fixture conditions.";
+            Await(Task.Run(async () => await plugins.CallAsync(new(AirContextContract.Id, "workspace", new ContextCall(workspace, "index"), "ui"))));
+            E2E.E2eWorkspace.Until(() => Find<Button>(window, "ContextReviewTerms").IsEffectivelyVisible);
+            Require(Find<TextBlock>(window, "ContextState").Text!.Contains("Choose Review terms", StringComparison.Ordinal) && runtime is null, "The refusal did not name its button, or the CLI ran without consent.");
+            var stale = new Tereditor.UI.Panels.SettingsView(window, () => { }, section: "Code Intelligence");
+            window.ShowInOverlay(stale);
+            try
+            {
+                E2E.E2eWorkspace.Until(() => stale.GetLogicalDescendants().OfType<Button>().Any(control => control.Name == "ContextSetup" && Equals(control.Content, "Review terms…")));
+                Require(Find<TextBlock>(stale, "AccountState").Text == "Review the current terms to continue.", "Settings did not say that the terms wait.");
+            }
+            finally { stale.Close(); }
+            Button(window, "ContextReviewTerms");
+            E2E.E2eWorkspace.Until(() => window.OwnedWindows.OfType<Tereditor.Plugins.AirContext.UI.ConsentWindow>().Any());
+            var again = window.OwnedWindows.OfType<Tereditor.Plugins.AirContext.UI.ConsentWindow>().Single();
+            E2E.E2eWorkspace.Until(() => Find<CheckBox>(again, "ConsentCheck").IsEnabled);
+            Require(Find<CheckBox>(again, "ConsentCheck").IsChecked == false && Find<TextBox>(again, "ConsentText").Text!.Contains("Changed fixture conditions.", StringComparison.Ordinal),
+                "The review did not show the changed terms unaccepted.");
+            Find<CheckBox>(again, "ConsentCheck").IsChecked = true;
+            Button(again, "ConsentDownload");
+            E2E.E2eWorkspace.Until(() => !Find<Button>(window, "ContextReviewTerms").IsVisible && Find<TextBlock>(window, "ContextState").Text!.StartsWith("Ready to index", StringComparison.Ordinal));
+            again.Close();
+            Require(runtime is null, "Accepting the terms ran the CLI.");
             var about = Find<Button>(window, "ContextAbout");
             Require(about.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "Air Context") && Avalonia.Automation.AutomationProperties.GetName(about) == "Air Context, opens the website" &&
                 !window.GetLogicalDescendants().OfType<Button>().Any(control => Equals(control.Content, "What is Air Context? ↗")), "The Air Context title is not the link, or the separate link line remains.");

@@ -75,9 +75,8 @@ internal sealed class ContextConsent(string storage, HttpClient http, ContextBun
                 await bytes.WriteAsync(buffer.AsMemory(0, read), token);
             }
             var html = Encoding.UTF8.GetString(bytes.ToArray());
-            var content = Regex.Match(html, "<div[^>]*class=[\"']licenseContent[\"'][^>]*>(.*?)</div>", RegexOptions.Singleline, TimeSpan.FromSeconds(1));
-            if (!content.Success) throw new IOException("Unable to read the current JetBrains agreement. Open the original terms and retry later.");
-            var linked = Regex.Replace(content.Groups[1].Value, "<a\\b[^>]*href=[\"']([^\"']*)[\"'][^>]*>(.*?)</a>",
+            var content = AgreementBody(html) ?? throw new IOException("Unable to read the current JetBrains agreement. Open the original terms and retry later.");
+            var linked = Regex.Replace(content, "<a\\b[^>]*href=[\"']([^\"']*)[\"'][^>]*>(.*?)</a>",
                 match => match.Groups[2].Value + " (" + WebUtility.HtmlDecode(match.Groups[1].Value) + ")",
                 RegexOptions.Singleline | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
             var text = Regex.Replace(linked, "</(?:p|h[1-6]|li)>|<br\\s*/?>", "\n\n", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
@@ -100,6 +99,21 @@ internal sealed class ContextConsent(string storage, HttpClient http, ContextBun
         if (result.AcceptedAtUtc.Length > 0 && await VerifiedInstallationAsync(token) is { } installation)
             result = result with { State = "downloaded", Installation = installation };
         return result;
+    }
+
+    /// <summary>The whole agreement block. It holds nested blocks, such as a notice about a coming version, so its first closing tag does not end it.</summary>
+    private static string? AgreementBody(string html)
+    {
+        var open = Regex.Match(html, "<div[^>]*class=[\"']licenseContent[\"'][^>]*>", RegexOptions.None, TimeSpan.FromSeconds(1));
+        if (!open.Success) return null;
+        var start = open.Index + open.Length;
+        var depth = 1;
+        for (var tag = new Regex("<(/?)div\\b[^>]*>", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)).Match(html, start); tag.Success; tag = tag.NextMatch())
+        {
+            depth += tag.Groups[1].Length == 0 ? 1 : -1;
+            if (depth == 0) return html[start..tag.Index];
+        }
+        return null;
     }
 
     private async Task<string?> VerifiedInstallationAsync(CancellationToken token)
@@ -135,7 +149,7 @@ internal sealed class ContextConsent(string storage, HttpClient http, ContextBun
         await RequireAsync(token);
         var executable = ContextDistribution.Installation(storage, bundle);
         if (!await ContextDistribution.MatchesAsync(executable, bundle.Sha256, token))
-            throw new IOException("Context CLI integrity verification failed. Repair the installation in the Air Context pane before running it.");
+            throw new IOException("Context CLI integrity verification failed. Download it again in Settings › Code Intelligence.");
     }
 
     internal async Task RequireAsync(CancellationToken token)

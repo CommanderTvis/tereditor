@@ -15,6 +15,10 @@ internal interface IContextRuntime : IAsyncDisposable
 
 internal sealed class ContextService(Func<string, CancellationToken, ValueTask<bool>> enabled, Func<string, Action<string>, CancellationToken, Task<IContextRuntime>> create) : IAsyncDisposable
 {
+    /// <summary>Said wherever the terms stop an operation: both Air Context sections show a Review terms button then.</summary>
+    internal const string TermsNeeded = "The current terms are not accepted yet. Choose Review terms in the Air Context section to read them.";
+    private const string IdleDetail = "Launch a tereditor agent to start indexing.";
+
     private sealed class Entry
     {
         internal readonly CancellationTokenSource Stop;
@@ -24,7 +28,7 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
         internal Task<IContextRuntime>? Runtime;
         internal Task? Index;
         internal volatile string State = "idle";
-        internal volatile string Detail = "Launch a tereditor agent to start indexing.";
+        internal volatile string Detail = IdleDetail;
     }
     private readonly ConcurrentDictionary<string, Entry> entries = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ContextLog> logs = new(StringComparer.Ordinal);
@@ -47,7 +51,7 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
         var account = request.Operation is "check" or "login" or "logout";
         if (!account && !on) return new("disabled", "Enable JetBrains Context for this project in the Air Context pane; it covers every workspace of the project. Indexing sends source chunks to JetBrains.", SignedIn: Known());
         if (request.Operation == "status")
-            return entries.TryGetValue(workspace, out var known) ? new(known.State == "requiresLogin" && Known() == true ? "idle" : known.State, known.State == "requiresLogin" && Known() == true ? "Launch a tereditor agent to start indexing." : known.Detail, true, SignedIn: Known()) : new("idle", "Launch a tereditor agent to start indexing.", true, SignedIn: Known());
+            return entries.TryGetValue(workspace, out var known) ? new(known.State == "requiresLogin" && Known() == true ? "idle" : known.State, known.State == "requiresLogin" && Known() == true ? IdleDetail : known.Detail, true, SignedIn: Known()) : new("idle", IdleDetail, true, SignedIn: Known());
         if (request.Operation is not ("search" or "index" or "refresh" or "login" or "check" or "logout")) throw new ArgumentException("Unknown Context operation.");
         if (request.Limit is < 1 or > 100 || request.Query.Length > 8000) throw new ArgumentException("Context query limit is 100 results and 8,000 characters.");
         if (request.Operation == "search" && string.IsNullOrWhiteSpace(request.Query)) throw new ArgumentException("A semantic search query is required.");
@@ -82,7 +86,7 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
                     return new(entry.State, ContextOutput.Sanitize(error.Message), on, SignedIn: Known());
                 }
                 Interlocked.Exchange(ref signed, 1);
-                if (entry.State == "requiresLogin") { entry.State = "idle"; entry.Detail = "Launch a tereditor agent to start indexing."; }
+                if (entry.State == "requiresLogin") { entry.State = "idle"; entry.Detail = IdleDetail; }
                 return new(entry.State, entry.Detail, on, SignedIn: true);
             }
             if (request.Operation == "logout")
@@ -100,7 +104,7 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
             entry.State = "ready"; entry.Detail = "Search completed. Provider output describes index coverage and matching locations.";
             return new("ready", entry.Detail, true, data);
         }
-        catch (ContextConsentRequiredException) { return Failure(entry, "requiresAcceptance", "Review the current Context terms in the Air Context pane before running the CLI."); }
+        catch (ContextConsentRequiredException) { return Failure(entry, "requiresAcceptance", TermsNeeded); }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) when (entry.Token.IsCancellationRequested) { return new("stopped", "tereditor-owned Context processes stopped.", on); }
         catch (OperationCanceledException) { return Failure(entry, "error", "Context operation timed out. Retry or view this workspace's logs."); }
@@ -111,6 +115,19 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
             return Failure(entry, state, ContextOutput.Sanitize(error.Message));
         }
         finally { entry.Gate.Release(); }
+    }
+
+    /// <summary>The user accepted the terms: forgets the remembered refusals and returns the workspaces that held one.</summary>
+    internal IReadOnlyList<string> TermsAccepted()
+    {
+        var cleared = new List<string>();
+        foreach (var (workspace, entry) in entries)
+        {
+            if (entry.State != "requiresAcceptance") continue;
+            entry.State = "idle"; entry.Detail = IdleDetail;
+            cleared.Add(workspace);
+        }
+        return cleared;
     }
 
     private Task<IContextRuntime> RuntimeAsync(string workspace, Entry entry)
@@ -134,7 +151,7 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
             entry.State = "ready"; entry.Detail = "Index command completed. Search or vendor status reports availability and coverage.";
         }
         catch (OperationCanceledException) when (entry.Stop.IsCancellationRequested) { entry.State = "stopped"; entry.Detail = "Indexing stopped."; }
-        catch (ContextConsentRequiredException) { Failure(entry, "requiresAcceptance", "Review the current Context terms in the Air Context pane."); }
+        catch (ContextConsentRequiredException) { Failure(entry, "requiresAcceptance", TermsNeeded); }
         catch (Exception error)
         {
             var detail = ContextOutput.Sanitize(error.Message);

@@ -156,4 +156,4 @@ internal sealed class ContextRuntime(string executable, string workspace, Action
     }
 }
 
-internal sealed class ContextLoginRequiredException() : IOException("JetBrains Context requires login. Choose Sign in in the Air Context pane.");
+internal sealed class ContextLoginRequiredException() : IOException("JetBrains Context requires login. Sign in from Settings › Code Intelligence.");

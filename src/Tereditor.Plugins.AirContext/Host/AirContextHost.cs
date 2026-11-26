@@ -66,6 +66,8 @@ public sealed class AirContextHost : PluginHostModule
         private readonly Lock gate = new();
         private readonly string? storage = context.StateDirectory;
         private readonly HashSet<string> launches = [];
+        // Workspaces whose enablement the terms refused; their panes are told once the user accepts.
+        private readonly HashSet<string> refused = new(StringComparer.Ordinal);
         private HashSet<string> enabled = [];
         private ContextConsent? consent;
         private ContextService? service;
@@ -246,12 +248,24 @@ public sealed class AirContextHost : PluginHostModule
         {
             try
             {
-                return storage is null ? new("unavailable", "This host has no persistent Context storage.") : await Consent().ExecuteAsync(request, token);
+                if (storage is null) return new("unavailable", "This host has no persistent Context storage.");
+                var result = await Consent().ExecuteAsync(request, token);
+                if (request.Operation != "status" && result.AcceptedAtUtc.Length > 0) await TermsAcceptedAsync(token);
+                return result;
             }
             catch (Exception error) when (error is IOException or HttpRequestException or UnauthorizedAccessException or PlatformNotSupportedException)
             {
                 return new("error", error.Message);
             }
+        }
+
+        /// <summary>Every pane that showed the terms notice, in this window or another client, leaves it.</summary>
+        private async Task TermsAcceptedAsync(CancellationToken token)
+        {
+            string[] waiting;
+            lock (gate) { waiting = [.. refused]; refused.Clear(); }
+            foreach (var workspace in waiting.Concat(service?.TermsAccepted() ?? []).Distinct().Where(Directory.Exists))
+                context.Publish(AirContextContract.Changed, (await ExecuteAsync(new(workspace, "status"), token)).For(workspace));
         }
 
         private async ValueTask<ContextOutcome> WorkspaceAsync(ContextCall call, CancellationToken token)
@@ -307,7 +321,11 @@ public sealed class AirContextHost : PluginHostModule
                 }
                 return await active.ExecuteAsync(request, token);
             }
-            catch (ContextConsentRequiredException) { return new("requiresAcceptance", "Review and accept the current Context agreements in the Air Context pane first."); }
+            catch (ContextConsentRequiredException)
+            {
+                lock (gate) refused.Add(request.Workspace);
+                return new("requiresAcceptance", ContextService.TermsNeeded);
+            }
             catch (Exception error) when (error is IOException or HttpRequestException or PlatformNotSupportedException or UnauthorizedAccessException)
             { return new("error", ContextOutput.Sanitize(error.Message), await EnabledAsync(request.Workspace, CancellationToken.None)); }
         }

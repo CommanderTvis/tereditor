@@ -52,8 +52,13 @@ internal static partial class AirContextChecks
             var consent = new ContextConsent(storage, http, bundle);
             var emptyStatus = await consent.ExecuteAsync(new("status"), default);
             Require(emptyStatus.State == "notInstalled" && handler.Requests == 0 && handler.LegalRequests == 0, "Context status performed network I/O or claimed installation.");
+            // A published agreement holds nested blocks, such as a notice about a coming version. The review shows what follows them.
+            handler.LegalRest = "<div class=\"notice\">\n<div>Fixture notice about a coming version.</div>\n</div>\n<p>Fixture section after the notice.</p>";
+            var noticed = await consent.ReviewAsync(default);
+            Require(noticed.Text.Contains("Fixture notice about a coming version.\nFixture section after the notice.", StringComparison.Ordinal), "A nested block cut the agreement short: " + noticed.Text);
+            handler.LegalRest = "";
             var review = await consent.ReviewAsync(default);
-            Require(review.State == "requiresAcceptance" && review.AcceptedAtUtc.Length == 0, "Context terms were preaccepted.");
+            Require(review.State == "requiresAcceptance" && review.AcceptedAtUtc.Length == 0 && review.TermsSha256 != noticed.TermsSha256, "Context terms were preaccepted.");
             var accepted = await consent.ExecuteAsync(new("acceptAndDownload", review.ArtifactId, review.TermsSha256), default);
             Require(accepted.State == "downloaded" && accepted.AcceptedAtUtc.Length > 0, "Explicit fixture consent did not download.");
             Require((await new ContextConsent(storage, http, bundle).ReviewAsync(default)).AcceptedAtUtc == accepted.AcceptedAtUtc, "Context consent was not persisted.");
@@ -421,12 +426,13 @@ internal static partial class AirContextChecks
         internal int Requests;
         internal int LegalRequests;
         internal string LegalText = "Synthetic fixture agreement, never JetBrains terms. " + new string('x', 120);
+        internal string LegalRest = "";
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (request.RequestUri!.AbsolutePath.StartsWith("/legal/", StringComparison.Ordinal))
             {
                 Interlocked.Increment(ref LegalRequests);
-                return new(HttpStatusCode.OK) { Content = new StringContent("<div class=\"licenseContent\"><p>" + LegalText + "</p></div>"), RequestMessage = request };
+                return new(HttpStatusCode.OK) { Content = new StringContent("<div class=\"licenseContent\"><p>" + LegalText + "</p>" + LegalRest + "</div>"), RequestMessage = request };
             }
             Interlocked.Increment(ref Requests);
             return new(HttpStatusCode.OK) { Content = new ByteArrayContent(await response(cancellationToken)), RequestMessage = request };

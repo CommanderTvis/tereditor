@@ -24,6 +24,7 @@
     <StackPanel x:Name="WorkspacePart" Spacing="8">
       <CheckBox x:Name="ContextEnabled" Content="Enable for this project" Click="ContextEnableClicked" />
       <TextBlock x:Name="ContextState" FontSize="12" Foreground="{x:Static kit:Ui.Muted}" TextWrapping="Wrap" />
+      <Button x:Name="ContextReviewTerms" Content="Review terms…" HorizontalAlignment="Left" Click="ContextSetupClicked" IsVisible="False" />
       <StackPanel x:Name="SignInNotice" Orientation="Horizontal" Spacing="8" IsVisible="False">
         <TextBlock Text="Sign in from Settings › Code Intelligence." FontSize="12" Foreground="{x:Static kit:Ui.Warning}" VerticalAlignment="Center" />
         <Button x:Name="ContextOpenSettings" Content="Open Settings" Click="ContextOpenSettingsClicked" />

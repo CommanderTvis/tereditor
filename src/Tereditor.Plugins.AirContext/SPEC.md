@@ -65,6 +65,14 @@ enable indexing. Current terms and an unconditional full executable digest are c
 before every fresh native execution; display-only digest caching never authorizes it.
 Changed terms, missing acknowledgement, corrupt binaries or unavailable validation
 fail closed. No agent operation records consent or enables a workspace.
+
+An operation the terms stop reports `requiresAcceptance`, and every section that shows it has the control that opens the
+review: **Review terms…** under the state in the workspace section, and the setup button of the account section, which reads
+**Review terms…** instead of **View installation…** while an installed CLI waits for the current terms. The message names
+that button. Once the user accepts in any section, window or client, the host forgets the remembered refusals and publishes
+the new state to the panes that showed them. The review shows each agreement whole: the publisher's agreement block holds
+nested blocks (such as a notice about a coming version), and the block ends at its matching closing tag, not at the first one.
+The hash covers everything shown, so such a notice asks for a new review.
 The artifact identity is the SHA-256 of the artifact record's JSON, written from source-generated metadata with
 the bytes the reflection serializer wrote, so a recorded consent stays valid across releases (`--context` pins it).
 
