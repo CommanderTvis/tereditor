@@ -161,6 +161,8 @@ internal sealed class ContextConsent(string storage, HttpClient http, ContextBun
 
 internal sealed class ContextConsentRequiredException() : InvalidOperationException("Review and accept JetBrains Context terms in the user interface before provisioning.");
 
+internal sealed class ContextDownloadRequiredException() : InvalidOperationException("Download the JetBrains Context CLI in the user interface before running it.");
+
 /// <summary>
 /// Source-generated JSON metadata, with the serializer's default options, for the consent receipt and the artifact
 /// identity it names; the identity hashes these bytes, so they must not change.

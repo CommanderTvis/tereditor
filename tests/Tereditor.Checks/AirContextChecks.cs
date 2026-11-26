@@ -227,6 +227,12 @@ internal static partial class AirContextChecks
             Require(accepted.State == "downloaded" && handler.Requests == 1 && File.Exists(accepted.Installation), "UI consent/download transport failed.");
             Require(accepted.Installation.StartsWith(Path.Combine(stateDirectory, "plugin-state", AirContextContract.Id, "files"), StringComparison.Ordinal), "The CLI was stored outside the plugin's own directory: " + accepted.Installation);
             Require((await rig.Consent(new())).AcceptedAtUtc == accepted.AcceptedAtUtc, "Transport lost persisted consent.");
+            // Accepted but missing: running the CLI waits for the user's download click.
+            File.Delete(accepted.Installation);
+            var absent = await rig.Workspace(storage, "check");
+            Require(absent.State == "requiresDownload" && handler.Requests == 1 && !File.Exists(accepted.Installation), "A missing CLI was downloaded without a click: " + absent.State);
+            await rig.Consent(new("download", review.ArtifactId, review.TermsSha256));
+            Require(handler.Requests == 2 && File.Exists(accepted.Installation), "The user's download did not restore the CLI.");
             await WorkflowTransportAsync(rig, fixtures, storage);
         }
         Console.WriteLine("PASS Context consent direct/WebSocket parity, review without download, explicit acceptance and persisted acknowledgement");

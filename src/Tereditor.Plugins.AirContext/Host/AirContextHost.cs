@@ -84,9 +84,9 @@ public sealed class AirContextHost : PluginHostModule
                 var store = Consent();
                 await store.RequireAsync(token);
                 if (Override?.Runtime is { } fixture) return await fixture(workspace, log, token);
-                var terms = await store.ReviewAsync(token);
-                var installed = await store.ExecuteAsync(new("download", terms.ArtifactId, terms.TermsSha256), token);
-                if (installed.State != "downloaded") throw new IOException(installed.Detail);
+                // Nothing here downloads: only the review window's button does, so a missing CLI waits for the user's click.
+                var installed = await store.ReviewAsync(token);
+                if (installed.State != "downloaded") throw new ContextDownloadRequiredException();
                 return new ContextRuntime(installed.Installation, workspace, log, store.AuthorizeExecutionAsync);
             });
 
@@ -250,7 +250,7 @@ public sealed class AirContextHost : PluginHostModule
             {
                 if (storage is null) return new("unavailable", "This host has no persistent Context storage.");
                 var result = await Consent().ExecuteAsync(request, token);
-                if (request.Operation != "status" && result.AcceptedAtUtc.Length > 0) await TermsAcceptedAsync(token);
+                if (request.Operation != "status" && result.State == "downloaded") await ProvisionedAsync(token);
                 return result;
             }
             catch (Exception error) when (error is IOException or HttpRequestException or UnauthorizedAccessException or PlatformNotSupportedException)
@@ -259,12 +259,12 @@ public sealed class AirContextHost : PluginHostModule
             }
         }
 
-        /// <summary>Every pane that showed the terms notice, in this window or another client, leaves it.</summary>
-        private async Task TermsAcceptedAsync(CancellationToken token)
+        /// <summary>The user accepted the terms and the CLI is there: every pane that showed a notice, in this window or another client, leaves it.</summary>
+        private async Task ProvisionedAsync(CancellationToken token)
         {
             string[] waiting;
             lock (gate) { waiting = [.. refused]; refused.Clear(); }
-            foreach (var workspace in waiting.Concat(service?.TermsAccepted() ?? []).Distinct().Where(Directory.Exists))
+            foreach (var workspace in waiting.Concat(service?.Provisioned() ?? []).Distinct().Where(Directory.Exists))
                 context.Publish(AirContextContract.Changed, (await ExecuteAsync(new(workspace, "status"), token)).For(workspace));
         }
 
@@ -343,7 +343,7 @@ public sealed class AirContextHost : PluginHostModule
                     try { response["results"] = JsonNode.Parse(result.Data); }
                     catch (JsonException) { response["results"] = result.Data; }
                 }
-                return new(response.ToJsonString()) { IsError = result.State is "error" or "requiresAcceptance" or "requiresLogin" or "unavailable" };
+                return new(response.ToJsonString()) { IsError = result.State is "error" or "requiresAcceptance" or "requiresDownload" or "requiresLogin" or "unavailable" };
             }
             catch (Exception error) when (error is ArgumentException or UnauthorizedAccessException)
             {

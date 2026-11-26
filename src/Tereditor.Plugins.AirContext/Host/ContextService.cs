@@ -17,6 +17,7 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
 {
     /// <summary>Said wherever the terms stop an operation: both Air Context sections show a Review terms button then.</summary>
     internal const string TermsNeeded = "The current terms are not accepted yet. Choose Review terms in the Air Context section to read them.";
+    internal const string DownloadNeeded = "The CLI is not downloaded. Choose the download button in the Air Context section.";
     private const string IdleDetail = "Launch a tereditor agent to start indexing.";
 
     private sealed class Entry
@@ -105,6 +106,7 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
             return new("ready", entry.Detail, true, data);
         }
         catch (ContextConsentRequiredException) { return Failure(entry, "requiresAcceptance", TermsNeeded); }
+        catch (ContextDownloadRequiredException) { return Failure(entry, "requiresDownload", DownloadNeeded); }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) when (entry.Token.IsCancellationRequested) { return new("stopped", "tereditor-owned Context processes stopped.", on); }
         catch (OperationCanceledException) { return Failure(entry, "error", "Context operation timed out. Retry or view this workspace's logs."); }
@@ -117,13 +119,13 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
         finally { entry.Gate.Release(); }
     }
 
-    /// <summary>The user accepted the terms: forgets the remembered refusals and returns the workspaces that held one.</summary>
-    internal IReadOnlyList<string> TermsAccepted()
+    /// <summary>The CLI is accepted and downloaded: forgets the remembered refusals and returns the workspaces that held one.</summary>
+    internal IReadOnlyList<string> Provisioned()
     {
         var cleared = new List<string>();
         foreach (var (workspace, entry) in entries)
         {
-            if (entry.State != "requiresAcceptance") continue;
+            if (entry.State is not ("requiresAcceptance" or "requiresDownload")) continue;
             entry.State = "idle"; entry.Detail = IdleDetail;
             cleared.Add(workspace);
         }
@@ -152,6 +154,7 @@ internal sealed class ContextService(Func<string, CancellationToken, ValueTask<b
         }
         catch (OperationCanceledException) when (entry.Stop.IsCancellationRequested) { entry.State = "stopped"; entry.Detail = "Indexing stopped."; }
         catch (ContextConsentRequiredException) { Failure(entry, "requiresAcceptance", TermsNeeded); }
+        catch (ContextDownloadRequiredException) { Failure(entry, "requiresDownload", DownloadNeeded); }
         catch (Exception error)
         {
             var detail = ContextOutput.Sanitize(error.Message);

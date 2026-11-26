@@ -95,10 +95,10 @@ internal sealed partial class AirContextPane : UserControl
     private void ApplyAccount(ContextOutcome result)
     {
         if (result.State == "requiresAcceptance") needsTerms = true;
-        else if (result.State is "idle" or "ready" or "requiresLogin") needsTerms = false;
+        else if (result.State is "idle" or "ready" or "requiresLogin" or "requiresDownload") needsTerms = false;
         var state = this.FindControl<TextBlock>("AccountState")!;
         state.Text = needsTerms ? installation == "downloaded" ? "Review the current terms to continue." : "Review the terms and download the CLI first."
-            : result.SignedIn switch { true => "Signed in to JetBrains.", false => "Not signed in. Sign in to index and search.", _ => "Sign-in status not checked yet." };
+            : result.SignedIn switch { true => "Signed in to JetBrains.", false => "Not signed in. Sign in to index and search.", _ => result.State == "requiresDownload" ? "Download the CLI first." : "Sign-in status not checked yet." };
         state.Foreground = needsTerms || result.SignedIn == false ? Ui.Warning : Ui.Muted;
         LabelSetup();
         this.FindControl<Button>("ContextLogin")!.IsVisible = result.SignedIn != true;
@@ -185,7 +185,7 @@ internal sealed partial class AirContextPane : UserControl
         {
             if (result.AcceptedAtUtc.Length > 0) needsTerms = false;
             ApplyConsent(result);
-            if (result.State == "downloaded" && contextFailure?.State == "requiresAcceptance") contextFailure = null;
+            if (result.State == "downloaded" && contextFailure?.State is "requiresAcceptance" or "requiresDownload") contextFailure = null;
         };
         this.FindControl<Button>("ContextSetup")!.IsEnabled = false;
         consentWindow.Closed += async (_, _) =>
@@ -209,6 +209,7 @@ internal sealed partial class AirContextPane : UserControl
         {
             "requiresLogin" => "Sign in required",
             "requiresAcceptance" => "Review terms to continue",
+            "requiresDownload" => "Download the CLI to continue",
             "indexing" => "Indexing",
             "ready" => "Ready",
             "idle" => "Ready to index",
@@ -220,9 +221,11 @@ internal sealed partial class AirContextPane : UserControl
         };
         var state = this.FindControl<TextBlock>("ContextState")!;
         state.Text = result.Detail.Length > 0 ? label + " · " + result.Detail : label;
-        state.Foreground = result.State is "error" or "requiresAcceptance" ? Ui.Danger : result.State == "requiresLogin" ? Ui.Warning : Ui.Muted;
+        state.Foreground = result.State is "error" or "requiresAcceptance" or "requiresDownload" ? Ui.Danger : result.State == "requiresLogin" ? Ui.Warning : Ui.Muted;
         state.IsVisible = result.Enabled || result.State is not "disabled";
-        this.FindControl<Button>("ContextReviewTerms")!.IsVisible = result.State == "requiresAcceptance";
+        var review = this.FindControl<Button>("ContextReviewTerms")!;
+        review.IsVisible = result.State is "requiresAcceptance" or "requiresDownload";
+        review.Content = result.State == "requiresDownload" ? "Download CLI…" : "Review terms…";
         this.FindControl<CheckBox>("ContextEnabled")!.IsEnabled = !contextBusy;
     }
 

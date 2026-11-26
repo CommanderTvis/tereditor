@@ -6,17 +6,17 @@ internal sealed record ContextBundle(string Version, string Platform, Uri Url, s
 
 internal static class ContextDistribution
 {
-    internal const string Version = "0.9.16.1161";
+    internal const string Version = "0.9.22.1774";
     internal const string TermsUrl = "https://www.jetbrains.com/legal/docs/terms/jetbrains-context-cli-eap/";
 
     internal static ContextBundle Bundle(string os, string arch)
     {
         var hash = (os, arch) switch
         {
-            ("macos", "arm64") => "fea673d93d2d4435956a6bfcc153a0692592135a048cbc4d0199969e754aadfc",
-            ("macos", "x64") => "45e26b32d267917c9e8ea4e30c67c2f2586de7a7c9ba75f6f99ad34866e1cf3f",
-            ("linux", "arm64") => "63f733dc00c341dff67e88eed67bf3f059101ff265f55643b1af91ed39c596fb",
-            ("linux", "x64") => "890033b5ae9379976003ea3ea98846dfbe247ba7b6996e23d3a478ae87f1e2e8",
+            ("macos", "arm64") => "088eabe32529d13c53276041124699ac1c8da0eea29581b25fd8e2953877b2e0",
+            ("macos", "x64") => "431cc49ff72d73f1f6f0a28bea85b07431f2d902d350b3bd18cca34fe1d83601",
+            ("linux", "arm64") => "b78372da1559642f7ea2126267bcac2078d8b5880994db5e4387b256aa1ed0f8",
+            ("linux", "x64") => "959370cea8f188392921dab4412651a17069346a3d4d3b07bffddb20f97b04f7",
             _ => throw new PlatformNotSupportedException($"No verified JetBrains Context artifact for {os}/{arch}.")
         };
         return new(Version, os + "-" + arch,

@@ -50,8 +50,9 @@ The paragraph advertising the tools to agents is the plugin's tool guidance and 
 only while the plugin is enabled. The Codex launch line still preapproves the three tool names, whether or not the plugin is on.
 
 tereditor optionally runs the unmodified JetBrains Context CLI on the workspace host.
-It downloads pinned 0.9.16.1161 macOS/Linux ARM64/x64 binaries directly from JetBrains,
-verified against publisher SHA-256 sidecars. No server binary, installer, agent hook or
+It downloads pinned 0.9.22.1774 macOS/Linux ARM64/x64 binaries directly from JetBrains,
+verified against publisher SHA-256 sidecars. The newest stable version is the one the publisher's installer follows,
+`jetbrains-context/release/version.txt` on `download.jetbrains.com`; each build folder holds `SHA256SUMS`. No server binary, installer, agent hook or
 proprietary code is bundled. Windows has no verified artifact in this catalog.
 [Official CLI integrations](https://github.com/JetBrains/context) and
 [service documentation](https://www.jetbrains.com/help/jetbrains-console/getting-started-with-jetbrains-context.html)
@@ -73,6 +74,11 @@ that button. Once the user accepts in any section, window or client, the host fo
 the new state to the panes that showed them. The review shows each agreement whole: the publisher's agreement block holds
 nested blocks (such as a notice about a coming version), and the block ends at its matching closing tag, not at the first one.
 The hash covers everything shown, so such a notice asks for a new review.
+
+Only the review window's button downloads. No operation, launch or startup fetches the CLI: an accepted but missing or
+damaged executable reports `requiresDownload` with a **Download CLI…** button. A pin upgrade changes the artifact
+identity, so the earlier consent does not cover it: the sections report `requiresAcceptance`, and nothing is fetched until
+the user accepts. The executable of the earlier pin stays on disk, unused.
 The artifact identity is the SHA-256 of the artifact record's JSON, written from source-generated metadata with
 the bytes the reflection serializer wrote, so a recorded consent stays valid across releases (`--context` pins it).
 
@@ -158,10 +164,13 @@ Search at a revision without its own snapshot is the vendor's choice of snapshot
 Fake executables never accept JetBrains terms, authenticate or index real source. Expensive real-provider corpora remain opt-in
 and are not added to the full gate.
 
-Current native 0.9.16.1161 help/config/MCP startup were inspected in a sandbox denying
+Native 0.9.16.1161 help/config/MCP startup were inspected in a sandbox denying
 network and writes outside task scratch after confirming the user's existing artifact
 receipt and publisher checksum. The signed-out MCP startup requires login. No real
 login, cloud upload, indexing or authenticated search has been executed by the agent.
 A signed-in smoke test and opaque vendor cache/watcher behavior remain unverified;
 fixture results do not establish those guarantees or completely private credentials.
+The 0.9.22.1774 checksums come from the publisher's sidecars and `SHA256SUMS` (they agree; the `SHA256SUMS.asc`
+signature was not checked). That binary was not downloaded or run: that the commands, flags and `code_search` schema
+tereditor uses still hold rests on the release notes of 0.9.17 to 0.9.22, which announce no change to them.
 The sign-in terminal tab opens under the plugin's tab key (the plugin cannot see when the typed command ends, hence the probe) without the "Air Context sign-in" title the core pane used to set.
