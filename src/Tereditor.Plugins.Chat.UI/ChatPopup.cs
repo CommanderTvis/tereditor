@@ -229,6 +229,7 @@ internal static class ChatPopup
     {
         Name = "ChatMenuIconSlot",
         Width = CheckWidth,
+        Height = CheckWidth,
         Child = icon,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
