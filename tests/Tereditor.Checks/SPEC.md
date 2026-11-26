@@ -178,7 +178,11 @@ process; there is no retry layer.
 of them a process runs before `Program.Checks` sees its arguments. Code outside a case is shared setup and
 runs in every process; a case runs in exactly one. A suite added without a case is therefore never lost,
 only repeated in each lane. Selection is by a case's ordinal in the order the gate reaches it, so it needs
-no listing pass and is identical in every process of one build.
+no listing pass and is identical in every process of one build. Moving a case therefore moves every later case to another
+shard, so `gate-cases.txt` records the order and `ci-coverage` requires the code to match it exactly. It reads the order from
+the source: the gate section of `Program.cs` with `UiChecks.Run` and `RunWorkspaceSuites` spliced in at their calls. A
+`Gate.Case` without a literal name, or anywhere else in those two files, fails it. [Checks](../../docs/develop/checks.md) says
+how to add, remove and merge cases.
 
 - `--lanes N` (1–16, or `auto` for half the processors clamped to 1–8) runs the gate as `N` processes of
   the same executable. Each owns shard `i/N`, its own `CheckRoot` directory and its own hosts on

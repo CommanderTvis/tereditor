@@ -38,3 +38,16 @@ every later case of the shard.
 
 New gate cases are appended after the last case, so no earlier case changes its shard (cases are dealt to shards by position,
 `ordinal % shards`). `--list-cases --shard k/3` shows where a case landed.
+
+`tests/Tereditor.Checks/gate-cases.txt` records that order, one name per line, and `ci-coverage` (`-- --conformance`) fails
+when the code disagrees with it:
+
+- To add a case, put its `Gate.Case` after the last one of the gate in `Program.cs` and add its name as the last line. A case
+  in `UiChecks.cs` is never last, because more cases of `Program.cs` run after it.
+- To remove a case, delete its `Gate.Case` and its line. Every later case moves to another shard, so check the shard times of
+  the next CI run. To rename a case, change the name in both places.
+- When two branches both add a case, Git reports a conflict in both files. Keep both cases, in the same order in both files,
+  with the one that is already on `main` first.
+
+Never edit the file to make an insertion or a reorder pass. The check compares only the code with the file, so such an edit is
+for review to catch.

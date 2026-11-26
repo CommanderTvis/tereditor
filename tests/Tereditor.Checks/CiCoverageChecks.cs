@@ -7,6 +7,7 @@ namespace Tereditor.Checks;
 /// runner's Main; each one needs an entry in <see cref="Modes"/>: the gate cases that run it, the CI job that runs it, or an
 /// exemption with its reason. A new mode without an entry, an entry whose mode is gone, a case that is not registered and a job
 /// that does not mention the mode all fail. This pins a decision per mode; it does not prove that a case covers the whole body of its mode.
+/// It also pins the order of the gate cases to gate-cases.txt, because shards are dealt by position.
 /// </summary>
 internal static partial class CiCoverageChecks
 {
@@ -261,6 +262,9 @@ internal static partial class CiCoverageChecks
     [GeneratedRegex("Gate\\.Case\\(\"([^\"]+)\"")]
     private static partial Regex CaseName();
 
+    [GeneratedRegex("Gate\\.Case\\(")]
+    private static partial Regex Registration();
+
     [GeneratedRegex("mode:\\s*\\[([^\\]]*)\\]")]
     private static partial Regex MatrixModes();
 
@@ -280,6 +284,51 @@ internal static partial class CiCoverageChecks
                 foreach (Match literal in Literal().Matches(text)) found.Add(literal.Groups[1].Value);
             }
         return found;
+    }
+
+    /// <summary>
+    /// The case names in the order the gate reaches them, which is what decides their shards: the gate section of Program.cs with
+    /// UiChecks.Run, and its RunWorkspaceSuites, spliced in where they are called.
+    /// </summary>
+    internal static List<string> GateOrder(string program, string ui)
+    {
+        var suites = Between(ui, "void RunWorkspaceSuites(", "void EnsureHeadlessApp(");
+        var run = Splice(Between(ui, "void Run(string root, bool translations", "void Workbench("), "RunWorkspaceSuites(", suites);
+        var gate = Splice(Between(program, "Gate.Case(\"packaged-app\"", "PASS prototype checks"), "UiChecks.Run(root);", run);
+        var order = CaseName().Matches(gate).Select(match => match.Groups[1].Value).ToList();
+        if (order.Count != Registration().Count(program) + Registration().Count(ui))
+            throw new InvalidOperationException("A Gate.Case has no literal name or sits where the order check does not look; update CiCoverageChecks.GateOrder.");
+        return order;
+
+        static string Between(string text, string from, string to)
+        {
+            var start = text.IndexOf(from, StringComparison.Ordinal);
+            var end = start < 0 ? -1 : text.IndexOf(to, start, StringComparison.Ordinal);
+            return end < 0 ? throw Moved(from + " ... " + to) : text[start..end];
+        }
+
+        static string Splice(string text, string call, string body)
+            => text.Split(call) is [var before, var after] ? before + body + after : throw Moved(call);
+
+        static InvalidOperationException Moved(string anchor) => new($"The gate moved ({anchor}); update CiCoverageChecks.GateOrder.");
+    }
+
+    /// <summary>What to do when the gate's order is not the one gate-cases.txt records; null when they agree.</summary>
+    internal static string? OrderProblem(IReadOnlyList<string> recorded, IReadOnlyList<string> order)
+    {
+        var at = 0;
+        while (at < recorded.Count && at < order.Count && recorded[at] == order[at]) at++;
+        if (at == recorded.Count)
+            return at == order.Count ? null : $"New last gate cases: add these lines to the end of gate-cases.txt: {string.Join(", ", order.Skip(at))}.";
+        var added = order.Except(recorded).ToList();
+        var removed = recorded.Except(order).ToList();
+        return $"Gate cases differ from gate-cases.txt at line {at + 1}: it has {recorded[at]}, the gate has {(at < order.Count ? order[at] : "nothing")}. " +
+            "Shards are dealt by position, so a case added, moved or removed before the end moves every later case to another shard. " +
+            "A new case goes after the last Gate.Case of the gate in Program.cs, and its name on the last line of gate-cases.txt." +
+            (added.Count > 0 ? $" Not in the file: {string.Join(", ", added)}." : "") +
+            (removed.Count > 0 ? $" Only in the file: {string.Join(", ", removed)}. If you removed or renamed a case on purpose, delete or rename its line; " +
+                "after a removal, check the shard times of the next CI run." : "") +
+            (added.Count + removed.Count == 0 ? " The same cases are in another order: restore the order of the file." : "");
     }
 
     /// <summary>Everything that is wrong between the modes, the table, the registered gate cases and the workflows; empty when it all agrees.</summary>
@@ -321,8 +370,9 @@ internal static partial class CiCoverageChecks
         if (BoundaryChecks.Checkout() is not { } checkout) { Console.WriteLine("SKIP ci coverage: no source checkout"); return; }
         var checks = Path.Combine(checkout, "tests", "Tereditor.Checks");
         var program = File.ReadAllText(Path.Combine(checks, "Program.cs"));
+        var ui = File.ReadAllText(Path.Combine(checks, "UiChecks.cs"));
         var cases = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var file in new[] { program, File.ReadAllText(Path.Combine(checks, "UiChecks.cs")) })
+        foreach (var file in new[] { program, ui })
             foreach (Match match in CaseName().Matches(file)) cases.Add(match.Groups[1].Value);
         var modes = ModesIn(program, File.ReadAllText(Path.Combine(checks, "Runner.cs")));
         var problems = Verify(modes, Modes, cases, name =>
@@ -330,13 +380,15 @@ internal static partial class CiCoverageChecks
             var path = Path.Combine(checkout, ".github", "workflows", name);
             return File.Exists(path) ? File.ReadAllText(path) : null;
         });
+        var order = GateOrder(program, ui);
+        if (OrderProblem(File.ReadAllLines(Path.Combine(checks, "gate-cases.txt")), order) is { } moved) problems.Add(moved);
         // A slow case leaves the merge gate, never the suite: a scheduled run and a dispatchable one must take the Slow lane, and the gate must take the Merge lane.
-        if (File.ReadAllText(Path.Combine(checks, "UiChecks.cs")).Contains("slow: true", StringComparison.Ordinal) || program.Contains("slow: true", StringComparison.Ordinal))
+        if (ui.Contains("slow: true", StringComparison.Ordinal) || program.Contains("slow: true", StringComparison.Ordinal))
             foreach (var (name, lane) in new[] { ("nightly.yml", "--lane slow"), ("slow.yml", "--lane slow"), ("ci.yml", "--lane merge") })
                 if (!File.Exists(Path.Combine(checkout, ".github", "workflows", name)) || !File.ReadAllText(Path.Combine(checkout, ".github", "workflows", name)).Contains(lane, StringComparison.Ordinal))
                     problems.Add($"Gate cases are marked slow, but {name} has no \"{lane}\" run: they would never run.");
-        if (problems.Count > 0) throw new InvalidOperationException("Check modes and CI disagree:\n" + string.Join('\n', problems));
-        Console.WriteLine($"PASS ci coverage: {modes.Count} modes, {Modes.Values.OfType<Gated>().Count()} in the gate, {Modes.Values.OfType<Job>().Count() + Modes.Values.OfType<Matrix>().Count()} in a CI job, {Modes.Values.OfType<Exempt>().Count()} exempt");
+        if (problems.Count > 0) throw new InvalidOperationException("Check modes, gate cases and CI disagree:\n" + string.Join('\n', problems));
+        Console.WriteLine($"PASS ci coverage: {modes.Count} modes, {Modes.Values.OfType<Gated>().Count()} in the gate, {Modes.Values.OfType<Job>().Count() + Modes.Values.OfType<Matrix>().Count()} in a CI job, {Modes.Values.OfType<Exempt>().Count()} exempt; {order.Count} gate cases in the recorded order");
     }
 
     // The verifier must fail on the mistakes it exists for.
@@ -353,6 +405,16 @@ internal static partial class CiCoverageChecks
         Require(Verify(new HashSet<string> { "--j", "--m" }, job, cases, _ => "run: x -- --j\n mode: [m, n]").Count == 0, "A job and a matrix mode that the workflow names pass.");
         Require(Verify(new HashSet<string> { "--j", "--m" }, job, cases, _ => "mode: [n]").Count == 2, "A workflow that does not mention the mode fails.");
         Require(ModesIn("if (args.SequenceEqual([\"--x\"]))\nGate.Case(\"packaged-app\", x);", "public static int Main()\n if (args.Contains(\"--y\"))\nRunnerOptions options;").SequenceEqual(["--x", "--y"]), "Modes are read from condition lines of both files.");
+        Require(GateOrder("Gate.Case(\"packaged-app\", x); UiChecks.Run(root); Gate.Case(\"last\", x); PASS prototype checks",
+            "void RunWorkspaceSuites() { Gate.Case(\"suite\", x); } void EnsureHeadlessApp() { } " +
+            "void Run(string root, bool translations) { Gate.Case(\"first\", x); RunWorkspaceSuites(root); Gate.Case(\"then\", x); } void Workbench() { }")
+            .SequenceEqual(["packaged-app", "first", "suite", "then", "last"]), "Cases are ordered as the gate reaches them, across both files.");
+        string[] recorded = ["a", "b", "c"];
+        Require(OrderProblem(recorded, ["a", "b", "c"]) is null, "The recorded order passes.");
+        Require(OrderProblem(recorded, ["a", "b", "c", "d"]) is { } appended && appended.EndsWith("end of gate-cases.txt: d.", StringComparison.Ordinal), "An appended case asks only for its line.");
+        Require(OrderProblem(recorded, ["a", "d", "b", "c"]) is { } inserted && inserted.Contains("line 2", StringComparison.Ordinal) && inserted.Contains("Not in the file: d.", StringComparison.Ordinal), "A case inserted mid-list fails.");
+        Require(OrderProblem(["a", "b", "c", "d"], ["a", "d", "b", "c"]) is { } reordered && reordered.Contains("another order", StringComparison.Ordinal), "A moved case fails even when its line is last.");
+        Require(OrderProblem(recorded, ["a", "c"]) is { } removed && removed.Contains("Only in the file: b.", StringComparison.Ordinal), "A removed case fails while its line remains.");
     }
 
     private static void Require(bool condition, string message)
