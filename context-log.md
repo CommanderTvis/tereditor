@@ -113,3 +113,11 @@ Settings › Runtimes shows download progress (bytes so far, Cancel), says when 
 ## 2026-11-17 — Runtimes for tooling plugin
 
 The builtin `Runtimes for tooling` plugin ([spec](src/Tereditor.Plugins.Runtimes/SPEC.md)) is on by default and owns where Bun and uv come from: pinned path, then PATH, then its own pinned download (uv 0.13.9 added beside Bun, SHA-256 per platform), downloaded on the first request of a client plugin, never at startup. `IPluginHostContext.ResolveRuntimeAsync` is the API; `BunPathAsync` wraps it. Off, nothing downloads and language servers and ACP say so and offer to turn it on. `OnUserDisabled` (user switch only, not quit) deletes the downloads of Runtimes, ACP and every language server plugin. Verified with `--runtimes`, `--acp`, `--managed-runtimes`, `--plugins` (only the unrelated Providers JSON finding failed), `--conformance`. Not seen rendered: the settings page. Not covered: language-owned caches (NuGet, Go, gems, Coursier), a button in the chat to turn the plugin on.
+
+## 2026-11-26 — Pi pane, Air Context 0.9.22, windows left open by checks
+
+The Pi pane follows its chats through the `configChanged` event. Air Context shows Review terms wherever terms are
+pending, pins CLI 0.9.22.1774 and downloads it only on a click. A gate case that leaves a window open now fails; such
+windows had pushed a CI shard past 45 minutes. Checks: build, focused Pi and Air Context modes, format, and on macOS
+the merge shards for the guard. Not verified: the running app, the 0.9.22 binary (never run), its `SHA256SUMS.asc`.
+`visualize-ui` fails on macOS. Whether `jbcontext index` starts a daemon or updates itself is unchecked.
