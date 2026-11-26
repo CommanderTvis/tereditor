@@ -155,7 +155,7 @@ internal static partial class CiCoverageChecks
         ["--pane-retention"] = Cases("StartupChecks"),
         ["--pdf-preview"] = Cases("PdfPreviewChecks-Run"),
         ["--persisted-json"] = Cases("persisted-json"),
-        ["--pi"] = Cases("pi"),
+        ["--pi"] = Cases("pi", "pi-pane"),
         ["--plugin-channel"] = Cases("plugin-channel"),
         ["--plugin-crossing"] = Cases("plugin-crossing"),
         ["--plugin-isolated-ui"] = Cases("plugin-isolated-ui"),

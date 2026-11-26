@@ -110,6 +110,8 @@ publish toggle automation changes without requesting another update.
 - Owns, in `Tereditor.Plugins.UI.Kit`:
   - Shared theme brushes, interface and code fonts, live theme updates, color composition
     and primitive controls. All consumers use the same palette and control factories.
+    `Ui.Text` is a one-line label that ends in an ellipsis; `Ui.Note` is a pane body's note (loading, empty, a hint): top-aligned and
+    wrapped.
   - Semantic typography and layout roles are generated from the app’s authored design files.
   - `Switch`, the controlled boolean primitive: a `ToggleSwitch` with a compiled target/track/thumb
     template and ToggleSwitch's own toggle automation. Browser transition/reduced-motion behavior and native appearance

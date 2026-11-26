@@ -21,6 +21,8 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
 
     private readonly ConcurrentDictionary<(string, string), PiChatSession> sessions = new();
     private readonly ChatActivityBoard activity = new();
+    // The commands of each open chat as last announced to the Pi pane; a chat that is not open has no entry.
+    private readonly ConcurrentDictionary<(string, string), string> listed = new();
     private readonly Lock recordsGate = new();
     private readonly Func<string> sessionsRoot = sessionsRoot ?? (() => ContributedEnvironment(context).GetValueOrDefault("PI_CODING_AGENT_DIR") is { } agent ? Path.Combine(agent, "sessions") : DefaultSessionsRoot());
 
@@ -43,9 +45,27 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         Path.Combine(Environment.GetEnvironmentVariable("PI_CODING_AGENT_DIR") is { Length: > 0 } agent ? agent
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".pi", "agent"), "sessions");
 
-    /// <summary>The header of the workspace's running Pi chat, for the Settings › Pi pane; null when none runs.</summary>
+    /// <summary>The header of the workspace's running Pi chat, the one that lists the most commands, for the Pi pane; null when none runs.</summary>
     internal ChatHeader? HeaderOf(string workspaceId) =>
-        sessions.Where(pair => pair.Key.Item1 == workspaceId && pair.Value.Active).Select(pair => pair.Value.Header).FirstOrDefault();
+        sessions.Where(pair => pair.Key.Item1 == workspaceId && pair.Value.Active).Select(pair => pair.Value.Header)
+            .Where(header => !Over(header)).OrderByDescending(header => header.Commands.Count).FirstOrDefault();
+
+    // A Pi that just ended can still look alive for a moment, so its status decides too.
+    private static bool Over(ChatHeader header) => header.Status is ChatStatus.Exited or ChatStatus.Failed;
+
+    // Headers are pushed often (status, usage), so the pane hears only of a chat that opens, lists other commands or ends.
+    private void Announce(ChatHeaderPush push)
+    {
+        var chat = (push.WorkspaceId, push.ChatId);
+        if (!Over(push.Header) && sessions.TryGetValue(chat, out var session) && session.Active)
+        {
+            var commands = string.Join('\n', push.Header.Commands.Select(command => $"{command.Name}\t{command.Source}\t{command.Description}"));
+            if (listed.TryGetValue(chat, out var last) && last == commands) return;
+            listed[chat] = commands;
+        }
+        else if (!listed.TryRemove(chat, out _)) return;
+        context.Publish(PiContract.ConfigChange, new PiConfigChanged(push.WorkspaceId));
+    }
 
     private static string RecordKey(string workspaceId, string chatId) => workspaceId + "\0" + chatId;
 
@@ -70,6 +90,7 @@ internal sealed class PiChatHost(IPluginHostContext context, Func<string>? sessi
         try
         {
             context.Publish(ChatContract.Updates, push);
+            if (push is ChatHeaderPush header) Announce(header);
             if (activity.Observe(push) is { } changed) context.Publish(ChatContract.Activity, changed);
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException)

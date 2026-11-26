@@ -9,6 +9,9 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
+using Tereditor.Host.Abstractions;
+using Tereditor.Host.Core;
+using Tereditor.Host.Core.Plugins;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
 using Tereditor.Plugins.Api.UI;
@@ -165,6 +168,7 @@ internal static class PiChecks
                   printf '{"type":"extension_ui_request","id":"u1","method":"somethingNew"}\n'
                   printf '{"type":"extension_ui_request","id":"t1","method":"select","title":"Quick","options":["A"],"timeout":300}\n'
                   printf '{"type":"extension_ui_request","id":"l1","method":"confirm","title":"Left open","message":"x"}\n' ;;
+                *'"type":"prompt"'*'quit-now'*) exit 0 ;;
                 *'"type":"prompt"'*)
                   printf '{"id":"%s","type":"response","command":"prompt","success":true}\n' "$id"
                   printf '{"type":"agent_start"}\n'
@@ -682,6 +686,7 @@ internal static class PiChecks
         ((Stub)(object)context).Handle = (method, args) =>
         {
             if (method.Name == "get_Editors") return editors;
+            if (method.ReturnType == typeof(IDisposable)) return Stream.Null; // A subscription that never reports.
             if (method.ReturnType.IsGenericType && method.ReturnType.GetGenericArguments()[0] == typeof(PiConfigSnapshot)) return Activator.CreateInstance(method.ReturnType, snapshot);
             return Activator.CreateInstance(method.ReturnType);
         };
@@ -709,6 +714,136 @@ internal static class PiChecks
             Require(opened.SequenceEqual([file]), "A click on a Context row's path opens its file.");
         }
         finally { host.Close(); }
+    }
+
+    // The pane over the real plugin host and a fixture pi. Opened before any chat, it follows without a click a chat that opens,
+    // ends, comes back and closes, and a workspace switch. Its hint wraps under the heading.
+    internal static void PaneLive(string root)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        UiChecks.EnsureHeadlessApp();
+        var directory = Path.Combine(root, "pi-pane");
+        var fake = FakePi(directory);
+        var project = Path.Combine(directory, "project");
+        Directory.CreateDirectory(project);
+        var previous = Environment.GetEnvironmentVariable("PI_CODING_AGENT_DIR");
+        Environment.SetEnvironmentVariable("PI_CODING_AGENT_DIR", Path.Combine(directory, "agent"));
+        var stateDirectory = Path.Combine(directory, "state");
+        var state = new HostStateStore(stateDirectory);
+        var runtime = new PluginRuntime(new()
+        {
+            StateDirectory = stateDirectory,
+            State = state,
+            Builtins = [(PiManifest.Manifest, new PiHost())],
+            Worktrees = (_, _) => Task.FromResult<IReadOnlyList<WorktreeInfo>>([]),
+            Log = (_, _, _) => { }
+        });
+        static void Off(Func<Task> work) => Task.Run(work).GetAwaiter().GetResult();
+        async Task<T> Ask<P, T>(PluginMethod<P, T> method, P parameters) =>
+            PluginJson.Convert<T>(await runtime.CallAsync(new("pi", method.Name, parameters, "pane-check")));
+        T Call<P, T>(PluginMethod<P, T> method, P parameters) => Task.Run(() => Ask(method, parameters)).GetAwaiter().GetResult();
+        var listening = new List<CancellationTokenSource>();
+        var versionReads = 0;
+        var context = DispatchProxy.Create<IPluginUIContext, Stub>();
+        ((Stub)(object)context).Handle = (method, args) =>
+        {
+            if (method.Name == nameof(IPluginUIContext.Subscribe))
+                return typeof(PiChecks).GetMethod(nameof(Relay), BindingFlags.Static | BindingFlags.NonPublic)!
+                    .MakeGenericMethod(method.GetGenericArguments()).Invoke(null, [runtime, listening, args![0], args[1]]);
+            if (args is [_, PiConfigParams config, ..]) return new ValueTask<PiConfigSnapshot>(Ask(PiContract.Config, config));
+            if (args is [_, PiNoParams none, ..]) { Interlocked.Increment(ref versionReads); return new ValueTask<PiStatus>(Ask(PiContract.Status, none)); }
+            return null;
+        };
+        Window? window = null;
+        try
+        {
+            Off(async () =>
+            {
+                await state.ChangeAsync([HostStateChange.OpenProject(project)]);
+                await runtime.Start();
+                await state.ChangeAsync([HostStateChange.PluginSettings("pi", JsonSerializer.Serialize(new { enabled = true, command = fake }))]);
+                await runtime.Schedule();
+            });
+            var panel = new PiConfigPanel(context, project);
+            panel.ShowTab(AgentPaneTab.Capabilities);
+            window = new Window { Width = 300, Height = 600, Content = panel };
+            window.Show();
+            void Wait(Func<bool> ready, string what)
+            {
+                var deadline = DateTime.UtcNow.AddSeconds(15);
+                while (true)
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
+                    if (ready()) return;
+                    Require(DateTime.UtcNow < deadline, what);
+                    Thread.Sleep(10);
+                }
+            }
+            IEnumerable<TextBlock> Texts() => panel.GetVisualDescendants().OfType<TextBlock>();
+            TextBlock? Hint() => Texts().FirstOrDefault(text => text.Text?.StartsWith("Open a Pi chat", StringComparison.Ordinal) == true);
+            bool Listed() => Texts().Any(text => text.Text == "/skill:x");
+            bool NoChat() => Hint() is not null && !Listed();
+
+            Wait(NoChat, "With no chat the Capabilities tab says to open one.");
+            var hint = Hint()!;
+            var heading = panel.GetVisualDescendants().OfType<StackPanel>().Single(stack => stack.Name == "PiHeading");
+            var gap = hint.TranslatePoint(default, panel)!.Value.Y - heading.TranslatePoint(new Point(0, heading.Bounds.Height), panel)!.Value.Y;
+            Require(hint.TextWrapping == TextWrapping.Wrap && hint.TextTrimming == TextTrimming.None && hint.Bounds.Height > 24, "The hint wraps instead of ending in an ellipsis.");
+            Require(gap is >= 0 and <= 16, $"The hint sits under the heading, not {gap} below it.");
+            var versions = Volatile.Read(ref versionReads);
+
+            Call(ChatContract.Open, new ChatOpenParams(project, "chat-pane"));
+            Wait(Listed, "A chat that opens lists its commands in the pane already shown.");
+            panel.ShowTab(AgentPaneTab.Context);
+            Wait(() => Texts().Any(text => text.Text?.StartsWith("Added by tereditor", StringComparison.Ordinal) == true), "The Context tab shows the open chat's tereditor server.");
+            panel.ShowTab(AgentPaneTab.Capabilities);
+
+            try { Call(ChatContract.Send, new ChatSendParams(project, "chat-pane", "quit-now")); }
+            catch (Exception error) when (error is PluginCallException or InvalidOperationException) { }
+            Wait(NoChat, "A Pi that ends leaves no commands behind.");
+            Call(ChatContract.Open, new ChatOpenParams(project, "chat-pane"));
+            Wait(Listed, "A chat opened again, as a restored tab does, lists its commands.");
+            Require(Volatile.Read(ref versionReads) == versions, "A chat's changes do not run pi --version again.");
+
+            panel.Retarget(Path.Combine(directory, "other"));
+            window.UpdateLayout();
+            Require(!Listed(), "A switch to another workspace drops the old commands at once.");
+            Wait(NoChat, "A workspace without a chat says to open one.");
+            panel.Retarget(project);
+            Wait(Listed, "Switching back lists the open chat's commands.");
+
+            Call(ChatContract.Close, new ChatKey(project, "chat-pane"));
+            Wait(NoChat, "A closed chat leaves no commands behind.");
+            window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+            Require(listening.Count > 0 && listening.All(stop => stop.IsCancellationRequested), "A pane taken off screen stops listening.");
+        }
+        finally
+        {
+            window?.Close();
+            Off(async () => await runtime.DisposeAsync());
+            Environment.SetEnvironmentVariable("PI_CODING_AGENT_DIR", previous);
+        }
+    }
+
+    // A plugin channel of the real host, as the UI's subscription would deliver it.
+    private static IDisposable Relay<T>(PluginRuntime runtime, List<CancellationTokenSource> listening, PluginChannelSpec channel, Action<T> handler)
+    {
+        var stop = new CancellationTokenSource();
+        listening.Add(stop);
+        var pushes = runtime.SubscribeAsync(new("pi", channel.Name, null, "pane-check"), stop.Token);
+        _ = Task.Run(async () =>
+        {
+            try { await foreach (var payload in pushes) handler(PluginJson.Convert<T>(payload!)); }
+            catch (OperationCanceledException) { }
+        });
+        return new Unsubscribe(stop);
+    }
+
+    private sealed class Unsubscribe(CancellationTokenSource stop) : IDisposable
+    {
+        public void Dispose() => stop.Cancel();
     }
 
     internal class Stub : DispatchProxy

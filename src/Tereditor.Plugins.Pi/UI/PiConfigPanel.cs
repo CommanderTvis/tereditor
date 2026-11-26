@@ -32,6 +32,7 @@ internal sealed class PiConfigPanel : DockPanel
     private string error = "", result = "", packageSource = "";
     private bool resultOk, packageLocal;
     private int generation;
+    private IDisposable? changes;
 
     public PiConfigPanel(IPluginUIContext context, string workspaceId)
     {
@@ -46,14 +47,23 @@ internal sealed class PiConfigPanel : DockPanel
         SetDock(heading, Dock.Top);
         Children.Add(heading);
         var hint = Ui.Text("Click a file path to open it", Ui.Hint, 12);
-        scopeBlock.Children.Add(Ui.Text("Showing what a new Pi session here would load", Ui.Muted, 13));
+        scopeBlock.Children.Add(Ui.Note("Showing what a new Pi session here would load", Ui.Muted, 13));
         scopeBlock.Children.Add(hint);
         SetDock(scopeBlock, Dock.Top);
         Children.Add(scopeBlock);
         SetDock(notices, Dock.Top);
         Children.Add(notices);
         Children.Add(new ScrollViewer { Name = "PiConfigBody", Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
-        AttachedToVisualTree += (_, _) => Load();
+        AttachedToVisualTree += (_, _) =>
+        {
+            // A chat that opens, lists its commands or ends changes what the pane shows.
+            changes ??= context.Subscribe(PiContract.ConfigChange, change => Dispatcher.UIThread.Post(() =>
+            {
+                if (change.WorkspaceId == workspaceId) Load(readVersion: false);
+            }));
+            Load();
+        };
+        DetachedFromVisualTree += (_, _) => { changes?.Dispose(); changes = null; };
     }
 
     /// <summary>Points the pane at another workspace: the old snapshot and any reply still in flight for it are dropped.</summary>
@@ -62,14 +72,17 @@ internal sealed class PiConfigPanel : DockPanel
         if (next == workspaceId) return true;
         workspaceId = next;
         snapshot = null; error = ""; result = "";
+        Render();
         Load();
         return true;
     }
 
-    private void Load()
+    // The version probe runs pi, so a chat's change asks for it only while no version is known.
+    private void Load(bool readVersion = true)
     {
         var mine = ++generation;
         var id = workspaceId;
+        readVersion |= status is null;
         _ = Task.Run(async () =>
         {
             PiConfigSnapshot? read = null;
@@ -77,7 +90,7 @@ internal sealed class PiConfigPanel : DockPanel
             string failure = "";
             try { read = await context.RequestAsync(PiContract.Config, new PiConfigParams(id)); }
             catch (Exception failed) when (failed is not OperationCanceledException) { failure = "Pi configuration could not be read: " + failed.Message; }
-            try { version = await context.RequestAsync(PiContract.Status, new PiNoParams()); }
+            try { if (readVersion) version = await context.RequestAsync(PiContract.Status, new PiNoParams()); }
             catch (Exception failed) when (failed is not OperationCanceledException) { }
             Dispatcher.UIThread.Post(() =>
             {
@@ -93,7 +106,6 @@ internal sealed class PiConfigPanel : DockPanel
     // Installs or removes a package, then reads the workspace again so the rows show the change.
     private void ChangePackage(bool install, string source, bool local)
     {
-        var mine = ++generation;
         var id = workspaceId;
         _ = Task.Run(async () =>
         {
@@ -103,7 +115,8 @@ internal sealed class PiConfigPanel : DockPanel
             catch (Exception failed) when (failed is not OperationCanceledException) { failure = failed.Message; }
             Dispatcher.UIThread.Post(() =>
             {
-                if (mine != generation) return;
+                // Not the read counter: a chat's change reads again while pi install runs.
+                if (id != workspaceId) return;
                 resultOk = answer?.Ok == true;
                 result = failure.Length > 0 ? failure
                     : resultOk ? (install ? $"Installed {source}. Restart the chat to load it." : $"Removed {source}. Restart the chat to unload it.")
@@ -129,7 +142,7 @@ internal sealed class PiConfigPanel : DockPanel
         if (result.Length > 0) notices.Children.Add(Notice(result, resultOk ? Ui.Muted : Ui.Danger, "PiConfigResult"));
         scopeBlock.IsVisible = surface == Surface.Context;
         body.Content = snapshot is null
-            ? Padded(Ui.Text(error.Length > 0 ? "Pi configuration could not be read." : "Reading configuration…", Ui.Muted, 13))
+            ? Padded(Ui.Note(error.Length > 0 ? "Pi configuration could not be read." : "Reading configuration…", Ui.Muted, 13))
             : surface switch
             {
                 Surface.Context => ContextSurface(snapshot),
@@ -199,7 +212,7 @@ internal sealed class PiConfigPanel : DockPanel
 
     private Control CapabilitiesSurface(PiConfigSnapshot current)
     {
-        if (!current.ChatOpen) return Padded(Ui.Text("Open a Pi chat in this workspace to list its commands.", Ui.Muted, 13));
+        if (!current.ChatOpen) return Padded(Ui.Note("Open a Pi chat in this workspace to list its commands.", Ui.Muted, 13));
         var rows = current.Commands.OrderBy(command => command.Source, StringComparer.Ordinal).ThenBy(command => command.Name, StringComparer.Ordinal).Select(command =>
         {
             var line = new DockPanel { Name = "PiCommand", Margin = new Thickness(8, 4) };
@@ -221,10 +234,10 @@ internal sealed class PiConfigPanel : DockPanel
         var list = new StackPanel { Margin = new Thickness(8, 4), Spacing = 4 };
         if (current.Provider is { } provider) list.Children.Add(Account.Provider(provider, "Pi"));
         var version = status?.Installed == true ? (status.Version is { Length: > 0 } found ? "Version " + found : "Version unknown") : status?.Detail ?? "Reading the version…";
-        var versionLine = Ui.Text(version, Ui.Hint, 12);
+        var versionLine = Ui.Note(version, Ui.Hint, 12);
         versionLine.Name = "PiVersion";
         list.Children.Add(versionLine);
-        var trust = Ui.Text("Trust: " + current.Trust + " (set with /trust in Pi)", Ui.Hint, 12);
+        var trust = Ui.Note("Trust: " + current.Trust + " (set with /trust in Pi)", Ui.Hint, 12);
         trust.Name = "PiAccountTrust";
         list.Children.Add(trust);
         return list;
@@ -284,7 +297,7 @@ internal sealed class PiConfigPanel : DockPanel
     {
         var section = new StackPanel();
         section.Children.Add(Padded(Ui.Text(title, Ui.Hint, 10)));
-        if (rows.Count == 0) section.Children.Add(Padded(Ui.Text(empty, Ui.Muted, 13)));
+        if (rows.Count == 0) section.Children.Add(Padded(Ui.Note(empty, Ui.Muted, 13)));
         foreach (var row in rows) section.Children.Add(row);
         return section;
     }

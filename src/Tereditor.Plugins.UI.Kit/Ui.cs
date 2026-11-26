@@ -224,6 +224,14 @@ public static partial class Ui
         TextTrimming = TextTrimming.CharacterEllipsis
     };
 
+    /// <summary>A note in a pane's scrolling body (loading, empty, a hint): it sits under what is above it, wraps and is never cut off.</summary>
+    public static TextBlock Note(string text, IBrush? color = null, double? size = null)
+    {
+        var note = Text(text, color, size);
+        note.VerticalAlignment = VerticalAlignment.Top; note.TextWrapping = TextWrapping.Wrap; note.TextTrimming = TextTrimming.None;
+        return note;
+    }
+
     /// <summary>A status line (loading, empty, failed) that sits in the middle of the space it is given, both ways.</summary>
     public static TextBlock Status(string text, IBrush? color = null, double? size = null)
     {

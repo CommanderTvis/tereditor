@@ -317,7 +317,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         else
         {
             scopeBlock.Children.Add(Wrapped(Ui.Text(activeTab is not null ? $"No Claude in tab {TabNames.Quote(activeTab.Title)}" : "No terminal open", Ui.Muted, 13)));
-            scopeBlock.Children.Add(Ui.Text("Showing what a new session here would load", Ui.Hint, 12));
+            scopeBlock.Children.Add(Ui.Note("Showing what a new session here would load", Ui.Hint, 12));
         }
         var rightClick = Ui.Text("Right-click to turn off tool/skill to save tokens", Ui.Hint, 12);
         rightClick.Name = "ClaudeContextHint";
@@ -363,7 +363,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             notices.Children.Add(row);
         }
         body.Content = snapshot is null
-            ? Padded(Ui.Text("Reading configuration…", Ui.Muted, 13))
+            ? Padded(Ui.Note("Reading configuration…", Ui.Muted, 13))
             : surface switch
             {
                 Surface.Context => ContextSurface(snapshot.Context),
@@ -722,7 +722,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         {
             var empty = new StackPanel();
             empty.Children.Add(usageView);
-            empty.Children.Add(Padded(Ui.Text("No instruction files reach this workspace.", Ui.Muted, 13)));
+            empty.Children.Add(Padded(Ui.Note("No instruction files reach this workspace.", Ui.Muted, 13)));
             return empty;
         }
         var list = new StackPanel();
@@ -846,7 +846,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             foreach (var entry in shown) rows.Children.Add(SettingRow(entry, current.KnownSettingKeys));
             // After the set keys, the documented ones no file sets: listed while filtering, or on request.
             var unset = ClaudeSettingsReference.Unset(current.Settings.Select(entry => entry.Key), settingsQuery);
-            if (shown.Length == 0 && unset.Count == 0) rows.Children.Add(Padded(Ui.Text("No keys match.", Ui.Muted, 13)));
+            if (shown.Length == 0 && unset.Count == 0) rows.Children.Add(Padded(Ui.Note("No keys match.", Ui.Muted, 13)));
             if (unset.Count == 0) return;
             if (settingsQuery.Length == 0 && !showDocumented)
             {

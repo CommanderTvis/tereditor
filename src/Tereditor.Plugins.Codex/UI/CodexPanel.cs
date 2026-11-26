@@ -207,7 +207,7 @@ public static class CodexPanel
             }
 
             body.Content = surface == Surface.Account ? account ??= CodexAccountSurface.Create(context)
-                : snapshot is null ? Padded(Ui.Text("Reading Codex configuration…", Ui.Muted, 13))
+                : snapshot is null ? Padded(Ui.Note("Reading Codex configuration…", Ui.Muted, 13))
                 : surface switch
                 {
                     Surface.Context => ContextSurface(snapshot),

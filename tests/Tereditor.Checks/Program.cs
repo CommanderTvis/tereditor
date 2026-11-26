@@ -1572,6 +1572,7 @@ internal static class Program
             PiChecks.Account();
             PiChecks.ContextInsets();
             PiChecks.ContextRows();
+            PiChecks.PaneLive(Path.Combine(root, "pi"));
             PiChecks.ExtensionUiView();
             AccountProviderChecks.Run();
             Console.WriteLine("PASS Pi checks");
@@ -1809,6 +1810,7 @@ internal static class Program
         Gate.Case("workspace-switch", () => E2E.WorkspaceSwitchProfile.Run(Path.Combine(root, "upstream-e2e")));
         Gate.Case("agent-pane", () => AgentPaneChecks.Run(root));
         Gate.Case("pane-retarget", () => { PaneRetargetChecks.Run(root); PaneRetargetChecks.InstructionSections(); });
+        Gate.Case("pi-pane", () => PiChecks.PaneLive(Path.Combine(root, "pi")));
         Gate.Case("content-ui", () => ContentChecks.RunUi(root));
         Gate.Case("claude-chat-e2e", () => { ClaudeChatE2E.TabClicks(root); ClaudeChatE2E.Run(root); ClaudeChatE2E.StartWork(root); ClaudeChatDraftE2E.Run(root); });
         Gate.Case("codex-terminals", () => E2E.CodexE2E.RunTerminals(root));

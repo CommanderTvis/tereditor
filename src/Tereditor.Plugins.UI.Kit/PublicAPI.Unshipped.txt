@@ -761,6 +761,7 @@ static readonly Tereditor.Plugins.UI.Kit.HoverLink.Decoration -> Avalonia.Media.
 static Tereditor.Plugins.UI.Kit.HoverLink.Apply<T>(T! text, Avalonia.Controls.Control? trigger = null, System.Action? activate = null) -> T!
 Tereditor.Plugins.UI.Kit.HoverLink
 static Tereditor.Plugins.UI.Kit.Ui.Status(string! text, Avalonia.Media.IBrush? color = null, double? size = null) -> Avalonia.Controls.TextBlock!
+static Tereditor.Plugins.UI.Kit.Ui.Note(string! text, Avalonia.Media.IBrush? color = null, double? size = null) -> Avalonia.Controls.TextBlock!
 override Tereditor.Plugins.UI.Kit.TerminalChipLink.Equals(object? obj) -> bool
 override Tereditor.Plugins.UI.Kit.TerminalChipLink.GetHashCode() -> int
 override Tereditor.Plugins.UI.Kit.TerminalChipLink.ToString() -> string!
