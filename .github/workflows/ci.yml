@@ -105,12 +105,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - if: failure()
-        uses: actions/upload-artifact@v7
+        uses: ./.github/actions/check-fixtures
         with:
-          name: check-fixtures-${{ strategy.job-index }}
-          path: ${{ runner.temp }}/checks-fixtures
-          if-no-files-found: ignore
-          retention-days: 7
+          name: ${{ strategy.job-index }}
 
   windows:
     runs-on: windows-2025

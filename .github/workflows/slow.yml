@@ -64,12 +64,9 @@ jobs:
         with:
           name: slow-cases
       - if: failure()
-        uses: actions/upload-artifact@v7
+        uses: ./.github/actions/check-fixtures
         with:
-          name: check-fixtures-slow
-          path: ${{ runner.temp }}/checks-fixtures
-          if-no-files-found: ignore
-          retention-days: 7
+          name: slow
   # The WASM client in Chromium through Playwright: native selection, browser acceptance (Settings overlay, prose, Mermaid,
   # PDF), local approval and terminal hover (`scripts/mise run browser check`, see scripts/README.md). Not part of CI.
   browser:

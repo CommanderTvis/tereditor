@@ -1,0 +1,23 @@
+name: Check fixtures
+description: Uploads the fixtures a failed checks run kept, as one archive in the check-fixtures-<name> artifact.
+inputs:
+  name:
+    description: Artifact suffix, unique within the run (matrix legs included).
+    required: true
+runs:
+  using: composite
+  steps:
+    # upload-artifact refuses a file name with a line feed, colon, quote or wildcard, and fixtures hold such names on
+    # purpose, so the tree goes up as an archive. tar exits 1 when a file changed while it was read.
+    - shell: bash
+      run: |
+        if [ -d "$RUNNER_TEMP/checks-fixtures" ]; then
+          tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/checks-fixtures.tar.gz" checks-fixtures || [ $? -eq 1 ]
+        fi
+    - uses: actions/upload-artifact@v7
+      with:
+        name: check-fixtures-${{ inputs.name }}
+        path: ${{ runner.temp }}/checks-fixtures.tar.gz
+        if-no-files-found: ignore
+        retention-days: 7
+        compression-level: 0
