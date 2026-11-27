@@ -182,8 +182,9 @@ ReadyToRun) to 61 MiB. The remote host is one 37 MiB binary. linux-x64's payload
 
 What has run: the macOS remote host (RPC and its MCP tool list, locally and in the packaged gate); a linux-arm64
 remote host and the linux-arm64 app's terminal relay in an Ubuntu 20.04 container (glibc 2.31). The desktop app's
-window under NativeAOT has not been started by any check; nothing in CI opens it. No Windows package has been built
-since the switch, so the MSVC link and the Windows gate are first proven by CI. On the new SDK the browser client
+window under NativeAOT has not been started by any check; nothing in CI opens it. CI builds the Linux and Windows
+packages and runs their gates: Linux x64 and ARM64 and Windows x64 on every push, Windows ARM64 in the nightly.
+On the new SDK the browser client
 builds (Debug) with `Microsoft.NET.WebAssembly.Threading` pinned to the SDK's runtime (10.0.14, the version its
 WebAssembly workload installs); the Android build is first proven by the nightly.
 

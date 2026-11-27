@@ -728,9 +728,7 @@ A pass belongs to the tested source tree, runtime, adapter and fixture. Compilin
 not device/browser acceptance; a source check is not a packaged check. Reused byte-identical slices
 retain their existing evidence, but interrupted lanes and skipped platform branches never count as
 passes. Record new durable scope or limits in the owning spec and dated task outcomes in context-log.md;
-keep current cross-module gates in STATUS.md.
-
-Current unresolved acceptance is consolidated in [STATUS.md](../../STATUS.md#outstanding-acceptance-work).
+keep open work in [STATUS.md](../../STATUS.md).
 
 Watcher hygiene: `--watcher-hygiene` exercises real Specs/Blueprint concurrent and repeated reads, canonical-root sharing, owner accounting, plugin disable, project close/reopen, runtime teardown and startup synchronization-context isolation. `--watchers` covers native-start failure/backoff/replacement lifecycle. Accounting distinguishes managed allocations, enabled sets, logical leases, idle roots and retries; it is not an OS FSEvents allocation measurement.
 

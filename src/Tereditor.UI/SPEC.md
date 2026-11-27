@@ -22,7 +22,7 @@ not loaded or built on Windows; the existing unavailable-Mermaid view still appl
 The Linux x64 desktop client (X11 or XWayland, glibc 2.35 or newer, shipped as an AppImage: [Linux](../../docs/linux.md)) has the same
 shape: Ctrl-based editor shortcuts, terminals always on Skia (the saved Metal preference is ignored), the extended client area only where `LinuxWindowChrome` trusts the desktop (see Window chrome) and the system title bar elsewhere, no Mermaid library (the unavailable view applies) and `LinuxNotifier`. Its native libraries
 are cross-compiled with Zig by `scripts/build-ghostty-linux.cs` beside Ghostty and Scintilla; Linux execution is covered by the `--linux` gate
-and is otherwise unverified (see STATUS.md V13).
+and is otherwise unverified (see [STATUS.md](../../STATUS.md#not-tried-yet)).
 
 
 ## Scrolling and tooltips
@@ -614,6 +614,7 @@ workspace frame's left side.
 
 ## Not built
 
+- Keymap import and export, per-workspace keymaps and shortcuts of several key presses in a row.
 - Showing Project Home's Projects pane restores focus to the pane header, not yet to the last tree
   control, active row or first tree control inside it.
 - Away notifications off macOS, reading the system's permission state (a denied permission drops

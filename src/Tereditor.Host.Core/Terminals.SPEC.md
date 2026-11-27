@@ -572,8 +572,9 @@ browser-local files are never offered to host shells.
 ## Windows verification scope
 
 Cross-compilation checks Windows imports, PowerShell parsing, quoting, path/profile and Git fixtures, but is not
-runtime proof: ConPTY, Recycle Bin and native Windows UI branches need an actual packaged --windows run, distinct
-from manual clipboard, IME, editor and desktop-client acceptance. Acceptance tasks are tracked in [STATUS.md](../../STATUS.md#outstanding-acceptance-work).
+runtime proof. The packaged `--windows` run is: CI runs it for x64 on every push and for ARM64 in the nightly, covering
+ConPTY, the Recycle Bin, the native editor and Skia without a real window. It does not cover clipboard, IME, editor or
+desktop client use by hand (open in [STATUS.md](../../STATUS.md#not-tried-yet)).
 
 The Windows runtime check's intermittent `RESUMED_<pid>` miss has no proven cause. Both passing and failing CI
 runs show the shared RPC connection ending when the first session is disposed, so the drop alone is not the

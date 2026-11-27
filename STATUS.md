@@ -1,58 +1,48 @@
 # tereditor status
 
-One ledger for what completion requires and what is still open.
+Work that is still open. The linked specs hold the details.
 
-- [Completion criteria](#completion-criteria): the original scope, the evidence for each requirement and its limits.
-- [Backlog](#backlog): known gaps and outstanding acceptance work.
+## Missing
 
-## Completion criteria
+- The "Close this terminal?" question stays open when another client closes the same terminal.
+  [Terminal spec](src/Tereditor.UI/Terminal/SPEC.md#shared-terminals)
+- Keymaps cannot be imported, exported or set per workspace, and a shortcut cannot have several steps.
+  [UI spec](src/Tereditor.UI/SPEC.md#not-built)
+- Mermaid diagrams show as source text on Windows and Linux. [Rendering spec](src/Tereditor.UI/Rendering/SPEC.md#mermaid)
 
-Passing functional checks does not prove the full visual and docking contract. Module specs keep the contracts; `SPEC.md` is the reference authority. When prose and the renderer disagree, record the difference.
+## Missing tests
 
-| Requirement | Current evidence | Completion limit |
-| --- | --- | --- |
-| C# host independent of Pi/AI; direct local calls and typed WebSocket RPC remote | Host projects, `ProjectChecks.cs`, published local/remote parity, cancellation and Git parity checks | Functional prototype evidence; no production remote deployment claimed |
-| NativeAOT app and remote host, nullable checking, single latest package | `NativeAot.props`, `scripts/mise run package:macos`, `check:packaged` requires NativeAOT payloads and runs the shipped binaries (`--packaged`) | Preserve these checks after every implementation change; iOS execution/distribution remains the documented future gate |
-| Functional tabs, preview/keep, close/context actions, reorder/overflow/focus and deferred navigation | `UiChecks.cs`, `NavigationChecks.cs`, `DockInputChecks.cs`; native double-click and drag captures | Final contract audit must cover the combined interaction surface, including all drop collisions and viewport changes |
-| Persistent settings and XAML where it fits | Compiled XAML files; settings persistence/theme/font/width/preset checks and native Settings capture | Menu/control typography comparison against the reference is still incomplete |
-| End-to-end scenario checks | Headless E2E checks in `tests/Tereditor.Checks/E2E` covering themes, multi-window and remote sync, workspaces, terminals, docking, Markdown, Changes and the editor | Inner chrome across workspace transitions and the full theme catalog remain open |
-| Multiple windows and shared host state (settings, presets, labels, projects, workspace lifecycle) with local events and WebSocket RPC streaming | `MultiClientE2E.cs` and the synced cases in `ThemeE2E`, `LineWidthE2E`, `LayoutSettingsE2E` and `ProjectContextE2E` (`--sync` runs them); per-window profile entries | Terminal sessions shared across clients arrive with host-owned sessions; separately launched local processes stay independent by design; native multi-window use (menu bar entry, window restore order) is unverified outside headless checks |
-| Native Markdown preview with actual scrolling and selectable content | Markdig renderer checks; wheel/anchor/navigation tests; native scroll and rendering captures | Reference typography, spacing and complete representative-document comparison still need final visual review |
-| Opening projects, workspace/window restoration, Git changes/diffs and worktree workflows | `ProjectChecks.cs`, `GitUiChecks.cs`, isolated Git fixtures, restoration/navigation checks; explicit-target merge-base/net-working-content and commit catalog local/remote regressions; commit picker, lightweight index-independent catalog parity, workspace selection and fresh-window persisted-query checks | Commit membership refresh/fallback and complete read-error fidelity remain open; visual fidelity of the corresponding panels/dialogs still needs final review |
-| Exact frame geometry, docking grammar, panes, alignment, fold/show/restore and resize behavior | `LayoutChecks.cs`, pointer/menu/keyboard checks, source-verified side projection and collision regressions | Auxiliary stack projection with multiple folded/expanded groups and narrow viewports needs a source comparison; verify any resulting gaps |
-| Screenshot-perfect layout and details | [Recorded native comparison limits](src/Tereditor.UI/Rendering/SPEC.md#native-visual-acceptance-limits) | Sampled matches are insufficient: native glyph/control/menu differences remain unresolved or unverified |
-| Publish and show the finished app; no Pi/AI or benchmarks | Canonical `artifacts/tereditor.app`, published runtime checks, own-window native captures; implementation scope in `SPEC.md` | The current package is a working prototype, not yet proof that all preceding completion limits are resolved; macOS terminal execution and the Scintilla editor are separately in scope |
-| Android client of a remote host | `src/Tereditor.Android` and its `SPEC.md`; Debug and Release builds run on an Android 16 arm64 tablet emulator against `Tereditor.Host.Remote` (connect and auto-connect, workbench, menus, dialogs, project by host path, file tree, Markdown, Scintilla editor, live terminal, Settings, Disconnect, Back), with scope recorded in the owning Android spec | Done with limits: emulator only. Physical devices, phones, IMEs other than Gboard, accessibility, plugin UI beyond the default workbench, HTTPS and CI are unverified; cleartext HTTP, an unencrypted stored token, one window, no on-device tests, untrimmed JIT package |
+- Closing a view while it still loads: [Visualize drawings](src/Tereditor.Plugins.Visualize/SPEC.md#remaining-verification),
+  [PDF files](src/Tereditor.UI/Resources/Pdf/SPEC.md#remaining-port-gates) and
+  [Git Graph](src/Tereditor.Plugins.BranchGraph/SPEC.md#checks-and-remaining-gates).
+- One terminal's drawing in [two windows](src/Tereditor.Plugins.Visualize/SPEC.md#remaining-verification), and focus after a
+  switch between workspaces that reuse a tab ID. [Docking spec](src/Tereditor.UI/Docking/SPEC.md)
+- Claude Code IDE actions and failures, settings dialogs, account views and review over MCP.
+  [Claude Code spec](src/Tereditor.Plugins.ClaudeCode/SPEC.md#verification-and-remaining-gates)
 
-Also in scope and covered by their own specs: the protobuf WebSocket transport, the browser client ([browser spec](src/Tereditor.Browser/SPEC.md)), the Plugin API with its builtins, language servers ([language spec](src/Tereditor.Host.Core/Language/SPEC.md)), Tailscale pairing ([plugin spec](src/Tereditor.Plugins.Tailscale/SPEC.md)) and the macOS Scintilla editor (`src/Tereditor.Scintilla/README.md`). The [checks contract](tests/Tereditor.Checks/SPEC.md#recorded-verification-scope) separates source evidence from packaged evidence.
+## Not tried yet
 
-Still open from those scopes: the Keymap editor binds only the window commands (not editor, terminal or plugin keys; no import/export, per-workspace keymaps or key sequences).
+Nobody has recorded a run of these on the real system. Automated checks cover parts of some.
 
-## Backlog
-
-The acceptance work that remains. Module specs keep the contracts and their "Not built" sections; dated task
-continuations stay in `context-log.md`.
-
-### Known gaps
-
-Authorities: [UI](src/Tereditor.UI/SPEC.md), [terminal contract](src/Tereditor.UI/Terminal/SPEC.md) and [browser](src/Tereditor.Browser/SPEC.md). Implementation gaps are listed here; acceptance tasks follow separately.
-
-| ID | Status | Gap |
-| --- | --- | --- |
-| V04 | Missing | Busy-close confirmation does not dismiss when another client closes the terminal. [TerminalTabs.cs](src/Tereditor.UI/TerminalTabs.cs) awaits a normal confirmation without catalog-driven invalidation; this remains an explicit [terminal contract](src/Tereditor.UI/Terminal/SPEC.md) implementation gap. |
-
-### Outstanding acceptance work
-
-These tasks consolidate the remaining checks; they do not assert missing product features. Owning specs retain durable verification scope and measurements; [the checks contract](tests/Tereditor.Checks/SPEC.md#recorded-verification-scope) distinguishes source and packaged evidence. No unrun journey is treated as passed.
-
-| ID | Latest result | Remaining work |
-| --- | --- | --- |
-| V03 | Not run | In a signed macOS app, see a real away notification and click it to focus the correct terminal/window. Delivery/activation wiring exists and recording-notifier checks pass. |
-| V05 | Not run | Compare native Settings, menus, Markdown, all plugins and docking at matched content/dimensions; exercise PDF trackpad magnify. Include drop/overflow/spacer/folded-weight geometry. Functional/package checks pass, but there is no matched capture corpus. |
-| V06 | Incomplete | Complete the packaged gate (a source pass is not packaged acceptance). Add direct regressions for reused-tab-ID workspace focus, held Visualize render/remount and same-terminal/two-window rendering, held graph requests after detach/disable, and held PDF read/raster replacement/detach. |
-| V07 | Not run on required platforms | Exercise Safari/Firefox, non-macOS keyboards/IME, real notification permission and production HTTPS/proxies. Accept the Settings fix in a normal bundle and on physical Retina; its parallel-workspace Chromium test-build acceptance already passes. Run the browser suite (`slow.yml`, `browser`): its external-plugin refusal, Branch graph and Epub journey, retargeted on 2026-11-05, has no recorded run. |
-| V09 | Portable checks only | Execute the Windows package and its ConPTY, Recycle Bin, native editor/Skia, clipboard/IME and client journeys. Portable macOS checks skip Windows runtime branches. |
-| V10 | Emulator/fixture coverage only | Exercise physical Android, camera/QR and real two-device Tailscale pairing, approval, reconnect, revoke and remote UX, including packaged deployment. Emulator and fake-identity transport checks pass. |
-| V11 | 120 Hz presentation not measured | Measure physical 120 Hz browser presentation. Recorded restty GPU draw cadence is about 60/s and output throughput is 111 FPS; neither proves the presentation target. No new benchmark was run. |
-| V12 | Fixture coverage only | Exercise installed Codex/Claude during sustained streaming while typing/resizing/switching controls, interruptions, process replacement, auth/model changes, editor reload/remount/title changes, remote reconnect and physical drops. Complete Claude pane-driven composers/account/usage/MCP health, nested source navigation after unsaved edits, uninstall/marketplace removal and overrides; Blueprint live-model controls, frontmatter discard, outline, alerts and Mermaid; and live Discord IPC/presence. Generic host/UI tests do not establish these journeys. |
-| V13 | Linux: cross-built, headless gate and Xvfb launch only | Run the AppImage on real distributions (the 2026-10-19 pass ran its payload, not the image: the runtime could not execute under Rosetta here; `check:packaged -- --linux` unpacks it in CI). Cover a real window manager (title bar, resize, HiDPI), Wayland/XWayland, IME and clipboard, file drops, `notify-send` delivery, `xdg-open`/`gio trash`, a reflink filesystem for workspace clones, Ubuntu 22.04 (glibc 2.35) hosts and Git 2.36+. Mermaid has no Linux library. linux-arm64 is cross-built (2026-10-20) but nothing has run on an arm64 host or runner yet: the first CI/nightly `appimage-arm64` run is its first test. |
+- macOS: clicking an away notification in the signed app to reach the right terminal.
+  [UI spec](src/Tereditor.UI/SPEC.md#away-notifications)
+- macOS: several windows with the real menu bar, and their order after a restart. [UI spec](src/Tereditor.UI/SPEC.md#windows)
+- Trackpad pinch zoom on [PDF files](src/Tereditor.UI/Resources/Pdf/SPEC.md#remaining-port-gates) and
+  [diagrams](src/Tereditor.Plugins.UI.Kit/SPEC.md#agent-visualizations).
+- The Windows app in a real window: typing with an input method (IME), clipboard, editor and connecting to a host. CI runs only
+  windowless checks. [Terminals spec](src/Tereditor.Host.Core/Terminals.SPEC.md#windows-verification-scope)
+- The Linux app on a real desktop, x64 or ARM64: AppImage start, window managers, HiDPI, Wayland, IME, clipboard, file drops,
+  notifications, opening and trashing files, and workspace copies on btrfs or XFS. [UI spec](src/Tereditor.UI/SPEC.md)
+- The browser client in Safari and Firefox, with keyboards outside macOS, on a Retina screen, with the notification permission
+  prompt and behind an HTTPS proxy. [Browser spec](src/Tereditor.Browser/SPEC.md)
+- The browser checks since their latest changes. CI runs them only when started by hand.
+  [Check reference](docs/develop/agent-reference.md)
+- Android beyond a short try on one phone: a full pass, QR scanning, other keyboards, TalkBack, plugin panels and HTTPS hosts.
+  [Android spec](src/Tereditor.Android/SPEC.md#validation)
+- Tailscale pairing between real devices, from Android and the browser: sign-in, approval, reconnect and revoke.
+  [Tailscale spec](src/Tereditor.Plugins.Tailscale/SPEC.md#verification)
+- Long sessions with real [Claude Code](src/Tereditor.Plugins.ClaudeCode/SPEC.md#verification-and-remaining-gates) and
+  [Codex](src/Tereditor.Plugins.Codex/SPEC.md#current-implementation-and-remaining-gates): typing during output, interrupts,
+  restarts, sign-in or model changes and remote reconnects.
+- A [Blueprint](src/Tereditor.Plugins.Blueprint/SPEC.md) written by a real agent, and presence in a real
+  [Discord](src/Tereditor.Plugins.Discord/SPEC.md#checks) app.
