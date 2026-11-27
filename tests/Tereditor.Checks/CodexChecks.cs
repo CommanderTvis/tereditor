@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using Tereditor.Plugins.Agent.Host;
 using Tereditor.Plugins.Agent.UI;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;

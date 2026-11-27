@@ -337,6 +337,7 @@ public sealed partial class OmpHost : PluginHostModule
         });
 
         var watch = new AgentWatch(
+            OmpManifest.Id,
             () => [.. context.Terminals().Where(item => item.Pid is not null).Select(item => new AgentWatchTarget(item.Terminal.WorkspaceId, item.Terminal.TabKey, item.Pid!.Value))],
             (workspaceId, tabKey, pid) =>
             {
@@ -348,7 +349,7 @@ public sealed partial class OmpHost : PluginHostModule
                 {
                     SessionId = OmpLaunch.SessionIdOf(arguments) ?? existing?.SessionId,
                     Model = existing?.Model,
-                    LaunchedByUi = ProcessSnapshot.CaptureUiLaunch(pid)
+                    LaunchedByUi = ProcessSnapshot.CaptureUiLaunch(pid, OmpLaunch.UiLaunchPrefix)
                 });
             },
             (workspaceId, tabKey) =>

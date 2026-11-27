@@ -1,13 +1,12 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
-namespace Tereditor.Plugins.Omp.Host;
+namespace Tereditor.Plugins.Agent.Host;
 
-public sealed record ProcessRow(int Pid, int ParentPid, string Name);
+internal sealed record ProcessRow(int Pid, int ParentPid, string Name);
 
-/// <summary>One reading of the process table. A copy of the Codex plugin's, looking for <c>omp</c>: a plugin may not
-/// reference another plugin's host half, and each builtin plugin stays extractable on its own.</summary>
-public sealed partial class ProcessSnapshot
+/// <summary>One reading of the process table, for the Codex and omp plugins. The Claude Code plugin has its own.</summary>
+internal sealed partial class ProcessSnapshot
 {
     public const int MaxDescendantDepth = 4;
 
@@ -81,15 +80,16 @@ public sealed partial class ProcessSnapshot
         pid <= 0 || OperatingSystem.IsWindows() ? null
             : Run("ps", ["-o", "args=", "-p", pid.ToString(System.Globalization.CultureInfo.InvariantCulture)])?.Trim() is { Length: > 0 } line ? line : null;
 
-    internal static bool? CaptureUiLaunch(int pid)
+    /// <summary>Whether the process's environment holds <paramref name="marker"/>, the assignment a plugin's UI launch line makes; null when unreadable.</summary>
+    public static bool? CaptureUiLaunch(int pid, string marker)
     {
         if (pid <= 0 || OperatingSystem.IsWindows()) return null;
         try
         {
             if (OperatingSystem.IsLinux())
-                return File.ReadAllText($"/proc/{pid}/environ").Split('\0').Contains(OmpLaunch.UiLaunchPrefix);
+                return File.ReadAllText($"/proc/{pid}/environ").Split('\0').Contains(marker);
             var environment = Run("ps", ["-Eww", "-o", "args=", "-p", pid.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
-            return string.IsNullOrWhiteSpace(environment) ? null : environment.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Contains(OmpLaunch.UiLaunchPrefix);
+            return string.IsNullOrWhiteSpace(environment) ? null : environment.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Contains(marker);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return null; }
     }
@@ -159,19 +159,18 @@ public sealed partial class ProcessSnapshot
             .Select(match => match.Groups[1].Value + " " + match.Groups[2].Value + " " + match.Groups[4].Value));
 }
 
-public sealed record AgentWatchTarget(string WorkspaceId, string TabKey, int Pid);
+internal sealed record AgentWatchTarget(string WorkspaceId, string TabKey, int Pid);
 
 /// <summary>
-/// Polls the process table while any terminal exists and reports when a tab's shell gains or loses an <c>omp</c>
-/// descendant. Arming never sweeps inline, which would block an attach.
+/// Polls the process table while any terminal exists and reports when a tab's shell gains or loses a descendant named
+/// <paramref name="agent"/>. With <paramref name="isManaged"/>, a <c>bun</c> descendant it accepts counts too: that is how
+/// a copy tereditor downloaded runs. Arming never sweeps inline, which would block an attach.
 /// </summary>
-public sealed class AgentWatch(Func<IReadOnlyList<AgentWatchTarget>> listTargets, Action<string, string, int> detected, Action<string, string> cleared,
+internal sealed class AgentWatch(string agent, Func<IReadOnlyList<AgentWatchTarget>> listTargets, Action<string, string, int> detected, Action<string, string> cleared,
     Func<ProcessSnapshot?>? capture = null, Func<int, bool>? isManaged = null) : IDisposable
 {
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(2500);
-    private static readonly string[] DetectedAgents = ["omp"];
-    // The managed omp runs as a Bun process (bun --bun cli.js …), which only counts when isManaged says its command line is the managed copy's.
-    private static readonly string[] DetectedWithManaged = ["omp", "bun"];
+    private readonly string[] detectedAgents = isManaged is null ? [agent] : [agent, "bun"];
 
     private readonly Lock gate = new();
     private readonly Dictionary<(string, string), (int Pid, string Name)> agents = [];
@@ -232,8 +231,7 @@ public sealed class AgentWatch(Func<IReadOnlyList<AgentWatchTarget>> listTargets
                 var index = (target.WorkspaceId, target.TabKey);
                 live.Add(index);
                 var previous = agents.GetValueOrDefault(index);
-                var found = isManaged is null ? snapshot.FindDescendant(target.Pid, DetectedAgents)
-                    : snapshot.FindDescendant(target.Pid, DetectedWithManaged, accepts: (pid, name) => name == "omp" || isManaged(pid));
+                var found = snapshot.FindDescendant(target.Pid, detectedAgents, accepts: isManaged is null ? null : (pid, name) => name == agent || isManaged(pid));
                 var next = found ?? default;
                 if (previous == next) continue;
                 if (found is null)

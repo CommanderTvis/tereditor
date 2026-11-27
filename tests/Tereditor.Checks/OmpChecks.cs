@@ -16,6 +16,7 @@ using Tereditor.Host.Abstractions;
 using Tereditor.Host.Client;
 using Tereditor.Host.Protocol;
 using Tereditor.Host.Remote;
+using Tereditor.Plugins.Agent.Host;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
 using Tereditor.Plugins.Omp;
@@ -309,7 +310,7 @@ internal static class OmpChecks
         Require(bunRows.FindDescendant(10, ["omp", "bun"], accepts: (pid, _) => pid == 30) is { Pid: 30, Name: "bun" } && bunRows.FindDescendant(10, ["omp", "bun"], accepts: (_, _) => false) is null && bunRows.FindDescendant(10, ["omp"]) is null,
             "A Bun process counts as omp only when it is the managed copy's");
         var found = new List<int>();
-        using var watch = new AgentWatch(() => [new("w", "t", 10)], (_, _, pid) => found.Add(pid), (_, _) => { }, () => bunRows, pid => pid == 30);
+        using var watch = new AgentWatch("omp", () => [new("w", "t", 10)], (_, _, pid) => found.Add(pid), (_, _) => { }, () => bunRows, pid => pid == 30);
         watch.Sweep();
         Require(found.SequenceEqual([30]) && watch.AgentFor("w", "t") == "bun", "The watch records a tab running the managed omp");
     }

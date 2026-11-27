@@ -93,7 +93,8 @@ No real omp run backs them; the checks use a fixture `omp`.
   `v<version>`, or "omp is not installed" with the reason and an "Install from omp.sh" button; the launcher reports
   itself unavailable with the same hint. The managed omp reports its pinned version from disk and, while it is not downloaded, "omp is not downloaded yet"
   (or the download's progress or error) without the install link.
-- Agent detection: a 2.5 s process poll (a copy of the Codex plugin's) records an `omp` descendant of a tab's shell
+- Agent detection: a 2.5 s process poll (shared with Codex, in
+  [Agent host](../Tereditor.Plugins.Agent.Host/SPEC.md)) records an `omp` descendant of a tab's shell
   as an `omp` agent record and clears it when the process leaves; zombie (`Z`) rows are skipped. A record of another
   agent kind is left alone. The search does not descend through another tereditor app (process name `Tereditor.UI`/`tereditor`), so an agent in a nested tereditor's terminals never marks the outer tab; a tereditor run as `dotnet Tereditor.UI.dll` is not recognized by name. If an omp build runs under another process name (for example its runtime's), it is not
   detected; this is not verified against a real install.

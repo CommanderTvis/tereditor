@@ -160,6 +160,7 @@
       "tereditor.plugins.codex.host": {
         "type": "Project",
         "dependencies": {
+          "Tereditor.Plugins.Agent.Host": "[1.0.0, )",
           "Tereditor.Plugins.Api.Host": "[1.0.0, )",
           "Tereditor.Plugins.Codex": "[1.0.0, )",
           "Tomlyn": "[2.10.1, )"

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 
+using Tereditor.Plugins.Agent.Host;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
 
@@ -226,6 +227,7 @@ public sealed class CodexHost : PluginHostModule
         });
 
         var watch = new AgentWatch(
+            CodexManifest.Id,
             () => [.. context.Terminals().Where(item => item.Pid is not null).Select(item => new AgentWatchTarget(item.Terminal.WorkspaceId, item.Terminal.TabKey, item.Pid!.Value))],
             (workspaceId, tabKey, pid) =>
             {
@@ -233,7 +235,7 @@ public sealed class CodexHost : PluginHostModule
                 if (StartedByAnotherAgent(context, terminal)) return;
                 codexPidOfTab[TabIndex(terminal)] = pid;
                 var existing = context.AgentRecord(terminal) is { Kind: CodexManifest.Id } codex ? codex : null;
-                var launchedByUi = ProcessSnapshot.CaptureUiLaunch(pid);
+                var launchedByUi = ProcessSnapshot.CaptureUiLaunch(pid, CodexLaunch.UiLaunchPrefix);
                 var command = launchedByUi == false ? CommandOf(context) : existing?.Command ?? CommandOf(context);
                 // Before any hook reports, the process's own arguments show whether it received tereditor's instructions.
                 if (ProcessSnapshot.CaptureCommand(pid)?.Contains("developer_instructions=\"# You are running inside tereditor", StringComparison.Ordinal) == true)

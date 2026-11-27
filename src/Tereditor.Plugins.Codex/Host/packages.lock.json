@@ -14,6 +14,12 @@
         "resolved": "2.10.1",
         "contentHash": "ykjOY3IpYmC4SpPcAZRTl/w2jTmhPMDydHq8xcV7tTBAQ22nKBsOkPqauIrZlMjHm03cmKfV23UOPscKp+J4Og=="
       },
+      "tereditor.plugins.agent.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api.Host": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.api": {
         "type": "Project"
       },

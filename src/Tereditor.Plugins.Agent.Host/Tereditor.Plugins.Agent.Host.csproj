@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Host code that the Pi and omp plugins share. It is not a plugin and holds no state of its own. -->
+  <!-- Host code that agent plugins share (Pi, omp, Codex). It is not a plugin and holds no state of its own. -->
   <ItemGroup>
+    <InternalsVisibleTo Include="Tereditor.Plugins.Codex.Host" />
     <InternalsVisibleTo Include="Tereditor.Plugins.Pi.Host" />
     <InternalsVisibleTo Include="Tereditor.Plugins.Omp.Host" />
     <InternalsVisibleTo Include="Tereditor.Checks" />

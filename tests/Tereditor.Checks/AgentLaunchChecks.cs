@@ -12,7 +12,7 @@ using Tereditor.Plugins.Codex;
 using static Tereditor.Checks.E2E.E2eWorkspace;
 
 using ClaudeProcesses = Tereditor.Plugins.ClaudeCode.Host.ProcessTree;
-using CodexProcesses = Tereditor.Plugins.Codex.Host.ProcessSnapshot;
+using CodexProcesses = Tereditor.Plugins.Agent.Host.ProcessSnapshot;
 
 namespace Tereditor.Checks;
 
@@ -37,7 +37,7 @@ internal static class AgentLaunchChecks
                 using var process = Process.Start(start)!;
                 try
                 {
-                    bool? Origin() => kind == "claude" ? ClaudeProcesses.CaptureUiLaunch(process.Id) : CodexProcesses.CaptureUiLaunch(process.Id);
+                    bool? Origin() => kind == "claude" ? ClaudeProcesses.CaptureUiLaunch(process.Id) : CodexProcesses.CaptureUiLaunch(process.Id, CodexLaunch.UiLaunchPrefix);
                     var deadline = Stopwatch.StartNew();
                     while (Origin() != expected && deadline.Elapsed < TimeSpan.FromSeconds(5)) Thread.Sleep(20);
                     Require(Origin() == expected, $"{kind}: expected UI origin {expected}, got {Origin()}; process detection distinguishes manual and UI launches even with prompts and other additions disabled.");
@@ -52,7 +52,7 @@ internal static class AgentLaunchChecks
             shell.WaitForExit();
             Require(shell.ExitCode == 0, $"{kind}: the UI marker must not leak into later manual commands in the same shell.");
         }
-        Require(ClaudeProcesses.CaptureUiLaunch(-1) is null && CodexProcesses.CaptureUiLaunch(-1) is null,
+        Require(ClaudeProcesses.CaptureUiLaunch(-1) is null && CodexProcesses.CaptureUiLaunch(-1, CodexLaunch.UiLaunchPrefix) is null,
             "An unreadable launch origin stays unknown.");
         ReplacementProcesses();
         Console.WriteLine("PASS agent launch origin: real processes, disabled additions, command scope and unknown origin");
@@ -62,7 +62,7 @@ internal static class AgentLaunchChecks
     {
         var codex = new CodexProcesses([new(10, 1, "sh"), new(20, 10, "codex")]);
         var codexDetections = new List<int>();
-        using var codexWatch = new Tereditor.Plugins.Codex.Host.AgentWatch(() => [new("workspace", "tab", 10)],
+        using var codexWatch = new Tereditor.Plugins.Agent.Host.AgentWatch("codex", () => [new("workspace", "tab", 10)],
             (_, _, pid) => codexDetections.Add(pid), (_, _) => { }, () => codex);
         codexWatch.Sweep();
         codex = new([new(10, 1, "sh"), new(21, 10, "codex")]);

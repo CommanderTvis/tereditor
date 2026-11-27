@@ -307,4 +307,4 @@ rules and a requirement to report its `lsp_navigate`/`lsp_diagnostics` call coun
 none for code work. Air Context's paragraph (only while enabled) adds MUST `context_search` first. `PromptChecks` asserts these
 phrases in both agents and their absence with the feature or plugin off.
 
-Agent detection never descends through another tereditor app (`Tereditor.UI`/`tereditor` process): a Codex in a nested tereditor's terminal does not mark the outer tab. The Omp copy follows the same rule.
+Agent detection never descends through another tereditor app (`Tereditor.UI`/`tereditor` process): a Codex in a nested tereditor's terminal does not mark the outer tab. The poll is shared with omp, in [Agent host](../Tereditor.Plugins.Agent.Host/SPEC.md).

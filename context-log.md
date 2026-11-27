@@ -42,6 +42,12 @@ The tab reads `.claude/rules` as Claude Code does and says when each rule loads
 wire or plugin API change. The browser build passed with `DisableParallelAot` (the memory guard stopped a parallel
 one). Not verified: the running app, Android.
 
+## 2026-11-27 — Codex and omp share one process poll
+
+The poll lives in `Tereditor.Plugins.Agent.Host` ([spec](src/Tereditor.Plugins.Agent.Host/SPEC.md)), which Codex now
+references; no behavior change. Claude Code keeps its own poll. Checks: build, format, `--codex`, `--omp`,
+`--agent-launches`, `--conformance`. Not verified: the running app, browser and Android builds.
+
 ## 2026-11-27 — Tailscale pairing with Serve on start
 
 With Serve on start on, an approved device got a bare 503. Pairing now serves beside a listener the tailnet cannot

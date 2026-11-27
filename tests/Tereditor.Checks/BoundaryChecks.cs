@@ -50,7 +50,7 @@ internal static class BoundaryChecks
         [Chat] = [Api],
         [ChatUi] = [Api, ApiUi, Kit, Chat, "Tereditor.Plugins.Agent.UI"],
         ["Tereditor.Plugins.Agent.UI"] = [Api, ApiUi, Kit],
-        // Host code the Pi and omp plugins share.
+        // Host code that agent plugins share.
         [AgentHost] = [Api, ApiHost],
         ["Tereditor.PluginFixture.Host"] = [Api, ApiHost],
         ["Tereditor.PluginFixture.UI"] = [Api, ApiUi, Kit],
@@ -113,7 +113,7 @@ internal static class BoundaryChecks
             rules[Checks] = [.. rules[Checks], contract, contract + ".Host", contract + ".UI"];
             // A browser tab runs Pi's host in the page (TabPi), so the tab client names its host module.
             if (plugin is "Pi") rules[Browser] = [.. rules[Browser], contract + ".Host"];
-            if (plugin is "Pi" or "Omp") rules[contract + ".Host"] = [.. rules[contract + ".Host"], AgentHost];
+            if (plugin is "Codex" or "Omp" or "Pi") rules[contract + ".Host"] = [.. rules[contract + ".Host"], AgentHost];
             if (plugin is "ClaudeCode" or "Pi" or "Acp")
             {
                 rules[contract] = [.. rules[contract], Chat];
