@@ -53,6 +53,12 @@ nothing it starts holds it.
   (`IWindowImpl`, `IPopupImpl` and a framebuffer surface Skia draws a whole frame into, in memory), a render timer on
   the UI thread that the renderer ticks before it reads a frame, a cursor factory of standard shapes, and a mouse per
   top-level. Each top-level answers an `ITextInputMethodImpl`, which learns the focused text field and its caret.
+  Keyboard focus is per client context. Avalonia looks its one keyboard device up at each use, and the backend answers
+  with the device of the context it serves: `RemotePlatform.Enter` wraps a context's activation, settings mirrors,
+  factories, surface messages, render ticks and disposal, and posted and awaited work keeps it. Plugin code that runs
+  for no client (a timer of its own, a callback) gets the device of the client that last gave input. So one client's
+  clicks, typing and new views never move another's focus or cancel a button it holds. A surface also opens without
+  taking focus: its client's input and focus messages give it.
   Each input event runs the dispatcher's pending jobs and renders before and after it, as Avalonia's
   headless platform did, so what one event changed is drawn before the next.
   Client messages run through one queue in arrival order, because applying input runs the dispatcher's pending

@@ -80,6 +80,7 @@ internal sealed class SurfaceRenderer
     public void Mount(long context, int id, Control control)
     {
         if (views.ContainsKey(id)) throw new IsoCallException(IsoError.InvalidParams, $"Surface {id} is already open.");
+        using var focus = RemotePlatform.Enter(context);
         views[id] = new SurfaceView(this, context, id, control);
         Heat();
         timer.Start();
@@ -116,16 +117,25 @@ internal sealed class SurfaceRenderer
         finally { draining = false; }
     }
 
-    public void Resize(SurfaceResize resize) => View(resize.Surface)?.Resize(resize.Width, resize.Height, resize.Scale);
-    public void Input(SurfaceInput input) => View(input.Surface)?.Input(input);
-    public void Acknowledge(SurfaceAck ack) => View(ack.Surface)?.Acknowledge(ack.Sequence, ack.Popup);
-    public void Dismiss(SurfaceDismiss dismiss) => View(dismiss.Surface)?.Dismiss();
-    public void Focus(SurfaceFocus focus) => View(focus.Surface)?.Focus(focus.Enter, focus.Backward, focus.Pointer);
-    public void Keyframe(SurfaceKeyframe keyframe) => View(keyframe.Surface)?.Keyframe();
+    public void Resize(SurfaceResize resize) => On(resize.Surface, view => view.Resize(resize.Width, resize.Height, resize.Scale));
+    public void Input(SurfaceInput input) => On(input.Surface, view => view.Input(input), input: true);
+    public void Acknowledge(SurfaceAck ack) => On(ack.Surface, view => view.Acknowledge(ack.Sequence, ack.Popup));
+    public void Dismiss(SurfaceDismiss dismiss) => On(dismiss.Surface, view => view.Dismiss());
+    public void Focus(SurfaceFocus focus) => On(focus.Surface, view => view.Focus(focus.Enter, focus.Backward, focus.Pointer), input: true);
+    public void Keyframe(SurfaceKeyframe keyframe) => On(keyframe.Surface, view => view.Keyframe());
+
+    // A client's message for a surface runs for that client.
+    private void On(int id, Action<SurfaceView> apply, bool input = false)
+    {
+        if (View(id) is not { } view) return;
+        using var focus = RemotePlatform.Enter(view.Context, input);
+        apply(view);
+    }
 
     public void Close(int id)
     {
         if (!views.Remove(id, out var view)) return;
+        using var focus = RemotePlatform.Enter(view.Context);
         view.Close();
         if (views.Count == 0) timer.Stop();
     }
@@ -152,7 +162,11 @@ internal sealed class SurfaceRenderer
     {
         foreach (var view in views.Values.ToArray())
         {
-            try { view.Tick(); }
+            try
+            {
+                using var focus = RemotePlatform.Enter(view.Context);
+                view.Tick();
+            }
             catch (Exception error)
             {
                 Console.Error.WriteLine($"[error] Surface {view.Id} stopped: {error.Message}");
@@ -216,6 +230,8 @@ internal sealed class SurfaceRenderer
             root = new SurfaceRoot { Child = control };
             window = new SurfaceWindow(this)
             {
+                // A view takes keyboard focus when its client says so, not by opening.
+                ShowActivated = false,
                 Content = root,
                 Background = Brushes.Transparent,
                 TransparencyLevelHint = [WindowTransparencyLevel.Transparent],

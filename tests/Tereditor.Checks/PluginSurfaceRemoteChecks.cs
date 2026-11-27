@@ -31,8 +31,10 @@ namespace Tereditor.Checks;
 /// over the session, and its scale 2 renders while the other stays at 1; a click in one updates the other's view;
 /// one client's connection drops and the other keeps working; back within the grace, the dropped client resumes its
 /// session (its typed note kept, no new activation) and repaints from a keyframe; a plugin that floods one client while
-/// the app's UI thread is blocked ends that client's session with the reason, and the other keeps working; a client that
-/// closes ends only its session; and past the grace a dropped client's session ends and it opens a new one.
+/// the app's UI thread is blocked ends that client's session with the reason, and the other keeps working; a button one client
+/// holds still counts after the other opens a view or clicks into a field, or after the holder's own new view, and each
+/// client's typing stays in its own note; a client that closes ends only its session; and past the grace a dropped client's
+/// session ends and it opens a new one.
 /// </summary>
 internal static class PluginSurfaceRemoteChecks
 {
@@ -232,6 +234,8 @@ internal static class PluginSurfaceRemoteChecks
             Require(ReferenceEquals(boardA.Surface, surfaceA) && runtime.RunnerPid(Id) == pid, "The other client keeps its session and surface in the same process.");
             Console.WriteLine($"PASS plugin surface remote flood: a plugin that floods client B while the UI thread is blocked ends B's session with the reason at {RemoteIsolatedUISession.MostUnread} unread calls, client A's clicks still reach the plugin, and B opens a new session");
 
+            shownA = Apart(a, boardA, b, PluginSurfaceChecks.Surface(b.Window, surface => !ReferenceEquals(surface, boardB)), Held);
+
             // A client that closes ends only its own session.
             b.Workbench.PluginLoader.Stop();
             b.Dispose();
@@ -239,7 +243,7 @@ internal static class PluginSurfaceRemoteChecks
             E2eWorkspace.Until(() => sessions.Count == 1);
             before = shownA.Pixels;
             PluginSurfaceChecks.Click(a.Window, boardA, shownA.Bounds["OutsiderClick"]);
-            E2eWorkspace.Until(() => PluginSurfaceChecks.Clicks(a) == 8);
+            E2eWorkspace.Until(() => PluginSurfaceChecks.Clicks(a) == 11);
             PluginSurfaceChecks.Settle(boardA, "client A's side tool after B closed", before, Held);
             Require(runtime.RunnerPid(Id) == pid, "The plugin's process outlives a client that closes.");
             Console.WriteLine("PASS plugin surface remote close: a client that closes ends its session alone, and the other's view keeps working in the same process");
@@ -259,6 +263,90 @@ internal static class PluginSurfaceRemoteChecks
             a?.Dispose();
             Task.Run(async () => { await server.StopAsync(); await server.DisposeAsync(); }).GetAwaiter().GetResult();
         }
+    }
+
+    // Both clients' views live in the one process. What B does there neither cancels the press A holds nor takes A's typing.
+    private static PluginSurfaceChecks.Shown Apart(E2eWorkspace a, RemoteSurface boardA, E2eWorkspace b, RemoteSurface boardB,
+        Func<RemoteSurface, UiSessionRelay.RelaySurface?> held)
+    {
+        var shownB = PluginSurfaceChecks.Settle(boardB, "client B's side tool in its new session", relay: held);
+        // B takes the app's focus. A then sends only what a client on a machine of its own would: its surface's input.
+        PluginSurfaceChecks.Click(b.Window, boardB, shownB.Bounds["OutsiderList"]);
+        E2eWorkspace.Until(() => boardB.IsFocused);
+        shownB = PluginSurfaceChecks.Settle(boardB, "client B's side tool with the app's focus", relay: held);
+        var shownA = PluginSurfaceChecks.Settle(boardA, "client A's side tool before it holds its button", relay: held);
+        void Input(SurfaceInputKind kind, string at = "", string text = "")
+        {
+            var bounds = at.Length > 0 ? shownA.Bounds[at] : [0, 0, 0, 0];
+            boardA.Surface.Input(new SurfaceInput(0, kind, bounds[0] + bounds[2] / 2, bounds[1] + bounds[3] / 2,
+                kind is SurfaceInputKind.PointerDown or SurfaceInputKind.PointerUp ? (int)MouseButton.Left : 0, 0, 0, 0, 0, 0, text));
+        }
+        SurfaceCapture Read(RemoteSurface board)
+        {
+            var capture = held(board)!.CaptureAsync(["OutsiderClick", "OutsiderNote"]);
+            E2eWorkspace.Until(() => capture.IsCompleted);
+            return capture.GetAwaiter().GetResult();
+        }
+        string Note(RemoteSurface board) => Read(board).Texts!["OutsiderNote"];
+        void Wait(Func<bool> arrived, Func<string> failed)
+        {
+            var clock = Stopwatch.StartNew();
+            while (!arrived() && clock.Elapsed < PluginChannelChecks.Patience) E2eWorkspace.Settle(20);
+            Require(arrived(), failed());
+        }
+        // A pressed button is drawn a little smaller, so its corner moves: that shows the press has reached the plugin.
+        var rest = shownA.Bounds["OutsiderClick"];
+        bool AtRest() => Read(boardA).Bounds["OutsiderClick"].SequenceEqual(rest);
+        void HeldWhile(Action other)
+        {
+            var clicks = PluginSurfaceChecks.Clicks(a);
+            Wait(AtRest, () => "Client A's button never came to rest.");
+            Input(SurfaceInputKind.PointerDown, "OutsiderClick");
+            Wait(() => !AtRest(), () => "Client A's button never showed as held.");
+            other();
+            Input(SurfaceInputKind.PointerUp, "OutsiderClick");
+            E2eWorkspace.Until(() => PluginSurfaceChecks.Clicks(a) == clicks + 1);
+        }
+
+        // The plugin's settings section is a view of its own, which its process opens and shows.
+        void Opens(E2eWorkspace app)
+        {
+            app.Window.ShowSettings("Plugins");
+            E2eWorkspace.Until(() => app.Window.OpenSettingsViews.Any());
+            var settings = app.Window.OpenSettingsViews.Single();
+            settings.ShowSection("plugin:" + Id + ":" + Id);
+            PluginSurfaceChecks.Settle(PluginSurfaceChecks.Surface(settings, surface => surface != boardA && surface != boardB), "a new view of the plugin", relay: held);
+            settings.Close();
+        }
+
+        HeldWhile(() => Opens(b));
+        Console.WriteLine("PASS plugin surface remote view during a press: client B opens another view of the plugin while client A holds its button, and A's click counts");
+
+        HeldWhile(() =>
+        {
+            shownB = PluginSurfaceChecks.Settle(boardB, "client B's side tool before its click", relay: held);
+            PluginSurfaceChecks.Click(b.Window, boardB, shownB.Bounds["OutsiderNote"]);
+            PluginSurfaceChecks.Settle(boardB, "client B's note with focus", shownB.Pixels, held);
+        });
+        Console.WriteLine("PASS plugin surface remote click during a press: client B clicks into its note while client A holds its button, and A's click counts");
+
+        void Typed(Func<bool> arrived, string what) => Wait(arrived, () => $"{what}: A's note reads '{Note(boardA)}', B's '{Note(boardB)}'.");
+        var before = Note(boardA);
+        Input(SurfaceInputKind.PointerDown, "OutsiderNote");
+        Input(SurfaceInputKind.PointerUp, "OutsiderNote");
+        Input(SurfaceInputKind.Text, text: "ay");
+        Typed(() => Note(boardA) == before + "ay", "Client A types into its note");
+        PluginSurfaceChecks.Click(b.Window, boardB, shownB.Bounds["OutsiderNote"]);
+        b.Window.KeyTextInput("bee");
+        Typed(() => Note(boardB) == "bee", "Client B types into its own");
+        Input(SurfaceInputKind.Text, text: "yes");
+        Typed(() => Note(boardA).Length + Note(boardB).Length == before.Length + 8, "Both notes take what was typed");
+        Require(Note(boardA) == before + "ayyes" && Note(boardB) == "bee", $"Each client's typing stays in its own note: A's reads '{Note(boardA)}', B's '{Note(boardB)}'.");
+        Console.WriteLine("PASS plugin surface remote typing apart: after client B types into its note, what client A types still goes into A's");
+
+        HeldWhile(() => Opens(a));
+        Console.WriteLine("PASS plugin surface remote own view during a press: a view of the plugin client A opens takes no focus from the button it holds");
+        return PluginSurfaceChecks.Settle(boardA, "client A's side tool after its presses", relay: held);
     }
 
     private static int Activations(E2eWorkspace app) =>

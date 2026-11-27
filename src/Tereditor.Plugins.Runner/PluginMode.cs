@@ -93,8 +93,12 @@ internal static class PluginMode
                 var context = long.Parse(call.Payload, System.Globalization.CultureInfo.InvariantCulture);
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    surfaces.CloseContext(context);
-                    if (activations.TryRemove(context, out var ended)) ended.Dispose();
+                    using (RemotePlatform.Enter(context))
+                    {
+                        surfaces.CloseContext(context);
+                        if (activations.TryRemove(context, out var ended)) ended.Dispose();
+                    }
+                    RemotePlatform.Forget(context);
                 });
                 return IsoResult.Of("");
             }
@@ -103,7 +107,11 @@ internal static class PluginMode
                 var mirror = RunnerPlugin.DecodeMirror(call.Payload);
                 runtime.Mirror(mirror.Member, mirror.Context, mirror.Arguments, mirror.Json);
                 if (mirror.Member == PluginUIContextMembers.PluginUIContext_Settings && activations.TryGetValue(mirror.Context, out var activation))
-                    await Dispatcher.UIThread.InvokeAsync(() => activation.SettingsChanged(mirror.Json));
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        using var focus = RemotePlatform.Enter(mirror.Context);
+                        activation.SettingsChanged(mirror.Json);
+                    });
                 return IsoResult.Of("");
             }
             if (call.Member == SurfaceProtocol.Open)
@@ -127,6 +135,7 @@ internal static class PluginMode
             if (!activations.ContainsKey(open.Context)) throw new IsoCallException(IsoError.InvalidParams, "That context is not active.");
             if (peer.Handles.Resolve(open.Handle, out var factory, out _) != HandleState.Live || factory is null)
                 throw new IsoCallException(IsoError.Released, "The factory is gone.");
+            using var focus = RemotePlatform.Enter(open.Context);
             RunnerPlatform.ApplyTheme(open.Theme);
             await PluginUIContextCallbacks.InvokeAsync(open.Member, factory, open.Payload, control =>
             {
@@ -159,6 +168,7 @@ internal static class PluginMode
             if (activations.ContainsKey(request.Context)) throw new IsoCallException(IsoError.InvalidParams, "That context is already active.");
             runtime.Mirror(PluginUIContextMembers.PluginUIContext_Settings, request.Context, new IsoPayload().Finish(), request.Settings);
             var activation = new Activation(init);
+            using var focus = RemotePlatform.Enter(request.Context);
             var buffered = new Registrations(runtime, request.Context);
             IPluginUIContext context = new IsolatedPluginUIContext(buffered, request.Context, activation);
             activation.Disposer = module.Activate(context);

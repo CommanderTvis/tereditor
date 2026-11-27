@@ -1105,7 +1105,8 @@ outsider fixture installed from disk). Shipping compositions do not run it: the 
 - A remote client reaches a session over WebSocket RPC (`IPluginRpc.SurfaceAsync`, protocol 19): one call per
   client and plugin carries the plugin's calls on the client's context, the client's answers and callbacks, and every
   surface's messages. Each client's session is its own context and its own top-levels in the plugin's one process, so
-  two clients are two sessions in one process. No frame message of the call passes 1 MiB: the host splits a frame
+  two clients are two sessions in one process. Each context has its own keyboard focus, so one client's input and views
+  never move another's. No frame message of the call passes 1 MiB: the host splits a frame
   message into several, its moves in the first. Other messages are bounded by the channel's caps (a call's arguments
   and the registrations of an activation), not by 1 MiB. A surface still has one frame in flight until the client draws it and
   acknowledges it, so with 32 KiB chunks a terminal on the same connection waits behind at most one such message per
@@ -1369,8 +1370,9 @@ host runtime, which checks the dependency declaration as it does today.
 An external UI half runs real Avalonia, with the UI kit, in its sandboxed process on the host. The client owns a
 host control per plugin and per mount, as it already does. In the isolated runtime that host control is a remote
 surface instead of the plugin's control. The plugin's one process serves every connected client: each client gets its
-own remote top-levels and surfaces in it, and its own UI context, because layout, companions, DPI and theme are per
-client. A crash or hang there fails the plugin for every client, with the reason, and retry starts a new process.
+own remote top-levels and surfaces in it, and its own UI context, because layout, companions, DPI, theme and keyboard
+focus are per client. A crash or hang there fails the plugin for every client, with the reason, and retry starts a new
+process.
 
 Every client is a renderer of this protocol and nothing more: the desktop app, the browser app and Android alike.
 They need no sandbox of their own and run no plugin code. Input latency over a remote host is accepted: a plugin

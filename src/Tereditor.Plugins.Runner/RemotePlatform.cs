@@ -29,17 +29,46 @@ internal static class RemotePlatform
 
     internal static Compositor Compositor { get; private set; } = null!;
 
+    // Avalonia keeps keyboard focus in one keyboard device, which it looks up at each use. Each client context has its
+    // own, so what one client focuses, types or opens never moves another's focus or cancels a button it holds.
+    private static readonly Dictionary<long, KeyboardDevice> keyboards = [];
+    private static readonly AsyncLocal<KeyboardDevice?> keyboard = new();
+    // For plugin code that runs for no client (a timer of its own, a callback): the client that last gave input.
+    private static KeyboardDevice latest = null!;
+
+    /// <summary>
+    /// Runs for <paramref name="context"/>'s client, with its keyboard focus, until disposed; what is posted or awaited
+    /// meanwhile keeps it. <paramref name="input"/> marks the client's own input. On the UI thread only.
+    /// </summary>
+    public static KeyboardScope Enter(long context, bool input = false)
+    {
+        if (!keyboards.TryGetValue(context, out var own)) keyboards[context] = own = new KeyboardDevice();
+        var scope = new KeyboardScope(keyboard.Value);
+        keyboard.Value = own;
+        if (input) latest = own;
+        return scope;
+    }
+
+    /// <summary>Drops the keyboard focus of a context that ended.</summary>
+    public static void Forget(long context) => keyboards.Remove(context);
+
+    internal readonly struct KeyboardScope(KeyboardDevice? previous) : IDisposable
+    {
+        public void Dispose() => keyboard.Value = previous;
+    }
+
     public static AppBuilder UseRemote(this AppBuilder builder) =>
         builder.UseStandardRuntimePlatformSubsystem().UseWindowingSubsystem(Initialize, "TereditorRemote").UseHarfBuzz();
 
     private static void Initialize()
     {
         timer = new RemoteRenderTimer(60);
+        latest = new KeyboardDevice();
         AvaloniaLocator.CurrentMutable
             .Bind<ICursorFactory>().ToConstant(new RemoteCursorFactory())
             .Bind<IPlatformSettings>().ToSingleton<DefaultPlatformSettings>()
             .Bind<IPlatformIconLoader>().ToConstant(new RemoteIconLoader())
-            .Bind<IKeyboardDevice>().ToConstant(new KeyboardDevice())
+            .Bind<IKeyboardDevice>().ToFunc(() => keyboard.Value ?? latest)
             .Bind<IRenderLoop>().ToConstant(RenderLoop.FromTimer(timer))
             .Bind<IWindowingPlatform>().ToConstant(new RemoteWindowingPlatform())
             .Bind<PlatformHotkeyConfiguration>().ToSingleton<PlatformHotkeyConfiguration>()
@@ -142,7 +171,6 @@ internal sealed class RemoteTopLevel : IWindowImpl, IPopupImpl, IFramebufferPlat
 {
     private static int nextZOrder = 1;
 
-    private readonly IKeyboardDevice keyboard;
     private readonly IScreenImpl screen = new RemoteScreens();
     private readonly Stopwatch clock = Stopwatch.StartNew();
     private readonly Lock sync = new();
@@ -154,7 +182,6 @@ internal sealed class RemoteTopLevel : IWindowImpl, IPopupImpl, IFramebufferPlat
     public RemoteTopLevel(RemoteTopLevel? parent)
     {
         Surfaces = [this];
-        keyboard = AvaloniaLocator.Current.GetRequiredService<IKeyboardDevice>();
         // Each top-level has its own mouse, so one client's pointer capture never reaches another's surfaces.
         MouseDevice = new MouseDevice(new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true));
         ClientSize = new Size(1024, 768);
@@ -361,6 +388,9 @@ internal sealed class RemoteTopLevel : IWindowImpl, IPopupImpl, IFramebufferPlat
 
     // Input: each event runs the dispatcher's pending jobs and renders before and after it.
 
+    // The keyboard of the client whose input this is.
+    private static IKeyboardDevice Keyboard => AvaloniaLocator.Current.GetRequiredService<IKeyboardDevice>();
+
     private ulong Timestamp => (ulong)clock.ElapsedMilliseconds;
 
     private void Raise(RawInputEventArgs args)
@@ -401,7 +431,7 @@ internal sealed class RemoteTopLevel : IWindowImpl, IPopupImpl, IFramebufferPlat
     public void Wheel(Point point, Vector delta, RawInputModifiers modifiers) => Raise(new RawMouseWheelEventArgs(MouseDevice, Timestamp, InputRoot!, point, delta, modifiers));
 
     public void Key(bool down, Key key, RawInputModifiers modifiers, PhysicalKey physicalKey, string? symbol) =>
-        Raise(new RawKeyEventArgs(keyboard, Timestamp, InputRoot!, down ? RawKeyEventType.KeyDown : RawKeyEventType.KeyUp, key, modifiers, physicalKey, symbol));
+        Raise(new RawKeyEventArgs(Keyboard, Timestamp, InputRoot!, down ? RawKeyEventType.KeyDown : RawKeyEventType.KeyUp, key, modifiers, physicalKey, symbol));
 
     /// <summary>Text the client's input method committed: it ends any composition first.</summary>
     public void Text(string text)
@@ -411,7 +441,7 @@ internal sealed class RemoteTopLevel : IWindowImpl, IPopupImpl, IFramebufferPlat
             RemotePlatform.Settle();
             inputMethod.Preedit("", 0);
         }
-        Raise(new RawTextInputEventArgs(keyboard, Timestamp, InputRoot!, text));
+        Raise(new RawTextInputEventArgs(Keyboard, Timestamp, InputRoot!, text));
     }
 
     /// <summary>The client's input method composes <paramref name="text"/> (empty when it stops) with its caret at <paramref name="caret"/>.</summary>

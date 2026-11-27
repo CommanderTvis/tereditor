@@ -60,3 +60,9 @@ references; no behavior change. Claude Code keeps its own poll. Checks: build, f
 With Serve on start on, an approved device got a bare 503. Pairing now serves beside a listener the tailnet cannot
 reach, and the client says why pairing failed ([spec](src/Tereditor.Plugins.Tailscale/SPEC.md)). Not verified: a
 real phone and tailnet.
+
+## 2026-11-27 — Plugin clients no longer share keyboard focus
+
+All clients of an external plugin shared Avalonia's one keyboard device, so another client's new view or click canceled
+a held button (a CI failure) and typing could land in another client's field. Each client context now has its own, and
+a view opens without focus ([spec](src/Tereditor.Plugins.Runner/SPEC.md)). Not verified: the running app.
