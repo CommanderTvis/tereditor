@@ -43,6 +43,8 @@ public sealed record ClaudeContextLayer(ClaudeContextKind Kind, string Label, st
     public string? Note { get; init; }
     /// <summary>For a rule with <c>paths</c>: the folder its patterns start from.</summary>
     public string? PatternBase { get; init; }
+    /// <summary>For a rule in a folder below the session's: that folder, relative to the session's, with forward slashes.</summary>
+    public string? Folder { get; init; }
     /// <summary>Nesting under the file that <c>@</c>-imported this one; null for a layer loaded in its own right.</summary>
     public int? Depth { get; init; }
 }
@@ -124,6 +126,9 @@ public sealed record ClaudeConfigSnapshot(
     IReadOnlyList<ClaudeInspectedFile> Inspected,
     // Every key Claude Code documents, so a key can be added without already appearing in a file.
     IReadOnlyList<string> KnownSettingKeys);
+
+/// <summary>The rules in folders below <paramref name="Root"/>, and why some may be missing.</summary>
+public sealed record ClaudeNestedRules(string Root, IReadOnlyList<ClaudeContextLayer> Rules, IReadOnlyList<ClaudeConfigProblem> Problems);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(AddMarketplace), "add")]
@@ -495,6 +500,7 @@ public static class ClaudeCodeContract
     public static readonly PluginMethod<MarketplaceRunParams, CommandOutput> MarketplaceRun = new("marketplaceRun");
     /// <summary>The servers Claude itself reaches (claude.ai connectors, plugin servers) that no file declares.</summary>
     public static readonly PluginMethod<WorkspaceParams, McpListResult> McpList = new("mcpList");
+    public static readonly PluginMethod<WorkspaceParams, ClaudeNestedRules> NestedRules = new("nestedRules");
     public static readonly PluginMethod<ReadFileParams, FileContent> ReadFile = new("readFile");
     public static readonly PluginMethod<WriteFileParams, FileWriteResult> WriteFile = new("writeFile");
     public static readonly PluginMethod<ClaudeEditRequest, ClaudeEditPlan> PlanEdit = new("planEdit");
@@ -520,7 +526,7 @@ public static class ClaudeCodeContract
 
     public static readonly PluginContract Contract = PluginContract.Create<ClaudeCodeSettings>(Id, 3,
         [.. ChatContract.Methods, ChatContract.DebugLog, ChatContract.DebugClear, ConfigGet, Account, SystemPromptGet, Installed, InstructionsList, InstructionsSet, PluginUninstallPlan, PluginUninstall, PluginMovePlan, PluginMove,
-            SkillMovePlan, SkillMove, MarketplacePlan, MarketplaceRun, McpList, ReadFile, WriteFile, PlanEdit, ApplyEdit, PermissionModesGet, SelectionChanged, DocumentClosed,
+            SkillMovePlan, SkillMove, MarketplacePlan, MarketplaceRun, McpList, NestedRules, ReadFile, WriteFile, PlanEdit, ApplyEdit, PermissionModesGet, SelectionChanged, DocumentClosed,
             AtMention, ActionReply, StatusSnapshot, ContextUsageGet],
         [Status, IdeAction, ContextUsage, ConfigChange, AccountUsage, InstructionsChanged, ChatContract.Updates], ClaudeCodeJson.Default, ChatContract.Json);
 }
@@ -566,6 +572,7 @@ public static class ClaudeCodeContract
 [JsonSerializable(typeof(WorkspaceParams))]
 [JsonSerializable(typeof(ClaudeConfigSnapshot))]
 [JsonSerializable(typeof(McpListResult))]
+[JsonSerializable(typeof(ClaudeNestedRules))]
 [JsonSerializable(typeof(WriteFileParams))]
 [JsonSerializable(typeof(FileWriteResult))]
 [JsonSerializable(typeof(IdeActionRequest))]

@@ -44,6 +44,10 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private readonly ContentControl body = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private Surface surface = Surface.Context;
     private ClaudeConfigSnapshot? snapshot;
+    // The rules of subfolders, searched apart from the snapshot; the key stays empty while there is nothing to draw.
+    private ClaudeNestedRules? nested;
+    private string nestedKey = "";
+    private CancellationTokenSource? nestedRead;
     private IReadOnlyList<ClaudeCapability> reached = [];
     private string? error;
     private ClaudeAccountSurface? account;
@@ -56,7 +60,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     private bool showDocumented;
     private IDisposable? watch;
     private string snapshotKey = "", reachedKey = "";
-    private (Surface, string, string, string?, string, string)? rendered;
+    private (Surface, string, string, string, string?, string, string)? rendered;
     private (Surface, string?, string?, string?, string?)? renderedScope;
 
     public ClaudeConfigPanel(IPluginUIContext context, ClaudeGlyph glyph, string workspaceId)
@@ -104,8 +108,9 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         workspaceId = next;
         generation++; usageGeneration++;
         usagePending = false; requestedAt = null;
-        snapshot = null; reached = []; error = null; contextUsage = null; session = activeTab = null; subject = null;
-        snapshotKey = reachedKey = memoryKey = ""; settingsQuery = ""; surface = Surface.Context;
+        nestedRead?.Cancel();
+        snapshot = null; nested = null; reached = []; error = null; contextUsage = null; session = activeTab = null; subject = null;
+        snapshotKey = nestedKey = reachedKey = memoryKey = ""; settingsQuery = ""; surface = Surface.Context;
         expandedRows.Clear();
         collapsedGroups.Clear();
         rendered = null; renderedScope = null;
@@ -242,6 +247,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
     {
         var mine = ++generation;
         var tabKey = session?.TabKey;
+        LoadNestedRules(mine, tabKey);
         _ = Task.Run(async () =>
         {
             ClaudeConfigSnapshot result;
@@ -277,6 +283,29 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
                     reached = listed.Capabilities;
                     reachedKey = capabilitiesKey;
                     if (surface == Surface.Capabilities) Render();
+                });
+            }
+            catch (Exception failure) when (failure is not OperationCanceledException) { }
+        });
+    }
+
+    // Searching the subfolders can take seconds, so it is asked on its own and never holds the pane. A newer read cancels it.
+    private void LoadNestedRules(int mine, string? tabKey)
+    {
+        nestedRead?.Cancel();
+        var token = (nestedRead = new()).Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var found = await context.RequestAsync(ClaudeCodeContract.NestedRules, new WorkspaceParams(workspaceId) { TabKey = tabKey }, token);
+                var key = found.Rules.Count + found.Problems.Count == 0 ? "" : PluginJson.Serialize(found);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (mine != generation) return;
+                    nested = found;
+                    nestedKey = key;
+                    if (surface == Surface.Context) Render();
                 });
             }
             catch (Exception failure) when (failure is not OperationCanceledException) { }
@@ -336,7 +365,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
 
     private void Render()
     {
-        var key = (surface, snapshotKey, reachedKey, error, settingsQuery, memoryKey);
+        var key = (surface, snapshotKey, nestedKey, reachedKey, error, settingsQuery, memoryKey);
         if (rendered == key) return;
         rendered = key;
         notices.Children.Clear();
@@ -347,7 +376,8 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             text.Margin = new Thickness(8, 4);
             notices.Children.Add(text);
         }
-        foreach (var problem in snapshot?.Problems ?? [])
+        var below = surface == Surface.Context && nested?.Root == snapshot?.Root ? nested : null;
+        foreach (var problem in (snapshot?.Problems ?? []).Concat(below?.Problems ?? []))
         {
             var row = new DockPanel { Name = "ClaudeConfigProblem", Tag = problem.Severity, Margin = new Thickness(8, 4) };
             var icon = problem.Severity == ClaudeProblemSeverity.Warning ? Ui.Icon("alertWarning", Ui.Warning, 14) : Ui.Icon("alertInfo", Ui.Info, 14);
@@ -366,7 +396,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             ? Padded(Ui.Note("Reading configuration…", Ui.Muted, 13))
             : surface switch
             {
-                Surface.Context => ContextSurface(snapshot.Context),
+                Surface.Context => ContextSurface(WithNestedRules(snapshot.Context, below?.Rules ?? [])),
                 Surface.Settings => SettingsSurface(snapshot),
                 Surface.Account => Account(),
                 _ => new ClaudeCapabilitiesSurface(this, [.. snapshot.Capabilities, .. reached]).View
@@ -714,6 +744,15 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return line;
     }
 
+    // Subfolder rules follow the rules loaded at start, ahead of memory and the appended prompt.
+    private static IReadOnlyList<ClaudeContextLayer> WithNestedRules(IReadOnlyList<ClaudeContextLayer> layers, IReadOnlyList<ClaudeContextLayer> rules)
+    {
+        var all = layers.ToList();
+        var at = all.FindIndex(layer => layer.Kind is ClaudeContextKind.Memory or ClaudeContextKind.SystemPrompt);
+        all.InsertRange(at < 0 ? all.Count : at, rules);
+        return all;
+    }
+
     private Control ContextSurface(IReadOnlyList<ClaudeContextLayer> layers)
     {
         (usageView.Parent as Panel)?.Children.Remove(usageView);
@@ -738,7 +777,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         if (!layers.Any(layer => layer.Path.EndsWith("CLAUDE.local.md", StringComparison.Ordinal)))
             list.Children.Add(Offer("ClaudeOfferLocalMd", "Add CLAUDE.local.md", "Local instructions, like which toolchain to use on this machine.",
                 () => Edit(new(new FileEdit(ClaudeFileTemplate.ProjectLocalInstructions), "Create CLAUDE.local.md"))));
-        if (!layers.Any(layer => layer.Kind == ClaudeContextKind.Rules && layer.Origin.Scope == ClaudeConfigScope.Project))
+        if (!layers.Any(layer => layer is { Kind: ClaudeContextKind.Rules, Folder: null, Origin.Scope: ClaudeConfigScope.Project }))
             list.Children.Add(Offer("ClaudeOfferRule", "Add a rule", "A rule is an instruction file that loads in every session or only for some files.",
                 () => Edit(new(new FileEdit(ClaudeFileTemplate.ProjectRule), "Create .claude/rules/general.md"))));
         // The appended prompt is not a memory file: /context folds it into the system prompt, and the host measures it
@@ -766,7 +805,7 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             var layer = layers[index];
             if (layer.Kind == ClaudeContextKind.Rules && !rulesExplained)
             {
-                var hint = ClaudeParts.Wrapped("Rules are instruction files in .claude/rules folders. Rules in deeper folders are not listed. They load when Claude works there.", Ui.Hint, 11);
+                var hint = ClaudeParts.Wrapped("Rules are instruction files in .claude/rules folders. A rule in a subfolder loads only when Claude works in that folder.", Ui.Hint, 11);
                 hint.Name = "ClaudeRulesHint";
                 hint.Margin = new Thickness(8, 8, 8, 4);
                 list.Children.Add(hint);
@@ -789,7 +828,8 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             {
                 ToolTip.SetTip(title.Children[0], layer.Label);
                 if (layer.Lazy == false) title.Children.Add(Ui.Text("ALWAYS", Ui.Hint, 10));
-                else if (layer is { Lazy: true, Note: null }) title.Children.Add(Ui.Text("ON DEMAND", Ui.Hint, 10));
+                // A subfolder rule whose paths are ignored still waits for its folder.
+                else if (layer.Lazy == true && (layer.Note is null || layer.PathGlobs is null)) title.Children.Add(Ui.Text("ON DEMAND", Ui.Hint, 10));
             }
             column.Children.Add(title);
             column.Children.Add(ClaudeParts.SourceButton(layer.Path, null, OpenSource));
@@ -836,11 +876,14 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         return list;
     }
 
-    // Under a rule's path: which files load it, or why it does not load as written.
+    // Under a rule's path: its subfolder, then which files load it or why it does not load as written.
     private static TextBlock? RuleLine(ClaudeContextLayer layer)
     {
         var patterns = layer.PathGlobs is { } globs ? string.Join(", ", globs) : null;
-        if ((layer.Note ?? (patterns is null ? null : "Loads when Claude reads or edits: " + patterns)) is not { } text) return null;
+        var when = layer.Note ?? (patterns is not null ? "Loads when Claude reads or edits: " + patterns
+            : layer.Folder is not null ? "Loads when Claude reads or edits a file there." : null);
+        if (when is null) return null;
+        var text = layer.Folder is { } folder ? $"In {folder}/. {when}" : when;
         var line = ClaudeParts.Wrapped(text, Ui.Muted, 11);
         line.Name = "ClaudeRuleWhen";
         line.MaxLines = 3;

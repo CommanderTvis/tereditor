@@ -330,8 +330,8 @@ The Context surface's context table is the one place for baseline costs, in toke
 Its rows are everything a fresh session started like the tab's pays for, as `/context` counts it: the memory and
 instruction files the resolver lists (a file `/context` does not list says "not loaded", an on-demand rule shows a
 dash). A rule row is marked ALWAYS or ON DEMAND, shows the patterns that load it (or its note) on a line under its
-path, whole in the tooltip, and only the path opens it. One line above the first rule says what rules are and that
-deeper folders are not listed. A workspace with no project rule offers "Add a rule", which reviews and then writes
+path, whole in the tooltip, and only the path opens it. One line above the first rule says what rules are and when a
+subfolder's rule loads. A workspace with no project rule at or above its folder offers "Add a rule", which reviews and then writes
 `.claude/rules/general.md` without `paths`. The table's other rows are files `/context` lists that the resolver does not (nested instructions, rules, imports) with its source label,
 tereditor's instructions entry (the appended prompt file; never a separate file row), then Claude Code's own system prompt (less the appended file), built-in tools, MCP
 tools, MCP server instructions and skills; deferred tools, the `/context` message itself, free space and the
@@ -385,7 +385,8 @@ and marketplaces with provenance, disabled sources and discovery problems.
 
 `Host/ClaudeConfig/Rules.cs` reads `.claude/rules` as Claude Code does. The source is the
 [memory page](https://code.claude.com/docs/en/memory#organize-rules-with-claude/rules/) ("docs" below); where it is
-silent, Claude Code 2.1.332's own code decides ("2.1.332"). Check both again before changing a line here.
+silent, Claude Code 2.1.332's own code decides ("2.1.332"; the function names are its minified ones). Check both again
+before changing a line here.
 
 | Behavior | Source |
 |---|---|
@@ -398,6 +399,10 @@ silent, Claude Code 2.1.332's own code decides ("2.1.332"). Check both again bef
 | A project rule linked to a target outside the session's folder waits for the external imports approval, and one with `paths` never loads | docs "Share rules across projects with symlinks" |
 | A link to a network path (`/net`, `/Network`, UNC except `\\wsl`) is never looked up | same |
 | A file over 4 MB is skipped | docs "My CLAUDE.md is too large" |
+| Rules in the `.claude/rules` of a folder below the session's load on demand | docs "Set up rules" (the v2.1.211 sentence), "Claude ignores the end of my subdirectory CLAUDE.md", "Choose which instruction files load" (`managed-only`) |
+| Such a rule without `paths` loads when Claude reaches a file in that folder or below | docs are silent on the trigger (they state it for a subfolder's CLAUDE.md in "How CLAUDE.md files load"); 2.1.332: `$zt` lists every folder from the file's up to just below the session's, and `Rps` loads each one's CLAUDE.md and rules without `paths` |
+| Such a rule with `paths` loads for a matching file; patterns start at the folder holding that `.claude` | docs "Path-specific rules"; 2.1.332: `fHe` drops a file outside that folder |
+| A subfolder's rules folder, or an entry in it, that links outside the session's folder never loads, even after the external imports approval. A linked `.claude` folder follows the project rule row above | 2.1.332: `Rps` and `fHe` read these folders without external includes (`tze`) |
 
 Bounds: 500 rule files (a "Too many rule files" problem says when the list is cut), 5000 folder entries, 16 folder
 levels, the first 256K characters of a file, 32 YAML levels and 200 patterns; aliases are never expanded. An empty file
@@ -405,9 +410,23 @@ levels, the first 256K characters of a file, 32 YAML levels and 200 patterns; al
 thread pool.
 
 A context layer of a rule has the path under its rules folder as its label, `Lazy` false (every session), true
-(on demand) or null (not promised), `Note` when it does not load as written, and `PatternBase`.
+(on demand) or null (not promised), `Note` when it does not load as written, `PatternBase`, and for a subfolder's rule
+`Folder`, relative to the session's.
 
-Not covered: `.claude/rules` in folders below the session's (they load on demand; listing them needs a project scan),
+Subfolder rules come from `nestedRules`, a method apart from `configGet`: the pane asks for both at once, draws the
+configuration without waiting, and adds these rows after the other rules when they arrive. A newer read cancels the
+older one. The host searches on the thread pool, breadth first. It does not enter linked folders, folders Git ignores
+below the session's (`git ls-files --others --ignored --directory`, 5 s; without Git or on failure only the names
+count), or folders named `.git`, `.hg`, `.svn`, `.claude`, `node_modules`, `bin`, `obj`, `target`, `dist`, `build`,
+`vendor`, `.venv`, `venv`, `__pycache__`, `.gradle`, `.dart_tool`, `.next` or `.cache`. A session in the home folder or
+above it is not searched, and an info line says so. Bounds: 20,000 folders, 32 levels and 5 seconds, then the rule
+bounds above across all subfolders (500 files, 5000 entries); a "Some rules in subfolders are not listed" problem says
+when one cut the list. A row reads "In packages/api/. Loads when Claude reads or edits a file there." (or names its
+patterns, or its note). `readFile`, `writeFile` and the external file list accept the files of the last search of that
+folder, so nothing else searches the project.
+
+Not covered: rules in the skipped, ignored and linked subfolders above, which Claude Code may load when it
+reaches a file there; a new subfolder rule until the pane reads again (refresh, a configuration change or a tab change);
 the managed policy folder's rules, `--add-dir` folders, `claudeMdExcludes`, `--setting-sources`, the "Project
 instructions" setting, parent folders Claude Code skips for a worktree nested in its main checkout, and whether the
 external imports approval was already given (that row keeps saying it is needed). Checked by `--claude-code`.

@@ -175,6 +175,12 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
             var entries = await McpList.ListAsync(Command(), scope.Root, new Dictionary<string, string> { ["THINKRAIL_MCP_URL"] = probe });
             return new McpListResult(McpList.Capabilities(entries, declared, scope.Root));
         });
+        context.Method(ClaudeCodeContract.NestedRules, async (p, _, ct) =>
+        {
+            var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
+            return await Task.Run(async () => ClaudeResolver.NestedRules(scope.Root,
+                ClaudeRules.SearchesBelow(scope.Root) ? await IgnoredFoldersAsync(scope.Root, ct) : new HashSet<string>(), ct), ct);
+        });
         contextUsage = new ContextUsageRunner(
             (spec, timeout, cancellationToken) => Bounded.RunAsync(spec.Argv, timeout, spec.Cwd, spec.Environment, cancellationToken),
             TimeSpan.FromSeconds(90), TimeSpan.FromSeconds(2),
@@ -214,7 +220,7 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         {
             var scopes = ScopesOf(workspaceId).ToList();
             var readOnly = scopes.SelectMany(scope => ClaudeResolver.PluginFilePaths(workspaceId, scope.Root, scope.PromptFiles)).ToHashSet();
-            return [.. scopes.SelectMany(scope => ClaudeResolver.FilePaths(workspaceId, scope.Root, scope.PromptFiles)).Append(SystemPrompt.FilePath()).Where(path => !readOnly.Contains(path)).Distinct()];
+            return [.. scopes.SelectMany(scope => ClaudeResolver.FilePaths(workspaceId, scope.Root, scope.PromptFiles).Concat(ClaudeResolver.ListedNestedRules(scope.Root))).Append(SystemPrompt.FilePath()).Where(path => !readOnly.Contains(path)).Distinct()];
         });
         context.Method(ClaudeCodeContract.ReadFile, async (p, _, ct) =>
         {
@@ -449,6 +455,15 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         inputs.AddRange([Path.Combine(home, "settings.json"), Path.Combine(home, "settings.local.json"), Path.Combine(home, "CLAUDE.md"),
             Path.Combine(scope.Root, ".mcp.json"), Path.Combine(scope.Root, ".claude", "settings.json"), Path.Combine(scope.Root, ".claude", "settings.local.json")]);
         return new(workspaceId, ClaudeCommands.ClaudeBinary(Command()), scope.Root, flags, environment, [.. inputs.Distinct()]);
+    }
+
+    // The folders Git ignores below this one. Outside a repository, or when Git is slow, only the search's own skipped names apply.
+    private async Task<IReadOnlySet<string>> IgnoredFoldersAsync(string root, CancellationToken cancellationToken)
+    {
+        var listed = await context.GitAsync(root, ["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory"],
+            new GitRunOptions(TimeSpan.FromSeconds(5)), cancellationToken);
+        return !listed.Ok ? new HashSet<string>() : listed.Out.Split('\0', StringSplitOptions.RemoveEmptyEntries).Where(entry => entry.EndsWith('/'))
+            .Select(entry => Path.TrimEndingDirectorySeparator(Path.GetFullPath(entry, root))).ToHashSet(StringComparer.Ordinal);
     }
 
     private string HookPluginDirectory => Path.Combine(context.AssetsDirectory ??

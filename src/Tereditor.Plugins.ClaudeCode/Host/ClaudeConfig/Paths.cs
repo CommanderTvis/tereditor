@@ -5,7 +5,11 @@ namespace Tereditor.Plugins.ClaudeCode.Host.ClaudeConfig;
 internal sealed record ScopedPath(ClaudeConfigScope Scope, string Path);
 
 /// <summary>A <c>.claude/rules</c> folder; <c>Base</c> is the folder its rules' <c>paths</c> patterns start from.</summary>
-internal sealed record RulesDirectory(ClaudeConfigScope Scope, string Path, string Base);
+internal sealed record RulesDirectory(ClaudeConfigScope Scope, string Path, string Base)
+{
+    /// <summary>For a folder below the session's: <c>Base</c> relative to the session's folder.</summary>
+    public string? Below { get; init; }
+}
 
 /// <summary>Every file and directory Claude Code reads its configuration from, in precedence order where it matters.</summary>
 internal static partial class ClaudePaths

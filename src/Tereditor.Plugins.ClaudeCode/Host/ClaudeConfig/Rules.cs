@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -9,7 +10,8 @@ namespace Tereditor.Plugins.ClaudeCode.Host.ClaudeConfig;
 /// <summary>
 /// Reads <c>.claude/rules</c> as Claude Code does (https://code.claude.com/docs/en/memory, and Claude Code 2.1.332 where
 /// the page is silent): every <c>.md</c> file under the user's folder, then under each folder from the top down to the
-/// session's own, with links followed. The walk and each read are bounded.
+/// session's own, with links followed. The rules of folders below the session's are a separate search of the project
+/// (<see cref="Below"/>), since it costs more. The walks and each read are bounded.
 /// </summary>
 internal static partial class ClaudeRules
 {
@@ -20,10 +22,21 @@ internal static partial class ClaudeRules
     private const int MaxHead = 256 * 1024;
     private const int MaxYamlDepth = 32;
     private const int MaxPatterns = 200;
+    private const int MaxSearchFolders = 20_000;
+    private const int MaxSearchDepth = 32;
+    private static readonly TimeSpan MaxSearchTime = TimeSpan.FromSeconds(5);
+
+    // Version control, dependencies and build output. A .claude folder is not searched either: its worktrees hold copies of the project.
+    private static readonly HashSet<string> Skipped = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git", ".hg", ".svn", ".claude", "node_modules", "bin", "obj", "target", "dist", "build", "vendor", ".venv", "venv", "__pycache__",
+        ".gradle", ".dart_tool", ".next", ".cache"
+    };
 
     private const string InvalidYaml = "Paths are ignored: the settings at the top are not valid YAML.";
-    private const string AsksFirst = "Loads only if you allow external imports. The link leads outside this folder.";
-    private const string NeverLoads = "Claude Code does not load this rule. It has paths, and the link leads outside this folder.";
+    private const string AsksFirst = "Loads only if you allow external imports. The link leads outside the session's folder.";
+    private const string NeverLoads = "Claude Code does not load this rule. It has paths, and the link leads outside the session's folder.";
+    private const string NeverLoadsBelow = "Claude Code does not load this rule. The link leads outside the session's folder.";
     private const string TooLarge = "Claude Code skips files over 4 MB.";
     private const string LongSettings = "The settings at the top are too long to check here.";
     private const string Unreadable = "This file cannot be read.";
@@ -41,18 +54,87 @@ internal static partial class ClaudeRules
     /// <summary>The rule files a session in <paramref name="cwd"/> can load, in Claude Code's order; <c>Truncated</c> when a limit cut the list.</summary>
     public static (IReadOnlyList<ClaudeContextLayer> Layers, bool Truncated) Collect(string cwd)
     {
-        var walk = new Walk(ClaudePaths.RealPath(cwd) ?? cwd);
-        foreach (var rules in ClaudePaths.RulesDirectories(cwd))
-        {
-            if (ClaudePaths.RealPath(rules.Path) is not { } real || !Directory.Exists(real)) continue;
-            // A .claude or rules folder that is itself a link counts as linked, like any link below it.
-            var linked = ClaudePaths.RealPath(rules.Base) is { } owner && real != Path.Combine(owner, ".claude", "rules");
-            Visit(walk, rules, rules.Path, real, "", linked, 0);
-        }
+        var walk = AtStart(cwd);
         return (walk.Layers, walk.Truncated);
     }
 
-    private static void Visit(Walk walk, RulesDirectory rules, string folder, string real, string prefix, bool linked, int depth)
+    private static Walk AtStart(string cwd)
+    {
+        var walk = new Walk(ClaudePaths.RealPath(cwd) ?? cwd);
+        foreach (var rules in ClaudePaths.RulesDirectories(cwd)) Add(walk, rules);
+        return walk;
+    }
+
+    /// <summary>Whether <see cref="Below"/> searches this folder: not the home folder or one above it, which would walk all of the user's files.</summary>
+    public static bool SearchesBelow(string cwd)
+    {
+        var folder = ClaudePaths.RealPath(cwd) ?? cwd;
+        var home = ClaudePaths.RealPath(ClaudeEnvironment.Home()) ?? ClaudeEnvironment.Home();
+        return Path.GetDirectoryName(folder) is not null && Path.TrimEndingDirectorySeparator(home) != Path.TrimEndingDirectorySeparator(folder) && !IsInside(home, folder);
+    }
+
+    /// <summary>
+    /// The rules in <c>.claude/rules</c> folders below <paramref name="cwd"/>, shallowest first; Claude Code loads them on demand.
+    /// Links to folders are not searched, nor are <see cref="Skipped"/> names and the <paramref name="ignored"/> full paths.
+    /// </summary>
+    public static ClaudeNestedRules Below(string cwd, IReadOnlySet<string> ignored, CancellationToken cancellationToken)
+    {
+        if (!SearchesBelow(cwd))
+            return new(cwd, [], [new(ClaudeProblemSeverity.Info, "Rules in subfolders are not listed",
+                "This session starts in your home folder or above it, so its subfolders are not searched.")]);
+        // What the session loads at start is read first, so a link back to one of those files does not list it twice.
+        var walk = AtStart(cwd);
+        walk.Layers.Clear();
+        walk.Entries = 0;
+        walk.Truncated = false;
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(cwd));
+        var options = new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = true };
+        var clock = Stopwatch.StartNew();
+        var pending = new Queue<(string Folder, int Depth)>([(root, 0)]);
+        var queued = 1;
+        var partial = false;
+        while (pending.TryDequeue(out var next))
+        {
+            var (folder, depth) = next;
+            var children = new List<string>();
+            var configured = false;
+            try
+            {
+                foreach (var entry in new DirectoryInfo(folder).EnumerateFileSystemInfos("*", options))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (clock.Elapsed > MaxSearchTime) { partial = true; break; }
+                    if (entry.Name == ".claude") configured = depth > 0;
+                    else if (entry is DirectoryInfo && (entry.Attributes & FileAttributes.ReparsePoint) == 0 &&
+                        !Skipped.Contains(entry.Name) && !ignored.Contains(entry.FullName)) children.Add(entry.FullName);
+                }
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+            if (configured)
+                Add(walk, new(ClaudeConfigScope.Project, Path.Combine(folder, ".claude", "rules"), folder)
+                { Below = Path.GetRelativePath(root, folder).Replace(Path.DirectorySeparatorChar, '/') });
+            if (clock.Elapsed > MaxSearchTime) { partial = true; break; }
+            foreach (var child in children.Order(StringComparer.Ordinal))
+            {
+                if (depth >= MaxSearchDepth || queued >= MaxSearchFolders) { partial = true; break; }
+                queued++;
+                pending.Enqueue((child, depth + 1));
+            }
+        }
+        var cut = partial ? "This project is too large to search fully." : walk.Truncated ? "The rule folders hold too much to list." : null;
+        return new(cwd, walk.Layers, cut is null ? [] : [new(ClaudeProblemSeverity.Warning, "Some rules in subfolders are not listed", cut)]);
+    }
+
+    private static void Add(Walk walk, RulesDirectory rules)
+    {
+        if (ClaudePaths.RealPath(rules.Path) is not { } real || !Directory.Exists(real)) return;
+        // A .claude or rules folder that is itself a link counts as linked, like any link below it.
+        var linked = ClaudePaths.RealPath(rules.Base) is { } owner && real != Path.Combine(owner, ".claude", "rules");
+        Visit(walk, rules, rules.Path, real, "", linked, new FileInfo(rules.Path).LinkTarget is not null, 0);
+    }
+
+    // linked: some link leads to this folder; within: that link is the rules folder itself or one inside it.
+    private static void Visit(Walk walk, RulesDirectory rules, string folder, string real, string prefix, bool linked, bool within, int depth)
     {
         if (!walk.Folders.Add(real)) return;
         if (depth > MaxFolderDepth) { walk.Truncated = true; return; }
@@ -72,13 +154,15 @@ internal static partial class ClaudeRules
         {
             var target = link ? ClaudePaths.RealPath(Path.Combine(real, name)) : Path.Combine(real, name);
             if (target is null) continue;
-            if (Directory.Exists(target)) Visit(walk, rules, Path.Combine(folder, name), target, prefix + name + "/", linked || link, depth + 1);
+            if (Directory.Exists(target)) Visit(walk, rules, Path.Combine(folder, name), target, prefix + name + "/", linked || link, within || link, depth + 1);
             else if (name.EndsWith(".md", StringComparison.Ordinal) && File.Exists(target))
             {
                 if (walk.Layers.Count >= MaxFiles) { walk.Truncated = true; return; }
                 if (!walk.Files.Add(target)) continue;
-                var outside = rules.Scope == ClaudeConfigScope.Project && (linked || link) && !IsInside(target, walk.Cwd);
-                walk.Layers.Add(Layer(rules, Path.Combine(folder, name), prefix + name, target, outside));
+                var leaves = rules.Scope == ClaudeConfigScope.Project && !IsInside(target, walk.Cwd);
+                // On demand Claude Code never follows a link out of the session's folder, approved or not.
+                var barred = rules.Below is not null && (within || link) && leaves;
+                walk.Layers.Add(Layer(rules, Path.Combine(folder, name), prefix + name, target, leaves && (linked || link), barred));
             }
         }
     }
@@ -86,15 +170,16 @@ internal static partial class ClaudeRules
     private static bool IsInside(string path, string folder) =>
         path.StartsWith(Path.TrimEndingDirectorySeparator(folder) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
-    // Lazy is false for a rule every session loads, true for one that waits for a matching file, and null when neither can be promised.
-    private static ClaudeContextLayer Layer(RulesDirectory rules, string path, string label, string target, bool outside)
+    // Lazy is false for a rule every session loads, true for one that waits for Claude to reach a file, and null when neither can be promised.
+    private static ClaudeContextLayer Layer(RulesDirectory rules, string path, string label, string target, bool outside, bool barred)
     {
-        var layer = new ClaudeContextLayer(ClaudeContextKind.Rules, label, path, new(rules.Scope, path), 0);
+        var layer = new ClaudeContextLayer(ClaudeContextKind.Rules, label, path, new(rules.Scope, path), 0) { Folder = rules.Below };
         string head;
         bool cut;
         try
         {
             layer = layer with { Bytes = new FileInfo(target).Length };
+            if (barred) return layer with { Note = NeverLoadsBelow };
             if (layer.Bytes > MaxFileBytes) return layer with { Note = TooLarge };
             // An empty file has no settings; not opening it also keeps a pipe or device named *.md from blocking the read.
             (head, cut) = layer.Bytes == 0 ? ("", false) : ReadHead(target);
@@ -104,7 +189,7 @@ internal static partial class ClaudeRules
         if (unclosed && cut) return layer with { Note = LongSettings };
         if (globs is not null)
             return layer with { PathGlobs = globs, PatternBase = rules.Base, Lazy = true, Note = outside ? NeverLoads : null };
-        return outside ? layer with { Note = AsksFirst } : layer with { Lazy = false, Note = invalid ? InvalidYaml : null };
+        return outside ? layer with { Note = AsksFirst } : layer with { Lazy = rules.Below is not null, Note = invalid ? InvalidYaml : null };
     }
 
     private static (string Head, bool Cut) ReadHead(string path)

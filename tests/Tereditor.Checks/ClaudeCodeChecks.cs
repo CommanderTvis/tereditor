@@ -442,6 +442,13 @@ internal static class ClaudeCodeChecks
             "An on-demand rule shows which files load it.");
         Require(pane.GetLogicalDescendants().OfType<TextBlock>().Count(text => text.Name == "ClaudeRulesHint") == 1, "The pane says once what rules are.");
         Require(Offer() is null, "A project with rules gets no offer to add one.");
+        var docs = Path.Combine(app.Root, "docs");
+        Directory.CreateDirectory(Path.Combine(docs, ".claude", "rules"));
+        File.WriteAllText(Path.Combine(docs, ".claude", "rules", "writing.md"), "# Writing\n");
+        Refresh();
+        E2eWorkspace.Until(() => Row("writing.md") is not null);
+        Require(Texts("writing.md").Contains("ON DEMAND") && Texts("writing.md").Contains("In docs/. Loads when Claude reads or edits a file there."),
+            "A subfolder rule is marked on demand and names its folder. Got: " + string.Join(" | ", Texts("writing.md")));
         foreach (var width in new[] { 260, 280, 360, 480 })
         {
             pane.Width = width;
@@ -455,7 +462,10 @@ internal static class ClaudeCodeChecks
         pane.ClearValue(Control.WidthProperty);
         Directory.Delete(rules, true);
         Refresh();
-        E2eWorkspace.Until(() => Offer() is not null);
+        E2eWorkspace.Until(() => Offer() is not null && Row("writing.md") is not null);
+        Directory.Delete(docs, true);
+        Refresh();
+        E2eWorkspace.Until(() => Row("writing.md") is null);
         Console.WriteLine("PASS Claude Code rules in the Context tab: the offer, when each rule loads, subfolder names and narrow panes");
     }
 
@@ -2190,6 +2200,7 @@ internal static class ClaudeCodeChecks
             var crowded = ClaudeResolver.Resolve("rules-many", many);
             Require(crowded.Context.Count(layer => layer.Kind == ClaudeContextKind.Rules) == 500 && crowded.Problems.Any(problem => problem.Title == "Too many rule files"),
                 "At most 500 rule files are listed, with a problem saying so.");
+            SubfolderRules(fixture, project, Put);
         }
         finally
         {
@@ -2197,6 +2208,89 @@ internal static class ClaudeCodeChecks
             Environment.SetEnvironmentVariable("CLAUDE_CONFIG_DIR", previousConfig);
         }
         Console.WriteLine("PASS Claude Code rules: subfolders, links, parent folders, every form of paths, and links leading outside");
+    }
+
+    /// <summary>
+    /// <c>.claude/rules</c> folders below the session's: which are found, how each loads, what is skipped and where the search stops.
+    /// </summary>
+    private static void SubfolderRules(string fixture, string project, Func<string, string, string> put)
+    {
+        string In(string folder, string name) => Path.Combine([project, .. folder.Split('/'), ".claude", "rules", name]);
+        put(In("packages/api", "api.md"), "# Api\n");
+        put(In("packages/api", "deep/scoped.md"), "---\npaths: src/*.cs\n---\n");
+        put(In("packages/api", "broken.md"), "---\npaths:\n  - **/*.ts\n---\n");
+        put(In("tools", "tool.md"), "# Tool\n");
+        put(In("generated", "generated.md"), "# Generated\n");
+        put(In("node_modules/dependency", "dependency.md"), "# Dependency\n");
+        put(In("tools/bin", "output.md"), "# Output\n");
+        put(In(".claude/worktrees/copy", "copy.md"), "# Copy\n");
+        var outside = Path.Combine(fixture, "outside");
+        put(Path.Combine(outside, "linked-folder", ".claude", "rules", "through-link.md"), "# Linked\n");
+        if (!OperatingSystem.IsWindows())
+        {
+            // A linked folder is not searched, so a link back up cannot make the search loop.
+            Directory.CreateSymbolicLink(Path.Combine(project, "packages", "linked-folder"), Path.Combine(outside, "linked-folder"));
+            Directory.CreateSymbolicLink(Path.Combine(project, "packages", "loop"), project);
+            File.CreateSymbolicLink(In("packages/api", "out.md"), put(Path.Combine(outside, "out.md"), "# Out\n"));
+            File.CreateSymbolicLink(In("packages/api", "network.md"), "/net/host.invalid/rule.md");
+            put(Path.Combine(outside, "folder", "from-folder.md"), "# From a folder\n");
+            Directory.CreateDirectory(Path.Combine(project, "web", ".claude"));
+            Directory.CreateSymbolicLink(Path.Combine(project, "web", ".claude", "rules"), Path.Combine(outside, "folder"));
+            put(Path.Combine(outside, "config", "rules", "asks.md"), "# Asks\n");
+            put(Path.Combine(outside, "config", "rules", "never.md"), "---\npaths: x/*.cs\n---\n");
+            Directory.CreateDirectory(Path.Combine(project, "web2"));
+            Directory.CreateSymbolicLink(Path.Combine(project, "web2", ".claude"), Path.Combine(outside, "config"));
+            // A link back to the rules the session starts with lists nothing twice.
+            Directory.CreateDirectory(Path.Combine(project, "web3", ".claude"));
+            Directory.CreateSymbolicLink(Path.Combine(project, "web3", ".claude", "rules"), Path.Combine(project, ".claude", "rules"));
+        }
+        HashSet<string> ignored = [Path.Combine(project, "generated")];
+        var found = ClaudeResolver.NestedRules(project, ignored, CancellationToken.None);
+        var listing = string.Join("; ", found.Rules.Select(layer => $"{layer.Folder} {layer.Label} {layer.Lazy} {layer.Note}"));
+        ClaudeContextLayer One(string label) => found.Rules.SingleOrDefault(layer => layer.Label == label) ?? throw new InvalidOperationException($"One subfolder rule {label} was expected. Got: {listing}");
+        Require(found.Root == project && found.Problems.Count == 0, "A small project is searched whole. Got: " + string.Join("; ", found.Problems.Select(problem => problem.Detail)));
+        Require(One("api.md") is { Folder: "packages/api", Lazy: true, PathGlobs: null, Note: null, Origin.Scope: ClaudeConfigScope.Project },
+            "A subfolder rule without paths loads on demand and names its folder. Got: " + listing);
+        Require(One("deep/scoped.md") is { Folder: "packages/api", Lazy: true, Note: null } scoped && scoped.PathGlobs!.SequenceEqual(["src/*.cs"]) &&
+            scoped.PatternBase == Path.Combine(project, "packages", "api"), "A subfolder rule's patterns start at the folder holding its .claude. Got: " + listing);
+        Require(One("broken.md") is { Lazy: true, PathGlobs: null } broken && broken.Note?.Contains("not valid YAML", StringComparison.Ordinal) == true,
+            "A subfolder rule with unreadable settings says its paths are ignored. Got: " + listing);
+        Require(found.Rules.ToList().IndexOf(One("tool.md")) < found.Rules.ToList().IndexOf(One("api.md")), "Shallower folders come first. Got: " + listing);
+        Require(found.Rules.All(layer => layer.Folder is not null && layer.Label is not ("generated.md" or "dependency.md" or "output.md" or "copy.md" or "through-link.md" or "always.md" or "network.md")),
+            "Ignored, dependency, build, worktree and linked folders are not searched, and the session's own rules are not repeated. Got: " + listing);
+        Require(ClaudeResolver.NestedRules(project, new HashSet<string>(), CancellationToken.None).Rules.Any(layer => layer.Label == "generated.md"), "A folder nobody ignores is searched.");
+        if (!OperatingSystem.IsWindows())
+        {
+            foreach (var label in new[] { "out.md", "from-folder.md" })
+                Require(One(label) is { Lazy: null } barred && barred.Note?.StartsWith("Claude Code does not load", StringComparison.Ordinal) == true,
+                    $"{label}: on demand, a link leading outside the session's folder never loads. Got: {listing}");
+            Require(One("asks.md") is { Folder: "web2", Lazy: null } asks && asks.Note?.Contains("allow external imports", StringComparison.Ordinal) == true &&
+                One("never.md") is { Lazy: true } never && never.Note?.Contains("does not load", StringComparison.Ordinal) == true,
+                "A linked .claude folder waits for approval, and its rules with paths never load. Got: " + listing);
+            Require(found.Rules.All(layer => layer.Folder != "web3"), "A link back to a listed rule is not listed again. Got: " + listing);
+        }
+        var api = One("api.md").Path;
+        Require(!ClaudeResolver.FilePaths("rules-ws", project).Contains(api) && ClaudeResolver.ReadFile("rules-ws", project, api).Content == "# Api\n",
+            "A listed subfolder rule opens from the pane without the snapshot searching subfolders.");
+        using (var canceled = new CancellationTokenSource())
+        {
+            canceled.Cancel();
+            try { ClaudeResolver.NestedRules(project, ignored, canceled.Token); Require(false, "A canceled search stops."); }
+            catch (OperationCanceledException) { }
+        }
+        var home = ClaudeResolver.NestedRules(fixture, ignored, CancellationToken.None);
+        Require(home.Rules.Count == 0 && home.Problems.Single() is { Severity: ClaudeProblemSeverity.Info }, "The home folder is not searched, and the pane says so.");
+        void Cut(string root, string why)
+        {
+            var cut = ClaudeResolver.NestedRules(root, new HashSet<string>(), CancellationToken.None);
+            Require(cut.Problems.SingleOrDefault() is { Severity: ClaudeProblemSeverity.Warning, Title: "Some rules in subfolders are not listed" }, why);
+        }
+        var crowded = Path.Combine(fixture, "crowded");
+        for (var index = 0; index < 600; index++) put(Path.Combine(crowded, "sub", ".claude", "rules", $"r{index:000}.md"), "x\n");
+        Cut(crowded, "A list cut at 500 subfolder rules says so.");
+        var tall = Path.Combine(fixture, "tall");
+        Directory.CreateDirectory(Path.Combine([tall, .. Enumerable.Repeat("d", 40)]));
+        Cut(tall, "A search cut by depth says so.");
     }
 
     /// <summary>
@@ -2232,6 +2326,21 @@ internal static class ClaudeCodeChecks
         Require(config.Context.Single(layer => layer.Path == rulePath) is { Kind: ClaudeContextKind.Rules, Lazy: false, Note: null },
             "An added rule loads in every session.");
         File.Delete(rulePath);
+
+        // Through the host, the folders Git ignores are left out of the subfolder search.
+        string[] made = [Path.Combine(project, "sub"), Path.Combine(project, "generated"), Path.Combine(project, ".git")];
+        foreach (var folder in made[..2])
+        {
+            Directory.CreateDirectory(Path.Combine(folder, ".claude", "rules"));
+            File.WriteAllText(Path.Combine(folder, ".claude", "rules", Path.GetFileName(folder) + ".md"), "# Rule\n");
+        }
+        File.WriteAllText(Path.Combine(project, ".gitignore"), "generated/\n");
+        IsolatedGit.Run(project, "init", "-b", "main");
+        var nestedRules = await Call(ClaudeCodeContract.NestedRules, new WorkspaceParams(project));
+        Require(nestedRules.Rules.Select(layer => layer.Label).SequenceEqual(["sub.md"]),
+            "The host lists subfolder rules and skips what Git ignores. Got: " + string.Join(", ", nestedRules.Rules.Select(layer => layer.Path)));
+        foreach (var folder in made) Directory.Delete(folder, true);
+        File.Delete(Path.Combine(project, ".gitignore"));
 
         var add = new McpAddEdit("notes", new(ClaudeMcpTransport.Stdio) { Command = "notes-mcp", Args = ["--root", "."] });
         Require(Diff(await Apply(ClaudeWritableScope.Project, add)).Contains("notes-mcp", StringComparison.Ordinal) &&

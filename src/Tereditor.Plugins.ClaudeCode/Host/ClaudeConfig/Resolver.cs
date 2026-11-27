@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -251,8 +252,22 @@ internal static partial class ClaudeResolver
     public static IReadOnlyList<string> PluginFilePaths(string workspaceId, string root, IReadOnlyList<string>? promptFiles = null) =>
         [.. Resolve(workspaceId, root, promptFiles).Capabilities.SelectMany(capability => capability.Parts ?? []).Select(part => part.Path).OfType<string>().Distinct()];
 
+    // The last search of each session folder: its files open from the pane without searching the project again.
+    private static readonly ConcurrentDictionary<string, IReadOnlyList<string>> FoundBelow = new(StringComparer.Ordinal);
+
+    /// <summary>The rules of the folders below <paramref name="root"/>; see <see cref="ClaudeRules.Below"/>.</summary>
+    public static ClaudeNestedRules NestedRules(string root, IReadOnlySet<string> ignored, CancellationToken cancellationToken)
+    {
+        var found = ClaudeRules.Below(root, ignored, cancellationToken);
+        FoundBelow[root] = [.. found.Rules.Select(layer => layer.Path)];
+        return found;
+    }
+
+    /// <summary>The files the last <see cref="NestedRules"/> of this folder listed.</summary>
+    public static IReadOnlyList<string> ListedNestedRules(string root) => FoundBelow.GetValueOrDefault(root) ?? [];
+
     private static string AllowedPath(string workspaceId, string root, string path, IReadOnlyList<string>? promptFiles) =>
-        FilePaths(workspaceId, root, promptFiles).Contains(path) ? path : throw new InvalidOperationException("Not a file this workspace's Claude configuration reports");
+        ListedNestedRules(root).Contains(path) || FilePaths(workspaceId, root, promptFiles).Contains(path) ? path : throw new InvalidOperationException("Not a file this workspace's Claude configuration reports");
 
     // The files a plugin ships open for reading; Claude Code installs and updates them, so they are never written from here.
     private static bool IsPluginFile(string workspaceId, string root, string path, IReadOnlyList<string>? promptFiles) =>

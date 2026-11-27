@@ -31,11 +31,6 @@ leaves a window open now fails. Not verified: the running app; the limits of the
 A submenu sits flush beside its parent and turns left at the window's edge ([spec](src/Tereditor.UI/SPEC.md), Popups).
 Checked headless on macOS only.
 
-## 2026-11-27 — Claude Code rules in the Context tab
-
-The tab reads `.claude/rules` as Claude Code does and says when each rule loads
-([spec](src/Tereditor.Plugins.ClaudeCode/SPEC.md), Rules). Not seen in the running app or on Windows.
-
 ## 2026-11-27 — omp 19.2.1, no self-update for managed agents, omp colors
 
 The pin is omp 19.2.1. The managed omp and Pi cannot update themselves
@@ -72,3 +67,10 @@ a view opens without focus ([spec](src/Tereditor.Plugins.Runner/SPEC.md)). Not v
 Three threads could list a line after a newer one, and the panel then dropped it ([spec](src/Tereditor.Plugins.ClaudeCode/SPEC.md),
 Debug mode). Checks on macOS: `--claude-chat-host`, format; CI runs it on Linux. Not verified: the running app. Open: a new
 log restarts its numbering at 1, so a panel that stayed open would likely drop its lines (read in code, not reproduced).
+
+## 2026-11-27 — Claude Code rules in the Context tab
+
+The tab reads `.claude/rules` as Claude Code does and says when each rule loads, now including folders below the
+session's as on demand rows, from a bounded search asked apart from the configuration
+([spec](src/Tereditor.Plugins.ClaudeCode/SPEC.md), Rules: sources, limits, skipped folders). Checks on macOS:
+`--claude-code`, format. Not verified: the running app, Windows, a very large project.
