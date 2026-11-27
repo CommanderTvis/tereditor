@@ -113,6 +113,7 @@ minimal one-page fixture generated with correct offsets for each text:
   no Markdown chrome does; a rewrite, a delete-and-rename and a Reload each show the new text without reopening the
   tab;
 - PDF remains available independently of the plugin roster; the resource toggle offers the binary file card.
+- bytes that stop being a PDF and come back keep the same preview and zoom while the fallback toggle changes;
 - a tab switch away and back keeps the same page bitmap, render count and zoom with no loading state; an edit
   while hidden reloads on return; closing the tab releases bytes, rasters and the watch;
 - a selection across a multi-word line paints one rectangle spanning first to last glyph; two ragged lines paint

@@ -19,12 +19,13 @@ internal sealed record TabView(string? RendererId = null, object? ViewState = nu
 /// </summary>
 internal sealed class ResourcePane : Grid, IDisposable
 {
-    private readonly IReadOnlyList<ResourceRenderer> candidates;
+    private IReadOnlyList<ResourceRenderer> candidates;
     private readonly Func<TabView> read;
     private readonly Action<TabView> write;
     private readonly Dictionary<string, Control> bodies = [];
     private readonly Dictionary<string, ToggleButton> toggles = [];
     private readonly ContentControl host = new();
+    private Border? viewToggle;
     private ResourceDescriptor resource;
     private ResourceContent content;
     private readonly string tabId;
@@ -36,27 +37,7 @@ internal sealed class ResourcePane : Grid, IDisposable
         this.candidates = candidates; this.resource = resource; this.tabId = tabId; this.content = content; this.read = read; this.write = write;
         Name = "ResourcePane";
         RowDefinitions = new RowDefinitions("Auto,Auto,*");
-        if (candidates.Count >= 2)
-        {
-            var segments = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-            foreach (var candidate in candidates)
-            {
-                var toggle = Segment(ToggleName(candidate.Id), candidate.Label);
-                toggle.Click += (_, _) => Select(candidate.Id);
-                toggles[candidate.Id] = toggle;
-                segments.Children.Add(toggle);
-            }
-            Ui.Place(this, new Border
-            {
-                Name = "ResourceViewToggle",
-                Height = 32,
-                Background = Ui.Header,
-                BorderBrush = Ui.BorderBrush,
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(12, 0),
-                Child = segments
-            });
-        }
+        PlaceToggle();
         // A file the host serves read-only for a stated reason (tereditor's generated instructions) says so over every view.
         if (readOnlyNotice is not null)
             Ui.Place(this, new Border
@@ -70,6 +51,51 @@ internal sealed class ResourcePane : Grid, IDisposable
             }, 1);
         Ui.Place(this, host, 2);
         Show(ResourceRegistry.Select(candidates, read().RendererId));
+    }
+
+    private void PlaceToggle()
+    {
+        if (viewToggle is not null) Children.Remove(viewToggle);
+        viewToggle = null;
+        toggles.Clear();
+        if (candidates.Count < 2) return;
+        var segments = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var candidate in candidates)
+        {
+            var toggle = Segment(ToggleName(candidate.Id), candidate.Label);
+            toggle.Click += (_, _) => Select(candidate.Id);
+            toggles[candidate.Id] = toggle;
+            segments.Children.Add(toggle);
+        }
+        viewToggle = new Border
+        {
+            Name = "ResourceViewToggle",
+            Height = 32,
+            Background = Ui.Header,
+            BorderBrush = Ui.BorderBrush,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(12, 0),
+            Child = segments
+        };
+        Ui.Place(this, viewToggle);
+    }
+
+    /// <summary>Whether new content offering <paramref name="next"/> still shows the renderer this pane shows now.</summary>
+    internal bool Keeps(IReadOnlyList<ResourceRenderer> next) =>
+        next.Select(candidate => candidate.Id).SequenceEqual(Candidates) || ResourceRegistry.Select(next, read().RendererId).Id == Selected;
+
+    /// <summary>Takes the renderers new content offers, when <see cref="Keeps"/>: views no longer offered go, the rest stay.</summary>
+    internal void Offer(IReadOnlyList<ResourceRenderer> next)
+    {
+        if (next.Select(candidate => candidate.Id).SequenceEqual(Candidates)) return;
+        candidates = next;
+        foreach (var (id, body) in bodies.Where(pair => next.All(candidate => candidate.Id != pair.Key)).ToArray())
+        {
+            bodies.Remove(id);
+            (body as IDisposable)?.Dispose();
+        }
+        PlaceToggle();
+        Check();
     }
 
     internal static string ToggleName(string rendererId) => "ViewToggle_" + rendererId[(rendererId.LastIndexOf('/') + 1)..];

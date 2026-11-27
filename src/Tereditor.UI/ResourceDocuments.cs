@@ -134,7 +134,10 @@ public sealed partial class WorkbenchWindow
     {
         if (documentContent.GetValueOrDefault(key) is not ResourcePane pane) return false;
         var resource = ResourceRegistry.Describe(workspaceRoot, tab.Path, Described(file));
-        if (file.Text.Length > ViewerLimits.Scintilla || !ViewCandidates(resource, file).Select(candidate => candidate.Id).SequenceEqual(pane.Candidates)) return false;
+        var candidates = ViewCandidates(resource, file);
+        // The fallback view changes when a file turns from bytes to text and back; the view on screen stays if it still fits.
+        if (file.Text.Length > ViewerLimits.Scintilla || !pane.Keeps(candidates)) return false;
+        pane.Offer(candidates);
         var editor = pane.Find<CodeDocumentView>();
         if (editor is not null && !editor.Reload(file.Text)) return true;
         documents[key] = file;

@@ -482,13 +482,22 @@ internal static class PdfPreviewChecks
         Wait(window, "Reload from disk to show \"By hand\"", () => Rendered(window, "By hand"));
 
         TabSwitch(app, target);
+        // Bytes that stop being a PDF for a while (a compiler empties the file first) change which fallback view fits,
+        // Source or File, but never replace the preview. The toggle follows the document's own reload, so waiting for it
+        // proves that reload has landed and not only the preview's revision watch.
+        preview = window.GetLogicalDescendants().OfType<PdfPreview>().Single();
+        app.Click(Find<Button>(window, "PdfZoomIn"));
+        var zoomed = preview.Scale;
         File.WriteAllBytes(target, "not a PDF"u8.ToArray());
-        Wait(window, "the unreadable PDF to show the error", () => Has(window, "PdfPreviewError") && window.GetLogicalDescendants().OfType<PdfPreview>().Single().Idle);
+        Wait(window, "the unreadable PDF to show the error beside the Source view", () => Has(window, "PdfPreviewError") && Has(window, "ViewToggle_code") && preview.Idle);
         Require(!Has(window, "PdfToolbar"), "An unreadable PDF replaces its toolbar with an error and retry.");
         app.Click(Find<Button>(window, "PdfRetry"));
-        Wait(window, "the retry of the unreadable PDF to fail again", () => Has(window, "PdfPreviewError") && window.GetLogicalDescendants().OfType<PdfPreview>().Single().Idle);
+        Wait(window, "the retry of the unreadable PDF to fail again", () => Has(window, "PdfPreviewError") && preview.Idle);
         File.WriteAllBytes(target, MinimalPdf("Recovered PDF"));
-        Wait(window, "the recovered PDF to render", () => Rendered(window, "Recovered PDF"));
+        Wait(window, "the recovered PDF to render beside the File view", () => Has(window, "ViewToggle_binary") && Rendered(window, "Recovered PDF"));
+        Require(window.GetLogicalDescendants().OfType<PdfPreview>().Single() == preview && preview.Scale == zoomed && !Has(window, "ViewToggle_code"),
+            $"A PDF that was unreadable for a while keeps its preview and zoom (same view {window.GetLogicalDescendants().OfType<PdfPreview>().Single() == preview}, scale {zoomed}->{preview.Scale}).");
+        app.Click(Find<Button>(window, "PdfZoomReset"));
 
         File.WriteAllBytes(target, PagesPdf(["First page", "Second page"]));
         // A write can reach the watch more than once, and each read replaces the page layers: wait until both pages are

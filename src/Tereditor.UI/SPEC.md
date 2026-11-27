@@ -352,7 +352,9 @@ shows no toggle.
 The registry holds no content and no tab state. `ResourceContent` keeps text, bytes that can be fetched
 (a loader that checks the SHA-256 it was promised) and an absent diff side as three distinct cases, so
 absence is never an empty byte payload. `ResourcePane` is the file body: it builds a renderer's view on
-first use, keeps it while the pane lives, and reloads the views that can take new content in place.
+first use, keeps it while the pane lives, and reloads the views that can take new content in place. When a reload
+offers other views (a file turns from bytes to text or back) and the shown one still fits, the pane keeps it, so a
+PDF emptied for a moment keeps its zoom; views no longer offered are dropped.
 `DiffView` is the diff body and takes its toggle from the same resolution; the source diff is the pane's own
 drawing, so the text fallback supports diffs without a factory. A diff renderer that returns nothing cannot
 draw that content: its toggle is disabled and the next candidate takes over without changing the tab's
