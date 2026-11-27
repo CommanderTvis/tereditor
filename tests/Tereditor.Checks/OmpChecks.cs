@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -327,6 +328,7 @@ internal static class OmpChecks
     // The UI half against the real host over the remote adapter: the Early badges, version, missing state, context rows and offer, and a launch.
     internal static void RunUi(string root)
     {
+        AgentUiChecks.OmpSettings();
         Directory.CreateDirectory(root);
         var home = Path.Combine(root, "home");
         Directory.CreateDirectory(home);
@@ -366,7 +368,15 @@ internal static class OmpChecks
             AgentPaneChecks.Tab(app, "account");
             E2eWorkspace.Until(() => Find<TextBlock>(panel, "OmpVersion").Single().Text == "v9.8.7");
             AgentPaneChecks.Tab(app, "settings");
-            Require(Find<Border>(panel, "OmpEarlyBadge").Single().IsEffectivelyVisible, "the pane wears the Early badge");
+            var badge = Find<Border>(panel, "OmpEarlyBadge").Single();
+            var reload = Find<Button>(panel, "OmpRefresh").Single();
+            Require(badge.IsEffectivelyVisible, "the pane wears the Early badge");
+            Require(badge.Bounds.Height is > 0 and < 20 && badge.TranslatePoint(default, panel)!.Value.Y < reload.TranslatePoint(default, panel)!.Value.Y + reload.Bounds.Height,
+                $"the badge is a small tag on the reload button's row, not stretched to it: {badge.Bounds}");
+            AgentPaneChecks.Tab(app, "account");
+            Require(Find<Control>(panel, "OmpProvider").Single() is var provider && provider.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "omp's own provider (built in)"),
+                "the Account tab names the model provider omp runs under");
+            AgentPaneChecks.Tab(app, "settings");
             Require(Find<TextBlock>(panel, "OmpCodeIntelligence").Single().Text!.Contains("tereditor", StringComparison.Ordinal), "the pane says sessions use tereditor's code intelligence");
             Require(Find<TextBlock>(panel, "OmpProfileNote").Single().IsEffectivelyVisible, "the pane notes what the profile keeps apart");
             AgentPaneChecks.Tab(app, "context");

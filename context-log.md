@@ -19,33 +19,6 @@ IntelliJ provider with explicit terms, embedded Air Context (enabled per project
 port (STATUS.md V13), embedded Tailscale for Android and the browser (real tailnet sign-in still unverified), the
 Specs and Blueprint builtins switched off by default, and workspace switching without the loading flash.
 
-## 2026-10-26 — Claude Code chat mode (branch claude-chat-mode)
-
-Claude Code can now run as a chat: the plugin's Mode setting (Terminal or Chat, Settings › Claude Code › Presentation)
-chooses how a tereditor launch is shown. Chat mode spawns the CLI headless over stream-json and draws the conversation in a
-document tab of the editor area, built on a new plugin API for plugin-owned document tabs (W26: `Document`, `OpenDocumentAsync`,
-`Closed`, `OpenTextDiffAsync`, an optional `AgentLauncher.Open`). The semantics follow the official VS Code extension's chat
-(message origins, no per-turn result rows, permission and question panels above the composer, tool tables, compaction, queued
-prompts, rewind and fork), recovered from its bundle and recorded in the plugin SPEC.md; the look follows ThinkRail's chat.
-The list is drawn and virtualized (20,000 rows realize under 60), with its own height estimates, a reading band, text selection,
-hit-rect hover, per-chat zoom and an adaptive footer. Sessions revive from the transcript with `--resume`. Visualizations made from
-a chat open as their own editor tab. A chat child cannot reach the IDE bridge (probed against CLI 2.1.310 in `-p` mode), so diffs
-open from the tool input and the IDE context is an explicit attachment. Effort changes live through `apply_flag_settings`.
-
-Verification at tip a5ec58187 plus the Android and Browser constructor fix: whole-solution `scripts/mise run format` clean; a full
-no-incremental `dotnet build Tereditor.slnx -c Release` with 0 warnings and 0 errors; `scripts/mise run browser` and
-`scripts/mise run android` exit 0 without warnings; `--claude-chat-ui`, `--claude-chat-e2e`, `--claude-chat-host` and `--claude-code`
-pass; one run of every gated case except `WelcomeE2E` passed with 717 checks. `WelcomeE2E` times out in `InitialiseFromWelcome`
-on main itself (acf592d6e) and on this branch, so the argument-free suite is red for a reason that is not this branch. Two
-chat checks (footer density) failed only in full runs because they measured text widths that differ by process state; the
-last fix is test-only and its failure was not reproduced, so a repeat would mean it is not fixed.
-
-Not verified: nothing was seen in a real window (all rendering checks are headless renders); the real macOS pasteboard
-(image paste), a trackpad pinch, and whether the page-zoom and drag-resize flicker are gone; hover over links inside reply
-blocks; the popups inside their real popup hosts; `lsp_diagnostics` and discovery lookups were thin on several agent commits.
-Open gaps: the session list assertion in the host check is weak; the Edit card's "Modified" rule and the extension's visible
-streaming word are not recovered; the chat has no rename, cross-chat history or mid-turn steering because the contract has none.
-
 ## 2026-10-27 — GitHub plugin and repo hosting providers
 
 Pull requests and GitHub sign-in moved out of the host into the builtin `GitHub` plugin ([spec](src/Tereditor.Plugins.GitHub/SPEC.md)): the host routes by `origin` URL to the first active `RepoHostProvider` (H24), the plugin's UI half contributes the Pull request strip item, the Review section and the Settings page (W28, W4), and the wire is protocol 15 with the neutral `PullRequest`. Verified: build, format, `--github`, `--branch-status`, `--review`, `--settings`, `--shell`, `--design`, `--plugins`, `--conformance`, `--reconnect`, `--state`, Android and browser builds. Open: the merge choice is still in the UI profile; no registry-level plugin-off check in `--plugins`.
@@ -148,3 +121,11 @@ CI's `claude-code-launcher` failed: plugin settings pages build a whole record f
 change made before it arrived put the first back. The writing context now reads its own unseen writes and sends them
 in order ([spec](src/Tereditor.UI/Plugins/SPEC.md)). The case holds the broadcast and fails without the fix. Not
 covered: external plugins in the isolated runner, whose mirror still follows broadcasts only.
+
+## 2026-11-27 — Pi and omp share their plugin code
+
+New `Tereditor.Plugins.Agent.Host` holds the pinned download on Bun, its requests, the version probe and owned-file writes;
+`Agent.UI` holds the Agent pane base, the start button and the settings page's source part. No wire or plugin API change.
+Visible: omp's source is two cards and its Account tab names the provider; Pi's pane has a reload button; compact badges.
+Checks: build, format, browser build (DisableParallelAot; the memory guard stopped a parallel one), `--pi`, `--omp`,
+`--plugins` and the agent pane, provider, design, spelling and conformance modes. Not verified: the running app, Android.

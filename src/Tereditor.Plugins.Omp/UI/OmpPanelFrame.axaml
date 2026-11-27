@@ -1,21 +1,11 @@
 <DockPanel xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
            xmlns:kit="using:Tereditor.Plugins.UI.Kit"
-           x:Class="Tereditor.Plugins.Omp.UI.OmpPanelFrame" x:ClassModifier="internal"
-           Name="OmpPanel" Background="{x:Static kit:Ui.Sidebar}">
+           x:Class="Tereditor.Plugins.Omp.UI.OmpPanelFrame" x:ClassModifier="internal">
   <DockPanel.Styles>
     <Style Selector="TextBlock">
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
   </DockPanel.Styles>
-  <DockPanel DockPanel.Dock="Top" Margin="8,4">
-    <Button x:Name="OmpRefresh" DockPanel.Dock="Right" Width="24" Height="24" Padding="5"
-            Background="Transparent" BorderThickness="0" CornerRadius="0"
-            ToolTip.Tip="Re-read omp" AutomationProperties.Name="Re-read omp" />
-    <Border x:Name="OmpEarlyBadge" HorizontalAlignment="Left" Background="{x:Static kit:Ui.WarningWash}" CornerRadius="4" Padding="4,0"
-            ToolTip.Tip="Basic support: launch, MCP and context files work; deeper integration is still to come.">
-      <TextBlock Text="Early support" FontSize="10" Foreground="{x:Static kit:Ui.Warning}" />
-    </Border>
-  </DockPanel>
   <TextBlock x:Name="OmpError" DockPanel.Dock="Top" Margin="8,4" IsVisible="False" FontSize="13" Foreground="{x:Static kit:Ui.Danger}" />
   <Panel>
     <ScrollViewer x:Name="OmpContextTab" HorizontalScrollBarVisibility="Disabled">
@@ -37,6 +27,7 @@
       <TextBlock x:Name="OmpCapabilitiesNothing" FontSize="12" Foreground="{x:Static kit:Ui.Hint}" Text="omp has nothing here yet." />
     </StackPanel>
     <StackPanel x:Name="OmpAccountTab" Margin="8,4" Spacing="4" IsVisible="False">
+      <ContentControl x:Name="OmpProviderHost" HorizontalContentAlignment="Stretch" />
       <TextBlock x:Name="OmpVersion" FontSize="12" Foreground="{x:Static kit:Ui.Hint}" />
       <StackPanel x:Name="OmpMissing" Spacing="4" IsVisible="False">
         <TextBlock x:Name="OmpMissingText" FontSize="13" Foreground="{x:Static kit:Ui.Danger}" />

@@ -1,45 +1,17 @@
 <StackPanel xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-            xmlns:kit="using:Tereditor.Plugins.UI.Kit"
+            xmlns:kit="using:Tereditor.Plugins.UI.Kit" xmlns:agent="using:Tereditor.Plugins.Agent.UI"
             x:Class="Tereditor.Plugins.Pi.UI.PiSettingsView" x:ClassModifier="internal"
             Name="SettingsPi" Spacing="16">
-  <StackPanel.Styles>
-    <Style Selector="TextBlock">
-      <Setter Property="Foreground" Value="{x:Static kit:Ui.TextBrush}" />
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="TextWrapping" Value="Wrap" />
-    </Style>
-    <Style Selector="TextBlock.detail">
-      <Setter Property="Foreground" Value="{x:Static kit:Ui.Muted}" />
-      <Setter Property="FontSize" Value="12" />
-    </Style>
-  </StackPanel.Styles>
   <StackPanel Spacing="4">
     <StackPanel Orientation="Horizontal" Spacing="8">
       <TextBlock Text="Pi" FontSize="15" FontWeight="SemiBold" />
-      <Border Background="{x:Static kit:Ui.WarningWash}" CornerRadius="8" Padding="8,0" VerticalAlignment="Center">
-        <TextBlock Text="Early support" FontSize="11" Foreground="{x:Static kit:Ui.Warning}" />
-      </Border>
+      <agent:EarlySupportBadge />
     </StackPanel>
     <TextBlock Classes="detail" Text="Pi chats run the pi coding agent over its RPC mode, from your system installation or from a pinned copy that tereditor downloads and runs on Bun. Model providers and keys are managed in Settings › Plugins › Model providers." />
     <TextBlock x:Name="PiVersion" Classes="detail" />
   </StackPanel>
   <StackPanel x:Name="ModelSourceHost" />
-  <StackPanel Spacing="4">
-    <TextBlock Text="Pi source" />
-    <kit:OptionCards x:Name="PiSource" AutomationProperties.Name="Pi source" />  </StackPanel>
-  <StackPanel x:Name="PiManagedPanel" Spacing="8" IsVisible="False">
-    <TextBlock x:Name="PiManagedLine" />
-    <TextBlock x:Name="PiManagedError" Classes="detail" Foreground="{x:Static kit:Ui.Danger}" IsVisible="False" />
-    <StackPanel x:Name="PiManagedProgress" />
-    <StackPanel Orientation="Horizontal" Spacing="8">
-      <Button x:Name="PiManagedDownload" Content="Download" AutomationProperties.Name="Download pinned Pi" />
-      <Button x:Name="PiManagedRemove" Content="Remove download" AutomationProperties.Name="Remove downloaded Pi" />
-    </StackPanel>
-  </StackPanel>
-  <StackPanel x:Name="PiCommandPanel" Spacing="4">
-    <TextBlock Text="Command" />
-    <TextBox x:Name="PiCommandInput" PlaceholderText="pi" FontFamily="{x:Static kit:Ui.CodeFont}" FontSize="12" AutomationProperties.Name="pi command" />
-  </StackPanel>
+  <agent:AgentSourceSection x:Name="SourceSection" />
   <StackPanel Spacing="4">
     <TextBlock Text="Model (--model)" />
     <AutoCompleteBox x:Name="PiModel" PlaceholderText="Use Pi's default" MinimumPrefixLength="0" FilterMode="None" FontFamily="{x:Static kit:Ui.CodeFont}" FontSize="12" AutomationProperties.Name="pi model" />

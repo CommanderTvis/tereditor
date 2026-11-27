@@ -1,0 +1,12 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:kit="using:Tereditor.Plugins.UI.Kit" x:Class="Tereditor.Plugins.Agent.UI.AgentSettingsStyles" x:ClassModifier="internal">
+  <Style Selector="TextBlock">
+    <Setter Property="Foreground" Value="{x:Static kit:Ui.TextBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.detail">
+    <Setter Property="Foreground" Value="{x:Static kit:Ui.Muted}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+</Styles>

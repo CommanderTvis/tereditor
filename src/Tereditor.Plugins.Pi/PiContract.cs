@@ -87,6 +87,9 @@ public static class PiScopes
     public const string Project = "project";
     /// <summary>Added by tereditor for one run (its own MCP server), not read from a file Pi owns.</summary>
     public const string Tereditor = "tereditor";
+
+    /// <summary>The label a scope chip shows: USER for the agent directory and home, PROJECT for the working directory tree.</summary>
+    public static string Label(string scope) => scope == Project ? "PROJECT" : scope == Tereditor ? "TEREDITOR" : "USER";
 }
 
 /// <summary>The kinds of resource the Settings › Pi and Context views list.</summary>

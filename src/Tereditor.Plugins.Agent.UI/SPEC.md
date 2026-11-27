@@ -2,7 +2,7 @@
 id: module-plugin-agent-ui
 type: module-design
 status: active
-title: Agent UI — shared Codex and Claude Code components
+title: Agent UI — shared agent plugin components
 parent: group-plugins-agents
 depends-on: [module-plugin-ui-kit]
 tags: [ui, plugins]
@@ -10,15 +10,28 @@ tags: [ui, plugins]
 
 # Agent UI
 
-Shared presentation code for the Codex and Claude Code plugins lives in
-`Tereditor.Plugins.Agent.UI`. Both plugin UI projects reference this module;
-neither depends on the other plugin.
+Presentation code that agent plugins share lives in `Tereditor.Plugins.Agent.UI`: terminal facts and account parts for Codex and
+Claude Code, and the Agent pane and settings page parts of Pi and omp. Each plugin UI project references this module;
+none depends on another plugin.
 
 ## Boundary
 
-The module depends on Avalonia, the general UI kit and the base plugin API's value
-types (for the instruction sections). It has no host, app, contract or provider-specific dependency. Providers supply facts and callbacks;
+The module depends on Avalonia, the general UI kit, the base plugin API's value
+types (for the instruction sections) and the UI plugin API (the pane and settings parts of Pi and omp read the plugin's UI context). It has no host, app, contract or provider-specific dependency. Providers supply facts and callbacks;
 the module owns no session, account or terminal state.
+
+- `AgentConfigPane` is the base of Pi's and omp's content in the Agent pane: the first row (the title when the agent shows one, the
+  compact Early support badge and a reload button at the right end), the workspace move (`Retarget` drops the old rows and any reply
+  in flight, and reads again only while on screen), watching and reading only while on screen, and opening a file with a
+  "Couldn't open" notice on failure. `Registration` builds the `AgentPaneRegistration`: it owns the terminals that run the agent
+  and, when given, its documents.
+  It also has the terminal-ownership test (`Runs`) and the workspace strip's start button (`StartButton`).
+- `EarlySupportBadge` is the compact tag of both panes and both settings pages.
+- `AgentSettingsPage` with `AgentSourceSection` is the settings page of an agent that runs from a system
+  command or a pinned download: the source as two option cards, the download's line, error,
+  progress with Cancel, Download or Update and Remove download, the command box, saving settings and text boxes, and asking the host
+  for the state on show, on a source change and each half second while a download runs. It asks for a download only on a click on
+  Download. The plugin supplies its requests, its other settings and its words.
 
 - `Account` and `AccountSeverity` present account headings, rows, usage windows,
   reset times and reading timestamps. Account rows and usage windows use compiled XAML. A row keeps at least 12 px between label and value and trims a long value with an ellipsis and a tooltip. `Account.Governed`
@@ -76,4 +89,5 @@ The public surface is recorded in `PublicAPI.Unshipped.txt` and checked by
 
 Moving the components preserves control names, callbacks, formatting, theme brushes
 and compiled layouts. Release compilation checks both consumers and the public
-surface; `--codex` and `--claude-code` exercise the provider UI integrations.
+surface; `--codex` and `--claude-code` exercise the provider UI integrations. `--pi` checks the shared parts through Pi's pane and settings
+page (`AgentUiChecks`), and `--omp` through omp's.

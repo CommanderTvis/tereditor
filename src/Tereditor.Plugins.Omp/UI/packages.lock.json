@@ -133,6 +133,15 @@
           "Svg.SceneGraph": "5.2.3"
         }
       },
+      "tereditor.plugins.agent.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.6, )",
+          "Tereditor.Plugins.Api": "[1.0.0, )",
+          "Tereditor.Plugins.Api.UI": "[1.0.0, )",
+          "Tereditor.Plugins.UI.Kit": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.api": {
         "type": "Project"
       },

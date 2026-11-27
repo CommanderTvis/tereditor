@@ -99,3 +99,54 @@ static Tereditor.Plugins.Agent.UI.TerminalFacts.Kinds(params System.Collections.
 static readonly Tereditor.Plugins.Agent.UI.TerminalFacts.ChipKinds -> System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.UI.Kit.TerminalChipKind!>!
 static Tereditor.Plugins.Agent.UI.Account.Provider(string! name, string! namePrefix) -> Avalonia.Controls.Control!
 static Tereditor.Plugins.Agent.UI.Account.WithProvider(string? provider, string! namePrefix, Avalonia.Controls.Control! content) -> Avalonia.Controls.Control!
+static Tereditor.Plugins.Agent.UI.AgentConfigPane.Registration(Tereditor.Plugins.Api.UI.IPluginUIContext! context, string! agentId, string! label, string! icon, System.Func<string!, Tereditor.Plugins.Agent.UI.AgentConfigPane!>! create, System.Func<bool>! usable, string? documentScheme = null) -> Tereditor.Plugins.Api.UI.AgentPaneRegistration!
+static Tereditor.Plugins.Agent.UI.AgentConfigPane.Runs(Tereditor.Plugins.Api.UI.IPluginUIContext! context, Tereditor.Plugins.Api.UI.TabRef! tab, string! agentId) -> bool
+static Tereditor.Plugins.Agent.UI.AgentConfigPane.StartButton(string! name, string! accessibleName, string! tooltip, Avalonia.Controls.Control! glyph) -> Avalonia.Controls.Button!
+Tereditor.Plugins.Agent.UI.EarlySupportBadge
+Tereditor.Plugins.Agent.UI.EarlySupportBadge.EarlySupportBadge() -> void
+Tereditor.Plugins.Agent.UI.AgentConfigPane
+Tereditor.Plugins.Agent.UI.AgentConfigPane.AgentConfigPane(string! workspaceId, string! prefix, string! agent, string? title = null, string? badgeTip = null) -> void
+Tereditor.Plugins.Agent.UI.AgentConfigPane.WorkspaceId.get -> string!
+Tereditor.Plugins.Agent.UI.AgentConfigPane.NextRead() -> int
+Tereditor.Plugins.Agent.UI.AgentConfigPane.IsCurrent(int read) -> bool
+Tereditor.Plugins.Agent.UI.AgentConfigPane.Retarget(string! workspaceId) -> bool
+abstract Tereditor.Plugins.Agent.UI.AgentConfigPane.ShowTab(Tereditor.Plugins.Api.UI.AgentPaneTab tab) -> void
+abstract Tereditor.Plugins.Agent.UI.AgentConfigPane.Watch() -> System.IDisposable!
+abstract Tereditor.Plugins.Agent.UI.AgentConfigPane.Reload() -> void
+abstract Tereditor.Plugins.Agent.UI.AgentConfigPane.Forget() -> void
+Tereditor.Plugins.Agent.UI.AgentConfigPane.OpenFile(Tereditor.Plugins.Api.UI.IPluginUIContext! context, string! path) -> void
+Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.Save(System.Func<TSettings!, TSettings!>! change) -> void
+Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.BindText(Avalonia.Controls.Control! input, System.Func<string?>! text, System.Func<TSettings!, string!>! current, System.Func<TSettings!, string!, TSettings!>! write, string! fallback = "") -> void
+Tereditor.Plugins.Agent.UI.AgentSourceSection
+Tereditor.Plugins.Agent.UI.AgentSourceSection.AgentSourceSection() -> void
+Tereditor.Plugins.Agent.UI.AgentDownload.ManagedVersion.get -> string!
+Tereditor.Plugins.Agent.UI.AgentDownload.ManagedVersion.init -> void
+override Tereditor.Plugins.Agent.UI.AgentDownload.Equals(object? obj) -> bool
+override Tereditor.Plugins.Agent.UI.AgentDownload.GetHashCode() -> int
+override Tereditor.Plugins.Agent.UI.AgentDownload.ToString() -> string!
+static Tereditor.Plugins.Agent.UI.AgentDownload.operator !=(Tereditor.Plugins.Agent.UI.AgentDownload? left, Tereditor.Plugins.Agent.UI.AgentDownload? right) -> bool
+static Tereditor.Plugins.Agent.UI.AgentDownload.operator ==(Tereditor.Plugins.Agent.UI.AgentDownload? left, Tereditor.Plugins.Agent.UI.AgentDownload? right) -> bool
+Tereditor.Plugins.Agent.UI.AgentDownload.<Clone>$() -> Tereditor.Plugins.Agent.UI.AgentDownload!
+Tereditor.Plugins.Agent.UI.AgentDownload.AgentDownload(bool Installing, string! Progress, string! Error, string! PinnedVersion, string! ManagedVersion) -> void
+Tereditor.Plugins.Agent.UI.AgentDownload.Deconstruct(out bool Installing, out string! Progress, out string! Error, out string! PinnedVersion, out string! ManagedVersion) -> void
+Tereditor.Plugins.Agent.UI.AgentDownload.Equals(Tereditor.Plugins.Agent.UI.AgentDownload? other) -> bool
+Tereditor.Plugins.Agent.UI.AgentDownload
+Tereditor.Plugins.Agent.UI.AgentDownload.Installing.get -> bool
+Tereditor.Plugins.Agent.UI.AgentDownload.Installing.init -> void
+Tereditor.Plugins.Agent.UI.AgentDownload.Progress.get -> string!
+Tereditor.Plugins.Agent.UI.AgentDownload.Progress.init -> void
+Tereditor.Plugins.Agent.UI.AgentDownload.Error.get -> string!
+Tereditor.Plugins.Agent.UI.AgentDownload.Error.init -> void
+Tereditor.Plugins.Agent.UI.AgentDownload.PinnedVersion.get -> string!
+Tereditor.Plugins.Agent.UI.AgentDownload.PinnedVersion.init -> void
+Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>
+Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.AgentSettingsPage(Tereditor.Plugins.Api.UI.IPluginUIContext! context, string! agent, Tereditor.Plugins.Api.PluginMethod<TParams, TStatus!>! read, System.Func<TStatus?>! status, System.Action<TStatus!>! update) -> void
+Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.Status.get -> TStatus?
+abstract Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.Download(TStatus! state) -> Tereditor.Plugins.Agent.UI.AgentDownload!
+abstract Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.Starting(TStatus? state, string! progress) -> TStatus!
+abstract Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.ShownSource(TSettings! settings) -> string!
+abstract Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.Saved(TSettings! settings) -> (string! Source, string! Command)
+abstract Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.With(TSettings! settings, string? source = null, string? command = null) -> TSettings!
+virtual Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.SourceNote.get -> string!
+abstract Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.Render(TSettings! settings) -> void
+Tereditor.Plugins.Agent.UI.AgentSettingsPage<TSettings, TParams, TStatus>.Start(System.Collections.Generic.IReadOnlyList<Tereditor.Plugins.UI.Kit.OptionCard!>! sources, string! commandTitle, string! commandName, Tereditor.Plugins.Api.PluginMethod<TParams, TStatus!>! install, Tereditor.Plugins.Api.PluginMethod<TParams, TStatus!>! cancel, Tereditor.Plugins.Api.PluginMethod<TParams, TStatus!>! remove) -> void

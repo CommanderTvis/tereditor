@@ -578,7 +578,7 @@ internal static class PiChecks
         var nearer = Read(new() { [fixture] = true, [repo] = false });
         Require(nearer.Trust == "not trusted", "The nearest decision wins over a parent's.");
 
-        Require(PiConfigReader.ScopeLabel(PiScopes.Project) == "PROJECT" && PiConfigReader.ScopeLabel(PiScopes.User) == "USER" && PiConfigReader.ScopeLabel(PiScopes.Tereditor) == "TEREDITOR", "Scope labels are USER, PROJECT and TEREDITOR; -l maps to PROJECT.");
+        Require(PiScopes.Label(PiScopes.Project) == "PROJECT" && PiScopes.Label(PiScopes.User) == "USER" && PiScopes.Label(PiScopes.Tereditor) == "TEREDITOR", "Scope labels are USER, PROJECT and TEREDITOR; -l maps to PROJECT.");
         var contributed = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = "/contributed" };
         Require(PiConfigReader.AgentDir(contributed, "/environment", home) == "/contributed"
             && PiConfigReader.AgentDir(new Dictionary<string, string>(), "/environment", home) == "/environment"
@@ -623,10 +623,12 @@ internal static class PiChecks
         ((Stub)(object)editors).Handle = (method, args) => { opened.Add((string)args![1]!); return Activator.CreateInstance(method.ReturnType); };
         var snapshot = new PiConfigSnapshot("/ws", "/agent", "trusted", "/agent/trust.json",
             [new PiConfigItem(PiConfigKinds.Context, PiScopes.User, "AGENTS.md", file, true, "")], [], [], false);
+        var notices = new List<string>();
         var context = DispatchProxy.Create<IPluginUIContext, Stub>();
         ((Stub)(object)context).Handle = (method, args) =>
         {
             if (method.Name == "get_Editors") return editors;
+            if (method.Name == nameof(IPluginUIContext.Notify)) { notices.Add((string)args![1]!); return null; }
             if (method.ReturnType == typeof(IDisposable)) return Stream.Null; // A subscription that never reports.
             if (method.ReturnType.IsGenericType && method.ReturnType.GetGenericArguments()[0] == typeof(PiConfigSnapshot)) return Activator.CreateInstance(method.ReturnType, snapshot);
             return Activator.CreateInstance(method.ReturnType);
@@ -653,6 +655,9 @@ internal static class PiChecks
             Require(opened.Count == 0, "A click on a Context row outside its path opens nothing.");
             LinkHitArea.Check(host, row.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "SourcePath"), () => opened.Count, "A Pi Context row");
             Require(opened.SequenceEqual([file]), "A click on a Context row's path opens its file.");
+            Pump(() => notices.Count > 0);
+            // The stand-in editors open nothing.
+            Require(notices.SequenceEqual(["Couldn't open " + file]), "A file that cannot be opened is said in a notice.");
         }
         finally { host.Close(); }
     }

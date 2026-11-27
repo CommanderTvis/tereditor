@@ -17,7 +17,7 @@ namespace Tereditor.Plugins.Pi.UI;
 /// keys and packages), Capabilities (the open chat's commands) and Account (version, early-support badge and trust). It reads through the host and
 /// changes only packages, through `pi install` and `pi remove`.
 /// </summary>
-internal sealed class PiConfigPanel : DockPanel
+internal sealed class PiConfigPanel : AgentConfigPane
 {
     private enum Surface { Context, Settings, Capabilities, Account }
 
@@ -25,27 +25,17 @@ internal sealed class PiConfigPanel : DockPanel
     private readonly StackPanel scopeBlock = new() { Name = "PiConfigScope", Margin = new Thickness(8, 0, 8, 4) };
     private readonly StackPanel notices = new();
     private readonly ContentControl body = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch };
-    private string workspaceId;
     private Surface surface = Surface.Context;
     private PiConfigSnapshot? snapshot;
     private PiStatus? status;
     private string error = "", result = "", packageSource = "";
     private bool resultOk, packageLocal;
-    private int generation;
-    private IDisposable? changes;
 
-    public PiConfigPanel(IPluginUIContext context, string workspaceId)
+    // Early support covers all of Pi, so the badge sits beside the title above every tab, as on omp's pane.
+    public PiConfigPanel(IPluginUIContext context, string workspaceId) : base(workspaceId, "Pi", "Pi", title: "Pi")
     {
         this.context = context;
-        this.workspaceId = workspaceId;
         Name = "PiConfigPanel";
-        Background = Ui.Sidebar;
-        // Early support covers all of Pi, so the badge sits beside the title above every tab, as on omp's pane.
-        var heading = new StackPanel { Name = "PiHeading", Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4, 8, 0) };
-        heading.Children.Add(Ui.Text("Pi", Ui.TextBrush, 13));
-        heading.Children.Add(new Border { Name = "PiEarlyBadge", Background = Ui.WarningWash, CornerRadius = new CornerRadius(4), Padding = new Thickness(4, 0), Child = Ui.Text("Early support", Ui.Warning, 10) });
-        SetDock(heading, Dock.Top);
-        Children.Add(heading);
         var hint = Ui.Text("Click a file path to open it", Ui.Hint, 12);
         scopeBlock.Children.Add(Ui.Note("Showing what a new Pi session here would load", Ui.Muted, 13));
         scopeBlock.Children.Add(hint);
@@ -54,34 +44,27 @@ internal sealed class PiConfigPanel : DockPanel
         SetDock(notices, Dock.Top);
         Children.Add(notices);
         Children.Add(new ScrollViewer { Name = "PiConfigBody", Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
-        AttachedToVisualTree += (_, _) =>
-        {
-            // A chat that opens, lists its commands or ends changes what the pane shows.
-            changes ??= context.Subscribe(PiContract.ConfigChange, change => Dispatcher.UIThread.Post(() =>
-            {
-                if (change.WorkspaceId == workspaceId) Load(readVersion: false);
-            }));
-            Load();
-        };
-        DetachedFromVisualTree += (_, _) => { changes?.Dispose(); changes = null; };
     }
 
-    /// <summary>Points the pane at another workspace: the old snapshot and any reply still in flight for it are dropped.</summary>
-    internal bool Retarget(string next)
+    // A chat that opens, lists its commands or ends changes what the pane shows.
+    protected override IDisposable Watch() => context.Subscribe(PiContract.ConfigChange, change => Dispatcher.UIThread.Post(() =>
     {
-        if (next == workspaceId) return true;
-        workspaceId = next;
+        if (change.WorkspaceId == WorkspaceId) Load(readVersion: false);
+    }));
+
+    protected override void Reload() => Load();
+
+    protected override void Forget()
+    {
         snapshot = null; error = ""; result = "";
         Render();
-        Load();
-        return true;
     }
 
     // The version probe runs pi, so a chat's change asks for it only while no version is known.
     private void Load(bool readVersion = true)
     {
-        var mine = ++generation;
-        var id = workspaceId;
+        var mine = NextRead();
+        var id = WorkspaceId;
         readVersion |= status is null;
         _ = Task.Run(async () =>
         {
@@ -94,7 +77,7 @@ internal sealed class PiConfigPanel : DockPanel
             catch (Exception failed) when (failed is not OperationCanceledException) { }
             Dispatcher.UIThread.Post(() =>
             {
-                if (mine != generation) return;
+                if (!IsCurrent(mine)) return;
                 snapshot = read ?? snapshot;
                 status = version ?? status;
                 error = failure;
@@ -106,7 +89,7 @@ internal sealed class PiConfigPanel : DockPanel
     // Installs or removes a package, then reads the workspace again so the rows show the change.
     private void ChangePackage(bool install, string source, bool local)
     {
-        var id = workspaceId;
+        var id = WorkspaceId;
         _ = Task.Run(async () =>
         {
             PiPackageResult? answer = null;
@@ -116,7 +99,7 @@ internal sealed class PiConfigPanel : DockPanel
             Dispatcher.UIThread.Post(() =>
             {
                 // Not the read counter: a chat's change reads again while pi install runs.
-                if (id != workspaceId) return;
+                if (id != WorkspaceId) return;
                 resultOk = answer?.Ok == true;
                 result = failure.Length > 0 ? failure
                     : resultOk ? (install ? $"Installed {source}. Restart the chat to load it." : $"Removed {source}. Restart the chat to unload it.")
@@ -126,8 +109,7 @@ internal sealed class PiConfigPanel : DockPanel
         });
     }
 
-    /// <summary>Shows one of the four tabs the Agent pane offers; the pane draws no switcher of its own.</summary>
-    internal void ShowTab(AgentPaneTab tab)
+    public override void ShowTab(AgentPaneTab tab)
     {
         var next = (Surface)(int)tab;
         if (next == surface) return;
@@ -200,7 +182,7 @@ internal sealed class PiConfigPanel : DockPanel
             var column = new StackPanel();
             var title = new WrapPanel();
             title.Children.Add(Ui.Text(setting.Key, Ui.TextBrush, 13));
-            title.Children.Add(ScopedSetting.ScopeChip(ScopeLabel(setting.Scope), "PiScopeChip"));
+            title.Children.Add(ScopedSetting.ScopeChip(PiScopes.Label(setting.Scope), "PiScopeChip"));
             column.Children.Add(title);
             column.Children.Add(value);
             line.Children.Add(column);
@@ -269,9 +251,9 @@ internal sealed class PiConfigPanel : DockPanel
         var column = new StackPanel();
         var title = new WrapPanel();
         title.Children.Add(Ui.Text(item.Name, item.Loaded ? Ui.TextBrush : Ui.Muted, 13));
-        title.Children.Add(ScopedSetting.ScopeChip(ScopeLabel(item.Scope), "PiScopeChip"));
+        title.Children.Add(ScopedSetting.ScopeChip(PiScopes.Label(item.Scope), "PiScopeChip"));
         column.Children.Add(title);
-        column.Children.Add(ScopedSetting.SourcePath(item.Path, OpenFile));
+        column.Children.Add(ScopedSetting.SourcePath(item.Path, path => OpenFile(context, path)));
         if (item.Detail.Length > 0) column.Children.Add(Ui.Text(item.Detail, Ui.Hint, 12));
         row.Children.Add(column);
         return row;
@@ -286,7 +268,7 @@ internal sealed class PiConfigPanel : DockPanel
         var column = new StackPanel();
         var title = new WrapPanel();
         title.Children.Add(Ui.Text(item.Name, Ui.TextBrush, 13));
-        title.Children.Add(ScopedSetting.ScopeChip(ScopeLabel(item.Scope), "PiScopeChip"));
+        title.Children.Add(ScopedSetting.ScopeChip(PiScopes.Label(item.Scope), "PiScopeChip"));
         column.Children.Add(title);
         if (item.Detail.Length > 0) column.Children.Add(Ui.Text(item.Detail, Ui.Hint, 12));
         line.Children.Add(column);
@@ -304,8 +286,6 @@ internal sealed class PiConfigPanel : DockPanel
 
     private static IReadOnlyList<PiConfigItem> Items(PiConfigSnapshot current, string kind) => current.Items.Where(item => item.Kind == kind).ToArray();
 
-    private static string ScopeLabel(string scope) => scope == PiScopes.Project ? "PROJECT" : scope == PiScopes.Tereditor ? "TEREDITOR" : "USER";
-
     private static string KindIcon(string kind) => kind switch
     {
         PiConfigKinds.Extension => "plug",
@@ -315,9 +295,6 @@ internal sealed class PiConfigPanel : DockPanel
         PiConfigKinds.Package => "box",
         _ => "fileText"
     };
-
-    private void OpenFile(string path) =>
-        _ = context.Editors.OpenAsync(workspaceId, path, null).AsTask().ContinueWith(_ => { }, TaskScheduler.Default);
 
     private static TextBlock Notice(string text, Avalonia.Media.IBrush color, string name)
     {

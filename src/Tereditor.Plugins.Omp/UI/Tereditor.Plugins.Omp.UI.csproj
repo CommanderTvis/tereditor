@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <InternalsVisibleTo Include="Tereditor.Checks" />
     <ProjectReference Include="../Tereditor.Plugins.Omp.csproj" />
+    <ProjectReference Include="../../Tereditor.Plugins.Agent.UI/Tereditor.Plugins.Agent.UI.csproj" />
     <ProjectReference Include="../../Tereditor.Plugins.Api.UI/Tereditor.Plugins.Api.UI.csproj" />
     <ProjectReference Include="../../Tereditor.Plugins.UI.Kit/Tereditor.Plugins.UI.Kit.csproj" />
     <PackageReference Include="Avalonia" />

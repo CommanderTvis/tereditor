@@ -370,6 +370,7 @@ flowchart LR
 ### Allowed dependencies of a plugin
 
 A host half may depend on the root and host entries, a dependency's contract, and exact-pinned third parties.
+Builtin agent plugins may also share a library that is not a plugin (`Agent.Host` for host halves, `Agent.UI` for UI halves).
 It may not depend on any `Tereditor.Host.*` project, `Tereditor.UI`, or another plugin's host half. Git goes
 through `GitAsync`; everything else a host half needs (sockets, files, processes) is ordinary .NET.
 

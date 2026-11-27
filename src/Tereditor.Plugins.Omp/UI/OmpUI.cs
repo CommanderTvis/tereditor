@@ -1,9 +1,7 @@
-using Avalonia;
-using Avalonia.Automation;
-using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 
+using Tereditor.Plugins.Agent.UI;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.UI;
 
@@ -74,14 +72,8 @@ public sealed class OmpUI : PluginUIModule
         context.SettingsSection(new("omp", OmpManifest.Icon, () => new OmpSettingsView(context, () => status, Apply)));
         // The source, the command and the profile all change what a launch runs, so the state is read again.
         var settingsWatch = context.OnSettings<OmpSettings>(changed => _ = Probe());
-        context.AgentPane(new(OmpManifest.Id, "omp", OmpManifest.Icon, workspace => OmpPanel.Create(context, workspace))
-        {
-            Usable = () => status is not { Usable: false },
-            Owns = tab => tab is TerminalTabRef terminal && context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
-                .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == OmpManifest.Id,
-            Retarget = OmpPanel.Retarget,
-            ShowTab = OmpPanel.ShowTab
-        });
+        context.AgentPane(AgentConfigPane.Registration(context, OmpManifest.Id, "omp", OmpManifest.Icon, workspace => new OmpPanel(context, workspace),
+            () => status is not { Usable: false }));
         context.Launcher(new AgentLauncher(OmpManifest.Id, "omp", OmpManifest.Icon, options => LaunchLine(context, options, status),
             () => status is null && context.Settings<OmpSettings>().Source != OmpSources.System
                 ? new LauncherAvailability(false, "omp is still being checked.")
@@ -99,18 +91,7 @@ public sealed class OmpUI : PluginUIModule
         });
         context.WorkspaceAction(new WorkspaceScopedActionRegistration("omp-launch", (workspace, group) =>
         {
-            var button = new Button
-            {
-                Name = "NewOmp",
-                Content = new OmpGlyph(context, 16),
-                Width = 32,
-                Height = 32,
-                Padding = new Thickness(8),
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0)
-            };
-            AutomationProperties.SetName(button, "Start omp");
-            ToolTip.SetTip(button, "Start omp (early support)");
+            var button = AgentConfigPane.StartButton("NewOmp", "Start omp", "Start omp (early support)", new OmpGlyph(context, 16));
             button.Click += async (_, _) =>
             {
                 if (await Prepare() is not { } ready) return;
@@ -120,12 +101,7 @@ public sealed class OmpUI : PluginUIModule
         }));
         context.WatchHost(host => string.Join("\n", host.Terminals.SelectMany(pair =>
             pair.Value.Where(tab => tab.Agent?.Kind == OmpManifest.Id).Select(tab => pair.Key + "\t" + tab.TabKey))), (_, _) => context.Invalidate());
-        context.TabDecoration(tab => tab switch
-        {
-            TerminalTabRef terminal when context.Host().Terminals.GetValueOrDefault(terminal.WorkspaceId)?
-                .FirstOrDefault(item => item.TabKey == terminal.TabKey)?.Agent?.Kind == OmpManifest.Id => new TabDecoration { Icon = OmpManifest.Icon },
-            _ => null
-        });
+        context.TabDecoration(tab => AgentConfigPane.Runs(context, tab, OmpManifest.Id) ? new TabDecoration { Icon = OmpManifest.Icon } : null);
         _ = Probe();
         return () => settingsWatch.Dispose();
     }

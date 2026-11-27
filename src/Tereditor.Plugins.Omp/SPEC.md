@@ -20,7 +20,7 @@ No real omp run backs them; the checks use a fixture `omp`.
 
 ## Acceptance contract
 
-- Source: Settings › omp has an "omp source" choice, "Managed, pinned" (run the omp that tereditor downloads, on Bun from Runtimes) or "System command"
+- Source: Settings › omp has an "omp source" choice of two option cards, "Managed, pinned" (run the omp that tereditor downloads, on Bun from Runtimes) or "System command"
   (run the omp on PATH, the Launch command box). The setting is blank by default: the managed omp while Bun is available (a pinned path, one on PATH or the
   Runtimes for tooling plugin, which is on by default and would download it; the host asks without starting a download) and the system command
   when it is not, which the page says. A choice of the user stands. The managed omp is the npm package `@oh-my-pi/pi-coding-agent` at the exact version
@@ -98,6 +98,11 @@ No real omp run backs them; the checks use a fixture `omp`.
   agent kind is left alone. The search does not descend through another tereditor app (process name `Tereditor.UI`/`tereditor`), so an agent in a nested tereditor's terminals never marks the outer tab; a tereditor run as `dotnet Tereditor.UI.dll` is not recognized by name. If an omp build runs under another process name (for example its runtime's), it is not
   detected; this is not verified against a real install.
 - Air Gateway does not govern omp: Central serves Claude Code, Codex and Pi only.
+- Shared with Pi: the pinned download and its host requests, the `--version` probe and the writing of owned files are in
+  [Agent host](../Tereditor.Plugins.Agent.Host/SPEC.md); the Agent pane's first row (the badge and the reload button), workspace
+  move and file opening, the start button, terminal ownership and the source part of the settings page are in
+  [Agent UI](../Tereditor.Plugins.Agent.UI/SPEC.md). Neither plugin depends on the other. The Account tab names the model provider
+  first: the chosen Model source's name, or "omp's own provider (built in)".
 - Mark: the manifest icon is `asset:omp.svg`, omp's π mark from the omp.sh site header redrawn as one `currentColor`
   path, so Settings › omp, the plugin card, its Agent pane chip and omp terminal tabs (workbench and Projects)
   wear it. The launcher's icons and the start action draw it in a theme brush and follow theme changes; the kit's

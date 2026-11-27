@@ -1,0 +1,9 @@
+<DockPanel xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+           xmlns:agent="using:Tereditor.Plugins.Agent.UI" x:Class="Tereditor.Plugins.Agent.UI.AgentPaneHeader" x:ClassModifier="internal"
+           Margin="8,4">
+  <Button x:Name="Refresh" DockPanel.Dock="Right" Width="24" Height="24" Padding="5"
+          Background="Transparent" BorderThickness="0" CornerRadius="0" />
+  <StackPanel x:Name="Heading" Orientation="Horizontal" Spacing="8">
+    <agent:EarlySupportBadge x:Name="Badge" />
+  </StackPanel>
+</DockPanel>

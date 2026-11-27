@@ -49,7 +49,7 @@ internal static class BoundaryChecks
         // The chat contract and the chat view are shared by the plugins that offer a chat.
         [Chat] = [Api],
         [ChatUi] = [Api, ApiUi, Kit, Chat, "Tereditor.Plugins.Agent.UI"],
-        ["Tereditor.Plugins.Agent.UI"] = [Api, Kit],
+        ["Tereditor.Plugins.Agent.UI"] = [Api, ApiUi, Kit],
         // Host code the Pi and omp plugins share.
         [AgentHost] = [Api, ApiHost],
         ["Tereditor.PluginFixture.Host"] = [Api, ApiHost],
