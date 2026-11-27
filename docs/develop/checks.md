@@ -24,8 +24,10 @@ Every mode has to say how it reaches CI. The `ci-coverage` case (also run by `--
 that run it, the workflow job that runs it (the file must contain that step), or an exemption with its reason. A mode with no
 entry, an entry for a mode that is gone, a case that nothing registers and a job that does not mention its mode all fail the
 gate. A new mode therefore needs a `Gate.Case` (cheap), a workflow step (platform specific or slow) or a reason to stay out.
-A gate case marked `slow: true` runs outside the merge gate (`ci.yml` takes `--lane merge`) in the nightly and in dispatchable `slow.yml` (`--lane slow`); the case still counts as the mode's CI coverage, and `ci-coverage` fails if those workflows lose their lane. The table pins a decision per mode; it does not prove that the listed cases run every line of the mode, so extend the case when
-you extend the mode.
+A gate case marked `slow: true` runs outside the merge gate (`ci.yml` takes `--lane merge`) in the nightly and in dispatchable `slow.yml` (`--lane slow`); the case still counts as the mode's CI coverage, and `ci-coverage` fails if those workflows lose their lane. The slow cases are
+`language-services`, `language-editor`, `language-on-demand`, `language-refactoring`, `language-exit`, `language-limits`,
+`lsp-settings` and `lsp-dependencies`: a break in them shows in the nightly, not on the merge. The table pins a decision per
+mode; it does not prove that the listed cases run every line of the mode, so extend the case when you extend the mode.
 
 Exempt on purpose: modes that open a real window and take focus (`--native-*`, run by hand on macOS or from the dispatch-only
 `slow.yml`), benchmarks and measurements (`--rendering-bench`, `--native-frame-pump`, `--native-surface-memory`), wall-clock

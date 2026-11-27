@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The gate cases marked slow (Gate.Case(..., slow: true)): the language server cases beyond the host contract that ci.yml's gate keeps
+  # The gate cases marked slow (Gate.Case(..., slow: true)): the language server cases that ci.yml's merge gate leaves out
   # (docs/develop/agent-reference.md, Gate options). ci.yml runs --lane merge; this runs the rest, so nothing is left unrun.
   slow-cases:
     runs-on: ubuntu-24.04

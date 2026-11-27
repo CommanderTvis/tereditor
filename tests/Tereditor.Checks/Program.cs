@@ -1673,7 +1673,7 @@ internal static class Program
         Gate.Case("project-toml", ProjectTomlChecks.Run);
         Gate.Case("project-language-file", () => ProjectLanguageFileChecks.Run(root).GetAwaiter().GetResult());
         Gate.Case("project-language-autostart", () => ProjectLanguageAutostartChecks.Run(root).GetAwaiter().GetResult());
-        Gate.Case("language-services", () => LanguageChecks.Run(root).GetAwaiter().GetResult());
+        Gate.Case("language-services", () => LanguageChecks.Run(root).GetAwaiter().GetResult(), slow: true);
         Gate.Case("mcp-resources", () => McpResourceChecks.Run().GetAwaiter().GetResult());
         Gate.Case("intellij-license", () => IntelliJLicenseChecks.Run().GetAwaiter().GetResult());
         Gate.Case("settings-terms-status", IntelliJLicenseChecks.TermsStatus);
@@ -1829,7 +1829,7 @@ internal static class Program
         });
         Gate.Case("tab-names", TabNameChecks.Run);
         Gate.Case("rename-follows", () => E2E.FilesE2E.RenameFollows(root));
-        Gate.Case("lsp-dependencies", () => LanguageDependencyChecks.Run(root));
+        Gate.Case("lsp-dependencies", () => LanguageDependencyChecks.Run(root), slow: true);
         Gate.Case("ci-coverage", CiCoverageChecks.Run);
         Gate.Case("plugins-settings", () => PluginsSettingsScrollChecks.Run(Path.Combine(root, "plugins-settings")));
         Gate.Case("dialog-overlay", () => DialogOverlayChecks.Run(root));

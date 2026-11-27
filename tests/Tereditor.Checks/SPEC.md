@@ -195,6 +195,10 @@ how to add, remove and merge cases.
   `--shard`: an explicit `--shard` beside the variable or beside `--lanes` is rejected. CI splits the full
   gate across three jobs this way. A run with arguments of its own ignores the variable: the children a check
   starts from this executable (a fake agent, a relay) inherit it and are no slice of the gate.
+- `--lane merge` takes the cases not marked `slow: true` in `Gate.Case`, `--lane slow` only the marked ones;
+  without a lane a run takes all. A slow case keeps its position, so no shard changes. `ci.yml` runs the
+  merge lane, `nightly.yml` and dispatched `slow.yml` the slow lane, and `ci-coverage` fails when a
+  workflow lacks its lane.
 - A failed process stops at its failure and records what it still owed, the failing case and the rest of
   its shard, in `.bench/checks-last-run.txt`; lanes merge their records. `--last-failed` is a serial run of
   exactly those cases. A repair that fails again narrows the record to what is still owed, a passing one
@@ -745,10 +749,11 @@ The settings-refresh case checks that terminal-title broadcasts retain Appearanc
 
 `--lsp` exercises a real stdio fixture process through local and WebSocket adapters: initialization
 roots, draft/version isolation, navigation, tokens, diagnostics, cancellation, MCP and process failure.
-`--lsp-ui` checks native editor token overlays, Unicode squiggles and stale/detached results. Both join
-the normal gate. `--lsp-real` explicitly exercises managed TypeScript installation and installed
-Pyright/clangd against intentional type errors; it needs network/toolchains and stays outside the gate.
-Ordinary fixtures disable server provisioning.
+`--lsp-ui` checks native editor token overlays, Unicode squiggles and stale/detached results. Their gate
+cases, `language-services` and `language-editor`, are slow, as are `lsp-settings` and `lsp-dependencies`:
+the argument-free run takes them, the merge gate does not. `--lsp-real` explicitly exercises managed
+TypeScript installation and installed Pyright/clangd against intentional type errors; it needs
+network/toolchains and stays outside the gate. Ordinary fixtures disable server provisioning.
 
 Language checks also verify inventory without provisioning, local/remote server states, actual terminal-
 authenticated HTTP MCP listing/calls for Codex and Claude, and the LSP pane row-context stop/restart/Problems flow, including right-clicking an unselected server.
