@@ -116,6 +116,11 @@ No real omp run backs them; the checks use a fixture `omp`.
   move and file opening, the start button, terminal ownership and the source part of the settings page are in
   [Agent UI](../Tereditor.Plugins.Agent.UI/SPEC.md). Neither plugin depends on the other. The Account tab names the model provider
   first: the chosen Model source's name, or "omp's own provider (built in)".
+- Colored mark: while Agent icons is Colored, every omp mark is the gradient drawing `Ui.AgentDrawing("omp")` (pink
+  `#f84fcc`, violet `#9362f4`, cyan `#00dbe4`, from the top left to the bottom right) in place of the plain mark: the
+  mark of the oh-my-pi repository (MIT: the path of `OmpMark.tsx` in `packages/collab-web`, which is the plain mark's,
+  and the gradient of its `tokens.css` in sRGB; omp.sh shows the same colors), kept as `assets/omp-color.svg`. It is
+  bundled, so nothing is read from the network. One drawing serves light and dark themes; against white its cyan end is faint (about 1.7 to 1), its pink and violet about 3 and 4 to 1.
 - Mark: the manifest icon is `asset:omp.svg`, omp's π mark from the omp.sh site header redrawn as one `currentColor`
   path, so Settings › omp, the plugin card, its Agent pane chip and omp terminal tabs (workbench and Projects)
   wear it. The launcher's icons and the start action draw it in a theme brush and follow theme changes; the kit's

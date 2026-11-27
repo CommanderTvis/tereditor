@@ -48,8 +48,8 @@ public static partial class Ui
 
     /// <summary>
     /// A single brand colour for a one-colour mark, only where the agent has one: Claude's orange, and the Agent Client Protocol's white on a dark theme
-    /// (its canonical colour; a light theme keeps the text colour, because white would vanish there). Codex, omp, OpenAI and Air Gateway ship no brand colour,
-    /// so they stay plain. Pi has three (see <see cref="AgentPalette"/>).
+    /// (its canonical colour; a light theme keeps the text colour, because white would vanish there). Codex, OpenAI and Air Gateway ship no brand colour,
+    /// so they stay plain. Pi has three (see <see cref="AgentPalette"/>) and omp a gradient (see <see cref="AgentDrawing"/>).
     /// </summary>
     public static Color? AgentColor(string agent) => agent switch
     {
@@ -63,6 +63,14 @@ public static partial class Ui
     /// measured from the logo on pi.dev (no light-theme variants: the reference has none). Documented in `pi-color.svg` and the Pi spec.
     /// </summary>
     public static Color[]? AgentPalette(string agent) => agent == "pi" ? [Color.FromRgb(0xE3, 0x95, 0x86), Color.FromRgb(0xE9, 0xC0, 0x69), Color.FromRgb(0x61, 0x98, 0xBB)] : null;
+
+    /// <summary>
+    /// The whole colored SVG of a mark whose colors are no flat fill, drawn in place of the plain mark: omp's mark in its pink, violet and cyan gradient,
+    /// from the oh-my-pi repository, one for every theme. Documented in `omp-color.svg` and the omp spec.
+    /// </summary>
+    public static string? AgentDrawing(string agent) => agent == "omp"
+        ? """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f84fcc"/><stop offset=".5" stop-color="#9362f4"/><stop offset="1" stop-color="#00dbe4"/></linearGradient></defs><path fill="url(#g)" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"/></svg>"""
+        : null;
 
     /// <summary>The fill of every chip: the terminal background nudged towards the text colour, so a chip floats on it in any theme (contrast with the background 1.2 or more).</summary>
     public static readonly SolidColorBrush ChipFill = new();

@@ -12,7 +12,7 @@ namespace Tereditor.Plugins.Omp.UI;
 /// <summary>
 /// The omp mark from this plugin's own <c>omp.svg</c>, drawn in a theme brush (the asset paints <c>currentColor</c>)
 /// and redrawn when the theme changes; the kit's terminal glyph stands in until the asset is read or when it cannot be.
-/// Tagged with <see cref="OmpManifest.Icon"/> like the host's tab marks.
+/// Tagged with <see cref="OmpManifest.Icon"/> like the host's tab marks. With colored agent icons it wears omp's gradient (<see cref="Ui.AgentDrawing"/>).
 /// </summary>
 public sealed class OmpGlyph : ContentControl
 {
@@ -60,7 +60,7 @@ public sealed class OmpGlyph : ContentControl
     private async Task Draw()
     {
         if (await Load(context) is not { } svg) return;
-        Dispatcher.UIThread.Post(() => Content = new SvgAsset(svg, size, brush));
+        Dispatcher.UIThread.Post(() => Content = new SvgAsset(svg, size, brush) { Agent = OmpManifest.Id });
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

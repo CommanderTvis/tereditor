@@ -487,6 +487,10 @@ internal static class OmpChecks
             E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Any(chip => chip.Name == "AgentChip_omp" &&
                 chip.GetLogicalDescendants().OfType<Control>().Any(control => Equals(control.Tag, OmpManifest.Icon))));
 
+            // Every omp mark on screen (the start action and the chip among them) is drawn for the omp agent, so Colored agent icons reach all of them.
+            E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Where(control => Equals(control.Tag, OmpManifest.Icon)).ToArray() is { Length: >= 2 } marks &&
+                marks.All(mark => mark.GetLogicalDescendants().OfType<SvgAsset>().Any(asset => asset.Agent == "omp")));
+
             // A missing binary: the pane says so with the install link, and the launcher is unavailable.
             Settings(new { command = Path.Combine(root, "nowhere", "omp"), source = "system", model = "@smol", approvalMode = "write", advisor = true });
             // The settings change re-reads the state, so the pane's chip goes away and the launcher says why it cannot start; the pane's own page still shows the missing state.

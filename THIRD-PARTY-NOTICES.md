@@ -155,7 +155,10 @@ OpenAI glyph is covered by the existing Remix Icon notice.
 The omp plugin's monochrome `assets/omp.svg` is omp's π mark, taken from the header of
 https://omp.sh/ (the site of oh-my-pi, https://github.com/can1357/oh-my-pi, MIT; Copyright 2025 Mario
 Zechner, 2025-2026 Can Bölük, 2026 Stencil Labs, Inc.) and redrawn as one `currentColor` path without
-its gradient. The mark identifies omp only; its name and mark remain its owners'.
+its gradient. With colored agent icons the app draws the mark in its colors instead
+(`assets/omp-color.svg`): the path of `packages/collab-web/src/components/shell/OmpMark.tsx` and the
+gradient colors of `packages/collab-web/src/styles/tokens.css` in that repository, converted from oklch
+to sRGB. See licenses/oh-my-pi-MIT.txt. The mark identifies omp only; its name and mark remain its owners'.
 
 The Android client uses Avalonia.Android 12.1.6 (MIT, as Avalonia). Through it the package
 includes the .NET bindings Xamarin.AndroidX.AppCompat 1.7.1.3, Xamarin.AndroidX.DocumentFile

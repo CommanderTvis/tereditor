@@ -118,6 +118,7 @@ public static class PluginIcons
     {
         ("claude-code", "asset:claude.svg") => "claude",
         ("pi", "asset:pi.svg") => "pi",
+        ("omp", "asset:omp.svg") => "omp",
         ("acp", "asset:acp.svg") => "acp",
         _ => null
     };

@@ -21,7 +21,7 @@ public sealed partial class SvgAsset : Image
     private (byte[] Bytes, Color? Tint, string? Variant)? sourceKey;
 
     /// <summary>
-    /// The agent this mark belongs to: <c>claude</c>, <c>pi</c> and <c>acp</c> have brand colours (see <see cref="Ui.AgentColor"/> and <see cref="Ui.AgentPalette"/>),
+    /// The agent this mark belongs to: <c>claude</c>, <c>pi</c>, <c>omp</c> and <c>acp</c> have brand colours (see <see cref="Ui.AgentColor"/>, <see cref="Ui.AgentPalette"/> and <see cref="Ui.AgentDrawing"/>),
     /// and <c>acp-registry</c> marks a registry agent's own icon, which keeps its hard-coded colours while <see cref="Ui.ColoredAgentIcons"/> is on and is drawn
     /// in the tint alone while it is off. While <see cref="Ui.ColoredAgentIcons"/> is on and the agent has a brand colour, it replaces the tint, and the mark redraws when the choice changes.
     /// </summary>
@@ -29,7 +29,9 @@ public sealed partial class SvgAsset : Image
 
     private Color[]? Palette => Agent is not null && Ui.ColoredAgentIcons ? Ui.AgentPalette(Agent) : null;
 
-    private string? Variant => Palette is not null ? "palette" : Agent == "acp-registry" && !Ui.ColoredAgentIcons ? "mono" : null;
+    private string? Drawing => Agent is not null && Ui.ColoredAgentIcons ? Ui.AgentDrawing(Agent) : null;
+
+    private string? Variant => Drawing is not null ? "drawing" : Palette is not null ? "palette" : Agent == "acp-registry" && !Ui.ColoredAgentIcons ? "mono" : null;
 
     private Color? Tint => Agent is not null && Ui.ColoredAgentIcons && Ui.AgentColor(Agent) is { } brand ? brand : color?.Color;
 
@@ -77,7 +79,7 @@ public sealed partial class SvgAsset : Image
         try
         {
             var bytes = svg;
-            var text = Encoding.UTF8.GetString(svg);
+            var text = Drawing ?? Encoding.UTF8.GetString(svg);
             if (Variant == "mono") text = HardColor().Replace(text, match => match.Groups["v"].Value.Trim() is "none" or "currentColor" or "inherit" or "transparent" || match.Groups["v"].Value.Contains("url(", StringComparison.Ordinal) ? match.Value : match.Groups["p"].Value + "currentColor");
             if (Palette is { } palette)
             {

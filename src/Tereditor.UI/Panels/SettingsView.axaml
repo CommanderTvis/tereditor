@@ -160,7 +160,7 @@
             <rendering:OptionCards x:Name="FileTypeIconChoices" AutomationProperties.Name="File type icons" />
           </Border>
           <TextBlock Text="Agent icons" Classes="settings-label" />
-          <TextBlock Text="How chat tabs, menus and agent pages draw Claude Code, Codex and other agents. Claude Code, Pi and Agent Client Protocol have brand colors, and ACP agents from the registry keep the colors of their own icons. The other icons stay plain. Shared by every client of this host." Classes="settings-description" />
+          <TextBlock Text="How chat tabs, menus and agent pages draw Claude Code, Codex and other agents. Claude Code, Pi, omp and Agent Client Protocol have brand colors, and ACP agents from the registry keep the colors of their own icons. The other icons stay plain. Shared by every client of this host." Classes="settings-description" />
           <Border Classes="settings-row">
             <rendering:OptionCards x:Name="AgentIconChoices" AutomationProperties.Name="Agent icons" />
           </Border>

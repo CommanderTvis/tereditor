@@ -532,7 +532,7 @@ public sealed partial class SettingsView : UserControl
         agentIcons.SetOptions(
         [
             new("plain", "Plain", "Single-color icons that follow the text color"),
-            new("colored", "Colored", "Claude Code, Pi, ACP and registry agents in their own colors; the others stay plain")
+            new("colored", "Colored", "Claude Code, Pi, omp, ACP and registry agents in their own colors; the others stay plain")
         ], null);
         void AgentIconChoices()
         {

@@ -309,13 +309,28 @@ internal static partial class FileIconsChecks
         Until(() => app.FileRow("README.md") is DrawnTreeLabel { Child: null });
     }
 
-    // The Agent icons choice: Claude's mark turns brand orange, Pi's three brand colors, the ACP mark white on a dark theme and a registry agent's own icon keeps its fills,
+    // The Agent icons choice: Claude's mark turns brand orange, Pi's three brand colors, omp's its gradient drawing, the ACP mark white on a dark theme and a registry agent's own icon keeps its fills,
     // in an open window; other agents' marks stay plain, and turning it off restores plain (a registry icon's fills then follow the text color).
     private static bool Has(byte[] pixels, Color color)
     {
         for (var at = 0; at + 3 < pixels.Length; at += 4)
             if (pixels[at + 3] == 255 && (pixels[at] == color.B && pixels[at + 1] == color.G && pixels[at + 2] == color.R || pixels[at] == color.R && pixels[at + 1] == color.G && pixels[at + 2] == color.B)) return true;
         return false;
+    }
+
+    // omp's gradient has both ends: opaque pixels near its pink start (red over green, blue over green) and near its cyan end (green and blue over red).
+    private static bool Gradient(byte[] pixels)
+    {
+        bool pink = false, cyan = false;
+        for (var at = 0; at + 3 < pixels.Length; at += 4)
+        {
+            if (pixels[at + 3] != 255) continue;
+            // The frame is BGRA or RGBA by platform, so red and blue are judged as a pair; the black background and white match neither end.
+            int low = Math.Min(pixels[at], pixels[at + 2]), green = pixels[at + 1], high = Math.Max(pixels[at], pixels[at + 2]);
+            pink |= green < 130 && low > 150 && high > 180;
+            cyan |= green > 150 && low < 90 && high > 180;
+        }
+        return pink && cyan;
     }
 
     private static void AgentIcons(E2eWorkspace app)
@@ -328,20 +343,33 @@ internal static partial class FileIconsChecks
         var piMark = new SvgAsset(pi, 32, Brushes.White) { Agent = "pi" };
         var acpMark = new SvgAsset(claude, 32, new SolidColorBrush(Color.Parse("#808080"))) { Agent = "acp" };
         var registryMark = new SvgAsset(registry, 32, Brushes.White) { Agent = "acp-registry" };
-        var panel = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { mark, other, piMark, acpMark, registryMark } };
-        var window = new Window { Width = 192, Height = 48, Background = Brushes.Black, Content = panel };
+        var omp = """<svg fill="currentColor" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"/></svg>"""u8.ToArray();
+        var ompMark = new SvgAsset(omp, 32, Brushes.White) { Agent = "omp" };
+        var panel = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { mark, other, piMark, acpMark, registryMark, ompMark } };
+        var window = new Window { Width = 224, Height = 48, Background = Brushes.Black, Content = panel };
         window.Show();
         try
         {
             Require(!Ui.ColoredAgentIcons && !app.Workbench.State.Current.Settings.AgentIconsColored, "Agent icons are plain by default.");
             Require(Ui.AgentColor("claude") is { } orange && orange == Color.Parse("#D97757") && Ui.AgentColor("codex") is null && Ui.AgentColor("omp") is null && Ui.AgentColor("pi") is null,
-                "Only Claude has a brand color; Codex, Pi and omp have none to apply.");
+                "Only Claude has one brand color; Codex, Pi and omp have no single one to apply.");
+            Require(Ui.AgentDrawing("omp") is { } drawing && Ui.AgentDrawing("pi") is null && Ui.AgentDrawing("codex") is null &&
+                new[] { "#f84fcc", "#9362f4", "#00dbe4" }.All(drawing.Contains), "Only omp has a colored drawing of its own, in the three documented colors.");
             Settle(100);
             var plain = Raster(window, mark);
             var plainOther = Raster(window, other);
             var palette = Ui.AgentPalette("pi")!;
             var colors = new[] { Color.Parse("#E39586"), Color.Parse("#E9C069"), Color.Parse("#6198BB") };
             Require(palette.SequenceEqual(colors), "Pi's brand colors are the documented constants: salmon #E39586, yellow #E9C069, blue #6198BB.");
+            for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+            {
+                var ompAsset = Path.Combine(directory.FullName, "src", "Tereditor.Plugins.Omp", "assets", "omp-color.svg");
+                if (!File.Exists(ompAsset)) continue;
+                Require(System.Text.RegularExpressions.Regex.Replace(File.ReadAllText(ompAsset), "<!--.*?-->", "").Trim() == Ui.AgentDrawing("omp"), "omp-color.svg is exactly the drawing the app bundles.");
+                var shape = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(Path.Combine(Path.GetDirectoryName(ompAsset)!, "omp.svg")), " d=\"([^\"]+)\"").Groups[1].Value;
+                Require(shape.Length > 0 && Ui.AgentDrawing("omp")!.Contains($" d=\"{shape}\"", StringComparison.Ordinal), "The colored mark has the plain mark's shape.");
+                break;
+            }
             for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
             {
                 var asset = Path.Combine(directory.FullName, "src", "Tereditor.Plugins.Pi", "assets", "pi-color.svg");
@@ -352,6 +380,8 @@ internal static partial class FileIconsChecks
             }
             var plainPi = Raster(window, piMark);
             var plainRegistry = Raster(window, registryMark);
+            var plainOmp = Raster(window, ompMark);
+            Require(Has(plainOmp, Colors.White) && !Gradient(plainOmp), "Plain, omp's mark is the text color.");
             Require(colors.All(color => !Has(plainPi, color)) && Has(plainPi, Colors.White), "Plain, Pi's mark is the text color.");
             Require(!Has(plainRegistry, Colors.Red) && !Has(plainRegistry, Color.Parse("#00FF00")) && Has(plainRegistry, Colors.White), "Plain, a registry icon's fills follow the text color.");
             var acpPlain = Raster(window, acpMark);
@@ -369,6 +399,8 @@ internal static partial class FileIconsChecks
             Until(() => !Raster(window, mark).SequenceEqual(plain));
             Require(Raster(window, other).SequenceEqual(plainOther), "Colored leaves an agent without a brand color plain.");
             Until(() => colors.All(color => Has(Raster(window, piMark), color)));
+            Until(() => Gradient(Raster(window, ompMark)));
+            Require(!Has(Raster(window, ompMark), Colors.White), "Colored, none of omp's mark keeps the text color.");
             Require(Has(Raster(window, registryMark), Colors.Red) && Has(Raster(window, registryMark), Color.Parse("#00FF00")) && Has(Raster(window, registryMark), Colors.White), "Colored keeps a registry icon's own fills and still tints its currentColor.");
             Require(Ui.Theme.IsLight ? Has(Raster(window, acpMark), Color.Parse("#808080")) : Has(Raster(window, acpMark), Colors.White) && !Has(Raster(window, acpMark), Color.Parse("#808080")),
                 "Colored, the ACP mark is white on a dark theme and keeps the text color on a light one.");
@@ -377,6 +409,7 @@ internal static partial class FileIconsChecks
             Until(() => !app.Workbench.State.Current.Settings.AgentIconsColored && !Ui.ColoredAgentIcons);
             Until(() => Raster(window, mark).SequenceEqual(plain));
             Until(() => colors.All(color => !Has(Raster(window, piMark), color)) && !Has(Raster(window, registryMark), Colors.Red));
+            Until(() => Raster(window, ompMark).SequenceEqual(plainOmp));
             Require(Has(Raster(window, acpMark), Color.Parse("#808080")), "Turning Agent icons off returns the ACP mark to the text color.");
             settings.Close();
         }
