@@ -260,8 +260,7 @@ internal static class ClaudeChatChecks
         await fixture.Call(ChatContract.Send, new ChatSendParams(fixture.Project, chat, "hello"));
         await fixture.Until(chat, view => view.Header.Status == ChatStatus.Idle && view.Items.OfType<ChatAssistantItem>().Any(), "the first answer");
         var log = (await fixture.Call(ChatContract.DebugLog, key)).Entries;
-        Require(log.Select(entry => entry.Seq).SequenceEqual(log.Select(entry => entry.Seq).Order()) && log.Select(entry => entry.Seq).Distinct().Count() == log.Count && log.Zip(log.Skip(1)).All(pair => pair.First.TimeMs <= pair.Second.TimeMs),
-            "The log lists lines in the order they happened, each once, with times that never go back.");
+        InOrder(log, "The log lists lines in the order they happened, each once, with times that never go back.");
         int At(ChatDebugDirection direction, string summary) => log.ToList().FindIndex(entry => entry.Direction == direction && entry.Summary.StartsWith(summary, StringComparison.Ordinal));
         var initialize = At(ChatDebugDirection.ToAgent, "control_request/initialize");
         var prompt = At(ChatDebugDirection.ToAgent, "user (text: hello)");
@@ -313,6 +312,61 @@ internal static class ClaudeChatChecks
             "The log stays under 8 MB by dropping the oldest lines, and a line over 1 MB keeps its size but not its text.");
         Require(ChatDebugLog.Describe(1, 0, ChatDebugDirection.ToAgent, "{\"type\":\"control_request\",\"request\":{\"subtype\":\"can_use_tool\",\"tool_name\":\"Bash\"},\"token\":\"abc\"}") is { Summary: "control_request/can_use_tool Bash", Type: "control_request" } described && !described.Text.Contains("abc"),
             "A control request is summarized by its subtype and tool.");
+        DebugLogOrder();
+    }
+
+    // The three threads that record (stdin writer, stdout reader, stderr) and the batch timer, interleaved on one thread through the log's clock and scheduler.
+    private static void DebugLogOrder()
+    {
+        // A second line arrives after the first one's time was read and before the first one is listed.
+        ChatDebugLog? log = null;
+        var published = new List<ChatDebugEntry>();
+        var flushes = new Queue<Action>();
+        var reads = 0;
+        log = new ChatDebugLog("w", "c", push => published.AddRange(((ChatDebugPush)push).Entries), () =>
+        {
+            if (++reads == 1) log!.Record(ChatDebugDirection.Stderr, "second");
+            return 1000;
+        }, flushes.Enqueue);
+        log.Record(ChatDebugDirection.ToAgent, "first");
+        while (flushes.TryDequeue(out var flush)) flush();
+        InOrder(log.Entries(), "A line that arrives while another is being recorded keeps the log in order.");
+        InOrder(published, "Lines recorded at the same time are published in order.");
+        Require(log.Entries().Count == 2 && published.Count == 2, $"Both lines recorded at the same time are listed and published ({log.Entries().Count} listed, {published.Count} published).");
+
+        // The wall clock is set back between two lines.
+        var times = new Queue<long>([2000, 1500, 2500]);
+        var stepped = new ChatDebugLog("w", "c", _ => { }, times.Dequeue, _ => { });
+        for (var line = 0; line < 3; line++) stepped.Record(ChatDebugDirection.FromAgent, "line " + line);
+        InOrder(stepped.Entries(), "A wall clock that is set back never makes the log's times go back.");
+        Require(stepped.Entries()[^1].TimeMs == 2500, "Times follow the wall clock again once it passes the last listed time.");
+
+        // The batch timer fires again while the earlier batch is still being delivered. The view drops a line older than one it holds.
+        published.Clear();
+        var delivering = false;
+        log = new ChatDebugLog("w", "c", push =>
+        {
+            if (!delivering)
+            {
+                delivering = true;
+                log!.Record(ChatDebugDirection.FromAgent, "later");
+                while (flushes.TryDequeue(out var flush)) flush();
+            }
+            published.AddRange(((ChatDebugPush)push).Entries);
+        }, later: flushes.Enqueue);
+        log.Record(ChatDebugDirection.FromAgent, "earlier");
+        while (flushes.TryDequeue(out var flush)) flush();
+        InOrder(published, "A batch never overtakes the one before it.");
+        Require(published.Count == 2, $"Every line is published once ({published.Count} published for 2 recorded).");
+    }
+
+    // Sequence numbers rise and times never go back; a failure prints each pair of neighbors that breaks this.
+    private static void InOrder(IReadOnlyList<ChatDebugEntry> entries, string message)
+    {
+        static string Line(ChatDebugEntry entry) => $"seq {entry.Seq} time {entry.TimeMs} {entry.Direction} {entry.Summary}";
+        var broken = entries.Zip(entries.Skip(1)).Where(pair => pair.First.Seq >= pair.Second.Seq || pair.First.TimeMs > pair.Second.TimeMs)
+            .Select(pair => $"\n  {Line(pair.First)}\n  is listed before {Line(pair.Second)}").ToList();
+        Require(broken.Count == 0, message + string.Concat(broken.Take(5)));
     }
 
     // /clear starts a fresh conversation: the rows and counters go, the new session id is kept, and the next prompt builds on the empty chat.

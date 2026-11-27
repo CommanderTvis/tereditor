@@ -10,7 +10,7 @@ namespace Tereditor.Plugins.ClaudeCode.Host.Chat;
 /// One chat's debug log: the raw lines exchanged with the Claude process, kept in a bounded ring and published in batches. Credentials are hidden
 /// in what is kept and sent; the traffic itself is never touched. Memory only: nothing here is written to disk.
 /// </summary>
-internal sealed class ChatDebugLog(string workspaceId, string chatId, Action<ChatPush> publish)
+internal sealed class ChatDebugLog(string workspaceId, string chatId, Action<ChatPush> publish, Func<long>? clock = null, Action<Action>? later = null)
 {
     private static readonly TimeSpan BatchInterval = TimeSpan.FromMilliseconds(100);
 
@@ -19,14 +19,19 @@ internal sealed class ChatDebugLog(string workspaceId, string chatId, Action<Cha
     private readonly List<ChatDebugEntry> pending = [];
     private long chars;
     private long sequence;
+    private long lastTime;
     private bool scheduled;
 
     /// <summary>Records one line. Runs on the reader or writer thread of the child, never on the UI.</summary>
     public void Record(ChatDebugDirection direction, string line)
     {
-        var entry = Describe(Interlocked.Increment(ref sequence), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), direction, line);
+        // Describing a line is slow and the three recording threads overlap in it, so its number and time are given only when it is listed.
+        var described = Describe(0, 0, direction, line);
+        var now = clock?.Invoke() ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         lock (gate)
         {
+            lastTime = Math.Max(lastTime, now);
+            var entry = described with { Seq = ++sequence, TimeMs = lastTime };
             ring.Enqueue(entry);
             chars += entry.Text.Length;
             while (ring.Count > ChatDebugLimits.MaxEntries || chars > ChatDebugLimits.MaxChars)
@@ -37,7 +42,13 @@ internal sealed class ChatDebugLog(string workspaceId, string chatId, Action<Cha
             if (scheduled) return;
             scheduled = true;
         }
-        _ = Task.Delay(BatchInterval).ContinueWith(_ => Flush(), TaskScheduler.Default);
+        Schedule();
+    }
+
+    private void Schedule()
+    {
+        if (later is not null) later(Flush);
+        else _ = Task.Delay(BatchInterval).ContinueWith(_ => Flush(), TaskScheduler.Default);
     }
 
     private void Flush()
@@ -45,11 +56,17 @@ internal sealed class ChatDebugLog(string workspaceId, string chatId, Action<Cha
         ChatDebugEntry[] batch;
         lock (gate)
         {
-            scheduled = false;
             batch = [.. pending];
             pending.Clear();
         }
-        if (batch.Length > 0) publish(new ChatDebugPush(workspaceId, chatId, batch));
+        // Scheduled stays set while this batch is delivered: a later batch that overtook it would make the view drop these lines.
+        try { if (batch.Length > 0) publish(new ChatDebugPush(workspaceId, chatId, batch)); }
+        finally
+        {
+            bool more;
+            lock (gate) more = scheduled = pending.Count > 0;
+            if (more) Schedule();
+        }
     }
 
     public IReadOnlyList<ChatDebugEntry> Entries()

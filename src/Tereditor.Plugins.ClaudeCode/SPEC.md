@@ -219,7 +219,10 @@ the chat keep a log of the raw lines exchanged with the child: every line writte
 responses, permission replies), every line read from stdout, and every stderr line, each with direction, time, size, type and a
 one-line summary. The tap is two `Action` calls in `ChatProcess` (null when off, so the cost is a null check); `ChatDebugLog`
 keeps a ring of the last 2000 lines or 8 MB of text, whichever comes first (`ChatDebugLimits`), and publishes new lines as
-`ChatDebugPush` batches every 100 ms from the reader and writer threads, never the UI thread. The log is memory only: never written to
+`ChatDebugPush` batches every 100 ms from the thread pool, never the UI thread. A line gets its sequence number and time at the moment
+it is listed, so the log and its pushes are in one order although three threads record. Times never go back: after the wall clock is
+set back, lines keep the last listed time until the clock passes it. One batch is delivered before the next is sent, because the view
+drops a line older than one it holds. The log is memory only: never written to
 disk and never sent anywhere but to the chat's own subscribers. A line over 1 MB is listed with its size and without its text.
 Credentials are hidden in the logged copy (never in the traffic): values of keys that end in token, apiKey, authorization, password
 or secret (counts such as `max_tokens` stay), `Bearer` and `Basic` values, `NAME_TOKEN=value` style assignments and well-known token
