@@ -587,11 +587,18 @@ snapshot while a non-blank line other than the visible cursor's has never been r
 rows until that resolution lands (requested without debounce) or 150 ms pass, so text never appears first and
 gains its underline a frame later. One expired wait stops waiting until a resolution lands, so streaming output is
 not throttled. Lines resolved without links are remembered as known, and a first row that is the tail of a line
-whose start scrolled away keeps the visible part of that line's links. Metal (local and
+whose start scrolled away keeps the visible part of that line's links. A line whose text is not yet resolved, such as
+the input line being edited, underlines from its first frame every name still whole on it (the same text, bounded by
+the line's ends or the scanner's delimiters, optionally followed by periods), wherever it moved, taken from the lines
+of the last resolution that are no longer shown. A line still shown lends nothing, so new output repeating its name
+waits for its own resolution. A changed or removed name loses its underline in that frame, and a new one appears when
+resolved. These underlines are provisional: the next resolution replaces them, so a name that resolves differently in
+its new place is corrected then. Metal (local and
 remote) passes the underlined cells to Ghostty's renderer, which tracks them in screen coordinates and
 draws them with the cell's style in the same frame, dropping a cell whose text changed until the next
-resolution. The earlier Avalonia overlay was positioned on a 200 ms timer from whatever cell state was
-current then, so it lagged and jumped against the Metal texture.
+viewport pass (a 200 ms timer) hands it the line's links again, including the provisional ones above. The
+earlier Avalonia overlay was positioned on a 200 ms timer from whatever cell state was current then, so it
+lagged and jumped against the Metal texture.
 
 The terminal host runs a bounded character scanner and checks filesystem existence off the dispatcher.
 Relative names resolve against the terminal process's directory (the shell's, unaffected by a
@@ -720,7 +727,7 @@ smaller allocation layout. Preserving allocation size/capacity fixed that native
 pooling alone did not. Removing copy/snapshot textures then reduced steady graphics storage. Neither
 change implies that all graphics-driver caches return to the cold baseline on disposal.
 
-Validated commit underlines on unchanged visible lines survive asynchronous viewport refreshes and scrolling, with offsets remapped to those lines. Changed lines discard old highlights immediately; detach clears retained results.
+Validated commit underlines on unchanged visible lines survive asynchronous viewport refreshes and scrolling, with offsets remapped to those lines. Changed lines keep only the references still whole on them (see the underline rules above); detach clears retained results.
 
 ## Titles and pointer shapes
 

@@ -19,11 +19,12 @@ internal sealed class TerminalLinkHighlights(Action changed) : IDisposable
 
     // Links attached to the text of each logical line they were resolved on, like IntelliJ's terminal keeps filter results
     // on the output model: a line keeps its links while its text is unchanged, wherever it scrolls or however often the
-    // view rebuilds, and only a resolution covering that line replaces them. Unresolved lines fill in asynchronously.
+    // view rebuilds, and only a resolution covering that line replaces them. Unresolved lines fill in asynchronously,
+    // showing meanwhile the names of the lines they replaced (see Carried).
     private readonly Dictionary<string, TerminalLink[]> lines = new(StringComparer.Ordinal);
 
     /// <summary>Whether the last <see cref="Update"/> returned a resolution of exactly that text, so a line it shows
-    /// without links has none; otherwise the result only carries lines resolved earlier.</summary>
+    /// without links has none; otherwise the result only carries links resolved earlier.</summary>
     internal bool Settled { get; private set; }
 
     /// <summary>
@@ -97,15 +98,53 @@ internal sealed class TerminalLinkHighlights(Action changed) : IDisposable
         }
     }
 
+    // The names on lines of the last resolution that `value` no longer shows: an edit replaced those. A line still
+    // shown lends nothing, so new output repeating its name waits for its own resolution.
+    private List<(string Name, TerminalLink Link)> Replaced(string value)
+    {
+        var shown = value.Split('\n').Select(line => line.TrimEnd(' ')).ToList();
+        var replaced = new List<(string Name, TerminalLink Link)>();
+        var start = 0;
+        foreach (var line in resolvedText.Split('\n'))
+        {
+            if (!shown.Remove(line.TrimEnd(' ')))
+                replaced.AddRange(resolvedLinks.Where(link => link.Start >= start && link.Length > 0 && link.Start + link.Length <= start + line.Length)
+                    .Select(link => (resolvedText.Substring(link.Start, link.Length), link)));
+            start += line.Length + 1;
+        }
+        // The longer of two names starting on the same cell comes first and takes its click.
+        return [.. replaced.OrderByDescending(item => item.Name.Length)];
+    }
+
+    // A line being edited has new text: until it resolves, each replaced name still whole on it keeps its underline,
+    // wherever it moved. Not remembered, so the line stays unknown until a resolution covers it.
+    private static IEnumerable<TerminalLink> Carried(string line, List<(string Name, TerminalLink Link)> replaced)
+    {
+        foreach (var (name, link) in replaced)
+        {
+            for (var at = line.IndexOf(name, StringComparison.Ordinal); at >= 0; at = line.IndexOf(name, at + 1, StringComparison.Ordinal))
+            {
+                var end = at + name.Length;
+                while (end < line.Length && line[end] == '.') end++;
+                if ((at == 0 || Delimiter(line[at - 1])) && (end == line.Length || Delimiter(line[end])))
+                    yield return link with { Start = at };
+            }
+        }
+    }
+
+    // The characters the host's file scanner ends a name at.
+    private static bool Delimiter(char c) => char.IsWhiteSpace(c) || "()[]<>{}\"'`:;,=|^!?*".Contains(c);
+
     private List<TerminalLink> Retained(string value)
     {
         var retained = new List<TerminalLink>();
         var start = 0;
         var first = true;
+        List<(string Name, TerminalLink Link)>? replaced = null;
         foreach (var line in value.Split('\n'))
         {
-            if (Known(line.TrimEnd(' '), first) is { } links)
-                retained.AddRange(links.Select(link => link with { Start = start + link.Start }));
+            var key = line.TrimEnd(' ');
+            retained.AddRange((Known(key, first) ?? Carried(key, replaced ??= Replaced(value))).Select(link => link with { Start = start + link.Start }));
             start += line.Length + 1;
             first = false;
         }

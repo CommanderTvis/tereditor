@@ -355,6 +355,61 @@ internal static class GhosttySkiaChecks
         Console.WriteLine("PASS Skia terminal underlines resolve before the frame showing their line, and survive output on other rows");
     }
 
+    // A line being edited keeps the underline of a resolved name from its first frame, before it resolves again: the
+    // name moves with the text through wrapping and scrolling, and a changed or removed one loses it at once.
+    internal static void CheckEditedLineKeepsUnderlines()
+    {
+        const string name = "docs/foo.md", added = "bar.md";
+        var gate = Task.CompletedTask;
+        using var view = new GhosttySkiaView { Typeface = EditorChecks.Font, FontSize = 14 };
+        view.ResolveHighlightedLinks = async (text, token) =>
+        {
+            await gate.WaitAsync(token);
+            return [.. System.Text.RegularExpressions.Regex.Matches(text, @"(?<![\w/])(docs/foo\.md|bar\.md)(?!\w)")
+                .Select(match => new TerminalLink(match.Index, match.Length, "/project/" + match.Value, 1, 1, false))];
+        };
+        var window = new Window { Width = 640, Height = 320, Content = view };
+        window.Show(); Pump();
+        try
+        {
+            Until(() => view.Frames > 0, "first frame");
+            Pump(); Pump();
+            var (columns, rows) = (view.Size.Columns, view.Size.Rows);
+            view.Write(Encoding.UTF8.GetBytes("$ cat " + name));
+            Until(() => view.LinkCells.SequenceEqual(Enumerable.Range(6, name.Length)), "the typed name's underline");
+
+            // From here no resolution finishes until the gate opens.
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            gate = release.Task;
+            void Redraw(string output, string step, params int[] cells)
+            {
+                var frames = view.Frames;
+                view.Write(Encoding.UTF8.GetBytes("\e[H\e[2J" + output));
+                Until(() => view.Frames > frames, step);
+                Require(view.LinkCells.SequenceEqual(cells),
+                    $"{step}: expected underlined cells [{string.Join(",", cells)}], got [{string.Join(",", view.LinkCells)}].");
+            }
+            int[] At(int first) => [.. Enumerable.Range(first, name.Length)];
+            Redraw($"$ cat {name} -n", "typing after the name", At(6));
+            Redraw($"$ sudo cat {name} -n", "typing before the name", At(11));
+            Redraw($"$ cat {name}.", "a period typed after the name", At(6));
+            var padding = new string('a', columns - 5);
+            Redraw($"{padding} {name}", "the name wrapping onto the next row", At(columns - 4));
+            Redraw($"\e[{rows};1H{padding} {name}", "the wrapped line scrolling the screen", At((rows - 1) * columns - 4));
+            Redraw($"│ > edit {name}     │", "a name inside a program's input box", At(9));
+            Redraw($"$ cat {name}\r\nnew {name}", "the name repeated on a new line under the resolved one", At(6));
+            Redraw($"$ cat {name}x", "a character added to the name");
+            Redraw($"$ cat x{name}", "a character added before the name");
+            Redraw($"$ cat docs/fo.md", "a character removed from the name");
+            Redraw("$ cat ", "the removed name");
+            Redraw($"$ cat {added} ", "a newly typed name");
+            release.SetResult();
+            Until(() => view.LinkCells.SequenceEqual(Enumerable.Range(6, added.Length)), "the new name's underline once resolved");
+        }
+        finally { window.Close(); Pump(); }
+        Console.WriteLine("PASS Skia terminal underlines stay on a resolved name while its line is edited, and leave a changed one");
+    }
+
     // A failed-command badge sits on the command line it belongs to: it moves with that line while output scrolls,
     // is not drawn on the alternate screen, and goes when a program erases or overwrites the line or it scrolls out.
     internal static void CheckFailedBadgesFollowContent()

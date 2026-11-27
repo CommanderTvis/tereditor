@@ -530,6 +530,7 @@ internal static class Program
             GhosttySkiaChecks.CheckFileLinks();
             GhosttySkiaChecks.CheckHyperlinks();
             GhosttySkiaChecks.CheckUnderlinesBeforeFrame();
+            GhosttySkiaChecks.CheckEditedLineKeepsUnderlines();
             GhosttySkiaChecks.CheckFailedBadgesFollowContent();
             TerminalFileLinkChecks.RunUi(root);
             TerminalFileLinkChecks.RunWorkbench(root);
@@ -1835,7 +1836,7 @@ internal static class Program
         Gate.Case("dialog-overlay", () => DialogOverlayChecks.Run(root));
         Gate.Case("closed-chat-tabs", () => ClaudeChatUiChecks.ClosedTabsForgetWindowState(root));
         Gate.Case("editor-settings", () => EditorSettingsChecks.Run(root));
-        Gate.Case("terminal-links-ui", () => { GhosttySkiaChecks.CheckUnderlinesBeforeFrame(); GhosttySkiaChecks.CheckFailedBadgesFollowContent(); TerminalFileLinkChecks.RunUi(root); TerminalFileLinkChecks.RunWorkbench(root); EditorWorkbenchChecks.FileLinkPosition(root); });
+        Gate.Case("terminal-links-ui", () => { GhosttySkiaChecks.CheckUnderlinesBeforeFrame(); GhosttySkiaChecks.CheckEditedLineKeepsUnderlines(); GhosttySkiaChecks.CheckFailedBadgesFollowContent(); TerminalFileLinkChecks.RunUi(root); TerminalFileLinkChecks.RunWorkbench(root); EditorWorkbenchChecks.FileLinkPosition(root); });
         Gate.Case("plugin-json", () => RunPumped(() => PluginJsonChecks.Run(root)));
         Gate.Case("keymap", () => { KeymapChecks.Model(); RunPumped(() => KeymapChecks.Host(root)); KeymapChecks.Runtime(root); KeymapChecks.Page(root); KeymapChecks.BrowserPlatform(root); KeymapChecks.PluginActions(root); });
         // The rest of the Claude chat UI checks, split off claude-chat-ui (20 minutes on CI, nearly all of shard 1's overrun) onto shards 2, 3 and 1, in that order (ordinals 286, 287, 288).

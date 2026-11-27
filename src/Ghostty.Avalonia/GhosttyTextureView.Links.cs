@@ -22,6 +22,7 @@ public sealed partial class GhosttyTextureView
     private readonly List<(Rect Cell, TerminalLink Link)> highlightTargets = [];
     private int[] pushedCells = [];
     private int[] pushedHighlights = [];
+    private string pushedText = "";
     internal IReadOnlyList<(string Visible, TerminalLink Link)> HighlightedLinks => highlights?.Underlined ?? [];
     /// <summary>Resolves references to underline throughout the visible terminal, without requiring hover.</summary>
     public Func<string, CancellationToken, Task<IReadOnlyList<TerminalLink>>>? ResolveHighlightedLinks
@@ -67,13 +68,14 @@ public sealed partial class GhosttyTextureView
 
     // A settled resolution of the visible text replaces every visible line's links; otherwise only lines resolved
     // earlier are repeated, so nothing already underlined is dropped while a resolution is pending.
-    private void PushHighlights(bool settled)
+    private void PushHighlights(string text, bool settled)
     {
         if (disposed) return;
         var cells = highlightMarks.Keys.Order().ToArray();
-        if (!settled && cells.SequenceEqual(pushedHighlights)) return;
+        // The renderer keys links by line text: the same cells in new text are new to it.
+        if (!settled && text == pushedText && cells.SequenceEqual(pushedHighlights)) return;
         var codepoints = cells.Select(cell => highlightMarks[cell]).ToArray();
-        if (SetLineLinks(terminal.Handle, cells.Select(cell => (uint)cell).ToArray(), codepoints, (nuint)cells.Length, settled ? 1u : 0u)) pushedHighlights = cells;
+        if (SetLineLinks(terminal.Handle, cells.Select(cell => (uint)cell).ToArray(), codepoints, (nuint)cells.Length, settled ? 1u : 0u)) (pushedHighlights, pushedText) = (cells, text);
     }
 
     private void PushUnderlines()
@@ -107,7 +109,8 @@ public sealed partial class GhosttyTextureView
             row = (int)cells[count - 1] / (int)info[0] + 1;
         }
         var columns = (int)info[0];
-        var resolved = highlights.Update(text.ToString());
+        var visible = text.ToString();
+        var resolved = highlights.Update(visible);
         foreach (var link in resolved)
             foreach (var (cell, code) in positions.Skip(link.Start).Take(link.Length).Where(mark => mark.Cell >= 0).Distinct())
             {
@@ -115,7 +118,7 @@ public sealed partial class GhosttyTextureView
                 highlightTargets.Add((new Rect(info[4] + cell % columns * info[2], info[5] + cell / columns * info[3], info[2], info[3]), link));
             }
         // A resolution of text cut short says nothing about the lines after the cut.
-        PushHighlights(highlights.Settled && row >= rows);
+        PushHighlights(visible, highlights.Settled && row >= rows);
     }
 
     /// <summary>The centre of a viewport cell in view coordinates, for checks.</summary>

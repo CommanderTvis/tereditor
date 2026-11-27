@@ -74,3 +74,10 @@ The tab reads `.claude/rules` as Claude Code does and says when each rule loads,
 session's as on demand rows, from a bounded search asked apart from the configuration
 ([spec](src/Tereditor.Plugins.ClaudeCode/SPEC.md), Rules: sources, limits, skipped folders). Checks on macOS:
 `--claude-code`, format. Not verified: the running app, Windows, a very large project.
+
+## 2026-11-27 — Terminal file underlines stay while the line is edited
+
+Any edit gave a line new text, so its links vanished until the debounced re-resolve. A changed line now shows the names
+still whole on it from the lines it replaced ([spec](src/Tereditor.UI/Terminal/SPEC.md)). Checks: gate cases
+`terminal-links-ui`, `terminal-commit-navigation`, `terminal-commit-links`, format. Not verified: the running app. Open:
+Metal can still blank for up to its 200 ms pass, since its native renderer keys links by line text.
