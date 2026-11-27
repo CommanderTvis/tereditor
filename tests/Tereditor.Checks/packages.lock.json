@@ -365,6 +365,12 @@
           "Tereditor.Plugins.UI.Kit": "[1.0.0, )"
         }
       },
+      "tereditor.plugins.agent.host": {
+        "type": "Project",
+        "dependencies": {
+          "Tereditor.Plugins.Api.Host": "[1.0.0, )"
+        }
+      },
       "tereditor.plugins.agent.ui": {
         "type": "Project",
         "dependencies": {
@@ -880,6 +886,7 @@
       "tereditor.plugins.omp.host": {
         "type": "Project",
         "dependencies": {
+          "Tereditor.Plugins.Agent.Host": "[1.0.0, )",
           "Tereditor.Plugins.Api.Host": "[1.0.0, )",
           "Tereditor.Plugins.Omp": "[1.0.0, )"
         }
@@ -920,6 +927,7 @@
       "tereditor.plugins.pi.host": {
         "type": "Project",
         "dependencies": {
+          "Tereditor.Plugins.Agent.Host": "[1.0.0, )",
           "Tereditor.Plugins.Api.Host": "[1.0.0, )",
           "Tereditor.Plugins.Pi": "[1.0.0, )"
         }

@@ -1,4 +1,4 @@
-using System.Text;
+using Tereditor.Plugins.Agent.Host;
 
 namespace Tereditor.Plugins.Pi.Host;
 
@@ -27,13 +27,7 @@ internal static class PiMcpExtension
     public static string Ensure(string directory)
     {
         var path = Path.Combine(directory, "tereditor-mcp.mjs");
-        var text = Source.Replace("\r\n", "\n");
-        try { if (File.Exists(path) && File.ReadAllText(path) == text) return path; }
-        catch (IOException) { }
-        Directory.CreateDirectory(directory);
-        var temporary = path + "." + Environment.ProcessId + ".tmp";
-        File.WriteAllText(temporary, text, new UTF8Encoding(false));
-        File.Move(temporary, path, true);
+        OwnedFile.Write(path, Source.Replace("\r\n", "\n"));
         return path;
     }
 }

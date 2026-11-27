@@ -2,6 +2,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Tereditor.Checks" />
     <ProjectReference Include="../Tereditor.Plugins.Pi.csproj" />
+    <ProjectReference Include="../../Tereditor.Plugins.Agent.Host/Tereditor.Plugins.Agent.Host.csproj" />
     <ProjectReference Include="../../Tereditor.Plugins.Api.Host/Tereditor.Plugins.Api.Host.csproj" />
     <!-- Builtin plugin assets are staged at plugins/<id>/<assets> beside the host, which serves them to the UI half. -->
     <None Include="../assets/**" Link="plugins/pi/assets/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

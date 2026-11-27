@@ -8,6 +8,7 @@
     <Project Path="src/Tereditor.Host.Protocol/Tereditor.Host.Protocol.csproj" />
     <Project Path="src/Tereditor.Host.Remote/Tereditor.Host.Remote.csproj" />
     <Project Path="src/Tereditor.Wire/Tereditor.Wire.csproj" />
+    <Project Path="src/Tereditor.Plugins.Agent.Host/Tereditor.Plugins.Agent.Host.csproj" />
     <Project Path="src/Tereditor.Plugins.Agent.UI/Tereditor.Plugins.Agent.UI.csproj" />
     <Project Path="src/Tereditor.Plugins.AirGateway/Contract/Tereditor.Plugins.AirGateway.csproj" />
     <Project Path="src/Tereditor.Plugins.AirGateway/Host/Tereditor.Plugins.AirGateway.Host.csproj" />

@@ -196,33 +196,6 @@ internal static class OmpChecks
     }
 
 
-    // A fixture bun: `install` writes a package whose lock file names the pinned integrity (mode good), another one (bad) or waits (hang);
-    // `--bun <script> …` hands over to the fixture omp next to it. It records its arguments, working directory and BUN_INSTALL.
-    private static string FakeBun(string directory)
-    {
-        var path = Path.Combine(directory, "bun");
-        File.WriteAllText(path, $$"""
-            #!/bin/sh
-            here="$(dirname "$0")"
-            printf '%s\n' "$*" >> "$here/bun-calls.txt"
-            if [ "$1" = "install" ]; then
-              printf '%s|%s\n' "$PWD" "$BUN_INSTALL" >> "$here/bun-install.txt"
-              mode=$(cat "$here/bun-mode.txt")
-              [ "$mode" = "hang" ] && sleep 30
-              pkg=node_modules/@oh-my-pi/pi-coding-agent
-              mkdir -p "$pkg/dist"
-              printf '{"name":"x","version":"{{OmpManaged.Version}}"}' > "$pkg/package.json"
-              echo "// cli" > "$pkg/dist/cli.js"
-              if [ "$mode" = "bad" ]; then echo '"{{OmpManaged.Package}}": ["x", "sha512-other"]' > bun.lock; else echo '"{{OmpManaged.Package}}": ["x", "{{OmpManaged.Integrity}}"]' > bun.lock; fi
-              exit 0
-            fi
-            if [ "$1" = "--bun" ]; then shift 2; exec "$here/omp" "$@"; fi
-            exit 3
-            """.Replace("\r\n", "\n"));
-        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        return path;
-    }
-
     private static async Task<(int Code, string Output, string Errors)> RunProgram(string program, params string[] arguments)
     {
         using var process = Process.Start(new ProcessStartInfo(program, arguments) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false }) ?? throw new InvalidOperationException("not started");
@@ -233,13 +206,6 @@ internal static class OmpChecks
         return (process.ExitCode, await output, await errors);
     }
 
-    private static async Task<T> Throws<T>(Func<Task> action) where T : Exception
-    {
-        try { await action(); }
-        catch (T error) { return error; }
-        throw new InvalidOperationException("omp: expected " + typeof(T).Name);
-    }
-
     // The pinned omp: downloaded once with Bun and checked against the pinned integrity, then run as `bun --bun cli.js` through the program the launch line
     // starts, never the system omp. A fake Bun and a fake package stand in; nothing here touches the network.
     private static async Task Managed(string root)
@@ -248,15 +214,13 @@ internal static class OmpChecks
         var directory = Path.Combine(root, "with space");
         Directory.CreateDirectory(directory);
         FakeOmp(directory);
-        var bun = FakeBun(directory);
-        var mode = (string value) => File.WriteAllText(Path.Combine(directory, "bun-mode.txt"), value);
-        var calls = () => File.Exists(Path.Combine(directory, "bun-calls.txt")) ? File.ReadAllLines(Path.Combine(directory, "bun-calls.txt")) : [];
-        var resolution = new RuntimeResolution(RuntimeKind.Bun, true, bun, ["x"], new Dictionary<string, string> { ["BUN_INSTALL"] = Path.Combine(directory, "bun-home") }, RuntimeSource.Downloaded, "", false);
+        var bun = ManagedAgentChecks.FakeBun(directory, OmpManaged.Package, OmpManaged.Version, OmpManaged.Integrity, "dist/cli.js", "omp");
+        var calls = () => ManagedAgentChecks.Calls(directory);
+        var resolution = ManagedAgentChecks.Resolution(directory);
         var install = Path.Combine(directory, "state", "omp", "managed");
         var workspace = Path.Combine(directory, "workspace");
         Directory.CreateDirectory(workspace);
         var managed = new OmpManaged(install, (_, _) => Task.FromResult(resolution));
-        var empty = () => !Directory.Exists(install) || Directory.GetFileSystemEntries(install).Length == 0;
         var unavailable = RuntimeResolution.Unavailable(RuntimeKind.Bun, "Needs Bun.", offerEnable: true);
 
         // The package is the real one, pinned exactly.
@@ -289,39 +253,10 @@ internal static class OmpChecks
             Require(notYet.Code == 1 && notYet.Errors.Contains("not downloaded yet", StringComparison.Ordinal) && calls().Length == 0, "Before the download the program says so, exits 1 and starts no Bun: " + notYet.Errors);
         }
 
-        mode("bad");
-        var refused = await Throws<InvalidOperationException>(() => managed.EnsureAsync(workspace, CancellationToken.None));
-        Require(refused.Message.Contains("checksum", StringComparison.Ordinal) && managed.LastError.Contains("omp could not be downloaded", StringComparison.Ordinal), "A download whose lock file does not name the pinned integrity is refused with a reason.");
-        Require(managed.InstalledVersion().Length == 0 && Directory.GetFileSystemEntries(install).All(entry => Path.GetFileName(entry) != OmpManaged.Version), "A refused download leaves no installed copy behind.");
-        var failed = managed.Status(before);
-        Require(failed.Error.Length > 0 && failed.Installing == false, "The failure reaches the status with its message.");
-
-        mode("hang");
-        var hanging = managed.EnsureAsync(workspace, CancellationToken.None);
-        for (var wait = 0; wait < 200 && !managed.Running; wait++) await Task.Delay(25);
-        var running = managed.Status(before);
-        Require(running is { Installing: true, Progress.Length: > 0, Error: "" }, "A running download reports that it runs, with a progress line: " + running);
-        managed.Cancel();
-        await Throws<OperationCanceledException>(() => hanging);
-        Require(managed.LastError.Contains("canceled", StringComparison.Ordinal) && !managed.Running && Directory.GetFileSystemEntries(install).All(entry => Path.GetFileName(entry) != OmpManaged.Version),
-            "Cancel stops Bun, leaves no partial copy and says so.");
-
-        // An older pin's copy is shown as such and replaced by the update.
-        Directory.CreateDirectory(Path.Combine(install, "0.1.0"));
-        Require(managed.Status(before) is { ManagedVersion: "0.1.0" } && managed.InstalledVersion().Length == 0, "A copy from an earlier pin is not the pinned omp, so the page offers an update.");
-        File.Delete(Path.Combine(directory, "bun-calls.txt"));
-        mode("good");
-        await Task.WhenAll(managed.EnsureAsync(workspace, CancellationToken.None), managed.EnsureAsync(workspace, CancellationToken.None));
-        Require(calls().Count(line => line.StartsWith("install", StringComparison.Ordinal)) == 1, "Two requests for the pinned omp (the page and a launch) share one download.");
-        Require(calls()[0] == "install --ignore-scripts --no-progress --registry=https://registry.npmjs.org/", "Bun installs without the package's scripts, from the npm registry.");
-        var line = File.ReadAllLines(Path.Combine(directory, "bun-install.txt")).Last().Split('|');
-        Require(Path.GetFullPath(line[0]).StartsWith(Path.GetFullPath(install), StringComparison.Ordinal) && line[1] == Path.Combine(directory, "bun-home"), "Bun installs in the download folder, never the workspace, with the host's Bun environment and no global packages.");
-        Require(managed.InstalledVersion() == OmpManaged.Version && Directory.GetFileSystemEntries(install).Length == 1, "A checked download is the installed pinned omp, and the update removed the earlier copy.");
+        await ManagedAgentChecks.Download(managed, directory, OmpManaged.Package, OmpManaged.Version, workspace,
+            () => managed.Status(before) is var status ? (status.Installing, status.Progress, status.Error) : default);
         var after = await OmpHost.ComposeStatusAsync(new OmpSettings { Command = missingCommand }, root, managed, bunAvailable: true);
         Require(after is { Source: OmpSources.Managed, Installed: true, Usable: true, Version: OmpManaged.Version, ManagedVersion: OmpManaged.Version, Error: "" }, "The account's version is the pinned one on disk: " + after);
-        File.Delete(Path.Combine(directory, "bun-calls.txt"));
-        await managed.EnsureAsync(workspace, CancellationToken.None);
-        Require(calls().Length == 0, "An installed pinned omp is not downloaded again.");
 
         // The launch: the program runs bun --bun cli.js with the arguments of the line; a Model source's contribution still wraps it.
         Require(File.Exists(managed.ShimPath) && File.ReadAllText(managed.ShimPath).Contains(managed.EntryPoint, StringComparison.Ordinal), "A finished download writes the program that runs it.");

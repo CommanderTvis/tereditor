@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
+using Tereditor.Plugins.Agent.Host;
 using Tereditor.Plugins.Api;
 using Tereditor.Plugins.Api.Host;
 
@@ -37,11 +38,7 @@ public sealed partial class OmpHost : PluginHostModule
                 ["tereditor"] = new JsonObject { ["type"] = "http", ["url"] = "${THINKRAIL_MCP_URL}" }
             }
         }.ToJsonString(new() { WriteIndented = true }) + "\n";
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        if (File.Exists(path) && File.ReadAllText(path) == text) return;
-        var temporary = path + "." + Environment.ProcessId + ".tmp";
-        File.WriteAllText(temporary, text);
-        File.Move(temporary, path, overwrite: true);
+        OwnedFile.Write(path, text);
     }
 
     /// <summary>The newest session file in a launch's session folder, which a revive resumes; null when it has none.</summary>
@@ -60,23 +57,8 @@ public sealed partial class OmpHost : PluginHostModule
     {
         var executable = OmpLaunch.Executable(command);
         var status = new OmpStatus(false, executable) { ProfileMcpPath = profile ? ProfileMcpPath(home) : null };
-        try
-        {
-            using var process = Process.Start(new ProcessStartInfo(executable, ["--version"]) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true });
-            if (process is null) return status with { Detail = "omp could not be started." };
-            using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            var output = process.StandardOutput.ReadToEndAsync(cancel.Token);
-            var errors = process.StandardError.ReadToEndAsync(cancel.Token);
-            await process.WaitForExitAsync(cancel.Token);
-            var text = (await output).Trim();
-            if (process.ExitCode != 0) return status with { Detail = (await errors).Trim() is { Length: > 0 } detail ? detail : $"omp --version exited {process.ExitCode}." };
-            return status with { Installed = true, Usable = true, Version = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() };
-        }
-        catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
-        {
-            return status with { Detail = $"{executable} was not found on PATH." };
-        }
-        catch (OperationCanceledException) { return status with { Detail = "omp --version timed out." }; }
+        var probe = await AgentVersion.ProbeAsync(executable, "omp");
+        return status with { Installed = probe.Installed, Usable = probe.Installed, Version = probe.Version, Detail = probe.Detail };
     }
 
     /// <summary>
@@ -297,29 +279,8 @@ public sealed partial class OmpHost : PluginHostModule
         }
 
         context.Method(OmpContract.Status, async (_, _, token) => await Task.Run(() => StatusAsync(token), token));
-        context.Method(OmpContract.Install, async (_, _, token) =>
-        {
-            try { await managed.EnsureAsync("", token); }
-            catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException or OperationCanceledException) { context.Log.Debug("omp download: " + error.Message); }
-            await Task.Run(EnsureProfile, CancellationToken.None);
-            return await Task.Run(() => StatusAsync(CancellationToken.None), CancellationToken.None);
-        });
-        context.Method(OmpContract.CancelInstall, async (_, _, token) =>
-        {
-            managed.Cancel();
-            return await Task.Run(() => StatusAsync(token), token);
-        });
-        context.Method(OmpContract.Remove, async (_, _, token) =>
-        {
-            await Task.Run(managed.Remove, token);
-            return await Task.Run(() => StatusAsync(token), token);
-        });
-        // Turning the plugin off deletes what it downloaded.
-        context.OnUserDisabled(() =>
-        {
-            managed.Remove();
-            return ValueTask.CompletedTask;
-        });
+        // A finished download prepares the profile, which waits for the program.
+        ManagedDownloads.Register(context, managed, OmpContract.Install, OmpContract.CancelInstall, OmpContract.Remove, token => Task.Run(() => StatusAsync(token), token), EnsureProfile);
         context.Method(OmpContract.Context, async (p, _, ct) =>
         {
             var root = await RootOf(p.WorkspaceId, ct);

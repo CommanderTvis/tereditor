@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Host code that the Pi and omp plugins share. It is not a plugin and holds no state of its own. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tereditor.Plugins.Pi.Host" />
+    <InternalsVisibleTo Include="Tereditor.Plugins.Omp.Host" />
+    <InternalsVisibleTo Include="Tereditor.Checks" />
+    <ProjectReference Include="../Tereditor.Plugins.Api.Host/Tereditor.Plugins.Api.Host.csproj" />
+  </ItemGroup>
+</Project>

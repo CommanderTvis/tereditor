@@ -16,7 +16,8 @@ internal static class BoundaryChecks
         UI = "Tereditor.UI", Checks = "Tereditor.Checks", Api = "Tereditor.Plugins.Api",
         Chat = "Tereditor.Plugins.Chat", ChatUi = "Tereditor.Plugins.Chat.UI", ApiHost = "Tereditor.Plugins.Api.Host", ApiUi = "Tereditor.Plugins.Api.UI", Kit = "Tereditor.Plugins.UI.Kit", Android = "Tereditor.Android", Browser = "Tereditor.Browser",
         Wire = "Tereditor.Wire", Isolation = "Tereditor.Plugins.Isolation", IsolationUi = "Tereditor.Plugins.Isolation.UI",
-        IsolationGenerator = "Tereditor.Plugins.Isolation.Generator", Runner = "Tereditor.Plugins.Runner";
+        IsolationGenerator = "Tereditor.Plugins.Isolation.Generator", Runner = "Tereditor.Plugins.Runner",
+        AgentHost = "Tereditor.Plugins.Agent.Host";
 
     /// <summary>Every project and what it may reach, directly or through a reference. A new project needs its own entry.</summary>
     private static readonly Dictionary<string, string[]> Allowed = new()
@@ -40,7 +41,7 @@ internal static class BoundaryChecks
         [Android] = [Abstractions, Core, Client, Scintilla, Ghostty, UI, Api, ApiUi, Kit, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
         [Browser] = [Abstractions, Core, Client, Scintilla, Ghostty, UI, Api, ApiUi, Kit, Isolation, "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex"],
         [Checks] = [Abstractions, Wire, Protocol, Core, Client, Headless, Remote, Scintilla, Ghostty, UI, Android, Api, ApiHost, ApiUi, Kit,
-            "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex", "Tereditor.Plugins.Agent.UI", "Tereditor.PluginFixture.Host", "Tereditor.PluginFixture.UI", "Tereditor.PluginFixture.Outsider.UI", Isolation, IsolationUi, IsolationGenerator, Runner],
+            "Tereditor.Plugins.ClaudeCode", "Tereditor.Plugins.Codex", "Tereditor.Plugins.Agent.UI", "Tereditor.PluginFixture.Host", "Tereditor.PluginFixture.UI", "Tereditor.PluginFixture.Outsider.UI", Isolation, IsolationUi, IsolationGenerator, Runner, AgentHost],
         [Api] = [],
         [ApiHost] = [Api],
         [ApiUi] = [Api],
@@ -49,6 +50,8 @@ internal static class BoundaryChecks
         [Chat] = [Api],
         [ChatUi] = [Api, ApiUi, Kit, Chat, "Tereditor.Plugins.Agent.UI"],
         ["Tereditor.Plugins.Agent.UI"] = [Api, Kit],
+        // Host code the Pi and omp plugins share.
+        [AgentHost] = [Api, ApiHost],
         ["Tereditor.PluginFixture.Host"] = [Api, ApiHost],
         ["Tereditor.PluginFixture.UI"] = [Api, ApiUi, Kit],
         // An external plugin with only a UI half, installed from disk by the checks, and its private dependency.
@@ -110,6 +113,7 @@ internal static class BoundaryChecks
             rules[Checks] = [.. rules[Checks], contract, contract + ".Host", contract + ".UI"];
             // A browser tab runs Pi's host in the page (TabPi), so the tab client names its host module.
             if (plugin is "Pi") rules[Browser] = [.. rules[Browser], contract + ".Host"];
+            if (plugin is "Pi" or "Omp") rules[contract + ".Host"] = [.. rules[contract + ".Host"], AgentHost];
             if (plugin is "ClaudeCode" or "Pi" or "Acp")
             {
                 rules[contract] = [.. rules[contract], Chat];
