@@ -21,6 +21,7 @@ internal static class MenuPopupChecks
 {
     internal static void Run(string root)
     {
+        SubmenuPlacementChecks.Run();
         WorkspaceShaped();
         RealMenus(root);
         FileAndTabMenus(root);

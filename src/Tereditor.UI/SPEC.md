@@ -198,9 +198,18 @@ Other platforms, and windows with no native handle, zoom.
 
 ## Popups
 
-Popups never leave the window: every context menu, submenu, flyout, dropdown and autocomplete list slides and flips to lie
-inside the window that opened it, with a menu's icons inside the menu. Tooltips are exempt. One app-level rule enforces
-this, so no menu or dropdown places itself.
+Popups never leave the window: every context menu, flyout, dropdown and autocomplete list slides and flips to lie
+inside the window that opened it, with a menu's icons inside the menu. Submenus follow the rule below. Tooltips are
+exempt. One app-level rule enforces this, so no menu or dropdown places itself.
+
+A submenu lies beside its parent menu. Their visible edges touch: no part of the submenu is over or under the parent,
+and no gap lies between them for the pointer to fall through. It opens to the right, or to the left when only that side
+has room in the window. A submenu of a submenu that lies left of its parent keeps going left. When neither side has room, a desktop
+popup window leaves the window on the roomier side, because the parent can be drawn over it; the browser and Android
+overlay stays inside the window and draws the submenu over its parent. The window rule moves a submenu only up or down.
+`App` does this for every `MenuItem` submenu: it anchors the popup to the parent menu's whole width with no offset, so
+the positioner's flip at a screen edge stays flush too. Popup geometry compares screen positions only with each other,
+since macOS counts them in points and Windows in pixels.
 
 ## Application menu
 

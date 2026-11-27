@@ -157,6 +157,7 @@ internal static class MenuLayoutChecks
         BottomPadding();
         ShortcutsFit();
         PopupsStayInWindow();
+        SubmenuPlacementChecks.Run(overlay: true);
         RecentProjectRows();
         ActionIconChecks.InkInsideViewBox();
         AuditCatchesBrokenIcons();

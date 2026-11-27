@@ -1823,6 +1823,7 @@ internal static class Program
             File.WriteAllText(Path.Combine(menuRoot, "notes.txt"), "n");
             MenuLayoutChecks.RealFileMenu(menuRoot);
             MenuLayoutChecks.GroupAndReveal(menuRoot);
+            SubmenuPlacementChecks.Run(overlay: true);
         });
         Gate.Case("tab-names", TabNameChecks.Run);
         Gate.Case("rename-follows", () => E2E.FilesE2E.RenameFollows(root));

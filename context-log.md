@@ -127,3 +127,11 @@ Whether `jbcontext index` starts a daemon or updates itself is unchecked.
 The check was stale since the terminal keeps its minimum width beside a companion (01226403): its drags needed a
 companion wider than the 686 wide fixture terminal allows. It now widens the window. Checks: `--visualize`, `--case visualize-ui`,
 format, all on macOS. No CI job runs it. Open: the companion splitter is 6 wide while `CompanionMaxWidth` counts 1.
+
+## 2026-11-27 — Submenus open beside their parent
+
+A submenu now sits flush beside its parent menu and turns left at the window's edge ([spec](src/Tereditor.UI/SPEC.md),
+Popups). Shown headless: the window clamp slid submenus over their parent and ignored page zoom. Inferred for the
+reported macOS case: the old snap divided screen points by the render scale and so corrected only half. Checks: `--menu-popups`, `--menu-layout`, cases `menu-layout-real`,
+`claude-code-launcher`, `claude-chat-ui-menus` and `claude-chat-ui-composer`, format, on macOS. Not verified: real
+macOS popup windows (Retina units, stacking order, flip at a screen edge). Headless cannot model them.
