@@ -81,3 +81,11 @@ Any edit gave a line new text, so its links vanished until the debounced re-reso
 still whole on it from the lines it replaced ([spec](src/Tereditor.UI/Terminal/SPEC.md)). Checks: gate cases
 `terminal-links-ui`, `terminal-commit-navigation`, `terminal-commit-links`, format. Not verified: the running app. Open:
 Metal can still blank for up to its 200 ms pass, since its native renderer keys links by line text.
+
+## 2026-11-27 — Two check races behind the red Linux shard
+
+Run 46068235565: the PDF case saw a render in a preview that a text-to-bytes change then replaced, and
+`E2eWorkspace.Until` reported that as a timeout; the pane now keeps a view that still fits. The wide-shell check read
+the editor before its layout pass. Kept fixtures upload as `checks-fixtures.tar.gz`. "Watching interrupted" and
+"subscription dropped" lines also fill the passing run. Checked on macOS: `--drawers`, `--pdf-preview`, seven gate
+cases and the format verify. Not verified: the full suite, Linux, the upload step on CI.

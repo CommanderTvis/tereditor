@@ -271,6 +271,8 @@ internal static class DrawerChecks
         _ = window.OpenDocumentAsync("notes.txt");
         var group = window.Layout.State.Center.Leaves().First();
         Pump(() => window.Layout.Selected(group)?.Id is { } id && id.Contains("notes.txt", StringComparison.Ordinal), "The document did not open.");
+        // The tab is selected before the layout pass that puts its editor in the tree.
+        Pump(() => window.GetVisualDescendants().OfType<Tereditor.UI.Editor.CodeDocumentView>().Any(), "The selected document's editor did not reach the visual tree.");
         var tab = window.Layout.Selected(group)!.Id;
         var workspace = window.Layout.State.ActiveWorkspace;
         Require(!shell.Wants(580, 720, tablet), "A compact window just short of the threshold must not rebuild.");

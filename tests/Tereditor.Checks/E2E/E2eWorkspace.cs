@@ -212,9 +212,20 @@ internal sealed class E2eWorkspace : IDisposable
     {
         // A liveness bound, not an assertion: workspace flows start a dozen Git processes, which a loaded machine stretches past ten seconds.
         var deadline = Awake.Now.AddSeconds(30);
-        while (!condition() && Awake.Now < deadline) Pump();
-        Dispatcher.UIThread.RunJobs();
-        if (!condition()) throw new InvalidOperationException($"E2E condition timed out waiting for: {waitingFor}\n{Pressure()}\n{Describe()}");
+        while (!Met())
+        {
+            if (Awake.Now >= deadline) throw new InvalidOperationException($"E2E condition timed out waiting for: {waitingFor}\n{Pressure()}\n{Describe()}");
+            Pump();
+        }
+
+        // The caller goes on after the queued jobs have run, so the condition must hold then. One of them may undo what
+        // the first look saw; that is more waiting, not a timeout.
+        bool Met()
+        {
+            if (!condition()) return false;
+            Dispatcher.UIThread.RunJobs();
+            return condition();
+        }
     }
 
     /// <summary>The process's thread pool and the host calls still pending, which tell a starved or stalled host from a slow one.</summary>
