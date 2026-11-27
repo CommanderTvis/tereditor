@@ -441,6 +441,9 @@ internal static class PiChecks
         var spawn = await managed.PrepareAsync(new PiSpawn("pi", workspace) { Model = "fake/m1", Codemode = true, Environment = new Dictionary<string, string> { ["PI_CODING_AGENT_DIR"] = Path.Combine(directory, "profile") } }, (runtime, id) => { Require(runtime == resolution, "The process is tracked against the Bun that ran it."); tracked.Add(id); });
         Require(spawn.Command == bun && spawn.Prefix.SequenceEqual(["--bun", managed.EntryPoint]) && spawn.Environment["BUN_INSTALL"] == Path.Combine(directory, "bun-home") && spawn.Environment["PI_CODING_AGENT_DIR"] == Path.Combine(directory, "profile"),
             "The managed launch is bun --bun cli.js with Bun's environment added to the model source's.");
+        Require(spawn.Environment["PI_SKIP_VERSION_CHECK"] == "1" && spawn.Environment["PI_SELF_UPDATE_COMMAND"] == PiManaged.SelfUpdateCommand &&
+            PiManaged.SelfUpdateCommand.Split(' ') is ["echo", ..] && PiManaged.SelfUpdateCommand.IndexOfAny(['&', '|', '<', '>', '^', '"', '{', '}', '%']) < 0,
+            "The managed Pi checks for no newer version, and pi update only prints a sentence, on Windows too.");
         await using var session = new PiChatSession("ws", "managed", _ => { }, _ => { }, (_, _) => { });
         session.Begin(spawn);
         await session.StartAsync(spawn);

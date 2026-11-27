@@ -24,17 +24,29 @@ No real omp run backs them; the checks use a fixture `omp`.
   (run the omp on PATH, the Launch command box). The setting is blank by default: the managed omp while Bun is available (a pinned path, one on PATH or the
   Runtimes for tooling plugin, which is on by default and would download it; the host asks without starting a download) and the system command
   when it is not, which the page says. A choice of the user stands. The managed omp is the npm package `@oh-my-pi/pi-coding-agent` at the exact version
-  19.1.1 (integrity `sha512-x/7xQXQ5…` checked against Bun's lock file; its `omp` binary is `dist/cli.js`; engines `bun >=1.4.4`, the Bun
+  19.2.1 (integrity `sha512-9bDPzpbd…` checked against Bun's lock file; its `omp` binary is `dist/cli.js`; engines `bun >=1.4.4`, the Bun
   Runtimes pins), installed with `bun install --ignore-scripts --registry=https://registry.npmjs.org/` into `~/.tereditor/omp/managed/<version>`
   (never the user's global Bun packages), one download at a time with progress, cancel and a plain failure message, and run as `bun --bun cli.js`.
   It downloads only when the user presses Download on the page (`OmpContract.Install`); a start (the start action, Core's Create-workspace and Project Home starts) never downloads: it shows a toast
   that omp is not downloaded yet and points to Settings. It never blocks the chip: a managed omp counts as usable once downloaded or while Bun is available. A
-  launch line starts the host's `omp` program (`~/.tereditor/omp/shim/omp`, `omp.cmd` on Windows), which runs the copy with Bun's environment, or prints
+  launch line starts the host's `omp` program (`~/.tereditor/omp/shim/bin/omp`, `omp.cmd` on Windows), which runs the copy with Bun's environment, or prints
   that omp is not downloaded or Bun is missing and exits 1. It keeps the word `omp`, so other plugins' launch contributions (a Model source's
   environment and `--profile` signal) still apply; a contribution that replaces the executable runs its own omp instead. The version probe, the setup
   wizard switch, the sign-in import, the revive line and the Agent pane's usability all follow the source. The wizard switch waits for the download, and
   detection also counts a `bun` process whose command line holds the managed script. Turning the plugin off deletes the download and the program.
   Windows quotes the program with forward slashes and is not verified.
+- No self-update (managed copy only): only the page's Update button changes the version. The program adds
+  `shim/settings.yml` to the run's `PI_CONFIG_FILES`, the variable omp's settings docs give wrappers, after any entry it
+  inherits, so it wins over the user's global and project settings. It sets `startup.checkUpdate` and `update.auto` to
+  false: no version request, no "Update Available" notice, no background update. It also puts its own folder first on the
+  run's PATH, and `shim/manager.json` names tereditor as the keeper of that install, so `omp update` (typed in a session,
+  or run through the program) says so and changes nothing. `manager.json` is read from omp's source
+  (`src/cli/managed-install.ts`), not from its docs: check it on each pin change. The program does not start omp without
+  both files. Nothing is written to the user's omp files, and nothing changes in the terminal itself. A System command omp
+  gets none of this. Not blocked: `omp update` typed in the shell after omp ends, or in a shell inside a session that
+  moves another `omp` ahead on PATH, runs the user's own omp, which updates itself and never the managed copy.
+  `omp update --plugins` still updates plugins. omp's setup wizard can still ask about auto update and save the answer in
+  the user's settings; the managed run ignores it. An `omp` started from inside a managed session inherits the settings.
 - Launch line (`OmpLaunch.Line`, shared by the launcher, the start action and the revive prefill):
   `[TEREDITOR_UI_LAUNCH=omp] omp [--profile tereditor] [--session-dir <dir>] [-r <file> | -c] [--model <m>]
   [--approval-mode <mode>] [--advisor] [--no-lsp] [--append-system-prompt <text>] [@image…] [prompt]`.
@@ -120,7 +132,7 @@ context, and a settings editor for omp's `config.yml` are out of this basic inte
 
 ## Checks
 
-`--omp` (gate cases `omp-host`, `omp-ui`): the managed omp against a fake Bun and a fake package (no network: source default, pinned package and entry, install in the download folder, checksum refusal,
+`--omp` (gate cases `omp-host`, `omp-ui`): the managed omp against a fake Bun and a fake package (no network: source default, pinned package and entry, no download while only an earlier pin's copy is there, the settings and PATH of a run, `manager.json`, no start without them, install in the download folder, checksum refusal,
 cancel, one shared download, earlier-pin replacement, version from disk, usability before the download, launch program output and arguments, the program kept as `omp` under a contribution, wizard switch and sign-in import through it, removal, detection of the managed Bun process); launch argv for profile (also with a model source's contribution), session folder, model, approval mode, advisor and
 `--no-lsp` (and its omission), resume lines and Windows; context resolution with nested, cycle-safe, depth-limited
 imports, shadowing, ignored code/e-mail tokens and offers; the profile MCP file; the setup wizard switch (set once, not again, skipped when setupVersion > 0, failures and hangs tolerated); the version probe against a fixture

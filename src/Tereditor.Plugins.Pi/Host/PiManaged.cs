@@ -13,6 +13,11 @@ internal sealed class PiManaged(string root, Func<string, CancellationToken, Tas
     public const string Integrity = "sha512-zX1BVEsshx7A2MRuQ6jfr3RJGWw4Wn+vLq5ZfmlvS1RskhRmByaSZVXH/zcwRrWHO7qPgs98pNCbPOEti/t0fQ==";
     public const string NotDownloaded = "Pi is not downloaded yet. Open Settings, choose Pi and press Download.";
     public const string NoBun = "Pi needs Bun. Open Settings, choose Runtimes and press Download, or install Bun yourself.";
+    /// <summary>
+    /// What <c>pi update</c> runs in place of an installer: Pi splits <c>PI_SELF_UPDATE_COMMAND</c> on spaces and starts the words without a shell,
+    /// so this only prints a sentence. Only tereditor's Update button changes the pinned version.
+    /// </summary>
+    public const string SelfUpdateCommand = "echo tereditor keeps this Pi at its pinned version. Update it from the Pi page in tereditor.";
 
     public static string DefaultRoot() => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".tereditor", "pi", "managed");
 
@@ -30,6 +35,7 @@ internal sealed class PiManaged(string root, Func<string, CancellationToken, Tas
     /// <summary>
     /// Returns <paramref name="spawn"/> as the command that runs the pinned Pi on Bun (<c>bun --bun cli.js --mode rpc …</c>). It never downloads Pi or Bun:
     /// a missing copy or a missing Bun fails with a sentence that points to Settings. A blocked spawn is returned as it is, so it fails with its reason.
+    /// The run gets Pi's own switches against updates (<c>docs/environment-variables.md</c> in the package): no version check, and <see cref="SelfUpdateCommand"/>.
     /// </summary>
     /// <param name="track">Told which process started from which Bun, so turning Runtimes for tooling off stops it.</param>
     public async Task<PiSpawn> PrepareAsync(PiSpawn spawn, Action<RuntimeResolution, int> track)
@@ -40,6 +46,8 @@ internal sealed class PiManaged(string root, Func<string, CancellationToken, Tas
         if (!bun.Available) throw new InvalidOperationException(bun.Message);
         var environment = new Dictionary<string, string>(spawn.Environment);
         foreach (var (name, value) in bun.Env) environment[name] = value;
+        environment["PI_SKIP_VERSION_CHECK"] = "1";
+        environment["PI_SELF_UPDATE_COMMAND"] = SelfUpdateCommand;
         return spawn with { Command = bun.Command, Prefix = ["--bun", EntryPoint], Environment = environment, Started = id => track(bun, id) };
     }
 }
