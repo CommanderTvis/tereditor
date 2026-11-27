@@ -1136,7 +1136,8 @@ internal static class ClaudeCodeChecks
         var fake = Path.Combine(directory, "fake-claude");
         File.WriteAllText(fake, $"#!/bin/sh\nif [ \"$1\" = --help ]; then printf '%s\\n' '  --permission-mode <mode>   Permission mode to use (choices: \"acceptEdits\", \"manual\",' '      \"plan\", \"bypassPermissions\")'; exit 0; fi\nif [ \"$1\" = auth ]; then exit 1; fi\ncase \"$*\" in /context*|*' /usage') exit 1 ;; esac\nprintf '%s\\n' \"agent-view=$CLAUDE_CODE_DISABLE_AGENT_VIEW\" \"$@\" > '{log}.part' && mv '{log}.part' '{log}'\n");
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(fake, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        using var app = new E2eWorkspace(Path.Combine(directory, "project"), openFiles: false);
+        LineWidthE2E.HeldState? hold = null;
+        using var app = new E2eWorkspace(Path.Combine(directory, "project"), openFiles: false, state: service => hold = new(service));
         E2eWorkspace.Until(() => app.Workbench.PluginLoader!.Registry.Entry("claude-code") is not null);
         Require(Named(app.Window, "NewClaude").Count == 0, "No Claude launcher while the plugin is off.");
         void Settings(object settings) => app.State!.ChangeAsync([HostStateChange.PluginSettings("claude-code", JsonSerializer.Serialize(settings))]).AsTask().GetAwaiter().GetResult();
@@ -1334,10 +1335,23 @@ internal static class ClaudeCodeChecks
         E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].TryGetProperty("chrome", out var value) && value.GetBoolean());
         Require(app.Workbench.PluginLoader!.Registry.LauncherList.Single(item => item.Id == "claude").TerminalCommand(new()).Contains("--advisor opus --chrome", StringComparison.Ordinal),
             "The saved advisor and Chrome persist and reach the generic launcher.");
+        // Further changes made before the app has the broadcast of the one before: the host's has it, the section does not.
+        var chrome = window.GetLogicalDescendants().OfType<CheckBox>().Single(control => control.Name == "ClaudeChrome");
+        bool Chrome() => app.State!.Current.PluginSettings["claude-code"].GetProperty("chrome").GetBoolean();
+        string? Advisor() => app.State!.Current.PluginSettings["claude-code"].GetProperty("advisor").GetString();
+        hold!.Arm();
         advisorPicker.SelectedItem = advisorPicker.Items.OfType<ComboBoxItem>().Single(item => Equals(item.Tag, ""));
-        E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].GetProperty("advisor").GetString() == "");
-        window.GetLogicalDescendants().OfType<CheckBox>().Single(control => control.Name == "ClaudeChrome").IsChecked = false;
-        E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].GetProperty("advisor").GetString() == "" && !app.State!.Current.PluginSettings["claude-code"].GetProperty("chrome").GetBoolean());
+        E2eWorkspace.Until(() => hold.Held.IsCompleted && Advisor() == "");
+        foreach (var on in new[] { false, true, false })
+        {
+            chrome.IsChecked = on;
+            E2eWorkspace.Until(() => Chrome() == on);
+            Require(Advisor() == "", "A later change keeps the one still on its way: " + app.State!.Current.PluginSettings["claude-code"].GetRawText());
+        }
+        hold.Release();
+        E2eWorkspace.Until(() => app.Workbench.State.Current.Revision == app.State!.Current.Revision);
+        Require(!Chrome() && Advisor() == "" && chrome.IsChecked == false && Equals((advisorPicker.SelectedItem as ComboBoxItem)?.Tag, ""),
+            "Settings and the host agree once the broadcasts arrive: " + app.State!.Current.PluginSettings["claude-code"].GetRawText());
         permission.SelectedItem = permission.Items.OfType<ComboBoxItem>().Single(item => Equals(item.Tag, ""));
         E2eWorkspace.Until(() => app.State!.Current.PluginSettings["claude-code"].GetProperty("permissionMode").GetString() == "");
         Require(!app.Workbench.PluginLoader!.Registry.LauncherList.Single(item => item.Id == "claude").TerminalCommand(new()).Contains("--permission-mode", StringComparison.Ordinal),

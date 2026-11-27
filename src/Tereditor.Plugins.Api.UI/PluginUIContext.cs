@@ -108,9 +108,10 @@ public interface IPluginUIContext
     IDisposable OnSettings<T>(Action<T> handler) where T : class;
 
     /// <summary>
-    /// Writes the plugin's settings namespace through the host (W2). The UI never writes settings locally:
+    /// Writes the plugin's settings namespace through the host (W2). The UI never stores settings locally:
     /// the task completes when the host's broadcast carrying the new value has arrived, so every client
-    /// converges the same way.
+    /// converges the same way. Until then this context's own <see cref="Settings{T}"/> already reads the
+    /// written values, so a further change keeps them.
     /// </summary>
     /// <typeparam name="T">The contract's settings type.</typeparam>
     /// <param name="settings">The new settings; merged field by field into the namespace. They cannot name <c>enabled</c>.</param>

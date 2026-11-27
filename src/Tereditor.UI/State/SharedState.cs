@@ -63,7 +63,8 @@ public sealed class SharedState : IDisposable
     /// <summary>The subscription loop; it ends when this is disposed or when the service itself is disposed, which never recovers.</summary>
     internal Task? Watching { get; private set; }
 
-    public Task ChangeAsync(params HostStateChange[] changes) => service.ChangeAsync(changes, lifetime.Token).AsTask();
+    /// <summary>Sends changes to the host. The result is the snapshot that applied them; <see cref="Current"/> follows with its broadcast.</summary>
+    public Task<HostState> ChangeAsync(params HostStateChange[] changes) => service.ChangeAsync(changes, lifetime.Token).AsTask();
 
     public string Label(string path) => Current.WorkspaceLabels.GetValueOrDefault(path) ?? new DirectoryInfo(path).Name;
 

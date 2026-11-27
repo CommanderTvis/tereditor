@@ -145,6 +145,9 @@ internal sealed class PluginUIContext : IPluginUIContext
         if (state.PluginSettings.GetValueOrDefault(Id) is { ValueKind: JsonValueKind.Object } stored)
             foreach (var property in stored.EnumerateObject().Where(property => property.Name != "enabled"))
                 namespaceObject[property.Name] = JsonNode.Parse(property.Value.GetRawText());
+        if (Unseen(state) is { } own)
+            foreach (var (name, value) in own.Members)
+                namespaceObject[name] = JsonNode.Parse(value.GetRawText());
         try { return PluginJson.Convert<T>(PluginJson.SerializeToElement(namespaceObject)); }
         catch (JsonException error)
         {
@@ -178,11 +181,55 @@ internal sealed class PluginUIContext : IPluginUIContext
         Workbench.State.Changed += Changed;
         try
         {
-            await Workbench.State.ChangeAsync(HostStateChange.PluginSettings(Id, written.GetRawText()));
+            await SendSettings(written);
             if (Carries(Workbench.State.Current)) return;
             await arrived.Task;
         }
         finally { Workbench.State.Changed -= Changed; }
+    }
+
+    // What this context has written and no snapshot has shown it yet. Settings<T>() includes it, so a record built from it
+    // meanwhile does not put the older values back. Revision is the first snapshot that has it, unknown until the host answers.
+    private sealed record SettingsWrite(IReadOnlyDictionary<string, JsonElement> Members, int Generation, long Revision = long.MaxValue);
+
+    private readonly Lock writes = new();
+    private SettingsWrite? unseen;
+    private Task sending = Task.CompletedTask;
+
+    // A reconnect ends it too: the new snapshot is the host's truth, and a restarted host counts revisions anew.
+    private SettingsWrite? Unseen(HostState state) =>
+        unseen is { } own && own.Generation == Workbench.State.Generation && state.Revision < own.Revision ? own : null;
+
+    private async Task SendSettings(JsonElement written)
+    {
+        SettingsWrite own;
+        Task<HostState> send;
+        lock (writes)
+        {
+            var members = new Dictionary<string, JsonElement>();
+            foreach (var (name, value) in Unseen(Workbench.State.Current)?.Members ?? new Dictionary<string, JsonElement>()) members[name] = value;
+            foreach (var member in written.EnumerateObject()) members[member.Name] = member.Value;
+            own = unseen = new(members, Workbench.State.Generation);
+            // One at a time, in the order made: the host must not apply an earlier record after a later one.
+            sending = send = SendAfter(sending, HostStateChange.PluginSettings(Id, written.GetRawText()));
+        }
+        try
+        {
+            var applied = await send;
+            lock (writes) if (ReferenceEquals(unseen, own)) unseen = own with { Revision = applied.Revision };
+        }
+        catch
+        {
+            lock (writes) if (ReferenceEquals(unseen, own)) unseen = null;
+            throw;
+        }
+    }
+
+    private async Task<HostState> SendAfter(Task previous, HostStateChange change)
+    {
+        // An earlier failure is its own caller's to report.
+        await previous.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+        return await Workbench.State.ChangeAsync(change);
     }
 
     public PluginHostProjection Host() => PluginProjection.Build(loader);

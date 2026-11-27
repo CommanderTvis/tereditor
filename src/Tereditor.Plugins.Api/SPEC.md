@@ -901,7 +901,8 @@ A namespace for a plugin whose host half has not loaded yet is stored unvalidate
 write.
 
 The app never writes settings locally. A change is sent and the value changes when the snapshot carrying it
-arrives, so the initiating client converges like any other.
+arrives, so the initiating client converges like any other. Only the writing context reads its own write before
+then, so that its next whole-record write keeps it ([app seam](../Tereditor.UI/Plugins/SPEC.md)).
 
 Host persistence is namespaced under the state directory and survives the plugin being replaced. Facts scoped to
 a terminal live in its agent record instead, so the shell's lifecycle stays with core.

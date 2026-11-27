@@ -141,3 +141,10 @@ macOS popup windows (Retina units, stacking order, flip at a screen edge). Headl
 `.claude/rules` is now read as Claude Code reads it (subfolders, links, parent folders, every `paths` form), each row says
 when it loads, and a project without rules offers one. Facts and their sources: the ClaudeCode SPEC, "Rules". Checked
 with `--claude-code` and the format verify; not seen in the running app or on Windows.
+
+## 2026-11-27 — A quick second settings change kept the first one
+
+CI's `claude-code-launcher` failed: plugin settings pages build a whole record from the last broadcast, so a second
+change made before it arrived put the first back. The writing context now reads its own unseen writes and sends them
+in order ([spec](src/Tereditor.UI/Plugins/SPEC.md)). The case holds the broadcast and fails without the fix. Not
+covered: external plugins in the isolated runner, whose mirror still follows broadcasts only.

@@ -113,7 +113,7 @@ internal static class LineWidthE2E
     }
 
     /// <summary>Holds the next shared-state broadcast until released, like the reference's channel hold.</summary>
-    private sealed class HeldState(IHostStateService inner) : IHostStateService
+    internal sealed class HeldState(IHostStateService inner) : IHostStateService
     {
         private TaskCompletionSource? held;
         private TaskCompletionSource? release;

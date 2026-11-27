@@ -149,6 +149,11 @@ and roster registration still precede reconciliation, preserving dormant tools a
   `UpdateSettingsAsync` sends a `plugin-settings` change and completes when a snapshot carrying the new value
   arrives. It refuses settings that name `enabled`: only the user turns a plugin on or off, and `Settings<T>()`
   never shows that key.
+- A plugin writes whole settings records built from `Settings<T>()`, so the writing context also reads what it has
+  written and no snapshot has shown yet (also in `OnSettings<T>`): a second change made before the broadcast keeps
+  the first. That ends with the first snapshot at or past the revision the host answered with, with a failed write,
+  or with a reconnect. The context sends its writes one at a time, in the order made. Other contexts and clients see
+  broadcasts only, and so does the mirror an external plugin reads in the isolated runner.
 - Shown terminal keys include terminals displayed beside the selected editor in a pane, with the last-focused
   center group first. Hidden tabs outside that selected pane do not become the configuration context.
 - The workspace projection includes host-published catalogs and each mounted window's host-resolved
