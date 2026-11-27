@@ -66,3 +66,9 @@ real phone and tailnet.
 All clients of an external plugin shared Avalonia's one keyboard device, so another client's new view or click canceled
 a held button (a CI failure) and typing could land in another client's field. Each client context now has its own, and
 a view opens without focus ([spec](src/Tereditor.Plugins.Runner/SPEC.md)). Not verified: the running app.
+
+## 2026-11-27 — The Claude debug log keeps its lines in order
+
+Three threads could list a line after a newer one, and the panel then dropped it ([spec](src/Tereditor.Plugins.ClaudeCode/SPEC.md),
+Debug mode). Checks on macOS: `--claude-chat-host`, format; CI runs it on Linux. Not verified: the running app. Open: a new
+log restarts its numbering at 1, so a panel that stayed open would likely drop its lines (read in code, not reproduced).
