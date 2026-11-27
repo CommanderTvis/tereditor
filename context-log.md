@@ -36,6 +36,13 @@ Checked headless on macOS only.
 The tab reads `.claude/rules` as Claude Code does and says when each rule loads
 ([spec](src/Tereditor.Plugins.ClaudeCode/SPEC.md), Rules). Not seen in the running app or on Windows.
 
+## 2026-11-27 — omp 19.2.1, no self-update for managed agents, omp colors
+
+The pin is omp 19.2.1. The managed omp and Pi cannot update themselves
+([omp spec](src/Tereditor.Plugins.Omp/SPEC.md), [Pi spec](src/Tereditor.Plugins.Pi/SPEC.md)). omp wears its gradient mark
+with colored agent icons. Proven from the package source and by fixture checks; not verified: a real omp or Pi run, Windows,
+the running app. Pi stays at 1.6.0 (1.6.1 exists).
+
 ## 2026-11-27 — Pi and omp share their plugin code
 
 `Tereditor.Plugins.Agent.Host` and `Agent.UI` now hold the shared download, version probe, pane and settings parts; no
