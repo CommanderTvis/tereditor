@@ -186,7 +186,8 @@
         "type": "Project",
         "dependencies": {
           "Tereditor.Plugins.Api.Host": "[1.0.0, )",
-          "Tereditor.Plugins.ClaudeCode": "[1.0.0, )"
+          "Tereditor.Plugins.ClaudeCode": "[1.0.0, )",
+          "YamlDotNet": "[18.1.0, )"
         }
       },
       "tereditor.plugins.codeintelligence": {

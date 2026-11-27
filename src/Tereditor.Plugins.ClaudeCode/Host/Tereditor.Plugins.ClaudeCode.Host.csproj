@@ -17,6 +17,7 @@
     <Using Include="Tereditor.Plugins.Chat" />
     <ProjectReference Include="../Tereditor.Plugins.ClaudeCode.csproj" />
     <ProjectReference Include="../../Tereditor.Plugins.Api.Host/Tereditor.Plugins.Api.Host.csproj" />
+    <PackageReference Include="YamlDotNet" />
     <InternalsVisibleTo Include="Tereditor.Checks" />
     <Content Include="../assets/**" LinkBase="plugins/claude-code/assets" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../Tereditor.Plugins.Agent.Skills/**" LinkBase="plugins/claude-code/assets/marketplace/claude-plugin/skills" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

@@ -14,12 +14,6 @@ internal static partial class ClaudeResolver
     [GeneratedRegex(@"^\s*@([^\s`]+)\s*$", RegexOptions.Multiline)]
     private static partial Regex ImportLine();
 
-    [GeneratedRegex(@"^---\r?\n([\s\S]*?)\r?\n---")]
-    private static partial Regex FrontmatterBlock();
-
-    [GeneratedRegex(@"^paths:\s*(.+)$", RegexOptions.Multiline)]
-    private static partial Regex PathsLine();
-
     private static long? SizeOf(string path)
     {
         try { return new FileInfo(path) is { Exists: true } file ? file.Length : null; }
@@ -36,21 +30,6 @@ internal static partial class ClaudeResolver
     {
         try { return [.. Directory.GetDirectories(directory).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal)]; }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return []; }
-    }
-
-    private static IReadOnlyList<string>? FrontmatterGlobs(string path)
-    {
-        try
-        {
-            var head = File.ReadAllText(path);
-            if (head.Length > 2048) head = head[..2048];
-            if (FrontmatterBlock().Match(head) is not { Success: true } block) return null;
-            if (PathsLine().Match(block.Groups[1].Value) is not { Success: true } paths) return null;
-            return [.. paths.Groups[1].Value.Trim().TrimStart('[').TrimEnd(']').Split(',')
-                .Select(glob => glob.Trim().Trim('"', '\''))
-                .Where(glob => glob.Length > 0)];
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return null; }
     }
 
     private static IEnumerable<ClaudeContextLayer> ExpandImports(string path, ClaudeConfigScope scope, int depth, HashSet<string> seen)
@@ -74,7 +53,7 @@ internal static partial class ClaudeResolver
     private static ClaudeContextLayer? Layer(ClaudeContextKind kind, string label, ScopedPath entry) =>
         SizeOf(entry.Path) is { } bytes ? new(kind, label, entry.Path, new(entry.Scope, entry.Path), bytes) : null;
 
-    private static List<ClaudeContextLayer> CollectContext(string root, IReadOnlyList<string> promptFiles)
+    private static List<ClaudeContextLayer> CollectContext(string root, IReadOnlyList<ClaudeContextLayer> rules, IReadOnlyList<string> promptFiles)
     {
         var layers = new List<ClaudeContextLayer>();
         // One file can be on the list under two scopes (a home-folder session reaches ~/.claude/CLAUDE.md both as the user file and as ./.claude/CLAUDE.md);
@@ -88,13 +67,7 @@ internal static partial class ClaudeResolver
             layers.Add(layer);
             layers.AddRange(ExpandImports(entry.Path, entry.Scope, 0, [entry.Path]));
         }
-        foreach (var directory in ClaudePaths.RulesDirectories(root))
-            foreach (var path in ListFiles(directory.Path, ".md"))
-            {
-                if (Layer(ClaudeContextKind.Rules, Path.GetFileName(path), new(directory.Scope, path)) is not { } layer) continue;
-                // A rule with paths: only enters context when Claude reads a matching file, so it is not always-on weight.
-                layers.Add(FrontmatterGlobs(path) is { Count: > 0 } globs ? layer with { PathGlobs = globs, Lazy = true } : layer);
-            }
+        layers.AddRange(rules);
         if (Layer(ClaudeContextKind.Memory, "MEMORY.md", new(ClaudeConfigScope.User, ClaudePaths.MemoryIndexPath(root))) is { } memory) layers.Add(memory);
         foreach (var path in promptFiles)
             if (Layer(ClaudeContextKind.SystemPrompt, Path.GetFileName(path), new(ClaudeConfigScope.Local, path)) is { } prompt) layers.Add(prompt);
@@ -300,11 +273,15 @@ internal static partial class ClaudeResolver
         var documents = new List<ScopedDocument>();
         foreach (var entry in scoped)
             if (Json.ReadObject(entry.Path) is { } data) documents.Add(new(new(entry.Scope, entry.Path), data));
+        var (rules, cut) = ClaudeRules.Collect(root);
+        var problems = DetectProblems(inspected);
+        if (cut)
+            problems.Add(new(ClaudeProblemSeverity.Warning, "Too many rule files", "Some files under .claude/rules are not listed here."));
         return new(workspaceId, root,
-            CollectContext(root, promptFiles ?? []),
+            CollectContext(root, rules, promptFiles ?? []),
             [.. SettingsMerge.Resolve(documents).Select(entry => ClaudeSettingsReference.Url(entry.Key) is { } url ? entry with { DocsUrl = url } : entry)],
             [.. CollectCapabilities(root, documents), .. CollectPlugins(root, documents), .. CollectMarketplaces(documents), .. CollectHooks(documents)],
-            DetectProblems(inspected),
+            problems,
             inspected,
             ClaudeSettingsReference.Keys);
     }

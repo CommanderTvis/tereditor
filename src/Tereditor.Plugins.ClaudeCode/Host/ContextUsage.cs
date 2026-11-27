@@ -69,11 +69,8 @@ internal static class ContextReport
     /// </summary>
     public static ClaudeContextBreakdown Normalise(ClaudeContextBreakdown breakdown, string cwd, IReadOnlyList<string> known)
     {
-        static string Real(string path)
-        {
-            try { return new FileInfo(path).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? path; }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return path; }
-        }
+        // Links along the whole path: /context names a file in a linked folder by its target.
+        static string Real(string path) => ClaudeConfig.ClaudePaths.RealPath(path) ?? path;
         var byTarget = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var path in known) byTarget.TryAdd(Real(path), path);
         ClaudeContextItem Map(ClaudeContextItem file)

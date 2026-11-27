@@ -39,6 +39,10 @@ public sealed record ClaudeContextLayer(ClaudeContextKind Kind, string Label, st
 {
     public IReadOnlyList<string>? PathGlobs { get; init; }
     public bool? Lazy { get; init; }
+    /// <summary>For a rule file: one sentence saying why it does not load as its <c>paths</c> suggest; null when it does.</summary>
+    public string? Note { get; init; }
+    /// <summary>For a rule with <c>paths</c>: the folder its patterns start from.</summary>
+    public string? PatternBase { get; init; }
     /// <summary>Nesting under the file that <c>@</c>-imported this one; null for a layer loaded in its own right.</summary>
     public int? Depth { get; init; }
 }
@@ -133,7 +137,8 @@ public sealed record UpdateMarketplace(string Name) : ClaudeMarketplaceAction;
 public enum ClaudeFileTemplate
 {
     [JsonStringEnumMemberName("project-local-instructions")] ProjectLocalInstructions,
-    [JsonStringEnumMemberName("project-instructions")] ProjectInstructions
+    [JsonStringEnumMemberName("project-instructions")] ProjectInstructions,
+    [JsonStringEnumMemberName("project-rule")] ProjectRule
 }
 
 public enum ClaudeMcpTransport { Stdio, Http, Sse }

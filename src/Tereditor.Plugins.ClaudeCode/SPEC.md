@@ -326,7 +326,10 @@ specs require no spec workflow or unsolicited spec creation.
 The Context surface's context table is the one place for baseline costs, in tokens only (no sizes on disk). The refresh button shares the row of the "Context of Claude in tab …" title, at its right end; the title wraps to its left in a narrow pane. On the other tabs, which have no such title, the button floats at the right end of the tab's first row (for Capabilities, the "WHAT CLAUDE CAN REACH" heading row) and takes no row of its own.
 Its rows are everything a fresh session started like the tab's pays for, as `/context` counts it: the memory and
 instruction files the resolver lists (a file `/context` does not list says "not loaded", an on-demand rule shows a
-dash), files `/context` lists that the resolver does not (nested instructions, rules, imports) with its source label,
+dash). A rule row is marked ALWAYS or ON DEMAND, shows the patterns that load it (or its note) on a line under its
+path, whole in the tooltip, and only the path opens it. One line above the first rule says what rules are and that
+deeper folders are not listed. A workspace with no project rule offers "Add a rule", which reviews and then writes
+`.claude/rules/general.md` without `paths`. The table's other rows are files `/context` lists that the resolver does not (nested instructions, rules, imports) with its source label,
 tereditor's instructions entry (the appended prompt file; never a separate file row), then Claude Code's own system prompt (less the appended file), built-in tools, MCP
 tools, MCP server instructions and skills; deferred tools, the `/context` message itself, free space and the
 autocompact reserve are not rows. MCP tools open, in the table's own row style with a chevron, into servers (heaviest
@@ -374,6 +377,37 @@ Settings retain the winning source and shadowed values. Context includes user an
 instructions, `AGENTS.md` when a directory has no `CLAUDE.md`, local instructions, rules, imports,
 memory and appended prompt files. A file that two scopes reach (a session in the home folder reaches `~/.claude/CLAUDE.md` as both the user file and `./.claude/CLAUDE.md`) is listed once, under the first scope, so a user file is never shown as PROJECT. Capabilities include MCP servers, plugins, skills, agents, hooks
 and marketplaces with provenance, disabled sources and discovery problems.
+
+### Rules
+
+`Host/ClaudeConfig/Rules.cs` reads `.claude/rules` as Claude Code does. The source is the
+[memory page](https://code.claude.com/docs/en/memory#organize-rules-with-claude/rules/) ("docs" below); where it is
+silent, Claude Code 2.1.332's own code decides ("2.1.332"). Check both again before changing a line here.
+
+| Behavior | Source |
+|---|---|
+| Every `.md` file under a rules folder, subfolders included; links followed, cycles cut | docs "Set up rules", "Share rules across projects with symlinks" |
+| User rules (`<config dir>/rules`) first, then each folder from just under the filesystem root down to the session's. A file reached twice is listed once | docs "User-level rules"; parent folders: docs "Exclude specific CLAUDE.md files" (a parent's rules folder can be excluded) and 2.1.332, which loads their rules at start and matches their `paths` on file reads |
+| `paths` is a YAML list or a comma-separated string; a comma inside braces does not split, in list items too; other keys are ignored | docs "Rule frontmatter reference"; list items: 2.1.332 |
+| A trailing `/**` is dropped; no pattern left, or only `**`, means every session | 2.1.332 |
+| YAML that does not parse is retried with top-level values holding `* { [` and the like quoted; if it still fails, the rule loads in every session | docs for the last step; the retry is 2.1.332 |
+| Patterns start at the folder holding `.claude`, for user rules at the session's folder; a matching Read, Write or Edit loads the rule | docs "Path-specific rules" |
+| A project rule linked to a target outside the session's folder waits for the external imports approval, and one with `paths` never loads | docs "Share rules across projects with symlinks" |
+| A link to a network path (`/net`, `/Network`, UNC except `\\wsl`) is never looked up | same |
+| A file over 4 MB is skipped | docs "My CLAUDE.md is too large" |
+
+Bounds: 500 rule files (a "Too many rule files" problem says when the list is cut), 5000 folder entries, 16 folder
+levels, the first 256K characters of a file, 32 YAML levels and 200 patterns; aliases are never expanded. An empty file
+(which a pipe or device also reports) is not opened. The configuration, read-file and write-file methods resolve on the
+thread pool.
+
+A context layer of a rule has the path under its rules folder as its label, `Lazy` false (every session), true
+(on demand) or null (not promised), `Note` when it does not load as written, and `PatternBase`.
+
+Not covered: `.claude/rules` in folders below the session's (they load on demand; listing them needs a project scan),
+the managed policy folder's rules, `--add-dir` folders, `claudeMdExcludes`, `--setting-sources`, the "Project
+instructions" setting, parent folders Claude Code skips for a worktree nested in its main checkout, and whether the
+external imports approval was already given (that row keeps saying it is needed). Checked by `--claude-code`.
 
 Plugins and marketplaces are one PLUGINS section. Each listed marketplace is a parent row (its scope,
 source and menu as before) and the plugins named `plugin@marketplace` hang below it, drawn with the same

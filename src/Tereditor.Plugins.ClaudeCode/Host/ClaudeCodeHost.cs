@@ -109,7 +109,7 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         context.Method(ClaudeCodeContract.ConfigGet, async (p, _, ct) =>
         {
             var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
-            return ClaudeResolver.Resolve(p.WorkspaceId, scope.Root, scope.PromptFiles);
+            return await Task.Run(() => ClaudeResolver.Resolve(p.WorkspaceId, scope.Root, scope.PromptFiles), ct);
         });
         context.Method(ClaudeCodeContract.Account, async (p, _, cancellationToken) =>
         {
@@ -219,12 +219,12 @@ internal sealed class ClaudeCodeActivation(IPluginHostContext context)
         context.Method(ClaudeCodeContract.ReadFile, async (p, _, ct) =>
         {
             var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
-            return ClaudeResolver.ReadFile(p.WorkspaceId, scope.Root, p.Path, scope.PromptFiles);
+            return await Task.Run(() => ClaudeResolver.ReadFile(p.WorkspaceId, scope.Root, p.Path, scope.PromptFiles), ct);
         });
         context.Method(ClaudeCodeContract.WriteFile, async (p, _, ct) =>
         {
             var scope = await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct);
-            return Changed(p.WorkspaceId, null, ClaudeResolver.WriteFile(p.WorkspaceId, scope.Root, p.Path, p.Content, p.BaseHash, scope.PromptFiles));
+            return Changed(p.WorkspaceId, null, await Task.Run(() => ClaudeResolver.WriteFile(p.WorkspaceId, scope.Root, p.Path, p.Content, p.BaseHash, scope.PromptFiles), ct));
         });
         context.Method(ClaudeCodeContract.PlanEdit, async (p, _, ct) =>
             ClaudeEdits.Plan(p.WorkspaceId, p.Scope, p.Edit, (await KnownScopeAsync(p.WorkspaceId, p.TabKey, ct)).Root));

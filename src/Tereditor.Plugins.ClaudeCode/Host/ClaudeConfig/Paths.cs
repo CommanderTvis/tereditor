@@ -4,6 +4,9 @@ namespace Tereditor.Plugins.ClaudeCode.Host.ClaudeConfig;
 
 internal sealed record ScopedPath(ClaudeConfigScope Scope, string Path);
 
+/// <summary>A <c>.claude/rules</c> folder; <c>Base</c> is the folder its rules' <c>paths</c> patterns start from.</summary>
+internal sealed record RulesDirectory(ClaudeConfigScope Scope, string Path, string Base);
+
 /// <summary>Every file and directory Claude Code reads its configuration from, in precedence order where it matters.</summary>
 internal static partial class ClaudePaths
 {
@@ -58,8 +61,59 @@ internal static partial class ClaudePaths
         new(ClaudeConfigScope.Project, Path.Combine(cwd, ".claude", "CLAUDE.md"))
     ];
 
-    public static IReadOnlyList<ScopedPath> RulesDirectories(string root) =>
-        [new(ClaudeConfigScope.User, Path.Combine(ClaudeHome(), "rules")), new(ClaudeConfigScope.Project, Path.Combine(root, ".claude", "rules"))];
+    /// <summary>The user's rules, then the project rules of every folder from just under the filesystem root down to <paramref name="cwd"/>.</summary>
+    public static IReadOnlyList<RulesDirectory> RulesDirectories(string cwd) =>
+    [
+        new(ClaudeConfigScope.User, Path.Combine(ClaudeHome(), "rules"), cwd),
+        .. DirectoriesFromRoot(cwd).Skip(1).Select(directory => new RulesDirectory(ClaudeConfigScope.Project, Path.Combine(directory, ".claude", "rules"), directory))
+    ];
+
+    // Claude Code never follows a link to a network share, since looking such a path up can contact the host it names.
+    // On Windows \\?\C:\ and \\.\ spell local paths, and \\wsl$ does not count.
+    private static bool IsNetworkPath(string path)
+    {
+        if (path.StartsWith("/net/", StringComparison.Ordinal) || path.StartsWith("/Network/", StringComparison.Ordinal)) return true;
+        if (!path.StartsWith(@"\\", StringComparison.Ordinal)) return false;
+        if (path.StartsWith(@"\\?\", StringComparison.Ordinal)) return path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase);
+        return !path.StartsWith(@"\\.\", StringComparison.Ordinal) && !path.StartsWith(@"\\wsl", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// <paramref name="path"/> with every link along it followed, parents included. Null for a link loop, a link that cannot
+    /// be read, and a link that leads to a network share, which is never touched.
+    /// </summary>
+    public static string? RealPath(string path)
+    {
+        try
+        {
+            var full = Path.GetFullPath(path);
+            var current = Path.GetPathRoot(full)!;
+            var pending = new Stack<string>();
+            void Push(string tail)
+            {
+                foreach (var part in tail.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries).Reverse()) pending.Push(part);
+            }
+            Push(full[current.Length..]);
+            var followed = 0;
+            while (pending.TryPop(out var part))
+            {
+                if (part == ".") continue;
+                if (part == "..") { current = Path.GetDirectoryName(current) ?? current; continue; }
+                var next = Path.Combine(current, part);
+                if (followed > 0 && IsNetworkPath(next)) return null;
+                if (new FileInfo(next).LinkTarget is not { } target) { current = next; continue; }
+                if (++followed > 40 || IsNetworkPath(target)) return null;
+                if (Path.IsPathRooted(target))
+                {
+                    current = Path.GetPathRoot(target)!;
+                    Push(target[current.Length..]);
+                }
+                else Push(target);
+            }
+            return current;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return null; }
+    }
 
     public static IReadOnlyList<ScopedPath> McpPaths(string root) => [new(ClaudeConfigScope.Project, Path.Combine(root, ".mcp.json"))];
 

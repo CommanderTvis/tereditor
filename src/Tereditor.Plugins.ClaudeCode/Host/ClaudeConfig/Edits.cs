@@ -19,6 +19,9 @@ internal static partial class ClaudeEdits
         ClaudeFileTemplate.ProjectLocalInstructions => (Path.Combine(root, "CLAUDE.local.md"),
             "# Local notes\n\nInstructions for this project that only apply on this machine: the toolchain installed here,\nlocal ports, scratch paths.\n",
             "personal notes for this project that are not shared"),
+        ClaudeFileTemplate.ProjectRule => (Path.Combine(root, ".claude", "rules", "general.md"),
+            "# General rules\n\nWhat Claude should do in this project. This rule loads in every session.\nTo load it only for some files, add a `paths` list at the top of the file.\n",
+            "a rule for everyone on this project"),
         _ => (Path.Combine(root, "CLAUDE.md"), "# Project instructions\n\nHow Claude should work in this repository.\n",
             "shared instructions for everyone on this project")
     };

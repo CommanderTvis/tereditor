@@ -31,7 +31,7 @@ public static class ClaudeValues
 
     /// <summary>A template names one file, so it names one scope; offering three that write the same path is theatre.</summary>
     public static ClaudeWritableScope TemplateScope(ClaudeFileTemplate template) =>
-        template == ClaudeFileTemplate.ProjectInstructions ? ClaudeWritableScope.Project : ClaudeWritableScope.Local;
+        template == ClaudeFileTemplate.ProjectLocalInstructions ? ClaudeWritableScope.Local : ClaudeWritableScope.Project;
 
     /// <summary>A skill is a directory Claude Code looks for in two places; there is no third, private one.</summary>
     public static readonly IReadOnlyList<ClaudeWritableScope> SkillScopes = [ClaudeWritableScope.User, ClaudeWritableScope.Project];

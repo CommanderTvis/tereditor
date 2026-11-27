@@ -135,3 +135,9 @@ Popups). Shown headless: the window clamp slid submenus over their parent and ig
 reported macOS case: the old snap divided screen points by the render scale and so corrected only half. Checks: `--menu-popups`, `--menu-layout`, cases `menu-layout-real`,
 `claude-code-launcher`, `claude-chat-ui-menus` and `claude-chat-ui-composer`, format, on macOS. Not verified: real
 macOS popup windows (Retina units, stacking order, flip at a screen edge). Headless cannot model them.
+
+## 2026-11-27 — Claude Code rules in the Context tab
+
+`.claude/rules` is now read as Claude Code reads it (subfolders, links, parent folders, every `paths` form), each row says
+when it loads, and a project without rules offers one. Facts and their sources: the ClaudeCode SPEC, "Rules". Checked
+with `--claude-code` and the format verify; not seen in the running app or on Windows.

@@ -315,6 +315,7 @@ internal static class ClaudeCodeChecks
         }
         pane.ClearValue(Control.WidthProperty);
         E2eWorkspace.Settle();
+        Rules(app, pane);
         app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "AgentTab_account"));
         E2eWorkspace.Until(() => app.Window.GetLogicalDescendants().OfType<Control>().Any(control => control.Name == "ClaudeAccount"));
         var refresh = app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeConfigRefresh");
@@ -408,6 +409,54 @@ internal static class ClaudeCodeChecks
         Require(Open("close-tab/other/bar.cs") && Open("close-tab/foo.cs"), "close_tab must close only the tab Claude opened, by its exact path.");
         foreach (var editor in context.Editors.List(app.Root).Where(editor => editor.Path.StartsWith("close-tab/", StringComparison.Ordinal)).ToArray()) context.Editors.Close(editor.Id);
         foreach (var toast in app.Window.Toasts.Items.ToArray()) app.Window.Toasts.Dismiss(toast.Id);
+    }
+
+    /// <summary>The Context tab on <c>.claude/rules</c>: the offer while there are none, then which rules exist and when each loads.</summary>
+    private static void Rules(E2eWorkspace app, Control pane)
+    {
+        void Refresh() => app.Click(app.Window.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "ClaudeConfigRefresh"));
+        Button? Offer() => pane.GetLogicalDescendants().OfType<Button>().SingleOrDefault(button => button.Name == "ClaudeOfferRule");
+        var general = Path.Combine(app.Root, ".claude", "rules", "general.md");
+        E2eWorkspace.Until(() => Offer() is { IsEffectivelyVisible: true });
+        Require(Offer()!.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Text == "A rule is an instruction file that loads in every session or only for some files."),
+            "The offer says what a rule file is.");
+        Offer()!.BringIntoView();
+        E2eWorkspace.Settle();
+        app.Click(Offer()!);
+        E2eWorkspace.Until(() => DialogWindow.On(app.Window).Any(dialog => Equals(dialog.Tag, "ClaudeEditDialog")));
+        Require(!File.Exists(general), "Opening the offer writes nothing before the change is approved.");
+        DialogWindow.On(app.Window).OfType<DialogWindow>().Single(dialog => Equals(dialog.Tag, "ClaudeEditDialog")).Close();
+        E2eWorkspace.Until(() => DialogWindow.On(app.Window).Count == 0);
+
+        var rules = Directory.CreateDirectory(Path.Combine(app.Root, ".claude", "rules", "frontend")).Parent!.FullName;
+        File.WriteAllText(Path.Combine(rules, "style.md"), "# Style\n");
+        File.WriteAllText(Path.Combine(rules, "frontend", "style.md"), "---\npaths:\n  - \"src/components/**/*.{ts,tsx}\"\n  - \"src/styles/a-very-long-folder-name/**/*.css\"\n---\n");
+        Refresh();
+        Control? Row(string label) => pane.GetLogicalDescendants().OfType<Control>().SingleOrDefault(control => control.Name == "ClaudeContextLayer" &&
+            control.GetLogicalDescendants().OfType<TextBlock>().Any(text => text.Name == "ClaudeContextName" && text.Text == label));
+        E2eWorkspace.Until(() => Row("style.md") is not null && Row("frontend/style.md") is not null);
+        string[] Texts(string label) => [.. Row(label)!.GetLogicalDescendants().OfType<TextBlock>().Select(text => text.Text ?? "")];
+        Require(Texts("style.md").Contains("ALWAYS") && !Texts("style.md").Contains("ON DEMAND"), "A rule without paths is marked as always loaded.");
+        Require(Texts("frontend/style.md").Contains("ON DEMAND") && !Texts("frontend/style.md").Contains("ALWAYS") &&
+            Texts("frontend/style.md").Contains("Loads when Claude reads or edits: src/components/**/*.{ts,tsx}, src/styles/a-very-long-folder-name/**/*.css"),
+            "An on-demand rule shows which files load it.");
+        Require(pane.GetLogicalDescendants().OfType<TextBlock>().Count(text => text.Name == "ClaudeRulesHint") == 1, "The pane says once what rules are.");
+        Require(Offer() is null, "A project with rules gets no offer to add one.");
+        foreach (var width in new[] { 260, 280, 360, 480 })
+        {
+            pane.Width = width;
+            E2eWorkspace.Settle();
+            var row = Row("frontend/style.md")!;
+            var size = row.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "ClaudeContextSize");
+            var when = row.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "ClaudeRuleWhen");
+            Require(when.IsEffectivelyVisible && when.Bounds.Width > 0 && when.TranslatePoint(new(when.Bounds.Width, 0), row)!.Value.X <= size.TranslatePoint(new(0, 0), row)!.Value.X,
+                $"At {width} px a rule's loading line stays left of the size column.");
+        }
+        pane.ClearValue(Control.WidthProperty);
+        Directory.Delete(rules, true);
+        Refresh();
+        E2eWorkspace.Until(() => Offer() is not null);
+        Console.WriteLine("PASS Claude Code rules in the Context tab: the offer, when each rule loads, subfolder names and narrow panes");
     }
 
     private static void SubmittedPromptKeepsChanges(E2eWorkspace app)
@@ -1699,6 +1748,7 @@ internal static class ClaudeCodeChecks
         await IdeProtocol(runtime, project);
         await ConfigCases(runtime, state, project, directory);
         HomeFolderInstructions(directory);
+        RuleFiles(directory);
         PluginPartCases(directory);
         await Skills();
         await CodeIntelHooks();
@@ -2001,6 +2051,9 @@ internal static class ClaudeCodeChecks
             Directory.CreateDirectory(Path.GetDirectoryName(userFile)!);
             File.WriteAllText(userFile, "# User instructions\n");
             File.WriteAllText(Path.Combine(home, "CLAUDE.md"), "# Home project instructions\n");
+            var userRule = Path.Combine(home, ".claude", "rules", "style.md");
+            Directory.CreateDirectory(Path.GetDirectoryName(userRule)!);
+            File.WriteAllText(userRule, "# Style\n");
             Environment.SetEnvironmentVariable("HOME", home);
             Environment.SetEnvironmentVariable("CLAUDE_CONFIG_DIR", Path.Combine(home, ".claude"));
             var layers = ClaudeResolver.Resolve("home-ws", home).Context;
@@ -2011,13 +2064,125 @@ internal static class ClaudeCodeChecks
                 "The home folder's .claude/CLAUDE.md is never a PROJECT entry.");
             Require(layers.Any(layer => layer.Origin.Scope == ClaudeConfigScope.Project && layer.Path == Path.Combine(home, "CLAUDE.md")),
                 "A CLAUDE.md in the home folder itself is the PROJECT file.");
+            Require(layers.Where(layer => layer.Path == userRule).Select(layer => layer.Origin.Scope).SequenceEqual([ClaudeConfigScope.User]),
+                "A user rule is listed once, as USER, in a home-folder session.");
         }
         finally
         {
             Environment.SetEnvironmentVariable("HOME", previousHome);
             Environment.SetEnvironmentVariable("CLAUDE_CONFIG_DIR", previousConfig);
         }
-        Console.WriteLine("PASS home-folder session: the user CLAUDE.md is listed once, never as PROJECT");
+        Console.WriteLine("PASS home-folder session: the user CLAUDE.md and rules are listed once, never as PROJECT");
+    }
+
+    /// <summary>
+    /// <c>.claude/rules</c> is read as Claude Code reads it (its memory documentation, checked against Claude Code 2.1.332):
+    /// subfolders and links, parent folders, every form of <c>paths</c>, and links that lead outside the session's folder.
+    /// </summary>
+    private static void RuleFiles(string directory)
+    {
+        var fixture = Path.Combine(directory, "rule-files");
+        var parent = Path.Combine(fixture, "parent");
+        var project = Path.Combine(parent, "project");
+        var rules = Path.Combine(project, ".claude", "rules");
+        var userRules = Path.Combine(fixture, "config", "rules");
+        string Put(string path, string text)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, text);
+            return path;
+        }
+        void Rule(string name, string frontmatter) => Put(Path.Combine(rules, name), frontmatter.Length == 0 ? "# Rule\n" : "---\n" + frontmatter + "\n---\n\n# Rule\n");
+        var previousHome = Environment.GetEnvironmentVariable("HOME");
+        var previousConfig = Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR");
+        try
+        {
+            Put(Path.Combine(userRules, "me.md"), "# Mine\n");
+            Rule("always.md", "");
+            Rule("list.md", "description: ignored\npaths:\n  - \"src/api/**/*.ts\"\n  - 'lib/**/*.{ts,tsx}'\n  - docs/*.md, notes/*.md");
+            Rule("comma.md", "paths: src/**/*.{ts,tsx}, lib/*.ts");
+            Rule("flow.md", "paths: [\"a/*.cs\", \"b/{c,d}.cs\"]");
+            Rule("star.md", "paths: **/*.ts");
+            Rule("windows.md", "paths:\r\n  - \"win/*.cs\"\r");
+            Rule("long.md", "description: " + new string('x', 5000) + "\npaths: far/*.cs");
+            Rule("everything.md", "paths: \"**\"");
+            Rule("comment.md", "# paths: later/*.cs");
+            Rule("broken.md", "paths:\n  - **/*.ts");
+            Rule("nested.md", "paths:\n  - " + new string('[', 5000) + new string(']', 5000));
+            Rule("frontend/react/always.md", "");
+            Put(Path.Combine(rules, "notes.txt"), "not a rule\n");
+            Put(Path.Combine(parent, ".claude", "rules", "parent.md"), "---\npaths: project/*.cs\n---\n");
+            if (!OperatingSystem.IsWindows())
+            {
+                // Two links back up make a cycle that a naive walk doubles at every level.
+                Directory.CreateSymbolicLink(Path.Combine(rules, "loop-a"), rules);
+                Directory.CreateSymbolicLink(Path.Combine(rules, "frontend", "loop-b"), rules);
+                Put(Path.Combine(project, "shared", "team.md"), "# Team\n");
+                Directory.CreateSymbolicLink(Path.Combine(rules, "shared"), Path.Combine(project, "shared"));
+                var outside = Put(Path.Combine(fixture, "elsewhere", "company.md"), "# Company\n");
+                File.CreateSymbolicLink(Path.Combine(rules, "company.md"), outside);
+                File.CreateSymbolicLink(Path.Combine(rules, "company-scoped.md"), Put(Path.Combine(fixture, "elsewhere", "scoped.md"), "---\npaths: x/*.cs\n---\n"));
+                File.CreateSymbolicLink(Path.Combine(userRules, "linked.md"), Put(Path.Combine(fixture, "elsewhere", "personal.md"), "# Personal\n"));
+                File.CreateSymbolicLink(Path.Combine(rules, "network.md"), "/net/host.invalid/rule.md");
+                File.CreateSymbolicLink(Path.Combine(rules, "dangling.md"), Path.Combine(fixture, "missing.md"));
+            }
+            Environment.SetEnvironmentVariable("HOME", fixture);
+            Environment.SetEnvironmentVariable("CLAUDE_CONFIG_DIR", Path.Combine(fixture, "config"));
+            var snapshot = ClaudeResolver.Resolve("rules-ws", project);
+            var found = snapshot.Context.Where(layer => layer.Kind == ClaudeContextKind.Rules && layer.Path.StartsWith(fixture, StringComparison.Ordinal)).ToList();
+            var listing = string.Join("; ", found.Select(layer => $"{layer.Origin.Scope} {layer.Label} [{string.Join(" | ", layer.PathGlobs ?? [])}] {layer.Note}"));
+            ClaudeContextLayer One(string label) => found.SingleOrDefault(layer => layer.Label == label) ?? throw new InvalidOperationException($"One rule row {label} was expected. Got: {listing}");
+            void Scoped(string label, params string[] globs) => Require(One(label) is { Lazy: true, Note: null } layer && layer.PathGlobs!.SequenceEqual(globs),
+                $"{label} loads on demand for {string.Join(" | ", globs)}. Got: {listing}");
+            void Always(string label) => Require(One(label) is { Lazy: false, PathGlobs: null }, $"{label} loads in every session. Got: {listing}");
+            Scoped("list.md", "src/api/**/*.ts", "lib/**/*.{ts,tsx}", "docs/*.md", "notes/*.md");
+            Scoped("comma.md", "src/**/*.{ts,tsx}", "lib/*.ts");
+            Scoped("flow.md", "a/*.cs", "b/{c,d}.cs");
+            Scoped("star.md", "**/*.ts");
+            Scoped("windows.md", "win/*.cs");
+            Scoped("long.md", "far/*.cs");
+            foreach (var label in new[] { "always.md", "everything.md", "comment.md", "me.md", "frontend/react/always.md" }) Always(label);
+            foreach (var label in new[] { "broken.md", "nested.md" })
+            {
+                Always(label);
+                Require(One(label).Note?.Contains("not valid YAML", StringComparison.Ordinal) == true, $"{label} says its paths are ignored. Got: {listing}");
+            }
+            Require(One("always.md").Note is null && One("everything.md").Note is null, "A rule that loads as written has no note.");
+            Scoped("parent.md", "project/*.cs");
+            Require(One("parent.md") is { Origin.Scope: ClaudeConfigScope.Project } up && up.PatternBase == parent && One("list.md").PatternBase == project && found.IndexOf(up) < found.IndexOf(One("list.md")),
+                "A parent folder's rules are listed before the folder's own, with patterns starting at the parent. Got: " + listing);
+            Require(One("me.md").Origin.Scope == ClaudeConfigScope.User && found.IndexOf(One("me.md")) == 0, "User rules come first. Got: " + listing);
+            Require(found.All(layer => layer.Label != "notes.txt"), "Only .md files are rules.");
+            if (!OperatingSystem.IsWindows())
+            {
+                Always("shared/team.md");
+                Require(One("shared/team.md").Note is null, "A link that stays inside the folder is an ordinary rule.");
+                Require(One("company.md") is { Lazy: null } company && company.Note?.Contains("outside", StringComparison.Ordinal) == true && company.Bytes == "# Company\n".Length,
+                    "A link leading outside the folder says Claude Code asks first. Got: " + listing);
+                Require(One("company-scoped.md") is { Lazy: true } never && never.Note?.Contains("does not load", StringComparison.Ordinal) == true,
+                    "A linked rule with paths from outside the folder never loads. Got: " + listing);
+                Require(found.Single(layer => layer.Path == Path.Combine(userRules, "linked.md")).Note is null, "A user rule may link anywhere.");
+                Require(found.All(layer => layer.Label is not ("network.md" or "dangling.md") && !layer.Label.Contains("loop-", StringComparison.Ordinal)),
+                    "Network links and dangling links are not followed, and a cycle lists nothing twice. Got: " + listing);
+                // /context names a linked folder's file by its target.
+                var measured = new ClaudeContextBreakdown("m", 1, 2, []) { MemoryFiles = [new(Path.Combine(project, "shared", "team.md"), "Project", 3)] };
+                Require(ContextReport.Normalise(measured, project, [One("shared/team.md").Path]).MemoryFiles.Single().Name == One("shared/team.md").Path,
+                    "A rule inside a linked folder is matched to its /context row.");
+            }
+            Require(ClaudeResolver.FilePaths("rules-ws", project).Contains(One("frontend/react/always.md").Path), "A rule in a subfolder opens from the pane.");
+            // A folder full of files is cut off and says so instead of listing without end.
+            var many = Path.Combine(fixture, "many");
+            for (var index = 0; index < 600; index++) Put(Path.Combine(many, ".claude", "rules", $"r{index:000}.md"), "x\n");
+            var crowded = ClaudeResolver.Resolve("rules-many", many);
+            Require(crowded.Context.Count(layer => layer.Kind == ClaudeContextKind.Rules) == 500 && crowded.Problems.Any(problem => problem.Title == "Too many rule files"),
+                "At most 500 rule files are listed, with a problem saying so.");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("HOME", previousHome);
+            Environment.SetEnvironmentVariable("CLAUDE_CONFIG_DIR", previousConfig);
+        }
+        Console.WriteLine("PASS Claude Code rules: subfolders, links, parent folders, every form of paths, and links leading outside");
     }
 
     /// <summary>
@@ -2044,6 +2209,15 @@ internal static class ClaudeCodeChecks
         Require(config.Context.Any(layer => layer.Path == Path.Combine(project, "AGENTS.md") && layer.Kind == ClaudeContextKind.Import && layer.Depth == 1),
             "An @-imported instruction file is a depth-one branch of the file that pulled it in.");
         Console.WriteLine("PASS fork plugins/claude-code/claude-config.spec.ts (host): an imported instruction file is drawn as a branch of the file that pulled it in");
+
+        var rulePath = Path.Combine(project, ".claude", "rules", "general.md");
+        var rulePlan = await Call(ClaudeCodeContract.PlanEdit, new ClaudeEditRequest(project, ClaudeWritableScope.Project, new FileEdit(ClaudeFileTemplate.ProjectRule)));
+        Require(rulePlan.Path == rulePath && !File.Exists(rulePath), "Planning a new rule names .claude/rules and writes nothing: " + rulePlan.Path);
+        await Apply(ClaudeWritableScope.Project, new FileEdit(ClaudeFileTemplate.ProjectRule));
+        config = await Call(ClaudeCodeContract.ConfigGet, new WorkspaceParams(project));
+        Require(config.Context.Single(layer => layer.Path == rulePath) is { Kind: ClaudeContextKind.Rules, Lazy: false, Note: null },
+            "An added rule loads in every session.");
+        File.Delete(rulePath);
 
         var add = new McpAddEdit("notes", new(ClaudeMcpTransport.Stdio) { Command = "notes-mcp", Args = ["--root", "."] });
         Require(Diff(await Apply(ClaudeWritableScope.Project, add)).Contains("notes-mcp", StringComparison.Ordinal) &&

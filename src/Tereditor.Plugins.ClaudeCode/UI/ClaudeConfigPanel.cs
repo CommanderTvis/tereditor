@@ -738,6 +738,9 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         if (!layers.Any(layer => layer.Path.EndsWith("CLAUDE.local.md", StringComparison.Ordinal)))
             list.Children.Add(Offer("ClaudeOfferLocalMd", "Add CLAUDE.local.md", "Local instructions, like which toolchain to use on this machine.",
                 () => Edit(new(new FileEdit(ClaudeFileTemplate.ProjectLocalInstructions), "Create CLAUDE.local.md"))));
+        if (!layers.Any(layer => layer.Kind == ClaudeContextKind.Rules && layer.Origin.Scope == ClaudeConfigScope.Project))
+            list.Children.Add(Offer("ClaudeOfferRule", "Add a rule", "A rule is an instruction file that loads in every session or only for some files.",
+                () => Edit(new(new FileEdit(ClaudeFileTemplate.ProjectRule), "Create .claude/rules/general.md"))));
         // The appended prompt is not a memory file: /context folds it into the system prompt, and the host measures it
         // as the difference against a run without it. With several appended files the first row carries their sum.
         var appended = contextUsage?.Breakdown?.AppendedPromptTokens;
@@ -757,9 +760,18 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         var files = layers.Where(layer => !ReferenceEquals(layer, appendedRow)).ToList();
         layers = files;
         // An @-import hangs under the file that pulled it in: a rule per ancestor level, then a tee or an elbow into the row.
+        var rulesExplained = false;
         for (var index = 0; index < layers.Count; index++)
         {
             var layer = layers[index];
+            if (layer.Kind == ClaudeContextKind.Rules && !rulesExplained)
+            {
+                var hint = ClaudeParts.Wrapped("Rules are instruction files in .claude/rules folders. Rules in deeper folders are not listed. They load when Claude works there.", Ui.Hint, 11);
+                hint.Name = "ClaudeRulesHint";
+                hint.Margin = new Thickness(8, 8, 8, 4);
+                list.Children.Add(hint);
+                rulesExplained = true;
+            }
             var depth = Math.Min(layer.Depth ?? 0, 4);
             var nextDepth = index + 1 < layers.Count ? layers[index + 1].Depth ?? 0 : 0;
             var row = new DockPanel { Name = "ClaudeContextLayer", Tag = layer.Kind };
@@ -773,14 +785,15 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
             var column = new StackPanel();
             var title = Title(layer.Label);
             title.Children.Add(ClaudeParts.ScopeChip(layer.Origin.Scope.Name()));
-            if (layer.Lazy == true)
+            if (layer.Kind == ClaudeContextKind.Rules)
             {
-                var lazy = Ui.Text("ON DEMAND", Ui.Hint, 10);
-                ToolTip.SetTip(lazy, "Loads only when Claude reads: " + string.Join(", ", layer.PathGlobs ?? []));
-                title.Children.Add(lazy);
+                ToolTip.SetTip(title.Children[0], layer.Label);
+                if (layer.Lazy == false) title.Children.Add(Ui.Text("ALWAYS", Ui.Hint, 10));
+                else if (layer is { Lazy: true, Note: null }) title.Children.Add(Ui.Text("ON DEMAND", Ui.Hint, 10));
             }
             column.Children.Add(title);
             column.Children.Add(ClaudeParts.SourceButton(layer.Path, null, OpenSource));
+            if (RuleLine(layer) is { } when) column.Children.Add(when);
             line.Children.Add(column);
             row.Children.Add(line);
             list.Children.Add(row);
@@ -821,6 +834,19 @@ internal sealed class ClaudeConfigPanel : DockPanel, IClaudeCapabilityHost
         rowSkillFiles = SkillFiles(snapshot?.Capabilities ?? []);
         foreach (var entry in baseline) AddBaselineRow(list, entry, depth: 0);
         return list;
+    }
+
+    // Under a rule's path: which files load it, or why it does not load as written.
+    private static TextBlock? RuleLine(ClaudeContextLayer layer)
+    {
+        var patterns = layer.PathGlobs is { } globs ? string.Join(", ", globs) : null;
+        if ((layer.Note ?? (patterns is null ? null : "Loads when Claude reads or edits: " + patterns)) is not { } text) return null;
+        var line = ClaudeParts.Wrapped(text, Ui.Muted, 11);
+        line.Name = "ClaudeRuleWhen";
+        line.MaxLines = 3;
+        line.TextTrimming = TextTrimming.CharacterEllipsis;
+        ToolTip.SetTip(line, patterns is null ? text : $"{patterns}\nPatterns start at {layer.PatternBase}");
+        return line;
     }
 
     private InstructionSectionsView InstructionSections(string workspace)
