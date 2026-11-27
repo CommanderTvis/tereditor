@@ -209,7 +209,8 @@ popup window leaves the window on the roomier side, because the parent can be dr
 overlay stays inside the window and draws the submenu over its parent. The window rule moves a submenu only up or down.
 `App` does this for every `MenuItem` submenu: it anchors the popup to the parent menu's whole width with no offset, so
 the positioner's flip at a screen edge stays flush too. Popup geometry compares screen positions only with each other,
-since macOS counts them in points and Windows in pixels.
+since macOS counts them in points and Windows in pixels. Real macOS popup windows (Retina units, stacking order, the
+flip at a screen edge) are not verified: headless checks cannot model them.
 
 ## Application menu
 

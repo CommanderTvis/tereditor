@@ -74,6 +74,9 @@ First-start consent: the terms review asks the region (`europe`, `africa`, `amer
 `oceania`) and data sharing (`full`, `anonymous`, `none`), unanswered until chosen. The launch passes them as
 `INTELLIJ_REGION` and `INTELLIJ_DATA_SHARING` next to `--eula <hash prefix>`, and refuses to start without recorded answers.
 
+Not verified: the licensing checks use a fake licensing server; no run against a real sign-in, trial or license store
+is recorded (only the user may touch that store).
+
 ## Superseded builds
 
 When a managed build installs and passes its checksum, older managed builds of the same platform beside it, and their

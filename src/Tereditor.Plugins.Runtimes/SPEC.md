@@ -64,4 +64,5 @@ the Bun and uv guards; quitting deletes nothing; a language server plugin turned
 When Runtimes is on and a plugin's request (a language server or an ACP agent) needs a runtime that is not pinned, not on PATH and not downloaded, the host does not download at once. This plugin asks first:
 every client shows one prompt (the host sends the list of waiting questions on the `consent` channel, and an answer from any client takes the prompt down in all) with the runtime's name and pinned version, Download and Not now.
 The size is not shown: the pins hold none. Requests that arrive while the question is open share it. Not now is remembered until tereditor restarts or the user presses Download now; nothing is stored on disk, and a runtime is not asked about twice in a session.
+The prompt shows no progress after Download; progress is on the settings page, the language server row or the chat's install text.
 A host without a screen (headless) does not ask and downloads as before. Download now on the page is the user's own request and never asks. A prompt that is dismissed without an answer keeps the request waiting; stopping the server cancels it.
