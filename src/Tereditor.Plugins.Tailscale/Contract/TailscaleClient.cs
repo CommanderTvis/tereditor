@@ -81,9 +81,7 @@ public sealed class TailscaleClient : IDisposable
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(uri, "tereditor/pair"));
             request.Headers.Add("X-tereditor-Pairing", pairing.Token);
-            using var response = await http.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            var reply = await response.Content.ReadFromJsonAsync(PluginJson.TypeInfo<TailscalePairReply>(), cancellationToken) ?? throw new IOException("The host sent an empty pairing reply.");
+            var reply = await RequestPairAsync(request, cancellationToken);
             switch (reply.State)
             {
                 case "approved":
@@ -93,8 +91,36 @@ public sealed class TailscaleClient : IDisposable
                     return new(endpoint.ToString(), pairing.Token);
                 case "pending": await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken); break;
                 case "denied": throw new IOException("The host declined this pairing request. Start a new pairing to try again.");
+                case "busy": throw new IOException("Too many pairing requests are waiting on the host. Approve or decline them in Settings › Tailscale on the host, then try again.");
                 default: throw new IOException("The host cannot accept this pairing request (" + reply.State + ").");
             }
+        }
+    }
+
+    /// <summary>One pairing request; every failure comes back as an <see cref="IOException"/> that says what to do.</summary>
+    private async Task<TailscalePairReply> RequestPairAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        const string Unreachable = "Could not reach tereditor on this host. Check that tereditor is running there, that its Tailscale plugin is on in Settings › Plugins, and that your tailnet policy allows the connection.";
+        HttpResponseMessage response;
+        try { response = await http.SendAsync(request, cancellationToken); }
+        catch (HttpRequestException error) { throw new IOException(Unreachable, error); }
+        catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested) { throw new IOException(Unreachable, error); }
+        using (response)
+        {
+            TailscalePairReply? reply = null;
+            try { reply = await response.Content.ReadFromJsonAsync(PluginJson.TypeInfo<TailscalePairReply>(), cancellationToken); }
+            catch (JsonException) { }
+            if (response.IsSuccessStatusCode)
+                return reply ?? throw new IOException("The host sent a pairing reply this app cannot read. Update tereditor on both devices.");
+            throw new IOException(response.StatusCode switch
+            {
+                HttpStatusCode.ServiceUnavailable when reply?.Problem is { Length: > 0 } problem =>
+                    "The host approved this device but could not accept the connection. " + problem + " See Settings › Tailscale on the host.",
+                HttpStatusCode.ServiceUnavailable => "The host could not complete pairing. Open Settings › Tailscale on the host to see why, then try again.",
+                HttpStatusCode.Forbidden => "The host could not verify this device on its tailnet. Check that both devices use the same tailnet, then try again.",
+                HttpStatusCode.NotFound => "The host does not offer pairing here. Update tereditor on the host and check that its Tailscale plugin is on.",
+                var status => "The host could not complete pairing (HTTP " + (int)status + "). Check Settings › Tailscale on the host."
+            });
         }
     }
 

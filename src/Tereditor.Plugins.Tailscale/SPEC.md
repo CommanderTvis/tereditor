@@ -92,10 +92,21 @@ plugin RPC because the client has no connection yet: the builtin UI exposes a cl
 ordinary UI activation. External plugin activation and capability parity are unchanged.
 
 The embedded host starts an ephemeral WebSocket RPC listener on its Tailscale address after approval. An already
-running listener is reused when bound to that address or a wildcard; an incompatible listener produces
-an actionable error instead of being reconfigured. The plugin stops only the listener it started and only
-if that instance is still running. The standalone host reuses its configured listener and requires its
-bind address to be reachable through Tailscale. No local adapter is moved onto RPC.
+running listener is reused when bound to that address or a wildcard. A listener the tailnet cannot reach, such as
+the loopback one that Serve on start opens, stays as it is: pairing opens its own listener on the Tailscale
+address beside it. That listener has a random token nobody learns, so only approved device secrets authenticate
+there. Pairing opens its own listener too when Serve on start is on and nothing is listening, so it never takes
+the shared listener's place. Stopping serving in Settings › Host does not stop pairing's own listener; disabling
+the plugin does. The plugin stops only the listeners it started, and the shared one only if that instance is still
+running. The standalone host reuses its configured listener and requires its bind address to be reachable through
+Tailscale. No local adapter is moved onto RPC.
+
+A pairing failure says what is wrong and what to do; the client never shows a raw HTTP error. When the host cannot
+serve an approved device, it answers 503 with the state `unavailable` and a `problem`. The problem is a
+`TailscaleServingException` message, which is worded for the device, or a fixed sentence: other exception text stays
+on the host, where Settings › Tailscale shows it until a device connects. Any other failed pairing request, such as a
+failed identity check, shows its cause there too. The client also explains a host it cannot
+reach, a bare 503, 403 or 404, an unreadable reply and a full request queue.
 
 Desktop Settings › Host opens a dedicated client instance; `--tailscale` opens the picker directly. The
 Android connect screen offers Tailscale alongside manual entry and QR scanning of host codes. It opens browser sign-in
@@ -138,6 +149,7 @@ logout switch to guard.
 
 `--tailscale` exercises registry expiry and limits, node binding, credential secrecy and persistence,
 actual HTTP discovery and approval against a fake Tailscale identity provider, embedded WebSocket RPC startup,
+pairing beside a listener the tailnet cannot reach and with Serve on start on, the client's failure messages,
 local/remote status parity, authenticated calls, revocation and plugin teardown, and a fake CLI that
 flips from disconnected to connected: no detection without a request, and a refresh then makes pairing ready. Fixtures never call the
 user's Tailscale daemon. `--android` also checks embedded state reuse, netmap validation and real

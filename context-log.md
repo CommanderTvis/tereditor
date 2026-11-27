@@ -41,3 +41,9 @@ The tab reads `.claude/rules` as Claude Code does and says when each rule loads
 `Tereditor.Plugins.Agent.Host` and `Agent.UI` now hold the shared download, version probe, pane and settings parts; no
 wire or plugin API change. The browser build passed with `DisableParallelAot` (the memory guard stopped a parallel
 one). Not verified: the running app, Android.
+
+## 2026-11-27 — Tailscale pairing with Serve on start
+
+With Serve on start on, an approved device got a bare 503. Pairing now serves beside a listener the tailnet cannot
+reach, and the client says why pairing failed ([spec](src/Tereditor.Plugins.Tailscale/SPEC.md)). Not verified: a
+real phone and tailnet.

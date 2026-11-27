@@ -50,7 +50,7 @@ public static class RemoteServer
         tailscale.EnsureListening = (tailnetAddress, _) =>
         {
             if (!address.Equals(IPAddress.Any) && !address.Equals(IPAddress.IPv6Any) && address.ToString() != tailnetAddress)
-                throw new IOException("Start this host with TEREDITOR_BIND set to its Tailscale address.");
+                throw new TailscaleServingException("Start the host with TEREDITOR_BIND set to its Tailscale address.");
             var endpoint = app.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features
                 .Get<Microsoft.AspNetCore.Hosting.Server.Features.IServerAddressesFeature>()!.Addresses.First();
             return ValueTask.FromResult(new UriBuilder("http", tailnetAddress, new Uri(endpoint).Port).Uri.ToString());

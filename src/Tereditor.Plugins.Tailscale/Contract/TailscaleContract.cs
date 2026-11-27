@@ -11,7 +11,8 @@ public sealed record TailscaleRevoke(string Id);
 public sealed record TailscaleDevice(string Id, string Name, string User, string Code, string? Note = null);
 public sealed record TailscaleStatus(string Detail, string? HostName, IReadOnlyList<TailscaleDevice> Pending, IReadOnlyList<TailscaleDevice> Approved);
 public sealed record TailscaleHostInfo(string Name);
-public sealed record TailscalePairReply(string State, string? Address = null);
+/// <summary>The host's answer to a pairing request; <see cref="Problem"/> tells an approved device why the host cannot serve it.</summary>
+public sealed record TailscalePairReply(string State, string? Address = null, string? Problem = null);
 public sealed record TailscaleConnection(string Address, string Token);
 public sealed record TailscaleRemembered(string Host, string Token);
 public sealed record TailscalePeer(string Name, string Address);

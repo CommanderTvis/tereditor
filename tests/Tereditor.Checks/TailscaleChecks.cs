@@ -38,7 +38,9 @@ internal static class TailscaleChecks
         Addresses();
         await BootstrapValidation();
         await ClientPolling();
+        await PairingFailures();
         await Transport(Path.Combine(root, "tailscale"));
+        await BesideAnotherListener(Path.Combine(root, "tailscale-beside"));
         await LateConnection(Path.Combine(root, "tailscale-late"));
         Console.WriteLine("PASS Tailscale pairing: identity, approval, expiry, bounds, persistence, revocation and local/remote authentication");
     }
@@ -351,12 +353,140 @@ internal static class TailscaleChecks
         catch (OperationCanceledException) { }
     }
 
+    private sealed class FailingHandler(Func<HttpResponseMessage> reply) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromResult(reply());
+    }
+
+    private static async Task<string> PairingFailure(HttpMessageHandler handler, Uri bootstrap, TailscaleRemembered pairing, CancellationToken cancellationToken)
+    {
+        using var client = new TailscaleClient(handler, (_, _) => Task.FromResult(bootstrap));
+        try { await client.PairAsync(pairing, null, cancellationToken); }
+        catch (IOException error) { return error.Message; }
+        throw new InvalidOperationException("Pairing was expected to fail.");
+    }
+
+    private static async Task PairingFailures()
+    {
+        var pairing = TailscaleClient.NewPairing("host");
+        foreach (var (reply, expected) in new (Func<HttpResponseMessage>, string)[]
+        {
+            (() => new(HttpStatusCode.ServiceUnavailable), "Open Settings › Tailscale on the host"),
+            (() => new(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("<html>") }, "Open Settings › Tailscale on the host"),
+            (() => new(HttpStatusCode.Forbidden), "same tailnet"),
+            (() => new(HttpStatusCode.NotFound), "Tailscale plugin is on"),
+            (() => new(HttpStatusCode.InternalServerError), "HTTP 500"),
+            (() => new(HttpStatusCode.OK) { Content = new StringContent("<html>") }, "Update tereditor"),
+            (() => new(HttpStatusCode.OK) { Content = JsonContent.Create(new TailscalePairReply("busy"), options: PluginJson.Options) }, "Approve or decline them"),
+            (() => throw new HttpRequestException("Connection refused"), "Check that tereditor is running"),
+            (() => throw new TaskCanceledException(), "Check that tereditor is running")
+        })
+        {
+            var message = await PairingFailure(new FailingHandler(reply), new Uri("http://100.70.1.2:54124/"), pairing, CancellationToken.None);
+            Require(message.Contains(expected, StringComparison.Ordinal) && !message.Contains("Response status code", StringComparison.Ordinal),
+                "A failed pairing says what to do (" + expected + "): " + message);
+        }
+    }
+
+    // 127.0.0.1 stands for the tailnet address and ::1 for a listener the tailnet cannot reach, as the loopback one Serve on start opens.
+    private static async Task BesideAnotherListener(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        using var reserved = new TcpListener(IPAddress.Loopback, 0);
+        reserved.Start();
+        var bootstrapPort = ((IPEndPoint)reserved.LocalEndpoint).Port;
+        reserved.Stop();
+        var state = new HostStateStore(Path.Combine(directory, "state"));
+        var bridge = new TailscaleServing();
+        var network = new Network();
+        await using var runtime = new PluginRuntime(new()
+        {
+            StateDirectory = Path.Combine(directory, "state"),
+            State = state,
+            Builtins = [(TailscaleContract.Manifest with { EnabledByDefault = true }, new TailscaleHost(bridge) { Network = network, PairingPort = bootstrapPort })]
+        });
+        await using var listener = new HostListener(directory, state, null, runtime);
+        listener.ConfigureTailscale(bridge);
+        await runtime.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        async Task<TailscaleStatus> Status() => PluginJson.Convert<TailscaleStatus>(await runtime.CallAsync(new("tailscale", "status", new TailscaleStatusParams(), "fixture"), timeout.Token));
+        while (!(await Status()).Detail.StartsWith("Ready", StringComparison.Ordinal)) await Task.Delay(20, timeout.Token);
+        var bootstrap = new Uri($"http://127.0.0.1:{bootstrapPort}/");
+        using var http = new HttpClient(new SocketsHttpHandler { UseProxy = false }) { BaseAddress = bootstrap };
+        var token = TailscaleClient.NewPairing("fixture").Token;
+        async Task<TailscalePairReply> Pair()
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "tereditor/pair");
+            request.Headers.Add("X-tereditor-Pairing", token);
+            using var response = await http.SendAsync(request, timeout.Token);
+            Require(response.IsSuccessStatusCode, "An approved device pairs whatever else the host serves: HTTP " + (int)response.StatusCode);
+            return (await response.Content.ReadFromJsonAsync<TailscalePairReply>(PluginJson.Options, timeout.Token))!;
+        }
+        async Task Rejected(string address, string credential, string message)
+        {
+            using var client = new RemoteStateAdapter(new Uri(address), credential);
+            try { await client.GetHandshakeAsync(timeout.Token); }
+            catch (RpcException) { return; }
+            throw new InvalidOperationException(message);
+        }
+        Require((await Pair()).State == "pending", "A new device waits for approval.");
+        await runtime.CallAsync(new("tailscale", "decide", new TailscaleDecision(PairingRegistry.Hash(token), true), "fixture"), timeout.Token);
+
+        // Serve on start is on but has not started yet: pairing must leave the shared listener's place to it.
+        await state.ChangeAsync([HostStateChange.Setting("serve-on-start", "true")], timeout.Token);
+        var early = await Pair();
+        Require(early.State == "approved" && listener.Endpoint is null, "With Serve on start on, pairing serves beside the shared listener.");
+        await listener.StartOnLaunchAsync(0);
+        Require(listener.Endpoint is not null && listener.StartFailure is null, "Serve on start still starts after a device paired first.");
+        await listener.StopAsync(timeout.Token);
+
+        await listener.StartAsync(IPAddress.IPv6Loopback, 0, listener.Token, timeout.Token);
+        var shared = listener.Endpoint!;
+        var ready = await Pair();
+        Require(ready.State == "approved" && ready.Address == early.Address && listener.Endpoint == shared,
+            "A listener the tailnet cannot reach stays as it is, and pairing keeps its own.");
+        using (var paired = new RemoteStateAdapter(new Uri(ready.Address!), token))
+            Require((await paired.GetStateAsync(timeout.Token)).ConnectedThroughTailscale, "The paired secret connects to the pairing listener.");
+        await Rejected(ready.Address!, listener.Token, "The pairing listener accepts paired devices only, not the shared listener's token.");
+        await listener.StopAsync(timeout.Token);
+        using (var paired = new RemoteStateAdapter(new Uri(ready.Address!), token)) await paired.GetHandshakeAsync(timeout.Token);
+
+        await listener.StartAsync(IPAddress.IPv6Loopback, 0, listener.Token, timeout.Token);
+        shared = listener.Endpoint!;
+        await state.ChangeAsync([HostStateChange.PluginEnabled("tailscale", false)], timeout.Token);
+        while ((await runtime.ListAsync(timeout.Token)).Single().Status != PluginStatus.Disabled) await Task.Delay(20, timeout.Token);
+        // A refused credential would not tell a stopped listener from a running one; a free port does.
+        using (var freed = new TcpListener(IPAddress.Loopback, new Uri(ready.Address!).Port)) freed.Start();
+        Require(listener.Endpoint == shared, "Disabling the plugin leaves the user's listener serving.");
+
+        await state.ChangeAsync([HostStateChange.PluginEnabled("tailscale", true)], timeout.Token);
+        while ((await runtime.ListAsync(timeout.Token)).Single().Status != PluginStatus.Active || !(await Status()).Detail.StartsWith("Ready", StringComparison.Ordinal)) await Task.Delay(20, timeout.Token);
+        // A host that cannot serve the approved device says why on both sides, without sending its own exception text.
+        var serve = bridge.EnsureListening!;
+        async Task<string> Refusal() => await PairingFailure(new SocketsHttpHandler { UseProxy = false }, bootstrap, new("fixture", token), timeout.Token);
+        bridge.EnsureListening = (_, _) => throw new IOException("private host detail");
+        var message = await Refusal();
+        Require(message.Contains("could not accept the connection", StringComparison.Ordinal) && message.Contains("Settings › Tailscale", StringComparison.Ordinal) &&
+            !message.Contains("private host detail", StringComparison.Ordinal), "The client learns the host approved it but cannot serve it: " + message);
+        Require((await Status()).Detail.Contains("private host detail", StringComparison.Ordinal), "The host's own settings page shows the cause.");
+        bridge.EnsureListening = (_, _) => throw new TailscaleServingException("Start the host with TEREDITOR_BIND set to its Tailscale address.");
+        message = await Refusal();
+        Require(message.Contains("TEREDITOR_BIND", StringComparison.Ordinal), "A reason worded for the device reaches it: " + message);
+        bridge.EnsureListening = serve;
+        Require((await Pair()).State == "approved" && (await Status()).Detail.StartsWith("Ready", StringComparison.Ordinal), "A later successful connection clears the problem.");
+        network.Failure = "private identity detail";
+        message = await Refusal();
+        Require(message.Contains("Open Settings › Tailscale on the host", StringComparison.Ordinal) && !message.Contains("private", StringComparison.Ordinal) &&
+            (await Status()).Detail.Contains("private identity detail", StringComparison.Ordinal), "A failed identity check shows its cause on the host only: " + message);
+    }
+
     private sealed class Network : TailscaleNetwork
     {
         public bool Allow = true;
         public string NodeId = "phone-node";
+        public string? Failure;
         internal override Task<TailscaleLocal> SelfAsync(CancellationToken cancellationToken) => Task.FromResult(new TailscaleLocal(IPAddress.Loopback, "fixture.tailnet.ts.net"));
-        internal override Task<TailscaleIdentity?> PeerAsync(IPAddress address, CancellationToken cancellationToken) =>
+        internal override Task<TailscaleIdentity?> PeerAsync(IPAddress address, CancellationToken cancellationToken) => Failure is { } failure ? throw new IOException(failure) :
             Task.FromResult(Allow ? new TailscaleIdentity(NodeId, "phone.tailnet.ts.net", "fixture@example.test") : null);
     }
 

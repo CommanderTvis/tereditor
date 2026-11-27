@@ -151,7 +151,7 @@ public sealed partial class TailscaleConnectView : UserControl
         }
         catch (Exception error) when (Expected(error))
         {
-            progress.Text = current.IsCancellationRequested ? "Pairing canceled or timed out." : "Could not pair: " + error.Message;
+            progress.Text = current.IsCancellationRequested ? "Pairing canceled or timed out. To pair, approve this device on the host in Settings › Tailscale." : "Could not pair: " + error.Message;
             remembered = null;
         }
         finally { attempt = null; Busy(false); }

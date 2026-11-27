@@ -214,8 +214,11 @@ Git metadata invalidation and rescan requests. They end on client cancellation o
 The optional [Tailscale plugin](../Tereditor.Plugins.Tailscale/SPEC.md) supplies approved client-token
 validation through its injected serving bridge. The listener accepts those tokens alongside its configured
 master token, rejects revoked tokens, and aborts existing calls within one second of revocation. Embedded
-serving can start on the Tailscale address after approval; standalone serving retains its configured bind
-and port. The plugin owns bootstrap and peer identity; Remote owns WebSocket RPC listener lifetime and authentication.
+serving can start on the Tailscale address after approval. When the shared listener cannot be reached there, or
+Serve on start owns it and it is not running, `HostListener` runs a second listener on that address over the same
+state, plugins and terminals, with an unpublished random token and no local browser pairing. Standalone serving
+retains its configured bind and port. The plugin owns bootstrap and peer identity; Remote owns WebSocket RPC
+listener lifetime and authentication.
 
 Prompt attachments use `SavePromptImageAsync`: bounded PNG bytes are saved under the host state's
 clipboard directory, returning an absolute host path. Local calls run off the dispatcher; remote calls

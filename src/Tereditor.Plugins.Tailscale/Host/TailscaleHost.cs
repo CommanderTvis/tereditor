@@ -21,6 +21,13 @@ public sealed class TailscaleHost(TailscaleServing? serving = null) : PluginHost
         var lifetime = new CancellationTokenSource();
         var hostName = (string?)null;
         var detail = "Checking Tailscale…";
+        const string Ready = "Ready to pair. Approve new devices below.";
+        // An approved device the host cannot serve is shown here until one connects.
+        void Served(string? problem)
+        {
+            if (problem is not null) context.Log.Warn(problem);
+            Volatile.Write(ref detail, problem ?? Ready);
+        }
         TailscaleStatus Status() => registry.Status(Volatile.Read(ref detail), Volatile.Read(ref hostName));
         void Publish() => context.Publish(TailscaleContract.Changed, Status());
         context.Method(TailscaleContract.Status, (_, _, _) => ValueTask.FromResult(Status()));
@@ -61,7 +68,7 @@ public sealed class TailscaleHost(TailscaleServing? serving = null) : PluginHost
                 listener.Prefixes.Add($"http://{ip}:{PairingPort}/");
                 listener.Start();
                 using var stop = lifetime.Token.Register(listener.Close);
-                Volatile.Write(ref detail, "Ready to pair. Approve new devices below.");
+                Volatile.Write(ref detail, Ready);
                 Publish();
                 using var slots = new SemaphoreSlim(8);
                 var requests = new List<Task>();
@@ -74,11 +81,15 @@ public sealed class TailscaleHost(TailscaleServing? serving = null) : PluginHost
                         requests.RemoveAll(task => task.IsCompleted);
                         requests.Add(Task.Run(async () =>
                         {
-                            try { await HandleAsync(http, ip, hostName ?? ip.ToString(), registry, serving, Network, lifetime.Token); Publish(); }
+                            var pairing = http.Request.HttpMethod == "POST";
+                            try { await HandleAsync(http, ip, hostName ?? ip.ToString(), registry, serving, Network, Served, lifetime.Token); Publish(); }
                             catch (Exception error) when (error is IOException or HttpListenerException or OperationCanceledException or JsonException or InvalidOperationException or System.ComponentModel.Win32Exception or KeyNotFoundException or FormatException or ObjectDisposedException)
                             {
                                 try { http.Response.StatusCode = 503; http.Response.Close(); } catch (Exception closeError) when (closeError is ObjectDisposedException or HttpListenerException or InvalidOperationException) { }
-                                if (!lifetime.IsCancellationRequested) context.Log.Debug("Tailscale request failed: " + error.Message);
+                                if (lifetime.IsCancellationRequested) return;
+                                // The device is told to look at this host's settings, so a failed pairing shows its cause there.
+                                if (pairing) { Served("Pairing request failed: " + error.Message); Publish(); }
+                                else context.Log.Debug("Tailscale request failed: " + error.Message);
                             }
                             finally { slots.Release(); }
                         }, CancellationToken.None));
@@ -104,7 +115,7 @@ public sealed class TailscaleHost(TailscaleServing? serving = null) : PluginHost
         });
     }
 
-    private static async Task HandleAsync(HttpListenerContext http, IPAddress hostAddress, string hostName, PairingRegistry registry, TailscaleServing serving, TailscaleNetwork network, CancellationToken cancellationToken)
+    private static async Task HandleAsync(HttpListenerContext http, IPAddress hostAddress, string hostName, PairingRegistry registry, TailscaleServing serving, TailscaleNetwork network, Action<string?> served, CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
@@ -117,13 +128,29 @@ public sealed class TailscaleHost(TailscaleServing? serving = null) : PluginHost
         {
             var token = http.Request.Headers["X-tereditor-Pairing"] ?? "";
             var state = registry.Request(token, identity.Id, identity.Name, identity.User);
-            var address = state == "approved" ? await serving.EnsureListening!(hostAddress.ToString(), timeout.Token) : null;
-            bytes = PluginJson.SerializeToUtf8Bytes(new TailscalePairReply(state, address));
+            var reply = new TailscalePairReply(state);
+            if (state == "approved")
+                try
+                {
+                    reply = reply with { Address = await serving.EnsureListening!(hostAddress.ToString(), timeout.Token) };
+                    served(null);
+                }
+                catch (Exception error) when (error is IOException or InvalidOperationException or OperationCanceledException or System.ComponentModel.Win32Exception && !cancellationToken.IsCancellationRequested)
+                {
+                    served("Could not connect " + identity.Name + ": " + error.Message);
+                    // The device gets only reasons worded for it; other exception text stays on this machine.
+                    reply = new("unavailable", Problem: error is TailscaleServingException ? error.Message : "The host could not start listening on its Tailscale address.");
+                    http.Response.StatusCode = 503;
+                }
+            bytes = PluginJson.SerializeToUtf8Bytes(reply);
         }
         else { http.Response.StatusCode = 404; http.Response.Close(); return; }
         http.Response.ContentType = "application/json";
         http.Response.ContentLength64 = bytes.Length;
-        await http.Response.OutputStream.WriteAsync(bytes, timeout.Token);
+        // A failure that used up the time limit is still answered.
+        using var writing = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        writing.CancelAfter(TimeSpan.FromSeconds(10));
+        await http.Response.OutputStream.WriteAsync(bytes, writing.Token);
         http.Response.Close();
     }
 }
