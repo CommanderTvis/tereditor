@@ -594,11 +594,12 @@ of the last resolution that are no longer shown. A line still shown lends nothin
 waits for its own resolution. A changed or removed name loses its underline in that frame, and a new one appears when
 resolved. These underlines are provisional: the next resolution replaces them, so a name that resolves differently in
 its new place is corrected then. Metal (local and
-remote) passes the underlined cells to Ghostty's renderer, which tracks them in screen coordinates and
-draws them with the cell's style in the same frame, dropping a cell whose text changed until the next
-viewport pass (a 200 ms timer) hands it the line's links again, including the provisional ones above. The
-earlier Avalonia overlay was positioned on a 200 ms timer from whatever cell state was current then, so it
-lagged and jumped against the Metal texture.
+remote) passes what it read and the linked cells to Ghostty's renderer, which keeps them by line text, applies the
+same rules while building each frame and draws the underlines with the cell's style in that frame, so an edited line
+does not wait for the next viewport pass (a 200 ms timer). It takes a resolution only for lines that still show the
+text it resolved. Two differences from Skia: the renderer compares a cell's base codepoint, not its combining marks,
+and it knows a line whose start scrolled away by its whole text. The earlier Avalonia overlay was positioned on a
+200 ms timer from whatever cell state was current then, so it lagged and jumped against the Metal texture.
 
 The terminal host runs a bounded character scanner and checks filesystem existence off the dispatcher.
 Relative names resolve against the terminal process's directory (the shell's, unaffected by a

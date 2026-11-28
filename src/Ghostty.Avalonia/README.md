@@ -322,9 +322,15 @@ them. A failed or pending resolution never removes links; new lines underline on
 arrives, and until then a changed line shows the names still whole on it from the lines it replaced, so the
 line being edited keeps its underlines. Skia marks the cells of the snapshot it paints from that line map,
 and holds back a snapshot with never-resolved lines (other than the visible cursor's) for up to
-`HoldLimit` (150 ms), keeping the previous rows, so a new line is presented already underlined. Metal hands the cells
-(viewport index and base codepoint) to Ghostty's renderer (`gav_ghostty_set_line_links`,
-`Native/LinkUnderlines.patch`), which keys them by the line's cell text and, while copying terminal state
-for each frame, underlines every visible line whose text it knows (about 10 µs per frame at 112x34).
+`HoldLimit` (150 ms), keeping the previous rows, so a new line is presented already underlined. Metal follows
+the same rules inside Ghostty's renderer (`Native/line-links.zig`, wired by `Native/LinkUnderlines.patch`).
+The view hands `gav_ghostty_set_line_links` every cell it read (viewport index and base codepoint, marked when
+linked); the renderer takes only the lines still showing what was read, keys their links by the line's cell
+codes (also when there are none), and keeps the names of the last resolution. While copying terminal state for
+each frame it underlines every visible line it knows, and gives an unknown line the names it shows whole from
+resolved lines that are no longer shown. The build runs the file's tests before it builds the library; they
+also run alone with `"$(scripts/tool zig-0.17.1)/zig" test src/Ghostty.Avalonia/Native/line-links.zig`. At
+112x34 a frame's pass takes about 11 µs, and about 40 µs in the worst case measured (34 unknown lines against
+33 lent names), timed on an Apple silicon Mac against a real terminal state outside the app.
 Modifier-hover underlines are transient: `gav_ghostty_set_link_underlines` keeps them in screen
 coordinates and drops a cell in the frame where it shows another codepoint.

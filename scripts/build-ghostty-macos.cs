@@ -41,7 +41,7 @@ return Guard(() =>
         File.Exists(Path.Combine(cache, stamp + ".fingerprint")) && File.Exists(Path.Combine(cache, library)) && ReadStamp(Path.Combine(cache, stamp + ".fingerprint")) == fingerprint;
 
     var viewFingerprint = $"{arch} {viewCommit} {zigVersion} " + ShaSum([.. InNative("GhosttyView.h", "GhosttyView.m", "GhosttyTexture.m", "MetalTexture.patch", "LinkUnderlines.patch", "ExternalIo.patch",
-        "keyboard-mode.zig", "file-links.zig", "context-link.zig", "prompt-surface.zig", "prompts.zig", "reclaim.zig", "reclaim-surface.zig", "Reclaim.patch", "FileLinks.patch", "CommandEnd.patch"), Recipe]);
+        "keyboard-mode.zig", "file-links.zig", "line-links.zig", "context-link.zig", "prompt-surface.zig", "prompts.zig", "reclaim.zig", "reclaim-surface.zig", "Reclaim.patch", "FileLinks.patch", "CommandEnd.patch"), Recipe]);
     var vtFingerprint = $"{arch} {vtCommit} {zigVersion} " + ShaSum([.. InNative("GhosttyVt.c", "GhosttyClipboard.m"), Recipe]);
     const string view = "libGhosttyAvaloniaView.dylib", vt = "libGhosttyAvaloniaVt.dylib";
     if (Fresh("view", view, viewFingerprint) && Fresh("vt", vt, vtFingerprint))
@@ -65,6 +65,7 @@ return Guard(() =>
         Restore("src/renderer/message.zig", "src/renderer/Thread.zig", "src/renderer/generic.zig");
         ApplyPatch(source, Path.Combine(native, "Reclaim.patch"));
         ApplyPatch(source, Path.Combine(native, "LinkUnderlines.patch"));
+        File.Copy(Path.Combine(native, "line-links.zig"), Path.Combine(source, "src", "renderer", "gav_line_links.zig"), true);
         Restore("src/renderer/Metal.zig", "src/renderer/metal/Frame.zig", "src/renderer/metal/Target.zig");
         ApplyPatch(source, Path.Combine(native, "MetalTexture.patch"));
         Restore("src/Surface.zig", "src/apprt/embedded.zig", "src/termio/backend.zig", "include/ghostty.h");
@@ -77,6 +78,7 @@ return Guard(() =>
         AppendFiles(Path.Combine(source, "src", "apprt", "embedded.zig"), InNative("keyboard-mode.zig", "file-links.zig", "prompts.zig", "reclaim.zig"));
         var zig = ZigExe(zigVersion);
         RestoreZigDeps();
+        Check(zig, ["test", "--cache-dir", Path.Combine(work, "view-cache"), Path.Combine(native, "line-links.zig")]);
         Check(zig, ["build", "--cache-dir", Path.Combine(work, "view-cache"), "-Doptimize=ReleaseFast", "-Drenderer=metal", "-Dapp-runtime=none",
             "-Demit-macos-app=false", "-Demit-docs=false", "-Demit-themes=false", "-Di18n=false", "-Dxcframework-target=native"], source);
         Check("clang", ["-dynamiclib", "-fobjc-arc", "-mmacosx-version-min=13.0", "-O2", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter",

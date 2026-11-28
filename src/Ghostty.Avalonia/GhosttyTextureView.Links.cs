@@ -14,11 +14,14 @@ public sealed partial class GhosttyTextureView
     private TerminalLinkHighlights? highlights;
     private bool highlightDirty = true;
     private readonly DispatcherTimer highlightTimer = new() { Interval = TimeSpan.FromMilliseconds(200) };
-    // Cells to underline, by viewport index (row * columns + column) with the base codepoint each showed. Visible-link
-    // cells go to the renderer attached to their line's text, so it keeps underlining them in every frame showing that
-    // line; hover cells are a transient set in screen coordinates. A cell whose text changed is dropped in that frame.
-    private readonly Dictionary<int, uint> highlightMarks = [];
+    // Cells to underline, by viewport index (row * columns + column). Visible-link cells go to the renderer attached to
+    // their line's text, so it keeps underlining them in every frame showing that line, and their names while the line is
+    // edited; hover cells, with the base codepoint each showed, are a transient set in screen coordinates and are dropped
+    // in the frame where their text changes.
+    private readonly HashSet<int> highlightMarks = [];
     private readonly Dictionary<int, uint> hoverMarks = [];
+    // The native bridge underlines the pushed cells whose codepoint carries this bit.
+    private const uint LinkedCell = 1u << 31;
     private readonly List<(Rect Cell, TerminalLink Link)> highlightTargets = [];
     private int[] pushedCells = [];
     private int[] pushedHighlights = [];
@@ -66,16 +69,19 @@ public sealed partial class GhosttyTextureView
         if (!disposed) SetLineLinks(terminal.Handle, [], [], 0, 2);
     }
 
-    // A settled resolution of the visible text replaces every visible line's links; otherwise only lines resolved
-    // earlier are repeated, so nothing already underlined is dropped while a resolution is pending.
+    // Every cell read goes along with the codepoint it showed, so the renderer takes only the lines still showing it. A
+    // settled resolution of the text read replaces those lines' links; otherwise only lines resolved earlier are repeated,
+    // so nothing already underlined is dropped while a resolution is pending.
     private void PushHighlights(string text, bool settled)
     {
         if (disposed) return;
-        var cells = highlightMarks.Keys.Order().ToArray();
+        var marked = highlightMarks.Order().ToArray();
         // The renderer keys links by line text: the same cells in new text are new to it.
-        if (!settled && text == pushedText && cells.SequenceEqual(pushedHighlights)) return;
-        var codepoints = cells.Select(cell => highlightMarks[cell]).ToArray();
-        if (SetLineLinks(terminal.Handle, cells.Select(cell => (uint)cell).ToArray(), codepoints, (nuint)cells.Length, settled ? 1u : 0u)) (pushedHighlights, pushedText) = (cells, text);
+        if (!settled && text == pushedText && marked.SequenceEqual(pushedHighlights)) return;
+        var read = linkPositions.Where(mark => mark.Cell >= 0).DistinctBy(mark => mark.Cell).ToArray();
+        var cells = read.Select(mark => (uint)mark.Cell).ToArray();
+        var codepoints = read.Select(mark => highlightMarks.Contains(mark.Cell) ? mark.Code | LinkedCell : mark.Code).ToArray();
+        if (SetLineLinks(terminal.Handle, cells, codepoints, (nuint)cells.Length, settled ? 1u : 0u)) (pushedHighlights, pushedText) = (marked, text);
     }
 
     private void PushUnderlines()
@@ -112,13 +118,12 @@ public sealed partial class GhosttyTextureView
         var visible = text.ToString();
         var resolved = highlights.Update(visible);
         foreach (var link in resolved)
-            foreach (var (cell, code) in positions.Skip(link.Start).Take(link.Length).Where(mark => mark.Cell >= 0).Distinct())
+            foreach (var (cell, _) in positions.Skip(link.Start).Take(link.Length).Where(mark => mark.Cell >= 0).Distinct())
             {
-                highlightMarks.TryAdd(cell, code);
+                highlightMarks.Add(cell);
                 highlightTargets.Add((new Rect(info[4] + cell % columns * info[2], info[5] + cell / columns * info[3], info[2], info[3]), link));
             }
-        // A resolution of text cut short says nothing about the lines after the cut.
-        PushHighlights(visible, highlights.Settled && row >= rows);
+        PushHighlights(visible, highlights.Settled);
     }
 
     /// <summary>The centre of a viewport cell in view coordinates, for checks.</summary>

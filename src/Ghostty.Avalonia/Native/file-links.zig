@@ -60,37 +60,18 @@ export fn gav_ghostty_context_link(surface: *Surface, x: f64, y: f64, shift: boo
     return core.contextLink(pixels, shift, output[0..capacity]);
 }
 
-// Attach host-resolved links to the text of the visible logical lines. `cells` are viewport indexes (row * columns +
-// column) read by gav_ghostty_link_line and `codepoints` the base codepoint each showed; a cell whose text already
-// changed is skipped. Each visible line carrying marks has its links replaced; with `mode` 1 a visible line without
-// marks loses its links (the marks are a full resolution of the viewport), with 0 it keeps them (the marks only repeat
-// lines resolved earlier), and 2 first drops every line's links. The renderer underlines a line's links in every frame
-// that shows the same line text, wherever it is.
+// Attach host-resolved links to the text of the visible logical lines. `cells` and `codepoints` are every cell read by
+// gav_ghostty_link_line with the base codepoint it showed, a high bit marking the cells to underline; `mode` is 1 for a
+// resolution of that text, 0 to repeat earlier links and 2 to drop all of them (see gav_line_links.zig). The renderer
+// underlines a line's links in every frame that shows the same line text, wherever it is, and keeps the names of an
+// edited line.
 export fn gav_ghostty_set_line_links(surface: *Surface, cells: [*]const u32, codepoints: [*]const u32, count: usize, mode: u32) bool {
     const core = &surface.core_surface;
     const view = &core.renderer;
     {
         core.renderer_state.mutex.lockUncancelable(global.io());
         defer core.renderer_state.mutex.unlock(global.io());
-        const pages = &core.io.terminal.screens.active.pages;
-        if (mode == 2) view.gavClearLineLinks();
-        var wanted: std.AutoHashMapUnmanaged(u32, u32) = .empty;
-        defer wanted.deinit(view.alloc);
-        for (0..count) |i| wanted.put(view.alloc, cells[i], codepoints[i]) catch return false;
-        var marks: std.ArrayListUnmanaged(u32) = .empty;
-        defer marks.deinit(view.alloc);
-        var row: u32 = 0;
-        while (row < pages.rows) {
-            const after = view.gavReadLine(pages, row) catch return false;
-            marks.clearRetainingCapacity();
-            for (view.gav_line_cells.items, view.gav_line_codes.items, 0..) |cell, code, index| {
-                const expected = wanted.get(cell) orelse continue;
-                if ((if (code == 0) ' ' else code) != expected) continue;
-                marks.append(view.alloc, @intCast(index)) catch return false;
-            }
-            view.gavSetLineLinks(marks.items, mode != 0) catch return false;
-            row = after;
-        }
+        view.gav_lines.push(view.alloc, &core.io.terminal.screens.active.pages, cells[0..count], codepoints[0..count], mode) catch return false;
     }
     core.renderer_thread.wakeup.notify() catch {};
     return true;

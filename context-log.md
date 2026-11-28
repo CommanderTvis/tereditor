@@ -79,8 +79,7 @@ session's as on demand rows, from a bounded search asked apart from the configur
 
 Any edit gave a line new text, so its links vanished until the debounced re-resolve. A changed line now shows the names
 still whole on it from the lines it replaced ([spec](src/Tereditor.UI/Terminal/SPEC.md)). Checks: gate cases
-`terminal-links-ui`, `terminal-commit-navigation`, `terminal-commit-links`, format. Not verified: the running app. Open:
-Metal can still blank for up to its 200 ms pass, since its native renderer keys links by line text.
+`terminal-links-ui`, `terminal-commit-navigation`, `terminal-commit-links`, format. Not verified: the running app.
 
 ## 2026-11-27 — Two check races behind the red Linux shard
 
@@ -89,3 +88,12 @@ Run 46068235565: the PDF case saw a render in a preview that a text-to-bytes cha
 the editor before its layout pass. Kept fixtures upload as `checks-fixtures.tar.gz`. "Watching interrupted" and
 "subscription dropped" lines also fill the passing run. Checked on macOS: `--drawers`, `--pdf-preview`, seven gate
 cases and the format verify. Not verified: the full suite, Linux, the upload step on CI.
+
+## 2026-11-28 — Metal underlines stay while the line is edited
+
+Ghostty's renderer now applies the Skia rule in the frame itself: `Native/line-links.zig` holds the known lines and the
+last resolution's names, and takes a push only for lines still showing what was read
+([spec](src/Tereditor.UI/Terminal/SPEC.md)). Checks on macOS: its Zig tests (run by the build), a throwaway
+`test-lib-vt` scenario on a real Ghostty terminal that failed with the old code, build, format, gate cases
+`terminal-links-ui`, `terminal-commit-navigation`, `terminal-commit-links`. Not verified: the Metal view in a real
+window (draw, the view's push), macOS x64, CI.
